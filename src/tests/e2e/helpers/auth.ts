@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test'
+import { type Page } from '@playwright/test'
 
 const BASE = '/pos-umkm'
 
@@ -32,4 +32,18 @@ export async function signInAsCashier(page: Page): Promise<void> {
   await page.getByRole('button', { name: /masuk dengan google/i }).click()
   await page.waitForURL(/\/cashier/)
 }
+
+/**
+ * Navigate within the SPA without a hard reload, preserving in-memory React/Zustand state.
+ *
+ * `page.goto()` resets the JS heap; this helper instead pushes a new history entry and
+ * fires a popstate event so React Router picks it up — equivalent to clicking a <Link>.
+ */
+export async function navigateTo(page: Page, path: string): Promise<void> {
+  await page.evaluate((p) => {
+    window.history.pushState({}, '', p)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, path)
+}
+
 

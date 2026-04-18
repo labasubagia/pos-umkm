@@ -67,7 +67,7 @@ export default function SetupWizard() {
             className="border rounded px-3 py-2"
             value={businessName}
             onChange={(e) => setBusinessName(e.target.value)}
-            placeholder="Toko Pak Santoso"
+            placeholder="Nama usaha Anda"
             required
           />
         </label>

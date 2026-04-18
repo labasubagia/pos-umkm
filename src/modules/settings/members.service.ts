@@ -104,7 +104,7 @@ export async function revokeMember(userId: string): Promise<void> {
 export async function listMembers(): Promise<Member[]> {
   const rows = await dataAdapter.getSheet('Users')
   return rows
-    .filter((r) => !r['deleted_at'])
+    .filter((r) => !r['deleted_at'] && typeof r['email'] === 'string' && r['email'] !== '')
     .map((r) => ({
       id: r['id'] as string,
       email: r['email'] as string,
