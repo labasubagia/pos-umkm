@@ -1098,7 +1098,7 @@
 
 ### T043 — Business Profile & Tax Configuration
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 8 – Settings
 - **Depends on:** T015, T046
 - **Test type:** unit
@@ -1117,7 +1117,7 @@
 
 ### T044 — QRIS Configuration
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 8 – Settings
 - **Depends on:** T043
 - **Test type:** unit
