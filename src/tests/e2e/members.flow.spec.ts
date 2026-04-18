@@ -25,6 +25,7 @@ test.describe('Member invite and Store Link', () => {
     await signInAndSetup(page, 'Toko Test Invite')
 
     await navigateTo(page, `${BASE}/settings`)
+    await page.getByTestId('btn-tab-members').click()
     await page.getByRole('heading', { name: /kelola anggota/i }).waitFor()
 
     await page.getByTestId('input-member-email').fill('member@test.com')
@@ -38,6 +39,7 @@ test.describe('Member invite and Store Link', () => {
     await signInAndSetup(page, 'Toko Test Revoke')
 
     await navigateTo(page, `${BASE}/settings`)
+    await page.getByTestId('btn-tab-members').click()
     await page.getByRole('heading', { name: /kelola anggota/i }).waitFor()
 
     // Invite first

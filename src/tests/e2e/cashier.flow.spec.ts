@@ -59,8 +59,8 @@ async function signInToCashier(page: Parameters<typeof signInAsOwner>[0]) {
 
   // Handle setup wizard redirect on first visit
   if (page.url().includes('/setup')) {
-    await page.getByPlaceholder(/nama usaha/i).fill('Toko Kasir Test')
-    await page.getByRole('button', { name: /mulai sekarang/i }).click()
+    await page.getByTestId('input-business-name').fill('Toko Kasir Test')
+    await page.getByTestId('btn-setup-submit').click()
     await page.waitForURL(/\/cashier/)
   }
 

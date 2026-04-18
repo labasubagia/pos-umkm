@@ -10,6 +10,15 @@ import { signInAsOwner, navigateTo } from './helpers/auth'
 
 const BASE = '/pos-umkm'
 
+async function signInAndSetup(page: Parameters<typeof signInAsOwner>[0]) {
+  await signInAsOwner(page)
+  if (page.url().includes('/setup')) {
+    await page.getByTestId('input-business-name').fill('Toko Reports Test')
+    await page.getByTestId('btn-setup-submit').click()
+    await page.waitForURL(/\/cashier/)
+  }
+}
+
 async function seedReportData(page: Parameters<typeof signInAsOwner>[0]) {
   const today = new Date().toISOString().slice(0, 10)
   await page.goto(`${BASE}/`)
@@ -85,14 +94,8 @@ async function seedReportData(page: Parameters<typeof signInAsOwner>[0]) {
 
 test('owner can view today\'s sales summary after completing transactions', async ({ page }) => {
   await seedReportData(page)
-  await signInAsOwner(page)
-
-  // Handle setup wizard redirect on first visit
-  if (page.url().includes('/setup')) {
-    await page.goto(`${BASE}/reports`)
-  } else {
-    await navigateTo(page, `${BASE}/reports`)
-  }
+  await signInAndSetup(page)
+  await navigateTo(page, `${BASE}/reports`)
 
   await page.waitForURL(/\/reports/)
   await page.getByTestId('reports-page').waitFor()
@@ -109,13 +112,8 @@ test('owner can view today\'s sales summary after completing transactions', asyn
 
 test('owner can filter report by date range and see correct totals', async ({ page }) => {
   await seedReportData(page)
-  await signInAsOwner(page)
-
-  if (page.url().includes('/setup')) {
-    await page.goto(`${BASE}/reports`)
-  } else {
-    await navigateTo(page, `${BASE}/reports`)
-  }
+  await signInAndSetup(page)
+  await navigateTo(page, `${BASE}/reports`)
 
   await page.waitForURL(/\/reports/)
   await page.getByTestId('tab-sales').click()
@@ -133,13 +131,8 @@ test('owner can filter report by date range and see correct totals', async ({ pa
 
 test('owner can complete end-of-day cash reconciliation and discrepancy is logged', async ({ page }) => {
   await seedReportData(page)
-  await signInAsOwner(page)
-
-  if (page.url().includes('/setup')) {
-    await page.goto(`${BASE}/reports`)
-  } else {
-    await navigateTo(page, `${BASE}/reports`)
-  }
+  await signInAndSetup(page)
+  await navigateTo(page, `${BASE}/reports`)
 
   await page.waitForURL(/\/reports/)
   await page.getByTestId('tab-reconciliation').click()
