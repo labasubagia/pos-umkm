@@ -172,7 +172,7 @@
 
 ### T010 — Google Sheets API Client (`lib/sheets/`)
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 1 – Core Lib
 - **Depends on:** T009
 - **Test type:** unit (MSW mocks)
@@ -201,7 +201,7 @@
 
 ### T045 — DataAdapter & AuthAdapter Interfaces (`lib/adapters/types.ts`)
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 1 – Core Lib
 - **Depends on:** T009
 - **Test type:** none (interface definitions only)
@@ -238,7 +238,7 @@
 
 ### T046 — MockDataAdapter & MockAuthAdapter
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 1 – Core Lib
 - **Depends on:** T045, T011
 - **Test type:** unit
@@ -276,7 +276,7 @@
 
 ### T047 — GoogleDataAdapter & GoogleAuthAdapter
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 1 – Core Lib
 - **Depends on:** T045, T010
 - **Test type:** unit (MSW mocks)
@@ -303,7 +303,11 @@
 
 ### T011 — UUID v4 Generator (`lib/uuid.ts`)
 
-- **Status:** ⬜ todo It is natively available in all supported browsers (Chrome 92+, Firefox 95+, Safari 15.4+). A thin wrapper is created so tests can mock it.
+- **Status:** ✅ done
+- **Phase:** 1 – Core Lib
+- **Depends on:** T009
+- **Test type:** unit
+- **Architecture note:** `crypto.randomUUID()` is used because it is natively available in all supported browsers (Chrome 92+, Firefox 95+, Safari 15.4+). A thin wrapper is created so tests can mock it.
 - **Test cases (`uuid.test.ts`):**
   - ✅ `generateId returns a valid UUID v4 format string`
   - ✅ `two calls return different values`
@@ -312,7 +316,7 @@
 
 ### T012 — IDR Formatter & Date Utilities (`lib/formatters.ts`)
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 1 – Core Lib
 - **Depends on:** T009
 - **Test type:** unit
@@ -339,7 +343,7 @@
 
 ### T013 — Input Validators (`lib/validators.ts`)
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 1 – Core Lib
 - **Depends on:** T009
 - **Test type:** unit

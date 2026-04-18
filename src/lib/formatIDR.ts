@@ -1,6 +1,8 @@
 /**
  * Formats an integer amount in IDR (Indonesian Rupiah).
  * Uses id-ID locale: thousands separator is a period, no decimal places.
+ * The Intl.NumberFormat output is normalized to use a regular space instead
+ * of the non-breaking space (\u00a0) that some environments emit.
  * Example: formatIDR(15000) → "Rp 15.000"
  */
 export function formatIDR(amount: number): string {
@@ -9,5 +11,7 @@ export function formatIDR(amount: number): string {
     currency: 'IDR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount)
+  })
+    .format(amount)
+    .replace(/\u00a0/g, ' ')
 }
