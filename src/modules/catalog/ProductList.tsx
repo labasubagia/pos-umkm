@@ -10,6 +10,8 @@ import type { NewProduct, ProductChanges } from './catalog.service'
 import { ProductForm } from './ProductForm'
 import { VariantManager } from './VariantManager'
 import { formatIDR } from '../../lib/formatters'
+import { Button } from '../../components/ui/button'
+import { Alert, AlertDescription } from '../../components/ui/alert'
 
 export function ProductList() {
   const { categories, products, addProductToStore, updateProductInStore, removeProductFromStore } =
@@ -48,12 +50,13 @@ export function ProductList() {
     const product = products.find((p) => p.id === variantProductId)
     return (
       <div>
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setVariantProductId(null)}
-          className="mb-4 text-sm text-blue-600 hover:underline"
+          className="mb-4"
         >
           ← Kembali ke Daftar Produk
-        </button>
+        </Button>
         {product && <VariantManager product={product} />}
       </div>
     )
@@ -63,17 +66,15 @@ export function ProductList() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Produk</h2>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
-          data-testid="btn-add-product"
-        >
+        <Button onClick={() => setShowAddForm(true)} data-testid="btn-add-product">
           + Tambah Produk
-        </button>
+        </Button>
       </div>
 
       {error && (
-        <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {showAddForm && (
@@ -117,25 +118,30 @@ export function ProductList() {
                     </div>
                     <div className="flex shrink-0 gap-2">
                       {product.has_variants && (
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setVariantProductId(product.id)}
-                          className="text-sm text-purple-600 hover:underline"
+                          className="text-purple-600"
                         >
                           Varian
-                        </button>
+                        </Button>
                       )}
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setEditingId(product.id)}
-                        className="text-sm text-blue-600 hover:underline"
                       >
                         Edit
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleDelete(product.id)}
-                        className="text-sm text-red-600 hover:underline"
+                        className="text-red-600 hover:text-red-700"
                       >
                         Hapus
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}

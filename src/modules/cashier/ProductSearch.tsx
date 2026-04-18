@@ -9,6 +9,14 @@ import { Search } from 'lucide-react'
 import { searchProducts } from './cashier.service'
 import { useCartStore } from './useCart'
 import type { Product, Variant } from '../catalog/catalog.service'
+import { Input } from '../../components/ui/input'
+import { Button } from '../../components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog'
 
 interface Props {
   products: Product[]
@@ -53,22 +61,24 @@ export function ProductSearch({ products, variants }: Props) {
       {/* Search input */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <input
+        <Input
           type="search"
           placeholder="Cari produk atau SKU..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full pl-10 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="pl-10"
           aria-label="Cari produk"
           data-testid="product-search-input"
         />
       </div>
 
-      {/* Variant selector modal (inline) */}
+      {/* Variant selector dialog */}
       {variantProduct && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-80">
-            <h3 className="font-semibold mb-3">Pilih Varian — {variantProduct.name}</h3>
+        <Dialog open={true} onOpenChange={(open) => { if (!open) setVariantProduct(null) }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Pilih Varian — {variantProduct.name}</DialogTitle>
+            </DialogHeader>
             <div className="flex flex-col gap-2">
               {productVariants.map((v) => (
                 <button
@@ -83,14 +93,15 @@ export function ProductSearch({ products, variants }: Props) {
                 </button>
               ))}
             </div>
-            <button
+            <Button
+              variant="ghost"
               onClick={() => setVariantProduct(null)}
-              className="mt-4 w-full text-sm text-gray-500 hover:underline"
+              className="w-full"
             >
               Batal
-            </button>
-          </div>
-        </div>
+            </Button>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Product grid */}

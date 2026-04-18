@@ -7,10 +7,10 @@
 import { Trash2 } from 'lucide-react'
 import { useCartStore } from './useCart'
 import { calculateSubtotal } from './cashier.service'
+import { Button } from '../../components/ui/button'
 
 export function CartPanel() {
   const items = useCartStore((s) => s.items)
-  const removeItem = useCartStore((s) => s.removeItem)
   const setQuantity = useCartStore((s) => s.setQuantity)
 
   if (items.length === 0) {
@@ -38,21 +38,23 @@ export function CartPanel() {
 
           {/* Quantity controls */}
           <div className="flex items-center gap-1">
-            <button
+            <Button
+              variant="outline"
+              size="icon-sm"
               onClick={() => setQuantity(item.productId, item.quantity - 1, item.variantId)}
-              className="w-7 h-7 rounded border flex items-center justify-center text-sm hover:bg-gray-100"
               aria-label={`Kurangi ${item.name}`}
             >
               −
-            </button>
+            </Button>
             <span className="w-8 text-center text-sm font-semibold">{item.quantity}</span>
-            <button
+            <Button
+              variant="outline"
+              size="icon-sm"
               onClick={() => setQuantity(item.productId, item.quantity + 1, item.variantId)}
-              className="w-7 h-7 rounded border flex items-center justify-center text-sm hover:bg-gray-100"
               aria-label={`Tambah ${item.name}`}
             >
               +
-            </button>
+            </Button>
           </div>
 
           {/* Line total */}
@@ -61,16 +63,18 @@ export function CartPanel() {
           </span>
 
           {/* Remove */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => {
               // Remove all units at once
               setQuantity(item.productId, 0, item.variantId)
             }}
-            className="text-gray-300 hover:text-red-500 transition-colors"
+            className="text-gray-300 hover:text-red-500"
             aria-label={`Hapus ${item.name}`}
           >
             <Trash2 className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
       ))}
 

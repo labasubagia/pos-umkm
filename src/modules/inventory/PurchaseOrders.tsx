@@ -20,6 +20,25 @@ import {
 } from './inventory.service'
 import { fetchProducts } from '../catalog/catalog.service'
 import type { Product } from '../catalog/catalog.service'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Alert, AlertDescription } from '../../components/ui/alert'
+import { Badge } from '../../components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table'
 
 export function PurchaseOrders() {
   const [orders, setOrders] = useState<PurchaseOrder[]>([])
@@ -156,19 +175,15 @@ export function PurchaseOrders() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Purchase Order</h2>
-        <button
-          data-testid="btn-create-po"
-          onClick={openForm}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
+        <Button data-testid="btn-create-po" onClick={openForm}>
           + Buat PO Baru
-        </button>
+        </Button>
       </div>
 
       {error && (
-        <p data-testid="po-error" className="mb-3 rounded bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </p>
+        <Alert variant="destructive" className="mb-3" data-testid="po-error">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {/* ── New PO Form ────────────────────────────────────────────────── */}
@@ -179,15 +194,14 @@ export function PurchaseOrders() {
         >
           <h3 className="mb-3 font-medium">Purchase Order Baru</h3>
 
-          <div className="mb-3">
-            <label className="mb-1 block text-sm font-medium text-gray-700">Supplier</label>
-            <input
+          <div className="mb-3 space-y-1.5">
+            <Label>Supplier</Label>
+            <Input
               data-testid="input-po-supplier"
               type="text"
               value={supplier}
               onChange={(e) => setSupplier(e.target.value)}
               placeholder="Nama supplier"
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -198,11 +212,12 @@ export function PurchaseOrders() {
                 data-testid={`po-item-row-${idx}`}
                 className="flex items-center gap-2"
               >
+                {/* Keep native <select> — E2E tests use .selectOption() on these elements */}
                 <select
                   data-testid={`select-po-product-${idx}`}
                   value={item.product_id}
                   onChange={(e) => handleItemChange(idx, 'product_id', e.target.value)}
-                  className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="flex-1 rounded-lg border border-input bg-transparent px-2 py-1 text-sm"
                 >
                   <option value="">— Pilih Produk —</option>
                   {products.map((p) => (
@@ -211,16 +226,16 @@ export function PurchaseOrders() {
                     </option>
                   ))}
                 </select>
-                <input
+                <Input
                   type="number"
                   min={1}
                   value={item.qty}
                   onChange={(e) => handleItemChange(idx, 'qty', parseInt(e.target.value, 10) || 1)}
                   data-testid={`input-po-qty-${idx}`}
                   placeholder="Qty"
-                  className="w-20 rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-20"
                 />
-                <input
+                <Input
                   type="number"
                   min={0}
                   value={item.cost_price}
@@ -229,7 +244,7 @@ export function PurchaseOrders() {
                   }
                   data-testid={`input-po-cost-${idx}`}
                   placeholder="Harga modal"
-                  className="w-32 rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-32"
                 />
                 {formItems.length > 1 && (
                   <button
@@ -254,27 +269,26 @@ export function PurchaseOrders() {
           </button>
 
           {formError && (
-            <p data-testid="po-form-error" className="mb-2 text-sm text-red-600">
-              {formError}
-            </p>
+            <Alert variant="destructive" className="mb-2" data-testid="po-form-error">
+              <AlertDescription>{formError}</AlertDescription>
+            </Alert>
           )}
 
           <div className="flex gap-2">
-            <button
+            <Button
               data-testid="btn-submit-po"
               onClick={handleSubmitOrder}
               disabled={submitting}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {submitting ? 'Menyimpan…' : 'Simpan PO'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
               data-testid="btn-cancel-po"
               onClick={() => setShowForm(false)}
-              className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Batal
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -305,34 +319,37 @@ export function PurchaseOrders() {
               </div>
 
               <div className="flex items-center gap-3">
-                <span
+                <Badge
+                  variant="outline"
                   data-testid={`po-status-${order.id}`}
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  className={
                     order.status === 'received'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}
+                      ? 'bg-green-100 text-green-700 border-green-200'
+                      : 'bg-yellow-100 text-yellow-700 border-yellow-200'
+                  }
                 >
                   {order.status === 'received' ? 'Diterima' : 'Pending'}
-                </span>
+                </Badge>
 
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   data-testid={`btn-view-po-${order.id}`}
                   onClick={() => openDetail(order)}
-                  className="text-sm text-blue-600 hover:underline"
                 >
                   Detail
-                </button>
+                </Button>
 
                 {order.status === 'pending' && (
-                  <button
+                  <Button
+                    size="sm"
                     data-testid={`btn-receive-po-${order.id}`}
                     onClick={() => handleReceive(order.id)}
                     disabled={receivingId === order.id}
-                    className="rounded bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                    className="bg-green-600 hover:bg-green-700"
                   >
                     {receivingId === order.id ? 'Memproses…' : 'Terima'}
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -342,53 +359,43 @@ export function PurchaseOrders() {
 
       {/* ── Detail Modal ───────────────────────────────────────────────── */}
       {detailOrder && (
-        <div
-          data-testid="po-detail-modal"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-        >
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-semibold">Detail PO — {detailOrder.supplier}</h3>
-              <button
-                data-testid="btn-close-po-detail"
-                onClick={() => setDetailOrder(null)}
-                className="text-gray-400 hover:text-gray-700"
-              >
-                ✕
-              </button>
-            </div>
+        <Dialog open={true} onOpenChange={(open) => { if (!open) setDetailOrder(null) }}>
+          <DialogContent className="max-w-lg" data-testid="po-detail-modal">
+            <DialogHeader>
+              <DialogTitle>Detail PO — {detailOrder.supplier}</DialogTitle>
+            </DialogHeader>
 
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-gray-600">
-                  <th className="pb-2 font-medium">Produk</th>
-                  <th className="pb-2 text-right font-medium">Qty</th>
-                  <th className="pb-2 text-right font-medium">Harga Modal</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Produk</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Harga Modal</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {detailItems.map((item) => (
-                  <tr key={item.id} data-testid={`po-detail-item-${item.id}`} className="border-b">
-                    <td className="py-2">{item.product_name}</td>
-                    <td className="py-2 text-right">{item.qty}</td>
-                    <td className="py-2 text-right">{formatIDR(item.cost_price)}</td>
-                  </tr>
+                  <TableRow key={item.id} data-testid={`po-detail-item-${item.id}`}>
+                    <TableCell>{item.product_name}</TableCell>
+                    <TableCell className="text-right">{item.qty}</TableCell>
+                    <TableCell className="text-right">{formatIDR(item.cost_price)}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
 
             {detailOrder.status === 'pending' && (
-              <button
+              <Button
                 data-testid={`btn-receive-po-detail-${detailOrder.id}`}
                 onClick={() => handleReceive(detailOrder.id)}
                 disabled={receivingId === detailOrder.id}
-                className="mt-4 w-full rounded bg-green-600 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                className="w-full bg-green-600 hover:bg-green-700"
               >
                 {receivingId === detailOrder.id ? 'Memproses…' : 'Terima & Tambah Stok'}
-              </button>
+              </Button>
             )}
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

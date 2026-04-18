@@ -7,6 +7,7 @@
 import { ShoppingBag, Clock } from 'lucide-react'
 import { useCartStore } from './useCart'
 import { formatDateTime } from '../../lib/formatters'
+import { Button } from '../../components/ui/button'
 
 export function HeldCartsPanel() {
   const heldCarts = useCartStore((s) => s.heldCarts)
@@ -30,12 +31,13 @@ export function HeldCartsPanel() {
           Keranjang Tertahan ({heldCarts.length})
         </h3>
         {items.length > 0 && (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => holdCart()}
-            className="text-xs text-blue-600 hover:underline"
           >
             Tahan Saat Ini
-          </button>
+          </Button>
         )}
       </div>
 

@@ -16,6 +16,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../../components/ui/button'
+import { Alert, AlertDescription } from '../../components/ui/alert'
 import { authAdapter } from '../../lib/adapters'
 import { useAuth } from './useAuth'
 import { resolveUserRole } from './auth.service'
@@ -65,7 +66,11 @@ export default function JoinPage() {
       <p className="text-muted-foreground text-center max-w-sm">
         Anda diundang untuk mengakses toko ini. Masuk dengan akun Google Anda untuk melanjutkan.
       </p>
-      {error && <p className="text-red-500 text-sm max-w-sm text-center">{error}</p>}
+  {error && (
+    <Alert variant="destructive" className="max-w-sm">
+      <AlertDescription>{error}</AlertDescription>
+    </Alert>
+  )}
       <Button onClick={() => void handleJoin()} disabled={loading} data-testid="btn-join-sign-in">
         {loading ? 'Memuat...' : 'Masuk dengan Google'}
       </Button>

@@ -4,6 +4,10 @@
  */
 
 import { useState } from 'react'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Alert, AlertDescription } from '../../components/ui/alert'
 
 interface Props {
   initialName?: string
@@ -40,38 +44,30 @@ export function CategoryForm({ initialName = '', onSubmit, onCancel, submitLabel
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="category-name" className="text-sm font-medium">
-          Nama Kategori
-        </label>
-        <input
+      <div className="space-y-1.5">
+        <Label htmlFor="category-name">Nama Kategori</Label>
+        <Input
           id="category-name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={100}
           placeholder="Contoh: Makanan, Minuman, Snack"
-          className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           data-testid="input-category-name"
         />
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
       </div>
       <div className="flex gap-2 justify-end">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-        >
+        <Button type="button" variant="outline" onClick={onCancel}>
           Batal
-        </button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
-          data-testid="btn-category-submit"
-        >
+        </Button>
+        <Button type="submit" disabled={loading} data-testid="btn-category-submit">
           {loading ? 'Menyimpan…' : submitLabel}
-        </button>
+        </Button>
       </div>
     </form>
   )

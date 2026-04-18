@@ -6,6 +6,8 @@
  */
 import { useState } from 'react'
 import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Alert, AlertDescription } from '../../components/ui/alert'
 
 interface PinLockProps {
   onUnlock: (pin: string) => Promise<boolean>
@@ -35,12 +37,12 @@ export function PinLock({ onUnlock }: PinLockProps) {
         <p className="text-muted-foreground text-sm">Masukkan PIN untuk melanjutkan</p>
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col items-center gap-4">
-        <input
+        <Input
           type="password"
           inputMode="numeric"
           pattern="[0-9]*"
           maxLength={6}
-          className="border rounded px-4 py-3 text-center text-2xl tracking-widest w-40"
+          className="text-center text-2xl tracking-widest w-40"
           value={pin}
           onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
           autoFocus
@@ -48,7 +50,9 @@ export function PinLock({ onUnlock }: PinLockProps) {
           data-testid="input-pin"
         />
         {error && (
-          <p className="text-red-500 text-sm">PIN salah. Coba lagi.</p>
+          <Alert variant="destructive">
+            <AlertDescription>PIN salah. Coba lagi.</AlertDescription>
+          </Alert>
         )}
         <Button type="submit" disabled={loading || pin.length < 4} data-testid="btn-pin-unlock">
           {loading ? 'Memverifikasi...' : 'Buka Kunci'}

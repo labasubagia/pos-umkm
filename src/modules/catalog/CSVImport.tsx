@@ -13,6 +13,17 @@ import { parseProductCSV, validateImportRows, bulkImportProducts } from './csv.s
 import type { ParsedProduct, RowValidationResult } from './csv.service'
 import { useCatalogStore } from './useCatalog'
 import { formatIDR } from '../../lib/formatters'
+import { Button } from '../../components/ui/button'
+import { Alert, AlertDescription } from '../../components/ui/alert'
+import { Badge } from '../../components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table'
 
 export function CSVImport() {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -92,58 +103,59 @@ export function CSVImport() {
       </div>
 
       {importError && (
-        <div className="rounded bg-red-50 px-4 py-3 text-sm text-red-700">{importError}</div>
+        <Alert variant="destructive">
+          <AlertDescription>{importError}</AlertDescription>
+        </Alert>
       )}
 
       {successCount !== null && (
-        <div className="rounded bg-green-50 px-4 py-3 text-sm text-green-700">
-          {successCount} produk berhasil diimport.
-        </div>
+        <Alert className="border-green-500 bg-green-50 text-green-800">
+          <AlertDescription>{successCount} produk berhasil diimport.</AlertDescription>
+        </Alert>
       )}
 
       {results.length > 0 && (
         <>
           <div className="overflow-x-auto rounded border border-gray-200">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">Baris</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">Nama</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">Harga</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">Stok</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">Status</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Baris</TableHead>
+                  <TableHead>Nama</TableHead>
+                  <TableHead>Harga</TableHead>
+                  <TableHead>Stok</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {results.map((r, i) => (
-                  <tr key={i} className={r.valid ? '' : 'bg-red-50'}>
-                    <td className="px-3 py-2">{r.row}</td>
-                    <td className="px-3 py-2">{rows[i]?.name || '—'}</td>
-                    <td className="px-3 py-2">
+                  <TableRow key={i} className={r.valid ? '' : 'bg-red-50'}>
+                    <TableCell>{r.row}</TableCell>
+                    <TableCell>{rows[i]?.name || '—'}</TableCell>
+                    <TableCell>
                       {rows[i]?.price ? formatIDR(rows[i].price) : '—'}
-                    </td>
-                    <td className="px-3 py-2">{rows[i]?.stock ?? '—'}</td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell>{rows[i]?.stock ?? '—'}</TableCell>
+                    <TableCell>
                       {r.valid ? (
-                        <span className="text-green-700">✓ Valid</span>
+                        <Badge variant="outline" className="text-green-700 border-green-300">✓ Valid</Badge>
                       ) : (
-                        <span className="text-red-700">✗ {r.error}</span>
+                        <span className="text-red-700 text-xs">✗ {r.error}</span>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           <div className="flex justify-end">
-            <button
+            <Button
               onClick={handleImport}
               disabled={!canImport || importing}
-              className="rounded bg-blue-600 px-5 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {importing ? 'Mengimport…' : `Import ${rows.length} Produk`}
-            </button>
+            </Button>
           </div>
         </>
       )}

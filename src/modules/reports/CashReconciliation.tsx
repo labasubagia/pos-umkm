@@ -6,6 +6,11 @@ import {
   ReportError,
 } from './reports.service'
 import { formatIDR } from '../../lib/formatters'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Alert, AlertDescription } from '../../components/ui/alert'
+import { Card, CardContent } from '../../components/ui/card'
 
 export function CashReconciliation() {
   const today = new Date().toISOString().slice(0, 10)
@@ -61,79 +66,101 @@ export function CashReconciliation() {
     <div data-testid="reconciliation-container" className="p-4 space-y-4">
       <h2 className="text-xl font-semibold">Rekonsiliasi Kas</h2>
 
-      <div className="flex flex-wrap gap-2 items-center">
-        <input
-          data-testid="input-reconciliation-date"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-        <input
-          data-testid="input-opening-balance"
-          type="number"
-          placeholder="Saldo awal (Rp)"
-          value={openingBalance}
-          onChange={(e) => setOpeningBalance(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-        <input
-          data-testid="input-closing-balance"
-          type="number"
-          placeholder="Saldo penutup (Rp)"
-          value={closingBalance}
-          onChange={(e) => setClosingBalance(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-        <button
+      <div className="flex flex-wrap gap-2 items-end">
+        <div className="space-y-1.5">
+          <Label>Tanggal</Label>
+          <Input
+            data-testid="input-reconciliation-date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-auto"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Saldo Awal (Rp)</Label>
+          <Input
+            data-testid="input-opening-balance"
+            type="number"
+            placeholder="0"
+            value={openingBalance}
+            onChange={(e) => setOpeningBalance(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Saldo Penutup (Rp)</Label>
+          <Input
+            data-testid="input-closing-balance"
+            type="number"
+            placeholder="0"
+            value={closingBalance}
+            onChange={(e) => setClosingBalance(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <Button
           data-testid="btn-calculate-reconciliation"
           onClick={calculate}
           disabled={loading}
-          className="px-4 py-1 bg-blue-600 text-white rounded"
         >
           Hitung Rekonsiliasi
-        </button>
+        </Button>
       </div>
 
-      {error && <p className="text-red-600">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {expected !== null && actual !== null && diff !== null && (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-4">
-            <div className="border rounded p-3">
-              <p className="text-sm text-gray-500">Kas Diharapkan</p>
-              <p data-testid="reconciliation-expected" className="text-lg font-bold">
-                {formatIDR(expected)}
-              </p>
-            </div>
-            <div className="border rounded p-3">
-              <p className="text-sm text-gray-500">Kas Aktual</p>
-              <p data-testid="reconciliation-actual" className="text-lg font-bold">
-                {formatIDR(actual)}
-              </p>
-            </div>
-            <div className="border rounded p-3">
-              <p className="text-sm text-gray-500">Selisih</p>
-              <p
-                data-testid="reconciliation-diff"
-                className={`text-lg font-bold ${diff >= 0 ? 'text-green-600' : 'text-red-600'}`}
-              >
-                {diff >= 0 ? '+' : ''}{formatIDR(Math.abs(diff))}
-                {diff >= 0 ? ' (Surplus)' : ' (Defisit)'}
-              </p>
-            </div>
+            <Card>
+              <CardContent className="pt-4">
+                <p className="text-sm text-gray-500">Kas Diharapkan</p>
+                <p data-testid="reconciliation-expected" className="text-lg font-bold">
+                  {formatIDR(expected)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <p className="text-sm text-gray-500">Kas Aktual</p>
+                <p data-testid="reconciliation-actual" className="text-lg font-bold">
+                  {formatIDR(actual)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <p className="text-sm text-gray-500">Selisih</p>
+                <p
+                  data-testid="reconciliation-diff"
+                  className={`text-lg font-bold ${diff >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                >
+                  {diff >= 0 ? '+' : ''}{formatIDR(Math.abs(diff))}
+                  {diff >= 0 ? ' (Surplus)' : ' (Defisit)'}
+                </p>
+              </CardContent>
+            </Card>
           </div>
 
           {!saved && (
-            <button
+            <Button
               data-testid="btn-save-reconciliation"
               onClick={save}
-              className="px-4 py-1 bg-green-600 text-white rounded"
+              className="bg-green-600 hover:bg-green-700"
             >
               Simpan
-            </button>
+            </Button>
           )}
-          {saved && <p className="text-green-600 font-semibold">Rekonsiliasi berhasil disimpan.</p>}
+          {saved && (
+            <Alert className="border-green-500 bg-green-50 text-green-800">
+              <AlertDescription>Rekonsiliasi berhasil disimpan.</AlertDescription>
+            </Alert>
+          )}
         </div>
       )}
     </div>

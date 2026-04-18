@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react'
 import { fetchDailySummary, type DailySummary as DailySummaryType, ReportError } from './reports.service'
 import { formatIDR } from '../../lib/formatters'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Alert, AlertDescription } from '../../components/ui/alert'
+import { Card, CardContent } from '../../components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table'
 
 export function DailySummary() {
   const today = new Date().toISOString().slice(0, 10)
@@ -33,76 +46,88 @@ export function DailySummary() {
   return (
     <div data-testid="daily-summary-container" className="p-4 space-y-4">
       <h2 className="text-xl font-semibold">Ringkasan Harian</h2>
-      <div className="flex gap-2 items-center">
-        <input
-          data-testid="input-summary-date"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-        <button
+      <div className="flex gap-2 items-end">
+        <div className="space-y-1.5">
+          <Label>Tanggal</Label>
+          <Input
+            data-testid="input-summary-date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-auto"
+          />
+        </div>
+        <Button
           data-testid="btn-load-summary"
           onClick={() => load(date)}
           disabled={loading}
-          className="px-4 py-1 bg-blue-600 text-white rounded"
         >
           Lihat Laporan
-        </button>
+        </Button>
       </div>
 
-      {error && <p className="text-red-600">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {summary && (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
-            <div className="border rounded p-3">
-              <p className="text-sm text-gray-500">Total Pendapatan</p>
-              <p data-testid="summary-revenue" className="text-lg font-bold">
-                {formatIDR(summary.total_revenue)}
-              </p>
-            </div>
-            <div className="border rounded p-3">
-              <p className="text-sm text-gray-500">Jumlah Transaksi</p>
-              <p data-testid="summary-tx-count" className="text-lg font-bold">
-                {summary.transaction_count}
-              </p>
-            </div>
-            <div className="border rounded p-3">
-              <p className="text-sm text-gray-500">Rata-rata Belanja</p>
-              <p data-testid="summary-avg-basket" className="text-lg font-bold">
-                {formatIDR(Math.round(summary.average_basket))}
-              </p>
-            </div>
+            <Card>
+              <CardContent className="pt-4">
+                <p className="text-sm text-gray-500">Total Pendapatan</p>
+                <p data-testid="summary-revenue" className="text-lg font-bold">
+                  {formatIDR(summary.total_revenue)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <p className="text-sm text-gray-500">Jumlah Transaksi</p>
+                <p data-testid="summary-tx-count" className="text-lg font-bold">
+                  {summary.transaction_count}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <p className="text-sm text-gray-500">Rata-rata Belanja</p>
+                <p data-testid="summary-avg-basket" className="text-lg font-bold">
+                  {formatIDR(Math.round(summary.average_basket))}
+                </p>
+              </CardContent>
+            </Card>
           </div>
 
           <div>
             <h3 className="font-semibold mb-2">Produk Terlaris</h3>
-            <table data-testid="top-products-table" className="w-full border-collapse">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="border px-3 py-2 text-left">Produk</th>
-                  <th className="border px-3 py-2 text-right">Qty</th>
-                  <th className="border px-3 py-2 text-right">Pendapatan</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table data-testid="top-products-table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Produk</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Pendapatan</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {summary.top_products.map((p) => (
-                  <tr key={p.product_id}>
-                    <td className="border px-3 py-2">{p.name}</td>
-                    <td className="border px-3 py-2 text-right">{p.total_qty}</td>
-                    <td className="border px-3 py-2 text-right">{formatIDR(p.total_revenue)}</td>
-                  </tr>
+                  <TableRow key={p.product_id}>
+                    <TableCell>{p.name}</TableCell>
+                    <TableCell className="text-right">{p.total_qty}</TableCell>
+                    <TableCell className="text-right">{formatIDR(p.total_revenue)}</TableCell>
+                  </TableRow>
                 ))}
                 {summary.top_products.length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="border px-3 py-2 text-center text-gray-400">
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-gray-400">
                       Tidak ada data
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}

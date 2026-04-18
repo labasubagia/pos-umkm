@@ -7,6 +7,9 @@
 import { useState } from 'react'
 import { useCartStore } from './useCart'
 import type { DiscountType } from './cashier.service'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
 
 export function DiscountInput() {
   const [type, setType] = useState<'flat' | 'percent'>('flat')
@@ -31,7 +34,7 @@ export function DiscountInput() {
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-sm font-medium text-gray-700">Diskon</label>
+      <Label className="text-sm font-medium text-gray-700">Diskon</Label>
 
       {/* Type toggle */}
       <div className="flex rounded-lg border overflow-hidden text-sm">
@@ -59,32 +62,33 @@ export function DiscountInput() {
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
             {type === 'flat' ? 'Rp' : '%'}
           </span>
-          <input
+          <Input
             type="number"
             min="1"
             max={type === 'percent' ? '100' : undefined}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={type === 'flat' ? '5000' : '10'}
-            className="w-full pl-10 pr-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="pl-10"
             aria-label="Nilai diskon"
             data-testid="input-discount-value"
           />
         </div>
-        <button
+        <Button
+          size="sm"
           onClick={handleApply}
-          className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
           data-testid="btn-discount-apply"
         >
           Terapkan
-        </button>
+        </Button>
         {discount && (
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleClear}
-            className="px-3 py-1.5 border text-sm rounded-lg hover:bg-gray-50"
           >
             Hapus
-          </button>
+          </Button>
         )}
       </div>
 

@@ -8,6 +8,8 @@
 
 import { useState, useEffect } from 'react'
 import { fetchCustomers, type Customer } from './customers.service'
+import { Input } from '../../components/ui/input'
+import { Button } from '../../components/ui/button'
 
 interface CustomerSearchProps {
   /** Called when the user selects a customer, or null to clear the selection. */
@@ -52,9 +54,8 @@ export function CustomerSearch({ onSelect }: CustomerSearchProps) {
   return (
     <div className="relative w-full" data-testid="customer-search">
       <div className="flex items-center gap-2">
-        <input
+        <Input
           type="text"
-          className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
           placeholder="Cari pelanggan (nama / telepon)..."
           value={query}
           onChange={(e) => {
@@ -68,15 +69,16 @@ export function CustomerSearch({ onSelect }: CustomerSearchProps) {
           disabled={loading}
         />
         {selected && (
-          <button
+          <Button
             type="button"
-            className="shrink-0 text-gray-500 hover:text-red-500"
+            variant="ghost"
+            size="icon-sm"
             onClick={handleClear}
             data-testid="btn-clear-customer"
             aria-label="Hapus pilihan pelanggan"
           >
             ✕
-          </button>
+          </Button>
         )}
       </div>
 

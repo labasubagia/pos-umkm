@@ -1,41 +1,28 @@
-import { useState } from 'react'
 import { DailySummary } from '../modules/reports/DailySummary'
 import { SalesReport } from '../modules/reports/SalesReport'
 import { GrossProfitReport } from '../modules/reports/GrossProfitReport'
 import { CashReconciliation } from '../modules/reports/CashReconciliation'
-
-type Tab = 'daily' | 'sales' | 'profit' | 'reconciliation'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
 
 export default function ReportsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('daily')
-
-  const tabs: Array<{ id: Tab; label: string }> = [
-    { id: 'daily', label: 'Ringkasan Harian' },
-    { id: 'sales', label: 'Laporan Penjualan' },
-    { id: 'profit', label: 'Laba Kotor' },
-    { id: 'reconciliation', label: 'Rekonsiliasi Kas' },
-  ]
-
   return (
     <div data-testid="reports-page">
-      <div data-testid="reports-tabs" className="flex gap-2 border-b mb-4">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            data-testid={`tab-${tab.id}`}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 ${activeTab === tab.id ? 'border-b-2 border-blue-600 font-semibold' : ''}`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-      <div data-testid="reports-content">
-        {activeTab === 'daily' && <DailySummary />}
-        {activeTab === 'sales' && <SalesReport />}
-        {activeTab === 'profit' && <GrossProfitReport />}
-        {activeTab === 'reconciliation' && <CashReconciliation />}
-      </div>
+      <Tabs defaultValue="daily">
+        <div data-testid="reports-tabs">
+          <TabsList variant="line" className="mb-4">
+            <TabsTrigger value="daily" data-testid="tab-daily">Ringkasan Harian</TabsTrigger>
+            <TabsTrigger value="sales" data-testid="tab-sales">Laporan Penjualan</TabsTrigger>
+            <TabsTrigger value="profit" data-testid="tab-profit">Laba Kotor</TabsTrigger>
+            <TabsTrigger value="reconciliation" data-testid="tab-reconciliation">Rekonsiliasi Kas</TabsTrigger>
+          </TabsList>
+        </div>
+        <div data-testid="reports-content">
+          <TabsContent value="daily"><DailySummary /></TabsContent>
+          <TabsContent value="sales"><SalesReport /></TabsContent>
+          <TabsContent value="profit"><GrossProfitReport /></TabsContent>
+          <TabsContent value="reconciliation"><CashReconciliation /></TabsContent>
+        </div>
+      </Tabs>
     </div>
   )
 }

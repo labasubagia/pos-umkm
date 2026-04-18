@@ -5,6 +5,11 @@
 
 import { useState } from 'react'
 import type { Category, NewProduct } from './catalog.service'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Checkbox } from '../../components/ui/checkbox'
+import { Alert, AlertDescription } from '../../components/ui/alert'
 
 interface Props {
   categories: Category[]
@@ -67,21 +72,19 @@ export function ProductForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="product-name" className="text-sm font-medium">
-          Nama Produk
-        </label>
-        <input
+      <div className="space-y-1.5">
+        <Label htmlFor="product-name">Nama Produk</Label>
+        <Input
           id="product-name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Contoh: Nasi Goreng Spesial"
-          className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           data-testid="input-product-name"
         />
       </div>
 
+      {/* Keep native <select> — E2E tests use .selectOption() on this element */}
       <div className="flex flex-col gap-1">
         <label htmlFor="product-category" className="text-sm font-medium">
           Kategori
@@ -90,7 +93,7 @@ export function ProductForm({
           id="product-category"
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
-          className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="rounded-lg border border-input bg-transparent px-3 py-2 text-sm"
           data-testid="select-product-category"
         >
           <option value="">-- Pilih Kategori --</option>
@@ -103,11 +106,9 @@ export function ProductForm({
       </div>
 
       <div className="flex gap-3">
-        <div className="flex flex-1 flex-col gap-1">
-          <label htmlFor="product-price" className="text-sm font-medium">
-            Harga (Rp)
-          </label>
-          <input
+        <div className="flex-1 space-y-1.5">
+          <Label htmlFor="product-price">Harga (Rp)</Label>
+          <Input
             id="product-price"
             type="number"
             value={price}
@@ -115,16 +116,13 @@ export function ProductForm({
             min={1}
             step={1}
             placeholder="15000"
-            className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             data-testid="input-product-price"
           />
         </div>
 
-        <div className="flex flex-1 flex-col gap-1">
-          <label htmlFor="product-stock" className="text-sm font-medium">
-            Stok
-          </label>
-          <input
+        <div className="flex-1 space-y-1.5">
+          <Label htmlFor="product-stock">Stok</Label>
+          <Input
             id="product-stock"
             type="number"
             value={stock}
@@ -132,54 +130,47 @@ export function ProductForm({
             min={0}
             step={1}
             placeholder="0"
-            className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             data-testid="input-product-stock"
           />
         </div>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="product-sku" className="text-sm font-medium">
-          SKU (opsional)
-        </label>
-        <input
+      <div className="space-y-1.5">
+        <Label htmlFor="product-sku">SKU (opsional)</Label>
+        <Input
           id="product-sku"
           type="text"
           value={sku}
           onChange={(e) => setSku(e.target.value)}
           placeholder="NASGOR-01"
           maxLength={50}
-          className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="has-variants"
           checked={hasVariants}
-          onChange={(e) => setHasVariants(e.target.checked)}
+          onCheckedChange={(checked) => setHasVariants(checked === true)}
         />
-        Produk ini memiliki varian (ukuran, warna, dll)
-      </label>
+        <Label htmlFor="has-variants" className="text-sm">
+          Produk ini memiliki varian (ukuran, warna, dll)
+        </Label>
+      </div>
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <div className="flex gap-2 justify-end">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-        >
+        <Button type="button" variant="outline" onClick={onCancel}>
           Batal
-        </button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
-          data-testid="btn-product-submit"
-        >
+        </Button>
+        <Button type="submit" disabled={loading} data-testid="btn-product-submit">
           {loading ? 'Menyimpan…' : submitLabel}
-        </button>
+        </Button>
       </div>
     </form>
   )

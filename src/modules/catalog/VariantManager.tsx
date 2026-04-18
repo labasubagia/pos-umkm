@@ -8,6 +8,10 @@ import { useCatalogStore } from './useCatalog'
 import { addVariant, deleteVariant } from './catalog.service'
 import type { Product } from './catalog.service'
 import { formatIDR } from '../../lib/formatters'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Alert, AlertDescription } from '../../components/ui/alert'
 
 interface Props {
   product: Product
@@ -70,61 +74,57 @@ export function VariantManager({ product }: Props) {
       <form onSubmit={handleAdd} className="rounded border border-gray-200 p-4 flex flex-col gap-3">
         <h3 className="text-sm font-medium">Tambah Varian</h3>
         <div className="flex gap-3">
-          <div className="flex flex-1 flex-col gap-1">
-            <label className="text-xs font-medium">Tipe (misal: Ukuran)</label>
-            <input
+          <div className="flex-1 space-y-1.5">
+            <Label className="text-xs">Tipe (misal: Ukuran)</Label>
+            <Input
               type="text"
               value={optionName}
               onChange={(e) => setOptionName(e.target.value)}
               placeholder="Ukuran"
-              className="rounded border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
-          <div className="flex flex-1 flex-col gap-1">
-            <label className="text-xs font-medium">Nilai (misal: S, M, L)</label>
-            <input
+          <div className="flex-1 space-y-1.5">
+            <Label className="text-xs">Nilai (misal: S, M, L)</Label>
+            <Input
               type="text"
               value={optionValue}
               onChange={(e) => setOptionValue(e.target.value)}
               placeholder="M"
-              className="rounded border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
         </div>
         <div className="flex gap-3">
-          <div className="flex flex-1 flex-col gap-1">
-            <label className="text-xs font-medium">Harga (Rp)</label>
-            <input
+          <div className="flex-1 space-y-1.5">
+            <Label className="text-xs">Harga (Rp)</Label>
+            <Input
               type="number"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               min={1}
               step={1}
               placeholder="25000"
-              className="rounded border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
-          <div className="flex flex-1 flex-col gap-1">
-            <label className="text-xs font-medium">Stok</label>
-            <input
+          <div className="flex-1 space-y-1.5">
+            <Label className="text-xs">Stok</Label>
+            <Input
               type="number"
               value={stock}
               onChange={(e) => setStock(e.target.value)}
               min={0}
               step={1}
-              className="rounded border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
         </div>
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
-          >
+          <Button type="submit" disabled={loading}>
             {loading ? 'Menambahkan…' : 'Tambah Varian'}
-          </button>
+          </Button>
         </div>
       </form>
 
@@ -145,12 +145,14 @@ export function VariantManager({ product }: Props) {
                   {formatIDR(v.price)} · Stok: {v.stock}
                 </span>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => handleDelete(v.id)}
-                className="text-sm text-red-600 hover:underline"
+                className="text-red-600 hover:text-red-700"
               >
                 Hapus
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

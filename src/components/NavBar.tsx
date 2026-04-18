@@ -24,6 +24,7 @@ import {
 import { useAuth } from '../modules/auth/useAuth'
 import { authAdapter } from '../lib/adapters'
 import type { Role } from '../lib/adapters/types'
+import { Button } from './ui/button'
 
 const ROLE_RANK: Record<Role, number> = {
   cashier: 1,
@@ -74,16 +75,13 @@ export function NavBar() {
             key={to}
             to={to}
             data-testid={`nav-${to.slice(1)}`}
-            className={({ isActive }) =>
-              `flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-                isActive
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`
-            }
           >
-            <Icon className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">{label}</span>
+            {({ isActive }) => (
+              <Button variant={isActive ? 'secondary' : 'ghost'} size="sm">
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">{label}</span>
+              </Button>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -97,15 +95,16 @@ export function NavBar() {
           >
             {user.name}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleSignOut}
             data-testid="btn-logout"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
             aria-label="Keluar"
           >
             <LogOut className="h-4 w-4" />
             <span className="hidden sm:inline">Keluar</span>
-          </button>
+          </Button>
         </div>
       )}
     </header>

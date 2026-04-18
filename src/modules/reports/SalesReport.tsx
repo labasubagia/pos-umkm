@@ -8,6 +8,18 @@ import {
 } from './reports.service'
 import { formatIDR } from '../../lib/formatters'
 import { exportToExcel, printReport } from './export.service'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Alert, AlertDescription } from '../../components/ui/alert'
+import {
+  Table,
+  TableBody,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableCell,
+} from '../../components/ui/table'
 
 export function SalesReport() {
   const today = new Date().toISOString().slice(0, 10)
@@ -59,107 +71,124 @@ export function SalesReport() {
     <div data-testid="sales-report-container" className="p-4 space-y-4">
       <h2 className="text-xl font-semibold">Laporan Penjualan</h2>
 
-      <div className="flex flex-wrap gap-2 items-center">
-        <input
-          data-testid="input-start-date"
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-        <span>s/d</span>
-        <input
-          data-testid="input-end-date"
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-        <input
-          placeholder="Email kasir"
-          value={cashierEmail}
-          onChange={(e) => setCashierEmail(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-        <select
-          data-testid="select-payment-filter"
-          value={paymentFilter}
-          onChange={(e) => setPaymentFilter(e.target.value as '' | 'CASH' | 'QRIS' | 'SPLIT')}
-          className="border rounded px-2 py-1"
-        >
-          <option value="">Semua Pembayaran</option>
-          <option value="CASH">CASH</option>
-          <option value="QRIS">QRIS</option>
-          <option value="SPLIT">SPLIT</option>
-        </select>
-        <button
+      <div className="flex flex-wrap gap-2 items-end">
+        <div className="space-y-1.5">
+          <Label>Dari</Label>
+          <Input
+            data-testid="input-start-date"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-auto"
+          />
+        </div>
+        <span className="self-end pb-2 text-sm">s/d</span>
+        <div className="space-y-1.5">
+          <Label>Sampai</Label>
+          <Input
+            data-testid="input-end-date"
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-auto"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Email Kasir</Label>
+          <Input
+            placeholder="Email kasir"
+            value={cashierEmail}
+            onChange={(e) => setCashierEmail(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Metode Bayar</Label>
+          <select
+            data-testid="select-payment-filter"
+            value={paymentFilter}
+            onChange={(e) => setPaymentFilter(e.target.value as '' | 'CASH' | 'QRIS' | 'SPLIT')}
+            className="rounded-lg border border-input bg-transparent px-2 py-2 text-sm"
+          >
+            <option value="">Semua Pembayaran</option>
+            <option value="CASH">CASH</option>
+            <option value="QRIS">QRIS</option>
+            <option value="SPLIT">SPLIT</option>
+          </select>
+        </div>
+        <Button
           data-testid="btn-load-report"
           onClick={load}
           disabled={loading}
-          className="px-4 py-1 bg-blue-600 text-white rounded"
         >
           Lihat Laporan
-        </button>
+        </Button>
       </div>
 
-      {error && <p className="text-red-600">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {rows !== null && (
         <div className="space-y-2">
           <div className="flex gap-2 no-print">
-            <button
+            <Button
+              variant="secondary"
               data-testid="btn-export-excel"
               onClick={handleExport}
-              className="px-3 py-1 bg-green-600 text-white rounded"
+              className="bg-green-600 text-white hover:bg-green-700"
             >
               Export Excel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               data-testid="btn-print-report"
               onClick={printReport}
-              className="px-3 py-1 bg-gray-600 text-white rounded"
+              className="bg-gray-600 text-white hover:bg-gray-700"
             >
               Cetak
-            </button>
+            </Button>
           </div>
 
-          <table data-testid="report-results-table" className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="border px-3 py-2 text-left">ID</th>
-                <th className="border px-3 py-2 text-left">Tanggal</th>
-                <th className="border px-3 py-2 text-left">Kasir</th>
-                <th className="border px-3 py-2 text-left">Pembayaran</th>
-                <th className="border px-3 py-2 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table data-testid="report-results-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Tanggal</TableHead>
+                <TableHead>Kasir</TableHead>
+                <TableHead>Pembayaran</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((r) => (
-                <tr key={r.id}>
-                  <td className="border px-3 py-2">{r.id}</td>
-                  <td className="border px-3 py-2">{r.created_at}</td>
-                  <td className="border px-3 py-2">{r.cashier_id}</td>
-                  <td className="border px-3 py-2">{r.payment_method}</td>
-                  <td className="border px-3 py-2 text-right">{formatIDR(r.total)}</td>
-                </tr>
+                <TableRow key={r.id}>
+                  <TableCell>{r.id}</TableCell>
+                  <TableCell>{r.created_at}</TableCell>
+                  <TableCell>{r.cashier_id}</TableCell>
+                  <TableCell>{r.payment_method}</TableCell>
+                  <TableCell className="text-right">{formatIDR(r.total)}</TableCell>
+                </TableRow>
               ))}
               {rows.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="border px-3 py-2 text-center text-gray-400">
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-gray-400">
                     Tidak ada transaksi
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
+            </TableBody>
             <tfoot>
-              <tr className="font-semibold bg-gray-50">
-                <td colSpan={4} className="border px-3 py-2 text-right">Total Pendapatan</td>
-                <td data-testid="report-total-revenue" className="border px-3 py-2 text-right">
+              <TableRow className="font-semibold bg-muted/50">
+                <TableCell colSpan={4} className="text-right">Total Pendapatan</TableCell>
+                <TableCell data-testid="report-total-revenue" className="text-right">
                   {formatIDR(totalRevenue)}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             </tfoot>
-          </table>
+          </Table>
         </div>
       )}
     </div>

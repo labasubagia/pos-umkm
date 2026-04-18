@@ -6,6 +6,9 @@
 import { useState, useEffect } from 'react'
 import { getSettings, saveSettings, type BusinessSettings } from './settings.service'
 import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Alert, AlertDescription } from '../../components/ui/alert'
 
 const TIMEZONES = ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'] as const
 
@@ -60,27 +63,28 @@ export default function BusinessProfile() {
       onSubmit={handleSubmit}
       className="space-y-4 max-w-lg"
     >
-      <div>
-        <label className="block text-sm font-medium mb-1">Nama Bisnis</label>
-        <input
+      <div className="space-y-1.5">
+        <Label htmlFor="business_name">Nama Bisnis</Label>
+        <Input
+          id="business_name"
           data-testid="input-business-name"
           type="text"
           name="business_name"
           value={form.business_name}
           onChange={handleChange}
           required
-          className="w-full border rounded px-3 py-2 text-sm"
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1">Zona Waktu</label>
+      <div className="space-y-1.5">
+        <Label htmlFor="timezone">Zona Waktu</Label>
         <select
+          id="timezone"
           data-testid="input-timezone"
           name="timezone"
           value={form.timezone}
           onChange={handleChange}
-          className="w-full border rounded px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm"
         >
           {TIMEZONES.map((tz) => (
             <option key={tz} value={tz}>
@@ -90,9 +94,10 @@ export default function BusinessProfile() {
         </select>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1">Tarif PPN (%)</label>
-        <input
+      <div className="space-y-1.5">
+        <Label htmlFor="tax_rate">Tarif PPN (%)</Label>
+        <Input
+          id="tax_rate"
           data-testid="input-tax-rate"
           type="number"
           name="tax_rate"
@@ -100,31 +105,30 @@ export default function BusinessProfile() {
           max={99}
           value={form.tax_rate}
           onChange={handleChange}
-          className="w-full border rounded px-3 py-2 text-sm"
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1">Footer Struk</label>
-        <input
+      <div className="space-y-1.5">
+        <Label htmlFor="receipt_footer">Footer Struk</Label>
+        <Input
+          id="receipt_footer"
           data-testid="input-receipt-footer"
           type="text"
           name="receipt_footer"
           value={form.receipt_footer}
           onChange={handleChange}
-          className="w-full border rounded px-3 py-2 text-sm"
         />
       </div>
 
       {success && (
-        <p data-testid="profile-save-success" className="text-sm text-green-600">
-          Pengaturan berhasil disimpan.
-        </p>
+        <Alert className="border-green-500 bg-green-50 text-green-800" data-testid="profile-save-success">
+          <AlertDescription>Pengaturan berhasil disimpan.</AlertDescription>
+        </Alert>
       )}
       {error && (
-        <p data-testid="profile-save-error" className="text-sm text-red-600">
-          {error}
-        </p>
+        <Alert variant="destructive" data-testid="profile-save-error">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <Button data-testid="btn-save-profile" type="submit" disabled={saving}>

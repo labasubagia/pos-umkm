@@ -8,6 +8,17 @@
  */
 import { useEffect, useState, useCallback } from 'react'
 import { fetchStockOpnameData, saveOpnameResults, InventoryError, type OpnameRow } from './inventory.service'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Alert, AlertDescription } from '../../components/ui/alert'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table'
 
 export function StockOpname() {
   const [rows, setRows] = useState<OpnameRow[]>([])
@@ -74,25 +85,24 @@ export function StockOpname() {
     <div data-testid="stock-opname-container">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Stok Opname</h2>
-        <button
+        <Button
           data-testid="btn-save-opname"
           onClick={handleSave}
           disabled={saving}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
           {saving ? 'Menyimpan…' : 'Simpan Hasil Opname'}
-        </button>
+        </Button>
       </div>
 
       {error && (
-        <p data-testid="opname-error" className="mb-3 rounded bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </p>
+        <Alert variant="destructive" className="mb-3" data-testid="opname-error">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
       {successMsg && (
-        <p data-testid="opname-success" className="mb-3 rounded bg-green-50 p-3 text-sm text-green-700">
-          {successMsg}
-        </p>
+        <Alert className="mb-3 border-green-500 bg-green-50 text-green-800" data-testid="opname-success">
+          <AlertDescription>{successMsg}</AlertDescription>
+        </Alert>
       )}
 
       {rows.length === 0 ? (
@@ -101,55 +111,55 @@ export function StockOpname() {
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b bg-gray-50 text-left">
-                <th className="px-3 py-2 font-medium text-gray-600">Produk</th>
-                <th className="px-3 py-2 font-medium text-gray-600">SKU</th>
-                <th className="px-3 py-2 text-right font-medium text-gray-600">Stok Sistem</th>
-                <th className="px-3 py-2 text-right font-medium text-gray-600">Jumlah Fisik</th>
-                <th className="px-3 py-2 text-right font-medium text-gray-600">Selisih</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Produk</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead className="text-right">Stok Sistem</TableHead>
+                <TableHead className="text-right">Jumlah Fisik</TableHead>
+                <TableHead className="text-right">Selisih</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((row) => {
                 const diff = row.physical_count - row.system_stock
                 return (
-                  <tr
+                  <TableRow
                     key={row.product_id}
                     data-testid={`opname-row-${row.product_id}`}
-                    className={`border-b ${diff !== 0 ? 'bg-yellow-50' : ''}`}
+                    className={diff !== 0 ? 'bg-yellow-50' : ''}
                   >
-                    <td className="px-3 py-2" data-testid={`opname-product-name-${row.product_id}`}>
+                    <TableCell data-testid={`opname-product-name-${row.product_id}`}>
                       {row.product_name}
-                    </td>
-                    <td className="px-3 py-2 text-gray-500">{row.sku || '—'}</td>
-                    <td className="px-3 py-2 text-right" data-testid={`opname-system-stock-${row.product_id}`}>
+                    </TableCell>
+                    <TableCell className="text-gray-500">{row.sku || '—'}</TableCell>
+                    <TableCell className="text-right" data-testid={`opname-system-stock-${row.product_id}`}>
                       {row.system_stock}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <input
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
                         type="number"
                         min={0}
                         value={row.physical_count}
                         onChange={(e) => handlePhysicalCountChange(row.product_id, e.target.value)}
                         data-testid={`opname-physical-input-${row.product_id}`}
-                        className="w-20 rounded border border-gray-300 px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-20 text-right ml-auto"
                       />
-                    </td>
-                    <td
-                      className={`px-3 py-2 text-right font-medium ${
+                    </TableCell>
+                    <TableCell
+                      className={`text-right font-medium ${
                         diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : 'text-gray-400'
                       }`}
                       data-testid={`opname-diff-${row.product_id}`}
                     >
                       {diff > 0 ? `+${diff}` : diff}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

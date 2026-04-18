@@ -7,6 +7,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { getQRISImage, saveQRISImage, SettingsError } from './settings.service'
 import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Alert, AlertDescription } from '../../components/ui/alert'
 
 export default function QRISConfig() {
   const [url, setUrl] = useState('')
@@ -64,21 +67,22 @@ export default function QRISConfig() {
   return (
     <div data-testid="qris-config-container" className="space-y-4 max-w-lg">
       <form onSubmit={handleSave} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">URL Gambar QRIS</label>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor="qris-url">URL Gambar QRIS</Label>
+          <Input
+            id="qris-url"
             data-testid="input-qris-url"
             type="text"
             value={url.startsWith('data:') ? '' : url}
             onChange={handleUrlChange}
             placeholder="https://..."
-            className="w-full border rounded px-3 py-2 text-sm"
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Atau unggah gambar</label>
+        <div className="space-y-1.5">
+          <Label htmlFor="qris-file">Atau unggah gambar</Label>
           <input
+            id="qris-file"
             data-testid="input-qris-file"
             type="file"
             accept="image/*"
@@ -98,14 +102,14 @@ export default function QRISConfig() {
         )}
 
         {success && (
-          <p data-testid="qris-save-success" className="text-sm text-green-600">
-            Gambar QRIS berhasil disimpan.
-          </p>
+          <Alert className="border-green-500 bg-green-50 text-green-800" data-testid="qris-save-success">
+            <AlertDescription>Gambar QRIS berhasil disimpan.</AlertDescription>
+          </Alert>
         )}
         {error && (
-          <p data-testid="qris-save-error" className="text-sm text-red-600">
-            {error}
-          </p>
+          <Alert variant="destructive" data-testid="qris-save-error">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         <Button data-testid="btn-save-qris" type="submit" disabled={saving || !url}>

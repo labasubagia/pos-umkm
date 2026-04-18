@@ -15,6 +15,9 @@ import {
   type Member,
 } from './members.service'
 import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Alert, AlertDescription } from '../../components/ui/alert'
 
 export default function MemberManagement() {
   const { spreadsheetId } = useAuth()
@@ -59,10 +62,10 @@ export default function MemberManagement() {
       <h2 className="text-xl font-bold">Kelola Anggota</h2>
 
       <form onSubmit={handleInvite} className="flex flex-col gap-3 max-w-sm">
-        <label className="flex flex-col gap-1">
-          <span className="font-medium">Email Anggota</span>
-          <input
-            className="border rounded px-3 py-2"
+        <div className="space-y-1.5">
+          <Label htmlFor="member-email">Email Anggota</Label>
+          <Input
+            id="member-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -70,19 +73,24 @@ export default function MemberManagement() {
             required
             data-testid="input-member-email"
           />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="font-medium">Peran</span>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="member-role">Peran</Label>
           <select
-            className="border rounded px-3 py-2"
+            id="member-role"
+            className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm"
             value={role}
             onChange={(e) => setRole(e.target.value as 'manager' | 'cashier')}
           >
             <option value="cashier">Kasir</option>
             <option value="manager">Manajer</option>
           </select>
-        </label>
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        </div>
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         <Button type="submit" disabled={loading} data-testid="btn-invite-member">
           {loading ? 'Mengundang...' : 'Undang Anggota'}
         </Button>

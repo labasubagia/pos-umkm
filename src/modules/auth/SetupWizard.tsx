@@ -8,6 +8,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Checkbox } from '../../components/ui/checkbox'
+import { Alert, AlertDescription } from '../../components/ui/alert'
 import { createMasterSpreadsheet, initializeMasterSheets, saveSpreadsheetId } from './setup.service'
 import { dataAdapter } from '../../lib/adapters'
 import { useAuth } from './useAuth'
@@ -61,22 +65,23 @@ export default function SetupWizard() {
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
       <h1 className="text-2xl font-bold">Selamat Datang di POS UMKM</h1>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 w-full max-w-sm">
-        <label className="flex flex-col gap-1">
-          <span className="font-medium">Nama Usaha</span>
-          <input
-            className="border rounded px-3 py-2"
+        <div className="space-y-1.5">
+          <Label htmlFor="setup-business-name">Nama Usaha</Label>
+          <Input
+            id="setup-business-name"
             value={businessName}
             onChange={(e) => setBusinessName(e.target.value)}
             placeholder="Nama usaha Anda"
             required
             data-testid="input-business-name"
           />
-        </label>
+        </div>
 
-        <label className="flex flex-col gap-1">
-          <span className="font-medium">Zona Waktu</span>
+        <div className="space-y-1.5">
+          <Label htmlFor="setup-timezone">Zona Waktu</Label>
           <select
-            className="border rounded px-3 py-2"
+            id="setup-timezone"
+            className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm"
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
           >
@@ -86,18 +91,22 @@ export default function SetupWizard() {
               </option>
             ))}
           </select>
-        </label>
+        </div>
 
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="setup-ppn"
             checked={ppnEnabled}
-            onChange={(e) => setPpnEnabled(e.target.checked)}
+            onCheckedChange={(checked) => setPpnEnabled(checked === true)}
           />
-          <span>Aktifkan PPN 11%</span>
-        </label>
+          <Label htmlFor="setup-ppn">Aktifkan PPN 11%</Label>
+        </div>
 
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <Button type="submit" disabled={loading} data-testid="btn-setup-submit">
           {loading ? 'Menyiapkan...' : 'Mulai Sekarang'}

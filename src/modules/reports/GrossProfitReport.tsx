@@ -7,6 +7,11 @@ import {
 } from './reports.service'
 import { dataAdapter } from '../../lib/adapters'
 import { formatIDR } from '../../lib/formatters'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Alert, AlertDescription } from '../../components/ui/alert'
+import { Card, CardContent } from '../../components/ui/card'
 
 export function GrossProfitReport() {
   const today = new Date().toISOString().slice(0, 10)
@@ -57,58 +62,75 @@ export function GrossProfitReport() {
     <div data-testid="profit-report-container" className="p-4 space-y-4">
       <h2 className="text-xl font-semibold">Laporan Laba Kotor</h2>
 
-      <div className="flex flex-wrap gap-2 items-center">
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-        <span>s/d</span>
-        <input
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-        <button
+      <div className="flex flex-wrap gap-2 items-end">
+        <div className="space-y-1.5">
+          <Label>Dari</Label>
+          <Input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-auto"
+          />
+        </div>
+        <span className="self-end pb-2 text-sm">s/d</span>
+        <div className="space-y-1.5">
+          <Label>Sampai</Label>
+          <Input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-auto"
+          />
+        </div>
+        <Button
           data-testid="btn-load-profit"
           onClick={load}
           disabled={loading}
-          className="px-4 py-1 bg-blue-600 text-white rounded"
         >
           Lihat Laporan
-        </button>
+        </Button>
       </div>
 
-      {error && <p className="text-red-600">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {result && (
         <div className="grid grid-cols-2 gap-4">
-          <div className="border rounded p-3">
-            <p className="text-sm text-gray-500">Total Pendapatan</p>
-            <p data-testid="profit-total-revenue" className="text-lg font-bold">
-              {formatIDR(result.total_revenue)}
-            </p>
-          </div>
-          <div className="border rounded p-3">
-            <p className="text-sm text-gray-500">Total Biaya</p>
-            <p data-testid="profit-total-cost" className="text-lg font-bold">
-              {formatIDR(result.total_cost)}
-            </p>
-          </div>
-          <div className="border rounded p-3">
-            <p className="text-sm text-gray-500">Laba Kotor</p>
-            <p data-testid="profit-gross" className="text-lg font-bold">
-              {formatIDR(result.gross_profit)}
-            </p>
-          </div>
-          <div className="border rounded p-3">
-            <p className="text-sm text-gray-500">Margin</p>
-            <p data-testid="profit-margin" className="text-lg font-bold">
-              {result.margin_percent}%
-            </p>
-          </div>
+          <Card>
+            <CardContent className="pt-4">
+              <p className="text-sm text-gray-500">Total Pendapatan</p>
+              <p data-testid="profit-total-revenue" className="text-lg font-bold">
+                {formatIDR(result.total_revenue)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <p className="text-sm text-gray-500">Total Biaya</p>
+              <p data-testid="profit-total-cost" className="text-lg font-bold">
+                {formatIDR(result.total_cost)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <p className="text-sm text-gray-500">Laba Kotor</p>
+              <p data-testid="profit-gross" className="text-lg font-bold">
+                {formatIDR(result.gross_profit)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <p className="text-sm text-gray-500">Margin</p>
+              <p data-testid="profit-margin" className="text-lg font-bold">
+                {result.margin_percent}%
+              </p>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

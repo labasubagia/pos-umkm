@@ -1,11 +1,3 @@
-/**
- * CashierPage.tsx — Main cashier/POS screen (T025–T033, T036).
- *
- * Layout:
- *   Left panel: ProductSearch (product grid + search)
- *   Right panel: CustomerSearch + CartPanel + DiscountInput + action buttons
- *   Overlays: PaymentModal, ReceiptModal, HeldCartsPanel drawer
- */
 import { useEffect, useState } from 'react'
 import { ShoppingBag } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
@@ -29,6 +21,8 @@ import {
 } from '../modules/cashier/cashier.service'
 import { getQRISImageUrl } from '../modules/settings/settings.service'
 import type { Transaction, TransactionItem, PaymentInfo } from '../modules/cashier/cashier.service'
+import { Button } from '../components/ui/button'
+import { Alert, AlertDescription } from '../components/ui/alert'
 
 const TAX_RATE = 0 // PPN disabled by default; owner can enable in Settings (post-MVP)
 
@@ -109,14 +103,15 @@ export default function CashierPage() {
       <div className="w-80 bg-white border-l flex flex-col shadow-lg">
         <div className="flex items-center justify-between p-3 border-b">
           <h2 className="font-semibold text-sm">Keranjang</h2>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setShowHeld(!showHeld)}
-            className="text-xs text-blue-600 hover:underline flex items-center gap-1"
             data-testid="btn-held-toggle"
           >
             <ShoppingBag className="h-3.5 w-3.5" />
-            Tahan
-          </button>
+            <span className="text-xs">Tahan</span>
+          </Button>
         </div>
 
         {/* Customer search */}
@@ -172,25 +167,30 @@ export default function CashierPage() {
             <span className="text-blue-700">Rp {total.toLocaleString('id-ID')}</span>
           </div>
 
-          {txError && <p className="text-xs text-red-500 mb-2">{txError}</p>}
+          {txError && (
+            <Alert variant="destructive" className="mb-2 py-2">
+              <AlertDescription className="text-xs">{txError}</AlertDescription>
+            </Alert>
+          )}
 
           <div className="flex gap-2">
-            <button
+            <Button
+              variant="outline"
               onClick={() => { try { holdCart() } catch (e) { setTxError((e as Error).message) } }}
               disabled={items.length === 0}
-              className="flex-1 py-2 border rounded-lg text-sm hover:bg-gray-100 disabled:opacity-40"
+              className="flex-1"
               data-testid="btn-hold-cart"
             >
               Tahan
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setShowPayment(true)}
               disabled={items.length === 0}
-              className="flex-[2] py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-40"
+              className="flex-[2]"
               data-testid="btn-pay"
             >
               Bayar Rp {total.toLocaleString('id-ID')}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
