@@ -76,16 +76,16 @@ test.describe('Product Search (T026)', () => {
     await signInToCashier(page)
 
     // Type product name in search box
-    await page.getByPlaceholder(/cari produk/i).fill('Nasi Goreng')
+    await page.getByTestId('product-search-input').fill('Nasi Goreng')
 
     // Product card should appear in results
-    await expect(page.getByRole('listitem').filter({ hasText: 'Nasi Goreng' })).toBeVisible()
+    await expect(page.getByTestId('product-card-e2e-prod-1')).toBeVisible()
 
     // Click the product card to add to cart
-    await page.getByRole('listitem').filter({ hasText: 'Nasi Goreng' }).click()
+    await page.getByTestId('product-card-e2e-prod-1').click()
 
-    // Cart should now show the item — the pay button amount updates
-    await expect(page.getByRole('button', { name: /bayar/i })).toContainText('15.000')
+    // Pay button should show total
+    await expect(page.getByTestId('btn-pay')).toContainText('15.000')
   })
 })
 
@@ -96,52 +96,51 @@ test.describe('Cash Payment (T027)', () => {
     await signInToCashier(page)
 
     // Add one product to cart
-    await page.getByRole('listitem').filter({ hasText: 'Nasi Goreng' }).click()
+    await page.getByTestId('product-card-e2e-prod-1').click()
 
     // Open payment modal
-    await page.getByRole('button', { name: /bayar/i }).click()
+    await page.getByTestId('btn-pay').click()
     await expect(page.getByRole('dialog')).toBeVisible()
 
-    // Select CASH method — use first() because "Split (Tunai + QRIS)" also matches /tunai/i
-    await page.getByRole('button').filter({ hasText: /tunai/i }).first().click()
+    // Select CASH method
+    await page.getByTestId('btn-method-cash').click()
 
     // Enter cash received
-    const cashInput = page.getByLabel(/uang diterima/i)
-    await cashInput.fill('20000')
+    await page.getByTestId('input-cash').fill('20000')
 
-    // Change should be 20000 - 15000 = 5000 — use exact text to avoid matching "15.000"
-    await expect(page.getByRole('dialog').getByText('Rp 5.000', { exact: true })).toBeVisible()
+    // Change should be 20000 - 15000 = 5000
+    await expect(page.getByTestId('change-amount')).toHaveText('Rp 5.000')
   })
 
   test('quick-amount buttons show correct denominations', async ({ page }) => {
     await signInToCashier(page)
 
     // Add a product (15000)
-    await page.getByRole('listitem').filter({ hasText: 'Nasi Goreng' }).click()
+    await page.getByTestId('product-card-e2e-prod-1').click()
 
     // Open payment → select cash
-    await page.getByRole('button', { name: /bayar/i }).click()
-    await page.getByRole('button').filter({ hasText: /tunai/i }).first().click()
+    await page.getByTestId('btn-pay').click()
+    await page.getByTestId('btn-method-cash').click()
 
     // 20000 should be present as a quick-amount option (smallest denomination >= 15000)
-    await expect(page.getByRole('dialog').getByRole('button', { name: /20\.000/ })).toBeVisible()
+    await expect(page.getByTestId('btn-denomination-20000')).toBeVisible()
   })
 
   test('selecting a quick-amount button fills cash received and computes change', async ({ page }) => {
     await signInToCashier(page)
 
     // Add a product (15000)
-    await page.getByRole('listitem').filter({ hasText: 'Nasi Goreng' }).click()
+    await page.getByTestId('product-card-e2e-prod-1').click()
 
     // Open payment → select cash
-    await page.getByRole('button', { name: /bayar/i }).click()
-    await page.getByRole('button').filter({ hasText: /tunai/i }).first().click()
+    await page.getByTestId('btn-pay').click()
+    await page.getByTestId('btn-method-cash').click()
 
     // Click the Rp 20.000 quick button
-    await page.getByRole('dialog').getByRole('button', { name: /20\.000/ }).click()
+    await page.getByTestId('btn-denomination-20000').click()
 
     // Change should appear: 20000 - 15000 = 5000
-    await expect(page.getByRole('dialog').getByText('Rp 5.000', { exact: true })).toBeVisible()
+    await expect(page.getByTestId('change-amount')).toHaveText('Rp 5.000')
   })
 })
 
@@ -152,23 +151,22 @@ test.describe('QRIS Payment (T028)', () => {
     await signInToCashier(page)
 
     // Add a product
-    await page.getByRole('listitem').filter({ hasText: 'Es Teh Manis' }).click()
+    await page.getByTestId('product-card-e2e-prod-2').click()
 
     // Open payment modal
-    await page.getByRole('button', { name: /bayar/i }).click()
+    await page.getByTestId('btn-pay').click()
 
     // Select QRIS
-    await page.getByRole('button').filter({ hasText: /qris/i }).first().click()
+    await page.getByTestId('btn-method-qris').click()
 
-    // QRIS step should show "Pembayaran Diterima" button
-    await expect(page.getByRole('button', { name: /pembayaran diterima/i })).toBeVisible()
+    // QRIS step should show confirm button
+    await expect(page.getByTestId('btn-qris-confirm')).toBeVisible()
 
     // Confirm payment
-    await page.getByRole('button', { name: /pembayaran diterima/i }).click()
+    await page.getByTestId('btn-qris-confirm').click()
 
     // Receipt modal should appear
-    await expect(page.getByRole('dialog')).toBeVisible()
-    await expect(page.getByText(/transaksi berhasil/i)).toBeVisible()
+    await expect(page.getByTestId('receipt-success')).toBeVisible()
   })
 })
 
@@ -179,29 +177,29 @@ test.describe('Discount (T029)', () => {
     await signInToCashier(page)
 
     // Add product (15000)
-    await page.getByRole('listitem').filter({ hasText: 'Nasi Goreng' }).click()
+    await page.getByTestId('product-card-e2e-prod-1').click()
 
     // Switch to percent discount and apply 10%
-    await page.getByRole('button', { name: /persen/i }).click()
-    await page.getByLabel(/nilai diskon/i).fill('10')
-    await page.getByRole('button', { name: /terapkan/i }).click()
+    await page.getByTestId('btn-discount-percent').click()
+    await page.getByTestId('input-discount-value').fill('10')
+    await page.getByTestId('btn-discount-apply').click()
 
     // Pay button shows the discounted total: 15000 - 1500 = 13500
-    await expect(page.getByRole('button', { name: /bayar/i })).toContainText('13.500')
+    await expect(page.getByTestId('btn-pay')).toContainText('13.500')
   })
 
   test('cashier can apply a flat IDR discount', async ({ page }) => {
     await signInToCashier(page)
 
     // Add product (15000)
-    await page.getByRole('listitem').filter({ hasText: 'Nasi Goreng' }).click()
+    await page.getByTestId('product-card-e2e-prod-1').click()
 
     // Apply flat discount of 2000
-    await page.getByLabel(/nilai diskon/i).fill('2000')
-    await page.getByRole('button', { name: /terapkan/i }).click()
+    await page.getByTestId('input-discount-value').fill('2000')
+    await page.getByTestId('btn-discount-apply').click()
 
     // Pay button shows the discounted total: 15000 - 2000 = 13000
-    await expect(page.getByRole('button', { name: /bayar/i })).toContainText('13.000')
+    await expect(page.getByTestId('btn-pay')).toContainText('13.000')
   })
 })
 
@@ -212,21 +210,21 @@ test.describe('Split Payment (T030)', () => {
     await signInToCashier(page)
 
     // Add product (15000)
-    await page.getByRole('listitem').filter({ hasText: 'Nasi Goreng' }).click()
+    await page.getByTestId('product-card-e2e-prod-1').click()
 
     // Open payment modal and select Split
-    await page.getByRole('button', { name: /bayar/i }).click()
-    await page.getByRole('button').filter({ hasText: /split/i }).click()
+    await page.getByTestId('btn-pay').click()
+    await page.getByTestId('btn-method-split').click()
 
     // Fill cash amount (10000), QRIS auto-fills to 5000
-    await page.getByLabel(/jumlah tunai/i).fill('10000')
+    await page.getByTestId('input-split-cash').fill('10000')
 
     // Confirm button should be enabled
-    await expect(page.getByRole('button', { name: /konfirmasi/i })).toBeEnabled()
-    await page.getByRole('button', { name: /konfirmasi/i }).click()
+    await expect(page.getByTestId('btn-split-confirm')).toBeEnabled()
+    await page.getByTestId('btn-split-confirm').click()
 
     // Receipt modal appears
-    await expect(page.getByText(/transaksi berhasil/i)).toBeVisible()
+    await expect(page.getByTestId('receipt-success')).toBeVisible()
   })
 })
 
@@ -237,30 +235,30 @@ test.describe('Hold Transaction (T031)', () => {
     await signInToCashier(page)
 
     // Add first product to cart
-    await page.getByRole('listitem').filter({ hasText: 'Nasi Goreng' }).click()
+    await page.getByTestId('product-card-e2e-prod-1').click()
     // Verify it's in cart via pay button
-    await expect(page.getByRole('button', { name: /bayar/i })).toContainText('15.000')
+    await expect(page.getByTestId('btn-pay')).toContainText('15.000')
 
-    // Click the action-bar "Tahan" button (last in DOM = action bar, first = header toggle)
-    await page.getByRole('button', { name: 'Tahan', exact: true }).last().click()
+    // Click the action-bar "Tahan" button to hold the active cart
+    await page.getByTestId('btn-hold-cart').click()
 
     // Cart should now be empty — pay button disabled
-    await expect(page.getByRole('button', { name: /bayar/i })).toBeDisabled()
+    await expect(page.getByTestId('btn-pay')).toBeDisabled()
 
     // Add a different product to the new active cart
-    await page.getByRole('listitem').filter({ hasText: 'Es Teh Manis' }).click()
+    await page.getByTestId('product-card-e2e-prod-2').click()
 
-    // Open held carts panel via header button
-    await page.getByRole('button', { name: 'Tahan', exact: true }).first().click()
+    // Open held carts panel via header toggle button
+    await page.getByTestId('btn-held-toggle').click()
 
-    // Held cart entry should be visible
-    await expect(page.getByText(/1 produk/)).toBeVisible()
+    // First held cart should be visible
+    await expect(page.getByTestId('btn-retrieve-cart-0')).toBeVisible()
 
     // Retrieve the held cart
-    await page.getByRole('button', { name: /ambil/i }).click()
+    await page.getByTestId('btn-retrieve-cart-0').click()
 
     // Active cart should now contain Nasi Goreng (pay button shows 15000)
-    await expect(page.getByRole('button', { name: /bayar/i })).toContainText('15.000')
+    await expect(page.getByTestId('btn-pay')).toContainText('15.000')
   })
 })
 
@@ -271,61 +269,60 @@ test.describe('Transaction Commit + Receipt (T032, T033)', () => {
     await signInToCashier(page)
 
     // Add product
-    await page.getByRole('listitem').filter({ hasText: 'Nasi Goreng' }).click()
+    await page.getByTestId('product-card-e2e-prod-1').click()
 
-    // Pay with cash — .first() avoids strict mode error from "Split (Tunai + QRIS)"
-    await page.getByRole('button', { name: /bayar/i }).click()
-    await page.getByRole('button').filter({ hasText: /tunai/i }).first().click()
-    await page.getByLabel(/uang diterima/i).fill('20000')
-    await page.getByRole('button', { name: /konfirmasi/i }).click()
+    // Pay with cash
+    await page.getByTestId('btn-pay').click()
+    await page.getByTestId('btn-method-cash').click()
+    await page.getByTestId('input-cash').fill('20000')
+    await page.getByTestId('btn-cash-confirm').click()
 
     // Receipt modal appears with transaction success
-    await expect(page.getByText(/transaksi berhasil/i)).toBeVisible()
-    await expect(page.getByText(/INV\//)).toBeVisible()
+    await expect(page.getByTestId('receipt-success')).toBeVisible()
+    await expect(page.getByTestId('receipt-preview')).toContainText('INV/')
 
     // WhatsApp share button present
-    await expect(page.getByRole('link', { name: /kirim via whatsapp/i })).toBeVisible()
+    await expect(page.getByTestId('btn-whatsapp-share')).toBeVisible()
   })
 
   test('after transaction, receipt modal shows correct totals and WhatsApp share button', async ({ page }) => {
     await signInToCashier(page)
 
     // Add two different products
-    await page.getByRole('listitem').filter({ hasText: 'Nasi Goreng' }).click()
-    await page.getByRole('listitem').filter({ hasText: 'Es Teh Manis' }).click()
+    await page.getByTestId('product-card-e2e-prod-1').click()
+    await page.getByTestId('product-card-e2e-prod-2').click()
 
-    // Pay with exact QRIS — .first() to avoid matching "Split (Tunai + QRIS)"
-    await page.getByRole('button', { name: /bayar/i }).click()
-    await page.getByRole('button').filter({ hasText: /qris/i }).first().click()
-    await page.getByRole('button', { name: /pembayaran diterima/i }).click()
+    // Pay with QRIS
+    await page.getByTestId('btn-pay').click()
+    await page.getByTestId('btn-method-qris').click()
+    await page.getByTestId('btn-qris-confirm').click()
 
-    // Receipt modal — scope to dialog to avoid product grid text
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
-    await expect(dialog.getByText(/Nasi Goreng/)).toBeVisible()
-    await expect(dialog.getByText(/Es Teh Manis/)).toBeVisible()
+    // Receipt modal preview contains both product names
+    await expect(page.getByTestId('receipt-success')).toBeVisible()
+    await expect(page.getByTestId('receipt-preview')).toContainText('Nasi Goreng')
+    await expect(page.getByTestId('receipt-preview')).toContainText('Es Teh Manis')
 
     // WhatsApp share link must be present
-    await expect(page.getByRole('link', { name: /kirim via whatsapp/i })).toBeVisible()
+    await expect(page.getByTestId('btn-whatsapp-share')).toBeVisible()
   })
 
   test('product stock is decremented after transaction', async ({ page }) => {
     await signInToCashier(page)
 
     // Product has stock=20. Add 2 of them.
-    await page.getByRole('listitem').filter({ hasText: 'Nasi Goreng' }).click()
-    await page.getByRole('listitem').filter({ hasText: 'Nasi Goreng' }).click()
+    await page.getByTestId('product-card-e2e-prod-1').click()
+    await page.getByTestId('product-card-e2e-prod-1').click()
 
     // Complete transaction via QRIS
-    await page.getByRole('button', { name: /bayar/i }).click()
-    await page.getByRole('button').filter({ hasText: /qris/i }).first().click()
-    await page.getByRole('button', { name: /pembayaran diterima/i }).click()
-    await expect(page.getByText(/transaksi berhasil/i)).toBeVisible()
-    await page.getByRole('button', { name: /tutup/i }).click()
+    await page.getByTestId('btn-pay').click()
+    await page.getByTestId('btn-method-qris').click()
+    await page.getByTestId('btn-qris-confirm').click()
+    await expect(page.getByTestId('receipt-success')).toBeVisible()
+    await page.getByTestId('btn-receipt-close').click()
 
     // Navigate to catalog and verify stock decremented from 20 to 18
     await navigateTo(page, `${BASE}/catalog`)
     await page.getByRole('button', { name: 'Produk', exact: true }).click()
-    await expect(page.getByText(/Stok: 18/)).toBeVisible()
+    await expect(page.getByTestId('product-stock-e2e-prod-1')).toHaveText('Stok: 18')
   })
 })

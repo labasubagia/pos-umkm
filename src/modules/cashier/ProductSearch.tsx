@@ -60,6 +60,7 @@ export function ProductSearch({ products, variants }: Props) {
           onChange={(e) => setQuery(e.target.value)}
           className="w-full pl-10 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           aria-label="Cari produk"
+          data-testid="product-search-input"
         />
       </div>
 
@@ -107,6 +108,7 @@ export function ProductSearch({ products, variants }: Props) {
           <button
             key={product.id}
             role="listitem"
+            data-testid={`product-card-${product.id}`}
             onClick={() => handleProductClick(product)}
             disabled={!product.has_variants && product.stock <= 0}
             className="flex flex-col items-start p-3 border rounded-lg text-left text-sm hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"

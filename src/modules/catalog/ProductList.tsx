@@ -109,7 +109,7 @@ export function ProductList() {
                       <span className="text-xs text-gray-500">
                         {categoryMap.get(product.category_id) ?? '—'} ·{' '}
                         {product.sku ? `SKU: ${product.sku} · ` : ''}
-                        {formatIDR(product.price)} · Stok: {product.stock}
+                        {formatIDR(product.price)} · <span data-testid={`product-stock-${product.id}`}>Stok: {product.stock}</span>
                         {product.has_variants && ' · Memiliki varian'}
                       </span>
                     </div>

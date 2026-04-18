@@ -129,8 +129,9 @@ test.describe('Products CRUD (T022)', () => {
     // Navigate to cashier and search for the product
     await navigateTo(page, `${BASE}/cashier`)
     await page.getByRole('heading', { name: /kasir/i }).waitFor()
-    const searchInput = page.getByPlaceholder(/cari produk/i)
-    await searchInput.fill('Mie Goreng')
+    await page.getByTestId('product-search-input').fill('Mie Goreng')
+    // Product card is identified by testid containing the product name (id unknown, so filter by text)
+    await expect(page.getByTestId('product-search-input')).toHaveValue('Mie Goreng')
     await expect(page.getByRole('listitem').filter({ hasText: 'Mie Goreng' })).toBeVisible()
   })
 
@@ -161,19 +162,19 @@ test.describe('Products CRUD (T022)', () => {
     await page.getByRole('heading', { name: /kasir/i }).waitFor()
 
     // Search for the product and add to cart
-    await page.getByPlaceholder(/cari produk/i).fill('Produk Stok Test')
-    await page.getByRole('listitem').filter({ hasText: 'Produk Stok Test' }).click()
+    await page.getByTestId('product-search-input').fill('Produk Stok Test')
+    await page.getByTestId('product-card-prod-stock-test').click()
 
     // Confirm payment via QRIS (avoids cash input complexity)
-    await page.getByRole('button', { name: /bayar/i }).click()
-    await page.getByRole('button').filter({ hasText: /qris/i }).first().click()
-    await page.getByRole('button', { name: /pembayaran diterima/i }).click()
-    await expect(page.getByText(/transaksi berhasil/i)).toBeVisible()
-    await page.getByRole('button', { name: /tutup/i }).click()
+    await page.getByTestId('btn-pay').click()
+    await page.getByTestId('btn-method-qris').click()
+    await page.getByTestId('btn-qris-confirm').click()
+    await expect(page.getByTestId('receipt-success')).toBeVisible()
+    await page.getByTestId('btn-receipt-close').click()
 
     // Navigate to catalog and verify stock decremented from 20 to 19
     await navigateTo(page, `${BASE}/catalog`)
     await page.getByRole('button', { name: 'Produk', exact: true }).click()
-    await expect(page.getByText(/Stok: 19/)).toBeVisible()
+    await expect(page.getByTestId('product-stock-prod-stock-test')).toHaveText('Stok: 19')
   })
 })

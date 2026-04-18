@@ -44,6 +44,7 @@ export function HeldCartsPanel() {
           key={cart.heldAt}
           onClick={() => retrieveCart(i)}
           className="flex items-center justify-between p-3 border rounded-lg hover:bg-blue-50 text-left text-sm transition-colors"
+          data-testid={`btn-retrieve-cart-${i}`}
         >
           <div className="flex flex-col gap-0.5">
             <span className="font-medium">{cart.items.length} produk</span>

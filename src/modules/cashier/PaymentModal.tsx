@@ -107,6 +107,7 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
             <button
               onClick={() => setStep('cash')}
               className="p-4 border-2 rounded-xl text-left hover:border-blue-500 transition-colors"
+              data-testid="btn-method-cash"
             >
               <p className="font-semibold">💵 Tunai</p>
               <p className="text-xs text-gray-400">Hitung kembalian otomatis</p>
@@ -114,6 +115,7 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
             <button
               onClick={() => setStep('qris')}
               className="p-4 border-2 rounded-xl text-left hover:border-blue-500 transition-colors"
+              data-testid="btn-method-qris"
             >
               <p className="font-semibold">📱 QRIS</p>
               <p className="text-xs text-gray-400">Tampilkan QR code ke pelanggan</p>
@@ -121,6 +123,7 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
             <button
               onClick={() => setStep('split')}
               className="p-4 border-2 rounded-xl text-left hover:border-blue-500 transition-colors"
+              data-testid="btn-method-split"
             >
               <p className="font-semibold">✂️ Split (Tunai + QRIS)</p>
               <p className="text-xs text-gray-400">Sebagian tunai, sebagian QRIS</p>
@@ -142,6 +145,7 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
                 placeholder={String(total)}
                 className="w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 aria-label="Uang diterima"
+                data-testid="input-cash"
                 autoFocus
               />
             </div>
@@ -153,6 +157,7 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
                   key={d}
                   onClick={() => { setCashInput(String(d)); setError('') }}
                   className="px-3 py-1 border rounded-full text-sm hover:bg-blue-50 hover:border-blue-400 transition-colors"
+                  data-testid={`btn-denomination-${d}`}
                 >
                   Rp {d.toLocaleString('id-ID')}
                 </button>
@@ -162,7 +167,7 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
             {cashAmount >= total && (
               <div className="bg-green-50 rounded-lg p-3">
                 <p className="text-sm text-gray-600">Kembalian</p>
-                <p className="text-xl font-bold text-green-700">
+                <p className="text-xl font-bold text-green-700" data-testid="change-amount">
                   Rp {(cashAmount - total).toLocaleString('id-ID')}
                 </p>
               </div>
@@ -176,6 +181,7 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
                 onClick={handleCashConfirm}
                 disabled={cashAmount < total}
                 className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                data-testid="btn-cash-confirm"
               >
                 Konfirmasi
               </button>
@@ -202,6 +208,7 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
               <button
                 onClick={() => onConfirm({ method: 'QRIS', cashReceived: total, change: 0 })}
                 className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700"
+                data-testid="btn-qris-confirm"
               >
                 Pembayaran Diterima
               </button>
@@ -223,6 +230,7 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
                   onChange={(e) => { setSplitCash(e.target.value); setSplitQris(String(Math.max(0, total - (parseInt(e.target.value, 10) || 0)))); setError('') }}
                   className="w-full pl-24 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   aria-label="Jumlah tunai"
+                  data-testid="input-split-cash"
                   autoFocus
                 />
               </div>
@@ -235,6 +243,7 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
                   onChange={(e) => { setSplitQris(e.target.value); setSplitCash(String(Math.max(0, total - (parseInt(e.target.value, 10) || 0)))); setError('') }}
                   className="w-full pl-24 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   aria-label="Jumlah QRIS"
+                  data-testid="input-split-qris"
                 />
               </div>
             </div>
@@ -248,6 +257,7 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
                 onClick={handleSplitConfirm}
                 disabled={splitCashAmount + splitQrisAmount !== total}
                 className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                data-testid="btn-split-confirm"
               >
                 Konfirmasi
               </button>

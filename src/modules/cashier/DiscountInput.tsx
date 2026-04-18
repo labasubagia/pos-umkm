@@ -39,6 +39,7 @@ export function DiscountInput() {
           onClick={() => setType('flat')}
           className={`flex-1 py-1.5 transition-colors ${type === 'flat' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
           aria-pressed={type === 'flat'}
+          data-testid="btn-discount-flat"
         >
           Nominal (Rp)
         </button>
@@ -46,6 +47,7 @@ export function DiscountInput() {
           onClick={() => setType('percent')}
           className={`flex-1 py-1.5 transition-colors ${type === 'percent' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
           aria-pressed={type === 'percent'}
+          data-testid="btn-discount-percent"
         >
           Persen (%)
         </button>
@@ -66,11 +68,13 @@ export function DiscountInput() {
             placeholder={type === 'flat' ? '5000' : '10'}
             className="w-full pl-10 pr-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Nilai diskon"
+            data-testid="input-discount-value"
           />
         </div>
         <button
           onClick={handleApply}
           className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+          data-testid="btn-discount-apply"
         >
           Terapkan
         </button>

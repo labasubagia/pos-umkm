@@ -108,6 +108,7 @@ export default function CashierPage() {
           <button
             onClick={() => setShowHeld(!showHeld)}
             className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+            data-testid="btn-held-toggle"
           >
             <ShoppingBag className="h-3.5 w-3.5" />
             Tahan
@@ -161,6 +162,7 @@ export default function CashierPage() {
               onClick={() => { try { holdCart() } catch (e) { setTxError((e as Error).message) } }}
               disabled={items.length === 0}
               className="flex-1 py-2 border rounded-lg text-sm hover:bg-gray-100 disabled:opacity-40"
+              data-testid="btn-hold-cart"
             >
               Tahan
             </button>
@@ -168,6 +170,7 @@ export default function CashierPage() {
               onClick={() => setShowPayment(true)}
               disabled={items.length === 0}
               className="flex-[2] py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-40"
+              data-testid="btn-pay"
             >
               Bayar Rp {total.toLocaleString('id-ID')}
             </button>
