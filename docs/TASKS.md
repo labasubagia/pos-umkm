@@ -987,7 +987,7 @@
 
 ### T038 — Daily Sales Summary
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 7 – Reports
 - **Depends on:** T016, T046, T012
 - **Test type:** unit + e2e
@@ -1011,7 +1011,7 @@
 
 ### T039 — Date-Range Sales Report
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 7 – Reports
 - **Depends on:** T038
 - **Test type:** unit + e2e
@@ -1034,7 +1034,7 @@
 
 ### T040 — Gross Profit Report
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 7 – Reports
 - **Depends on:** T039, T022
 - **Test type:** unit
@@ -1053,7 +1053,7 @@
 
 ### T041 — Cash Reconciliation
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 7 – Reports
 - **Depends on:** T038
 - **Test type:** unit + e2e
@@ -1075,7 +1075,7 @@
 
 ### T042 — PDF / Excel Export
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 7 – Reports
 - **Depends on:** T039
 - **Test type:** unit
