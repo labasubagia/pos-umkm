@@ -3,6 +3,30 @@
 > **For AI agents:** Read this document before every `git commit`. Follow the format and rules
 > below exactly. A well-structured commit history helps humans and agents understand *why* the
 > codebase changed, not just *what* changed.
+>
+> BEFORE making a commit, ensure the commit author is configured:
+>
+> 1. Read the local git config values `user.name` and `user.email` using:
+>
+> ```sh
+> git config user.name
+> git config user.email
+> ```
+>
+> 2. If either value is empty or unset, abort the commit and ask the user to provide their name
+>    and email. Do NOT proceed with a commit using a default or bot identity.
+>
+> Example check (shell):
+> ```sh
+> name=$(git config user.name)
+> email=$(git config user.email)
+> if [ -z "$name" ] || [ -z "$email" ]; then
+>   echo "Git author not configured. Please set user.name and user.email before committing."
+>   exit 1
+> fi
+> ```
+>
+> When the author is set, proceed to follow this document's rules.
 
 ---
 
