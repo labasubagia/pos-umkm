@@ -64,6 +64,40 @@ export async function saveQRISImageUrl(url: string): Promise<void> {
   }
 }
 
+export class SettingsError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SettingsError'
+  }
+}
+
+/** Validates and saves a QRIS image (data URL or http/https URL). */
+export async function saveQRISImage(dataUrlOrUrl: string): Promise<void> {
+  const isDataUrl = dataUrlOrUrl.startsWith('data:image/')
+  const isHttpUrl =
+    dataUrlOrUrl.startsWith('http://') || dataUrlOrUrl.startsWith('https://')
+  if (!isDataUrl && !isHttpUrl) {
+    throw new SettingsError(
+      'QRIS image must be a data URL (data:image/...) or a valid http/https URL',
+    )
+  }
+  await saveQRISImageUrl(dataUrlOrUrl)
+}
+
+/** Returns the stored QRIS image (data URL or URL), or empty string if not configured. */
+export async function getQRISImage(): Promise<string> {
+  return getQRISImageUrl()
+}
+
+/** Saves multiple settings at once, calling saveSetting for each key-value pair. */
+export async function saveSettings(settings: Partial<BusinessSettings>): Promise<void> {
+  for (const [key, value] of Object.entries(settings)) {
+    if (value !== undefined) {
+      await saveSetting(key, String(value))
+    }
+  }
+}
+
 /** Saves any subset of business settings. */
 export async function saveSetting(key: string, value: string): Promise<void> {
   const rows = await dataAdapter.getSheet('Settings')
