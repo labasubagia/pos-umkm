@@ -560,7 +560,7 @@
 
 ### T021 — Categories CRUD
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 3 – Catalog
 - **Depends on:** T015, T046, T011, T012
 - **Test type:** unit + e2e
@@ -588,7 +588,7 @@
 
 ### T022 — Products CRUD
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 3 – Catalog
 - **Depends on:** T021
 - **Test type:** unit + e2e
@@ -619,7 +619,7 @@
 
 ### T023 — Product Variants
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 3 – Catalog
 - **Depends on:** T022
 - **Test type:** unit
@@ -642,7 +642,7 @@
 
 ### T024 — CSV Bulk Product Import
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 3 – Catalog
 - **Depends on:** T022
 - **Test type:** unit

@@ -1,0 +1,4 @@
+name,category_id,price,stock,sku,has_variants
+Nasi Goreng Spesial,cat-001,15000,50,NASGOR-01,false
+Es Teh Manis,cat-002,5000,100,ESTEH-01,false
+Kaos Polos,cat-003,75000,30,KAOS-01,true
