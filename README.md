@@ -62,6 +62,19 @@ npm run build
 # Output ada di folder dist/
 ```
 
+## GitHub Actions Secrets
+
+The CI pipeline requires the following secrets to be configured in the repository settings
+(**Settings → Secrets and variables → Actions**):
+
+| Secret | Description |
+|---|---|
+| `GOOGLE_TEST_EMAIL` | Email address of the Google test account used by Playwright E2E tests |
+| `GOOGLE_TEST_SPREADSHEET_ID` | Spreadsheet ID of the test Google Sheet pre-seeded for E2E tests |
+
+These values are never committed to the repository. E2E tests skip Google API calls when these
+secrets are absent (uses `MockAdapter` in CI by default).
+
 ## Dokumen
 
 - [`docs/PRD.md`](docs/PRD.md) — Product Requirements Document

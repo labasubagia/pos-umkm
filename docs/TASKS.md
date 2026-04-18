@@ -30,7 +30,7 @@
 
 ### T001 — Initialize Vite + React + TypeScript Project
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 0 – Scaffold
 - **Depends on:** (none)
 - **Test type:** none
@@ -46,7 +46,7 @@
 
 ### T002 — Configure Tailwind CSS + shadcn/ui
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 0 – Scaffold
 - **Depends on:** T001
 - **Test type:** none
@@ -61,7 +61,7 @@
 
 ### T003 — Set Up React Router v6
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 0 – Scaffold
 - **Depends on:** T001
 - **Test type:** none
@@ -76,7 +76,7 @@
 
 ### T004 — Set Up Zustand for State Management
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 0 – Scaffold
 - **Depends on:** T001
 - **Test type:** none
@@ -89,7 +89,7 @@
 
 ### T005 — Set Up Vitest + Testing Library
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 0 – Scaffold
 - **Depends on:** T001
 - **Test type:** none
@@ -105,7 +105,7 @@
 
 ### T006 — Set Up Playwright for E2E Tests
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 0 – Scaffold
 - **Depends on:** T001
 - **Test type:** none
@@ -120,7 +120,7 @@
 
 ### T007 — Set Up i18n (react-i18next)
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 0 – Scaffold
 - **Depends on:** T001
 - **Test type:** none
@@ -135,7 +135,7 @@
 
 ### T008 — Set Up GitHub Actions CI Pipeline
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 0 – Scaffold
 - **Depends on:** T005, T006
 - **Test type:** none
@@ -149,7 +149,7 @@
 
 ### T009 — Create Module Folder Structure
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 0 – Scaffold
 - **Depends on:** T001
 - **Test type:** none
