@@ -1,0 +1,27 @@
+{
+  "app": {
+    "name": "POS UMKM",
+    "tagline": "Manage your store with ease"
+  },
+  "nav": {
+    "cashier": "Cashier",
+    "catalog": "Catalog",
+    "inventory": "Inventory",
+    "reports": "Reports",
+    "settings": "Settings"
+  },
+  "auth": {
+    "signIn": "Sign in with Google",
+    "signOut": "Sign out"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "loading": "Loading...",
+    "error": "An error occurred"
+  }
+}

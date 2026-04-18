@@ -1,0 +1,27 @@
+{
+  "app": {
+    "name": "POS UMKM",
+    "tagline": "Kelola toko Anda dengan mudah"
+  },
+  "nav": {
+    "cashier": "Kasir",
+    "catalog": "Katalog",
+    "inventory": "Inventori",
+    "reports": "Laporan",
+    "settings": "Pengaturan"
+  },
+  "auth": {
+    "signIn": "Masuk dengan Google",
+    "signOut": "Keluar"
+  },
+  "common": {
+    "save": "Simpan",
+    "cancel": "Batal",
+    "delete": "Hapus",
+    "edit": "Ubah",
+    "add": "Tambah",
+    "search": "Cari",
+    "loading": "Memuat...",
+    "error": "Terjadi kesalahan"
+  }
+}
