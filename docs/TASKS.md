@@ -937,7 +937,7 @@
 
 ### T036 — Customer Management
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 6 – Customers
 - **Depends on:** T015, T046, T011
 - **Test type:** unit + e2e
@@ -960,7 +960,7 @@
 
 ### T037 — Refund / Return Flow
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 6 – Customers
 - **Depends on:** T032, T022
 - **Test type:** unit + e2e

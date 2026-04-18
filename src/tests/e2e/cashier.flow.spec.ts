@@ -326,3 +326,179 @@ test.describe('Transaction Commit + Receipt (T032, T033)', () => {
     await expect(page.getByTestId('product-stock-e2e-prod-1')).toHaveText('Stok: 18')
   })
 })
+
+// ─── T036 — Customer attach to transaction ────────────────────────────────────
+
+test.describe('Customer Search (T036)', () => {
+  test('cashier can attach a customer to a transaction', async ({ page }) => {
+    // Seed customers and products in localStorage before sign-in
+    await page.goto(`${BASE}/`)
+    await page.evaluate(() => {
+      const now = new Date().toISOString()
+      window.localStorage.setItem(
+        'mock_Customers',
+        JSON.stringify([
+          {
+            id: 'e2e-cus-1',
+            name: 'Budi Santoso',
+            phone: '08111234567',
+            email: '',
+            created_at: now,
+            deleted_at: null,
+          },
+        ]),
+      )
+      window.localStorage.setItem(
+        'mock_Products',
+        JSON.stringify([
+          {
+            id: 'e2e-prod-1',
+            category_id: 'e2e-cat-1',
+            name: 'Nasi Goreng',
+            sku: 'NASGOR',
+            price: 15000,
+            stock: 20,
+            has_variants: false,
+            created_at: now,
+            deleted_at: null,
+          },
+        ]),
+      )
+      window.localStorage.setItem(
+        'mock_Categories',
+        JSON.stringify([
+          { id: 'e2e-cat-1', name: 'Makanan', created_at: now, deleted_at: null },
+        ]),
+      )
+    })
+
+    await signInAsOwner(page)
+
+    if (page.url().includes('/setup')) {
+      await page.getByPlaceholder(/nama usaha/i).fill('Toko Kasir Test')
+      await page.getByRole('button', { name: /mulai sekarang/i }).click()
+      await page.waitForURL(/\/cashier/)
+    }
+
+    await navigateTo(page, `${BASE}/cashier`)
+    await page.getByRole('heading', { name: /kasir/i }).waitFor()
+
+    // Add a product to cart
+    await page.getByTestId('product-card-e2e-prod-1').click()
+
+    // Open customer search and type the customer name
+    await page.getByTestId('customer-search-input').fill('Budi')
+
+    // Customer result should appear
+    await expect(page.getByTestId('customer-result-e2e-cus-1')).toBeVisible()
+
+    // Select the customer
+    await page.getByTestId('customer-result-e2e-cus-1').click()
+
+    // The customer name should now appear in the cart panel
+    await expect(page.getByTestId('cart-customer-name')).toContainText('Budi Santoso')
+  })
+})
+
+// ─── T037 — Refund flow ───────────────────────────────────────────────────────
+
+test.describe('Refund Flow (T037)', () => {
+  test('owner can process a refund for a completed transaction and stock is restored', async ({ page }) => {
+    const txId = 'e2e-tx-refund-1'
+    const productId = 'e2e-prod-refund-1'
+
+    // Seed transaction, product in localStorage
+    await page.goto(`${BASE}/`)
+    await page.evaluate(
+      ({ txId, productId }) => {
+        const now = new Date().toISOString()
+        window.localStorage.setItem(
+          'mock_Transactions',
+          JSON.stringify([
+            {
+              id: txId,
+              created_at: now,
+              cashier_id: 'owner-1',
+              customer_id: null,
+              subtotal: 30000,
+              discount_type: null,
+              discount_value: 0,
+              discount_amount: 0,
+              tax: 0,
+              total: 30000,
+              payment_method: 'CASH',
+              cash_received: 50000,
+              change: 20000,
+              receipt_number: 'INV/2026/001',
+              notes: null,
+            },
+          ]),
+        )
+        window.localStorage.setItem(
+          'mock_Products',
+          JSON.stringify([
+            {
+              id: productId,
+              category_id: 'cat-1',
+              name: 'Es Teh',
+              sku: 'ESTEH',
+              price: 15000,
+              stock: 18,
+              has_variants: false,
+              created_at: now,
+              deleted_at: null,
+            },
+          ]),
+        )
+        window.localStorage.setItem('mock_Refunds', JSON.stringify([]))
+        window.localStorage.setItem('mock_Audit_Log', JSON.stringify([]))
+      },
+      { txId, productId },
+    )
+
+    await signInAsOwner(page)
+
+    if (page.url().includes('/setup')) {
+      await page.getByPlaceholder(/nama usaha/i).fill('Toko Kasir Test')
+      await page.getByRole('button', { name: /mulai sekarang/i }).click()
+      await page.waitForURL(/\/cashier/)
+    }
+
+    // Navigate to /customers (refund tab)
+    await navigateTo(page, `${BASE}/customers`)
+    await page.getByTestId('tab-refund').click()
+
+    // Look up the transaction
+    await page.getByTestId('refund-tx-id-input').fill(txId)
+    await page.getByTestId('btn-find-transaction').click()
+
+    // Transaction info should be visible
+    await expect(page.getByTestId('refund-tx-info')).toBeVisible()
+
+    // Add a refund item manually
+    await page.getByTestId('btn-add-refund-item').click()
+    await page.getByTestId('refund-item-name-0').fill('Es Teh')
+    await page.getByTestId('refund-item-product-id-0').fill(productId)
+    await page.getByTestId('refund-item-price-0').fill('15000')
+    await page.getByTestId('refund-item-qty-0').fill('2')
+
+    // Enter reason and submit
+    await page.getByTestId('refund-reason-input').fill('Produk tidak sesuai')
+    await page.getByTestId('btn-submit-refund').click()
+
+    // Success message should appear
+    await expect(page.getByTestId('refund-success')).toBeVisible()
+
+    // Verify stock was re-incremented in localStorage: 18 + 2 = 20
+    const updatedStock = await page.evaluate(
+      ({ productId }) => {
+        const products = JSON.parse(window.localStorage.getItem('mock_Products') ?? '[]')
+        const p = products.find((p: { id: string }) => p.id === productId)
+        return p ? p.stock : null
+      },
+      { productId },
+    )
+    expect(updatedStock).toBe(20)
+  })
+})
+
