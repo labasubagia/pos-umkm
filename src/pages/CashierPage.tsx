@@ -1,9 +1,9 @@
 /**
- * CashierPage.tsx — Main cashier/POS screen (T025–T033).
+ * CashierPage.tsx — Main cashier/POS screen (T025–T033, T036).
  *
  * Layout:
  *   Left panel: ProductSearch (product grid + search)
- *   Right panel: CartPanel + DiscountInput + action buttons
+ *   Right panel: CustomerSearch + CartPanel + DiscountInput + action buttons
  *   Overlays: PaymentModal, ReceiptModal, HeldCartsPanel drawer
  */
 import { useEffect, useState } from 'react'
@@ -17,6 +17,8 @@ import { DiscountInput } from '../modules/cashier/DiscountInput'
 import { PaymentModal } from '../modules/cashier/PaymentModal'
 import { ReceiptModal } from '../modules/cashier/ReceiptModal'
 import { HeldCartsPanel } from '../modules/cashier/HeldCartsPanel'
+import { CustomerSearch } from '../modules/customers/CustomerSearch'
+import type { Customer } from '../modules/customers/customers.service'
 import {
   calculateSubtotal,
   applyDiscount,
@@ -34,6 +36,7 @@ export default function CashierPage() {
   const { user, spreadsheetId } = useAuthStore()
   const { products, variants, loadCatalog } = useCatalogStore()
   const { items, discount, resetCart, holdCart } = useCartStore()
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [showPayment, setShowPayment] = useState(false)
   const [showHeld, setShowHeld] = useState(false)
   const [qrisImageUrl, setQrisImageUrl] = useState('')
@@ -63,11 +66,12 @@ export default function CashierPage() {
         TAX_RATE,
         payment,
         user.id,
-        null,
+        selectedCustomer?.id ?? null,
         spreadsheetId,
         receiptSeq,
       )
       setReceiptSeq((s) => s + 1)
+      setSelectedCustomer(null)
 
       // Build TransactionItem list for receipt (derived from cart + tx id)
       const txItems: TransactionItem[] = items.map((item, i) => ({
@@ -113,6 +117,19 @@ export default function CashierPage() {
             <ShoppingBag className="h-3.5 w-3.5" />
             Tahan
           </button>
+        </div>
+
+        {/* Customer search */}
+        <div className="px-3 py-2 border-b">
+          <CustomerSearch onSelect={setSelectedCustomer} />
+          {selectedCustomer && (
+            <p
+              className="mt-1 text-xs font-medium text-blue-700"
+              data-testid="cart-customer-name"
+            >
+              {selectedCustomer.name}
+            </p>
+          )}
         </div>
 
         {/* Held carts panel (toggleable) */}
