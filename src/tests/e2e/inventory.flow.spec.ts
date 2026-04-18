@@ -105,75 +105,75 @@ test.describe('Products CRUD (T022)', () => {
     await expect(page.getByText(/Rp 15\.000/)).toBeVisible()
   })
 
-  /**
-   * Requires cashier product search UI (T026 — Phase 4).
-   * This test will be activated when the cashier screen is implemented.
-   */
-  test.fixme(
-    'owner can add a product and it appears in cashier product search',
-    async ({ page }) => {
-      await signInToCatalog(page)
+  test('owner can add a product and it appears in cashier product search', async ({ page }) => {
+    // Seed a category so the product form has something to pick from
+    await page.goto(`${BASE}/`)
+    await page.evaluate(() => {
+      window.localStorage.setItem(
+        'mock_Categories',
+        JSON.stringify([{ id: 'cat-search', name: 'Makanan', created_at: new Date().toISOString(), deleted_at: null }]),
+      )
+    })
 
-      // Add product via catalog
-      await page.getByRole('button', { name: /tambah produk/i }).click()
-      await page.getByLabel(/nama produk/i).fill('Mie Goreng')
-      await page.getByLabel(/harga/i).fill('12000')
-      await page.getByLabel(/stok/i).fill('20')
-      await page.getByRole('button', { name: /tambah/i }).click()
-      await expect(page.getByText('Mie Goreng')).toBeVisible()
+    await signInToCatalog(page)
 
-      // Navigate to cashier and search for the product
-      await navigateTo(page, `${BASE}/cashier`)
-      const searchInput = page.getByPlaceholder(/cari produk/i)
-      await searchInput.fill('Mie Goreng')
-      await expect(page.getByText('Mie Goreng')).toBeVisible()
-    },
-  )
+    // Add product via catalog
+    await page.getByRole('button', { name: /tambah produk/i }).click()
+    await page.getByLabel(/nama produk/i).fill('Mie Goreng')
+    await page.getByLabel(/kategori/i).selectOption({ label: 'Makanan' })
+    await page.getByLabel(/harga/i).fill('12000')
+    await page.getByLabel(/stok/i).fill('20')
+    await page.getByRole('button', { name: 'Tambah', exact: true }).click()
+    await expect(page.getByText('Mie Goreng')).toBeVisible()
 
-  /**
-   * Requires cashier cart + transaction commit UI (T031 — Phase 4).
-   * Verifies that completing a sale decrements product stock by the correct quantity.
-   */
-  test.fixme(
-    'completing a sale decrements product stock by correct quantity',
-    async ({ page }) => {
-      // Seed a product with known stock in localStorage
-      await page.goto(`${BASE}/`)
-      await page.evaluate(() => {
-        window.localStorage.setItem(
-          'mock_Products',
-          JSON.stringify([
-            {
-              id: 'prod-stock-test',
-              category_id: 'cat-1',
-              name: 'Produk Stok Test',
-              sku: 'STOK-01',
-              price: 10000,
-              stock: 20,
-              has_variants: false,
-              created_at: new Date().toISOString(),
-              deleted_at: null,
-            },
-          ]),
-        )
-      })
+    // Navigate to cashier and search for the product
+    await navigateTo(page, `${BASE}/cashier`)
+    await page.getByRole('heading', { name: /kasir/i }).waitFor()
+    const searchInput = page.getByPlaceholder(/cari produk/i)
+    await searchInput.fill('Mie Goreng')
+    await expect(page.getByRole('listitem').filter({ hasText: 'Mie Goreng' })).toBeVisible()
+  })
 
-      await signInToCatalog(page)
-      await navigateTo(page, `${BASE}/cashier`)
+  test('completing a sale decrements product stock by correct quantity', async ({ page }) => {
+    // Seed a product with known stock in localStorage
+    await page.goto(`${BASE}/`)
+    await page.evaluate(() => {
+      window.localStorage.setItem(
+        'mock_Products',
+        JSON.stringify([
+          {
+            id: 'prod-stock-test',
+            category_id: 'cat-1',
+            name: 'Produk Stok Test',
+            sku: 'STOK-01',
+            price: 10000,
+            stock: 20,
+            has_variants: false,
+            created_at: new Date().toISOString(),
+            deleted_at: null,
+          },
+        ]),
+      )
+    })
 
-      // Search for the product and add to cart
-      await page.getByPlaceholder(/cari produk/i).fill('Produk Stok Test')
-      await page.getByText('Produk Stok Test').click()
+    await signInToCatalog(page)
+    await navigateTo(page, `${BASE}/cashier`)
+    await page.getByRole('heading', { name: /kasir/i }).waitFor()
 
-      // Confirm payment and complete the transaction
-      await page.getByRole('button', { name: /bayar/i }).click()
-      await page.getByRole('button', { name: /tunai/i }).click()
-      await page.getByLabel(/jumlah diterima/i).fill('10000')
-      await page.getByRole('button', { name: /selesaikan/i }).click()
+    // Search for the product and add to cart
+    await page.getByPlaceholder(/cari produk/i).fill('Produk Stok Test')
+    await page.getByRole('listitem').filter({ hasText: 'Produk Stok Test' }).click()
 
-      // Navigate to catalog and verify stock decremented from 20 to 19
-      await navigateTo(page, `${BASE}/catalog`)
-      await expect(page.getByText(/Stok: 19/)).toBeVisible()
-    },
-  )
+    // Confirm payment via QRIS (avoids cash input complexity)
+    await page.getByRole('button', { name: /bayar/i }).click()
+    await page.getByRole('button').filter({ hasText: /qris/i }).first().click()
+    await page.getByRole('button', { name: /pembayaran diterima/i }).click()
+    await expect(page.getByText(/transaksi berhasil/i)).toBeVisible()
+    await page.getByRole('button', { name: /tutup/i }).click()
+
+    // Navigate to catalog and verify stock decremented from 20 to 19
+    await navigateTo(page, `${BASE}/catalog`)
+    await page.getByRole('button', { name: 'Produk', exact: true }).click()
+    await expect(page.getByText(/Stok: 19/)).toBeVisible()
+  })
 })

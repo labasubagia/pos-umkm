@@ -670,7 +670,7 @@
 
 ### T025 — Cart State Management
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 4 – Cashier
 - **Depends on:** T004, T012, T013
 - **Test type:** unit
@@ -701,7 +701,7 @@
 
 ### T026 — Product Search (Cashier Screen)
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 4 – Cashier
 - **Depends on:** T025, T022
 - **Test type:** unit + e2e
@@ -724,7 +724,7 @@
 
 ### T027 — Cash Payment + Change Calculation
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 4 – Cashier
 - **Depends on:** T025
 - **Test type:** unit + e2e
@@ -752,7 +752,7 @@
 
 ### T028 — QRIS Payment (Manual Confirmation)
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 4 – Cashier
 - **Depends on:** T025
 - **Test type:** unit + e2e
@@ -773,7 +773,7 @@
 
 ### T029 — Discount Application
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 4 – Cashier
 - **Depends on:** T025
 - **Test type:** unit
@@ -792,7 +792,7 @@
 
 ### T030 — Split Payment (Cash + QRIS)
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 4 – Cashier
 - **Depends on:** T027, T028
 - **Test type:** unit + e2e
@@ -813,7 +813,7 @@
 
 ### T031 — Hold Transaction
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 4 – Cashier
 - **Depends on:** T025
 - **Test type:** unit + e2e
@@ -834,7 +834,7 @@
 
 ### T032 — Transaction Commit + Stock Decrement
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 4 – Cashier
 - **Depends on:** T027, T022, T016
 - **Test type:** unit + e2e
@@ -859,7 +859,7 @@
 
 ### T033 — WhatsApp Receipt Generation
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 4 – Cashier
 - **Depends on:** T032, T012
 - **Test type:** unit + e2e
