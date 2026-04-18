@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.2                               |
+| Version     | 2.3                               |
 | Status      | Draft                             |
 | Date        | April 2026                        |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -96,7 +96,7 @@ Each business owner's data lives in **their own Google Drive** across two types 
 | Build tool | Vite |
 | Routing | React Router v6 |
 | State management | Zustand |
-| UI components | Tailwind CSS + shadcn/ui |
+| UI components | Tailwind CSS + shadcn/ui (Button, Input, Label, Select, Dialog, Card, Badge, Table, Tabs, Alert, Separator, ScrollArea, Textarea, Checkbox) |
 | Auth adapter (dev) | `MockAuthAdapter` — instant sign-in, no OAuth |
 | Auth adapter (prod) | `@react-oauth/google` (Google Identity Services) |
 | Data adapter (dev) | `MockDataAdapter` — localStorage-backed, no API |

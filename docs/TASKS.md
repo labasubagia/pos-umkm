@@ -1164,6 +1164,29 @@
   - ✅ `getQRISImage returns stored value`
   - ❌ `saveQRISImage throws if value is not a valid URL or data URL`
 
+### T049 — Migrate All UI Components to shadcn/ui
+
+- **Status:** ✅ done
+- **Phase:** 0 – Scaffold (retroactive)
+- **Depends on:** T002, T048
+- **Test type:** none (visual/UX; functional behaviour tested by existing unit + E2E tests)
+- **Architecture note:** shadcn/ui components are copied into `src/components/ui/` (not a runtime dependency) so the bundle only includes what is actually used. Tailwind CSS continues to handle all layout and spacing. The migration keeps all `data-testid` attributes intact so E2E tests require no changes. Native `<select>` is preserved for elements that Playwright's `.selectOption()` interacts with (`select-product-category`, `select-po-product-*`) — replacing those with a custom Radix-based Select would silently break E2E tests.
+- **Deliverables:**
+  - **13 new shadcn/ui primitives** added to `src/components/ui/`:
+    `input`, `label`, `select`, `dialog`, `card`, `badge`, `table`, `tabs`, `alert`, `separator`, `scroll-area`, `textarea`, `checkbox`
+  - **35 UI files updated** (all pages + all module components):
+    - All custom button-tab navigation replaced with `Tabs` / `TabsList` / `TabsTrigger` / `TabsContent`
+    - All hand-rolled overlay modals replaced with `Dialog` (PaymentModal, ReceiptModal, ProductSearch variant picker, PurchaseOrders detail)
+    - All raw `<input>` + inline label replaced with `Input` + `Label`
+    - All raw `<select>` for non-E2E selects replaced with `Select` + `SelectContent` + `SelectItem`
+    - All error/success divs replaced with `Alert` / `AlertDescription`
+    - Container divs with `rounded border p-4` replaced with `Card` / `CardContent`
+    - All data tables replaced with `Table` / `TableHeader` / `TableBody` / `TableRow` / `TableCell`
+    - Status labels replaced with `Badge`
+    - NavBar logout + nav links updated to use `Button variant="ghost"/"secondary"`
+    - LandingPage `asChild` type error fixed
+  - **TRD.md §2.1** updated to list all 14 shadcn components; version bumped to 2.3
+
 ---
 
 ## Appendix: Parallelization Map
@@ -1172,7 +1195,7 @@ The following tasks within each phase have no mutual dependencies and can be wor
 
 | Can run in parallel | Tasks |
 |---|---|
-| Phase 0 | T001 first, then T002–T009 + T048 all in parallel (T048 depends on T003, so after T003) |
+| Phase 0 | T001 first, then T002–T009 + T048 + T049 all in parallel (T048/T049 depend on T003) |
 | Phase 1 | T010, T011, T012, T013 in parallel; then T045 (interface); then T046, T047 in parallel |
 | Phase 2 | T014 first; then T015 → T016 → T017 → T018 → T019 → T020 (mostly sequential) |
 | Phase 3–7 | All phases can start once Phase 2 is done; phases are independent of each other |
