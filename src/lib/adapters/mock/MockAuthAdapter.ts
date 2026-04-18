@@ -11,6 +11,7 @@ const PRESET_USER: User = {
   id: 'mock-owner',
   email: 'owner@test.com',
   name: 'Test Owner',
+  // 'owner' preset gives full access during dev; real role resolved from Users sheet post-auth
   role: 'owner',
 }
 

@@ -108,6 +108,6 @@ async function fetchGoogleUserInfo(token: string): Promise<User> {
     id: data.sub as string,
     email: data.email as string,
     name: data.name as string,
-    role: 'owner', // default; actual role is read from Master Sheet post-sign-in
+    role: 'owner' as const, // default; actual role is read from Master Sheet post-sign-in
   }
 }

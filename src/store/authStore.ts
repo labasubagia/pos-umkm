@@ -1,16 +1,9 @@
 import { create } from 'zustand'
-
-type Role = 'owner' | 'manager' | 'cashier' | null
-
-interface User {
-  id: string
-  email: string
-  name: string
-}
+import type { Role, User } from '../lib/adapters/types'
 
 interface AuthState {
   user: User | null
-  role: Role
+  role: Role | null
   accessToken: string | null
   spreadsheetId: string | null
   isAuthenticated: boolean

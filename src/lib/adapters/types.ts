@@ -7,12 +7,14 @@
  * TypeScript's structural typing catches divergence at compile time.
  */
 
+/** Role hierarchy: cashier < manager < owner */
+export type Role = 'owner' | 'manager' | 'cashier'
+
 export interface User {
   id: string
   email: string
   name: string
-  /** 'owner' has full access; 'member' has cashier-only access */
-  role: 'owner' | 'member'
+  role: Role
 }
 
 /**
