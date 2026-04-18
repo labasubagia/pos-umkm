@@ -167,3 +167,184 @@ test.describe('Products CRUD (T022)', () => {
     await expect(page.getByTestId('product-stock-prod-stock-test')).toHaveText('Stok: 19')
   })
 })
+
+// ─── T034 — Stock Opname ──────────────────────────────────────────────────────
+
+test.describe('Stock Opname (T034)', () => {
+  test('owner can run stock opname and discrepancies are logged', async ({ page }) => {
+    const prodId = 'opname-prod-1'
+
+    // Seed a product with known stock into localStorage
+    await page.goto(`${BASE}/`)
+    await page.evaluate((id) => {
+      const now = new Date().toISOString()
+      window.localStorage.setItem(
+        'mock_Products',
+        JSON.stringify([
+          {
+            id,
+            category_id: 'cat-1',
+            name: 'Produk Opname',
+            sku: 'OPNAME-01',
+            price: 10000,
+            stock: 50,
+            has_variants: false,
+            created_at: now,
+            deleted_at: null,
+          },
+        ]),
+      )
+    }, prodId)
+
+    await signInAsOwner(page)
+
+    // Handle setup wizard if redirected
+    if (page.url().includes('/setup')) {
+      await page.getByTestId('input-business-name').fill('Toko Opname Test')
+      await page.getByTestId('btn-setup-submit').click()
+      await page.waitForURL(/\/cashier/)
+    }
+
+    // Navigate to /inventory
+    await navigateTo(page, `${BASE}/inventory`)
+    await page.getByRole('heading', { name: /inventori/i }).waitFor()
+
+    // Stock Opname tab should be active by default
+    await expect(page.getByTestId('stock-opname-container')).toBeVisible()
+
+    // Verify system stock is 50
+    await expect(page.getByTestId(`opname-system-stock-${prodId}`)).toHaveText('50')
+
+    // Enter physical count of 45 (discrepancy of -5)
+    await page.getByTestId(`opname-physical-input-${prodId}`).fill('45')
+
+    // Verify diff shows -5
+    await expect(page.getByTestId(`opname-diff-${prodId}`)).toHaveText('-5')
+
+    // Save opname
+    await page.getByTestId('btn-save-opname').click()
+
+    // Success message should confirm the update
+    await expect(page.getByTestId('opname-success')).toBeVisible()
+
+    // After reload, system stock should now be 45
+    await expect(page.getByTestId(`opname-system-stock-${prodId}`)).toHaveText('45')
+
+    // Stock_Log should have the entry (verify via localStorage)
+    const stockLog = await page.evaluate(() => {
+      const raw = window.localStorage.getItem('mock_Stock_Log')
+      return raw ? JSON.parse(raw) : []
+    })
+    expect(stockLog.length).toBeGreaterThan(0)
+    const logEntry = stockLog.find(
+      (e: Record<string, unknown>) =>
+        e['product_id'] === prodId && e['reason'] === 'opname',
+    )
+    expect(logEntry).toBeTruthy()
+    expect(logEntry['qty_before']).toBe(50)
+    expect(logEntry['qty_after']).toBe(45)
+  })
+})
+
+// ─── T035 — Purchase Orders ───────────────────────────────────────────────────
+
+test.describe('Purchase Orders (T035)', () => {
+  test('owner can create a purchase order and mark it as received, increasing stock', async ({ page }) => {
+    const prodId = 'po-prod-1'
+
+    // Seed a product with known stock
+    await page.goto(`${BASE}/`)
+    await page.evaluate((id) => {
+      const now = new Date().toISOString()
+      window.localStorage.setItem(
+        'mock_Products',
+        JSON.stringify([
+          {
+            id,
+            category_id: 'cat-1',
+            name: 'Produk PO',
+            sku: 'PO-01',
+            price: 10000,
+            stock: 20,
+            has_variants: false,
+            created_at: now,
+            deleted_at: null,
+          },
+        ]),
+      )
+    }, prodId)
+
+    await signInAsOwner(page)
+
+    // Handle setup wizard if redirected
+    if (page.url().includes('/setup')) {
+      await page.getByTestId('input-business-name').fill('Toko PO Test')
+      await page.getByTestId('btn-setup-submit').click()
+      await page.waitForURL(/\/cashier/)
+    }
+
+    // Navigate to /inventory → Purchase Order tab
+    await navigateTo(page, `${BASE}/inventory`)
+    await page.getByRole('heading', { name: /inventori/i }).waitFor()
+    await page.getByTestId('btn-tab-purchase-orders').click()
+    await expect(page.getByTestId('purchase-orders-container')).toBeVisible()
+
+    // Create a new PO
+    await page.getByTestId('btn-create-po').click()
+    await expect(page.getByTestId('po-form')).toBeVisible()
+
+    // Fill in supplier name
+    await page.getByTestId('input-po-supplier').fill('Supplier Test ABC')
+
+    // Select product in first item row
+    await page.getByTestId('select-po-product-0').selectOption({ value: prodId })
+
+    // Set qty = 30
+    await page.getByTestId('input-po-qty-0').fill('30')
+
+    // Set cost price
+    await page.getByTestId('input-po-cost-0').fill('8000')
+
+    // Submit the PO
+    await page.getByTestId('btn-submit-po').click()
+
+    // PO should appear in list with "Pending" status
+    await expect(page.getByTestId('po-empty')).not.toBeVisible()
+
+    // Find the created PO row and verify supplier name
+    const poRow = page.locator('[data-testid^="po-row-"]')
+    await expect(poRow.first()).toBeVisible()
+
+    const poId = await poRow.first().getAttribute('data-testid').then((id) => id?.replace('po-row-', '') ?? '')
+    await expect(page.getByTestId(`po-supplier-${poId}`)).toHaveText('Supplier Test ABC')
+    await expect(page.getByTestId(`po-status-${poId}`)).toHaveText('Pending')
+
+    // Receive the PO
+    await page.getByTestId(`btn-receive-po-${poId}`).click()
+
+    // Status should now be "Diterima"
+    await expect(page.getByTestId(`po-status-${poId}`)).toHaveText('Diterima')
+
+    // Stock for prodId should now be 20 + 30 = 50
+    const products = await page.evaluate(() => {
+      const raw = window.localStorage.getItem('mock_Products')
+      return raw ? JSON.parse(raw) : []
+    })
+    const updatedProd = products.find((p: Record<string, unknown>) => p['id'] === prodId)
+    expect(updatedProd?.['stock']).toBe(50)
+
+    // Stock_Log should have a "purchase_order" entry
+    const stockLog = await page.evaluate(() => {
+      const raw = window.localStorage.getItem('mock_Stock_Log')
+      return raw ? JSON.parse(raw) : []
+    })
+    const logEntry = stockLog.find(
+      (e: Record<string, unknown>) =>
+        e['product_id'] === prodId && e['reason'] === 'purchase_order',
+    )
+    expect(logEntry).toBeTruthy()
+    expect(logEntry['qty_before']).toBe(20)
+    expect(logEntry['qty_after']).toBe(50)
+  })
+})
+

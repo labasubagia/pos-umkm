@@ -889,7 +889,7 @@
 
 ### T034 — Stock Opname
 
-- **Status:** ⬜ todo
+- **Status:** 🔄 in-progress
 - **Phase:** 5 – Inventory
 - **Depends on:** T022, T046
 - **Test type:** unit + e2e
@@ -911,7 +911,7 @@
 
 ### T035 — Purchase Orders (Incoming Stock)
 
-- **Status:** ⬜ todo
+- **Status:** 🔄 in-progress
 - **Phase:** 5 – Inventory
 - **Depends on:** T022, T046
 - **Test type:** unit + e2e

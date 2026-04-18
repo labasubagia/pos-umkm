@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import CashierPage from './pages/CashierPage'
 import CatalogPage from './pages/CatalogPage'
+import InventoryPage from './pages/InventoryPage'
 import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/SettingsPage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -43,6 +44,16 @@ export const router = createBrowserRouter(
         <ProtectedRoute>
           <RoleRoute minRole="manager">
             <CatalogPage />
+          </RoleRoute>
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: '/inventory',
+      element: (
+        <ProtectedRoute>
+          <RoleRoute minRole="manager">
+            <InventoryPage />
           </RoleRoute>
         </ProtectedRoute>
       ),
