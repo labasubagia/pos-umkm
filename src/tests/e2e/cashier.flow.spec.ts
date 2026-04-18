@@ -322,7 +322,7 @@ test.describe('Transaction Commit + Receipt (T032, T033)', () => {
 
     // Navigate to catalog and verify stock decremented from 20 to 18
     await navigateTo(page, `${BASE}/catalog`)
-    await page.getByRole('button', { name: 'Produk', exact: true }).click()
+    await page.getByTestId('btn-tab-products').click()
     await expect(page.getByTestId('product-stock-e2e-prod-1')).toHaveText('Stok: 18')
   })
 })
