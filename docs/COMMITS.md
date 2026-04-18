@@ -252,4 +252,32 @@ ci: [add|update] [job name] step in [workflow]
 
 ---
 
+## 11. Enforcing rules with Git hooks
+
+To prevent generic or uninformative commits (for example, "Commit from Copilot CLI"), this repository provides a commit-msg hook that validates commit messages against the rules in this document.
+
+- The hook rejects clearly generic messages and enforces a Conventional Commits-like subject format for the first line.
+- The hook is provided at `.githooks/commit-msg`. To enable it locally, run:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The hook deliberately runs locally (not server-side) so each contributor is guided to write good messages before pushing. CI may add additional checks server-side.
+
+### Installing (developers)
+
+1. Ensure the file `.githooks/commit-msg` is executable: `chmod +x .githooks/commit-msg`.
+2. Point your repo to use the bundled hooks:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+3. Commit as usual; the hook will reject messages that are too generic or don't follow the required subject format. If rejected, update your commit message to follow the examples in this document.
+
+### Why this prevents the problem
+
+The most common cause of the "missing context" problem is automated or default commit messages. The commit-msg hook rejects those and requires a human-readable Conventional Commit subject plus body when needed. This makes history meaningful and reviewable.
+
 *End of Document — POS UMKM COMMITS.md*
