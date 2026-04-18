@@ -9,7 +9,7 @@ const BASE = '/pos-umkm'
  */
 export async function signInAsOwner(page: Page): Promise<void> {
   await page.goto(`${BASE}/login`)
-  await page.getByRole('button', { name: /masuk dengan google/i }).click()
+  await page.getByTestId('btn-sign-in').click()
   // After sign-in, owner is routed to /setup (first time) or /cashier
   await page.waitForURL(/\/(setup|cashier)/)
 }
@@ -29,7 +29,7 @@ export async function signInAsCashier(page: Page): Promise<void> {
     window.localStorage.setItem('mock_auth_role', 'cashier')
   })
   await page.goto(`${BASE}/login`)
-  await page.getByRole('button', { name: /masuk dengan google/i }).click()
+  await page.getByTestId('btn-sign-in').click()
   await page.waitForURL(/\/cashier/)
 }
 

@@ -38,7 +38,7 @@ export default function LoginPage() {
       <p className="text-muted-foreground text-center max-w-sm">
         Sistem kasir untuk usaha kecil Indonesia
       </p>
-      <Button onClick={handleSignIn}>Masuk dengan Google</Button>
+      <Button onClick={handleSignIn} data-testid="btn-sign-in">Masuk dengan Google</Button>
     </div>
   )
 }
