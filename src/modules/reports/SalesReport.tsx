@@ -2,8 +2,8 @@ import { useState } from 'react'
 import {
   fetchTransactionsForRange,
   filterTransactions,
-  TransactionRow,
-  ReportFilters,
+  type TransactionRow,
+  type ReportFilters,
   ReportError,
 } from './reports.service'
 import { formatIDR } from '../../lib/formatters'

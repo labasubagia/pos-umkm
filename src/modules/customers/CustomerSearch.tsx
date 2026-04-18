@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { fetchCustomers, Customer } from './customers.service'
+import { fetchCustomers, type Customer } from './customers.service'
 
 interface CustomerSearchProps {
   /** Called when the user selects a customer, or null to clear the selection. */

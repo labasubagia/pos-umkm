@@ -10,7 +10,7 @@
  */
 
 import { useState } from 'react'
-import { fetchTransaction, createRefund, RefundItem, RefundError } from './refund.service'
+import { fetchTransaction, createRefund, type RefundItem, RefundError } from './refund.service'
 import type { Transaction } from '../cashier/cashier.service'
 import { formatIDR } from '../../lib/formatters'
 

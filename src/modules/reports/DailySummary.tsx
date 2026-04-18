@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchDailySummary, DailySummary as DailySummaryType, ReportError } from './reports.service'
+import { fetchDailySummary, type DailySummary as DailySummaryType, ReportError } from './reports.service'
 import { formatIDR } from '../../lib/formatters'
 
 export function DailySummary() {

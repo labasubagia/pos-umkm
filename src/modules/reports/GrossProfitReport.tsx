@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   fetchTransactionsForRange,
   calculateGrossProfit,
-  ProfitSummary,
+  type ProfitSummary,
   ReportError,
 } from './reports.service'
 import { dataAdapter } from '../../lib/adapters'
