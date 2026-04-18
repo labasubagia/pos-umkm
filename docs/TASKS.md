@@ -10,6 +10,7 @@
 - **TDD rule:** Write the failing test(s) first, then implement, then refactor. Mark status `in-progress` before starting, `done` after all tests pass.
 - **Architecture rule:** After completing each task, verify no module imports another module's internals. All data reads/writes go through `lib/adapters/` (the `DataAdapter` interface) — never call `lib/sheets/` or Google APIs directly from modules. `lib/sheets/` is used only inside `GoogleDataAdapter`.
 - **Comments rule:** Every non-trivial function must have a JSDoc comment explaining *why* the approach was chosen, not just what it does.
+- **E2E locator rule:** Every interactive element and key output element that an E2E test touches **must** have a `data-testid` attribute. E2E tests must use `page.getByTestId()` as the primary selector. `getByRole`, `getByText`, `getByPlaceholder`, and `.first()` / `.last()` are not permitted as primary locators in assertions or interactions — only for page-level navigation waits. See TRD §7.4 for the full rule and naming convention.
 
 ## Status Legend
 

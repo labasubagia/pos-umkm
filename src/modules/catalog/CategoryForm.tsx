@@ -52,6 +52,7 @@ export function CategoryForm({ initialName = '', onSubmit, onCancel, submitLabel
           maxLength={100}
           placeholder="Contoh: Makanan, Minuman, Snack"
           className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          data-testid="input-category-name"
         />
         {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
@@ -67,6 +68,7 @@ export function CategoryForm({ initialName = '', onSubmit, onCancel, submitLabel
           type="submit"
           disabled={loading}
           className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+          data-testid="btn-category-submit"
         >
           {loading ? 'Menyimpan…' : submitLabel}
         </button>

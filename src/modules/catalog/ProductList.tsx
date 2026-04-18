@@ -66,6 +66,7 @@ export function ProductList() {
         <button
           onClick={() => setShowAddForm(true)}
           className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+          data-testid="btn-add-product"
         >
           + Tambah Produk
         </button>
@@ -93,7 +94,7 @@ export function ProductList() {
           {products.map((product) => {
             const editingThisProduct = editingId === product.id
             return (
-              <li key={product.id} className="rounded border border-gray-200 p-3">
+              <li key={product.id} className="rounded border border-gray-200 p-3" data-testid={`product-item-${product.id}`}>
                 {editingThisProduct ? (
                   <ProductForm
                     categories={categories}
@@ -105,11 +106,12 @@ export function ProductList() {
                 ) : (
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-medium">{product.name}</span>
+                      <span className="font-medium" data-testid={`product-name-${product.id}`}>{product.name}</span>
                       <span className="text-xs text-gray-500">
                         {categoryMap.get(product.category_id) ?? '—'} ·{' '}
                         {product.sku ? `SKU: ${product.sku} · ` : ''}
-                        {formatIDR(product.price)} · <span data-testid={`product-stock-${product.id}`}>Stok: {product.stock}</span>
+                        <span data-testid={`product-price-${product.id}`}>{formatIDR(product.price)}</span>{' '}
+                        · <span data-testid={`product-stock-${product.id}`}>Stok: {product.stock}</span>
                         {product.has_variants && ' · Memiliki varian'}
                       </span>
                     </div>

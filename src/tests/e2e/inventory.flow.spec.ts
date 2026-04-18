@@ -4,9 +4,6 @@
  * All tests run with VITE_ADAPTER=mock (default in dev). MockAuthAdapter returns
  * the preset owner user (role: owner) so /catalog is accessible without a real
  * Google account.
- *
- * Phase 4 dependency note: tests marked test.fixme() require the cashier product
- * search UI (T026) which is not yet implemented. They will be un-fixed in Phase 4.
  */
 import { test, expect } from '@playwright/test'
 import { signInAsOwner, navigateTo } from './helpers/auth'
@@ -19,8 +16,9 @@ async function signInToCatalog(page: Parameters<typeof signInAsOwner>[0]) {
 
   // Complete setup wizard if redirected there on first visit
   if (page.url().includes('/setup')) {
-    await page.getByPlaceholder(/nama usaha/i).fill('Toko Katalog Test')
-    await page.getByRole('button', { name: /mulai sekarang/i }).click()
+    // SetupPage inputs — testids will be added when SetupPage is fully implemented
+    await page.getByTestId('input-business-name').fill('Toko Katalog Test')
+    await page.getByTestId('btn-setup-submit').click()
     await page.waitForURL(/\/cashier/)
   }
 
@@ -37,36 +35,29 @@ test.describe('Categories CRUD (T021)', () => {
     await signInToCatalog(page)
 
     // Switch to the Categories tab
-    await page.getByRole('button', { name: /kategori/i }).click()
+    await page.getByTestId('btn-tab-categories').click()
     await page.getByRole('heading', { name: /kategori produk/i }).waitFor()
 
     // ── Create ─────────────────────────────────────────────────────────────
-    await page.getByRole('button', { name: /tambah kategori/i }).click()
+    await page.getByTestId('btn-add-category').click()
+    await page.getByTestId('input-category-name').fill('Minuman Segar')
+    await page.getByTestId('btn-category-submit').click()
 
-    const nameInput = page.getByLabel(/nama kategori/i)
-    await nameInput.fill('Minuman Segar')
-    await page.getByRole('button', { name: 'Tambah', exact: true }).click()
-
-    // Category should now appear in the list
-    await expect(page.getByText('Minuman Segar')).toBeVisible()
+    // Category name should appear in the list
+    await expect(page.locator('[data-testid^="category-name-"]').filter({ hasText: 'Minuman Segar' })).toBeVisible()
 
     // ── Rename ─────────────────────────────────────────────────────────────
-    // Click Edit on the new category's row
-    const categoryRow = page.locator('li').filter({ hasText: 'Minuman Segar' })
-    await categoryRow.getByRole('button', { name: /edit/i }).click()
+    // Click Edit on the category row (the only edit button since just one category exists)
+    await page.locator('[data-testid^="btn-edit-category-"]').click()
+    await page.getByTestId('input-category-name').fill('Minuman Dingin')
+    await page.getByTestId('btn-category-submit').click()
 
-    const editInput = page.getByLabel(/nama kategori/i)
-    await editInput.fill('Minuman Dingin')
-    await page.getByRole('button', { name: /perbarui/i }).click()
-
-    await expect(page.getByText('Minuman Dingin')).toBeVisible()
-    await expect(page.getByText('Minuman Segar')).not.toBeVisible()
+    await expect(page.locator('[data-testid^="category-name-"]').filter({ hasText: 'Minuman Dingin' })).toBeVisible()
+    await expect(page.locator('[data-testid^="category-name-"]').filter({ hasText: 'Minuman Segar' })).toHaveCount(0)
 
     // ── Delete ─────────────────────────────────────────────────────────────
-    const updatedRow = page.locator('li').filter({ hasText: 'Minuman Dingin' })
-    await updatedRow.getByRole('button', { name: /hapus/i }).click()
-
-    await expect(page.getByText('Minuman Dingin')).not.toBeVisible()
+    await page.locator('[data-testid^="btn-delete-category-"]').click()
+    await expect(page.locator('[data-testid^="category-name-"]').filter({ hasText: 'Minuman Dingin' })).toHaveCount(0)
   })
 })
 
@@ -76,33 +67,32 @@ test.describe('Products CRUD (T022)', () => {
   test('owner can add a product and it appears in the catalog product list', async ({ page }) => {
     await signInToCatalog(page)
 
-    // Ensure we are on the Products tab (default)
+    // Ensure we are on the Products tab (default) — page-load wait
     await page.getByRole('heading', { name: 'Produk', exact: true }).waitFor()
 
-    // First, seed a category so the product form has something to pick from
-    await page.getByRole('button', { name: /kategori/i }).click()
+    // First, create a category so the product form has something to pick from
+    await page.getByTestId('btn-tab-categories').click()
     await page.getByRole('heading', { name: /kategori produk/i }).waitFor()
-    await page.getByRole('button', { name: /tambah kategori/i }).click()
-    await page.getByLabel(/nama kategori/i).fill('Makanan')
-    await page.getByRole('button', { name: 'Tambah', exact: true }).click()
-    await expect(page.getByText('Makanan')).toBeVisible()
+    await page.getByTestId('btn-add-category').click()
+    await page.getByTestId('input-category-name').fill('Makanan')
+    await page.getByTestId('btn-category-submit').click()
+    await expect(page.locator('[data-testid^="category-name-"]').filter({ hasText: 'Makanan' })).toBeVisible()
 
     // Switch back to Products tab
-    await page.getByRole('button', { name: 'Produk', exact: true }).click()
+    await page.getByTestId('btn-tab-products').click()
     await page.getByRole('heading', { name: 'Produk', exact: true }).waitFor()
 
     // Add a product
-    await page.getByRole('button', { name: /tambah produk/i }).click()
+    await page.getByTestId('btn-add-product').click()
+    await page.getByTestId('input-product-name').fill('Nasi Goreng Spesial')
+    await page.getByTestId('select-product-category').selectOption({ label: 'Makanan' })
+    await page.getByTestId('input-product-price').fill('15000')
+    await page.getByTestId('input-product-stock').fill('50')
+    await page.getByTestId('btn-product-submit').click()
 
-    await page.getByLabel(/nama produk/i).fill('Nasi Goreng Spesial')
-    await page.getByLabel(/kategori/i).selectOption({ label: 'Makanan' })
-    await page.getByLabel(/harga/i).fill('15000')
-    await page.getByLabel(/stok/i).fill('50')
-    await page.getByRole('button', { name: 'Tambah', exact: true }).click()
-
-    // Product should appear in the product list
-    await expect(page.getByText('Nasi Goreng Spesial')).toBeVisible()
-    await expect(page.getByText(/Rp 15\.000/)).toBeVisible()
+    // Product name and price should appear in the product list
+    await expect(page.locator('[data-testid^="product-name-"]').filter({ hasText: 'Nasi Goreng Spesial' })).toBeVisible()
+    await expect(page.locator('[data-testid^="product-price-"]').filter({ hasText: 'Rp 15.000' })).toBeVisible()
   })
 
   test('owner can add a product and it appears in cashier product search', async ({ page }) => {
@@ -117,26 +107,25 @@ test.describe('Products CRUD (T022)', () => {
 
     await signInToCatalog(page)
 
-    // Add product via catalog
-    await page.getByRole('button', { name: /tambah produk/i }).click()
-    await page.getByLabel(/nama produk/i).fill('Mie Goreng')
-    await page.getByLabel(/kategori/i).selectOption({ label: 'Makanan' })
-    await page.getByLabel(/harga/i).fill('12000')
-    await page.getByLabel(/stok/i).fill('20')
-    await page.getByRole('button', { name: 'Tambah', exact: true }).click()
-    await expect(page.getByText('Mie Goreng')).toBeVisible()
+    // Add product via catalog form
+    await page.getByTestId('btn-add-product').click()
+    await page.getByTestId('input-product-name').fill('Mie Goreng')
+    await page.getByTestId('select-product-category').selectOption({ label: 'Makanan' })
+    await page.getByTestId('input-product-price').fill('12000')
+    await page.getByTestId('input-product-stock').fill('20')
+    await page.getByTestId('btn-product-submit').click()
+    await expect(page.locator('[data-testid^="product-name-"]').filter({ hasText: 'Mie Goreng' })).toBeVisible()
 
     // Navigate to cashier and search for the product
     await navigateTo(page, `${BASE}/cashier`)
     await page.getByRole('heading', { name: /kasir/i }).waitFor()
     await page.getByTestId('product-search-input').fill('Mie Goreng')
-    // Product card is identified by testid containing the product name (id unknown, so filter by text)
-    await expect(page.getByTestId('product-search-input')).toHaveValue('Mie Goreng')
-    await expect(page.getByRole('listitem').filter({ hasText: 'Mie Goreng' })).toBeVisible()
+    // Product ID is a generated UUID — use CSS prefix selector scoped to the product grid
+    await expect(page.locator('[data-testid^="product-card-"]').filter({ hasText: 'Mie Goreng' })).toBeVisible()
   })
 
   test('completing a sale decrements product stock by correct quantity', async ({ page }) => {
-    // Seed a product with known stock in localStorage
+    // Seed a product with known stock and known ID in localStorage
     await page.goto(`${BASE}/`)
     await page.evaluate(() => {
       window.localStorage.setItem(
@@ -161,11 +150,11 @@ test.describe('Products CRUD (T022)', () => {
     await navigateTo(page, `${BASE}/cashier`)
     await page.getByRole('heading', { name: /kasir/i }).waitFor()
 
-    // Search for the product and add to cart
+    // Add product to cart using known testid
     await page.getByTestId('product-search-input').fill('Produk Stok Test')
     await page.getByTestId('product-card-prod-stock-test').click()
 
-    // Confirm payment via QRIS (avoids cash input complexity)
+    // Complete QRIS payment
     await page.getByTestId('btn-pay').click()
     await page.getByTestId('btn-method-qris').click()
     await page.getByTestId('btn-qris-confirm').click()
@@ -174,7 +163,7 @@ test.describe('Products CRUD (T022)', () => {
 
     // Navigate to catalog and verify stock decremented from 20 to 19
     await navigateTo(page, `${BASE}/catalog`)
-    await page.getByRole('button', { name: 'Produk', exact: true }).click()
+    await page.getByTestId('btn-tab-products').click()
     await expect(page.getByTestId('product-stock-prod-stock-test')).toHaveText('Stok: 19')
   })
 })

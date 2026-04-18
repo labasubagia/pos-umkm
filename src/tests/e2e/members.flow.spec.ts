@@ -13,8 +13,9 @@ const BASE = '/pos-umkm'
 async function signInAndSetup(page: Parameters<typeof signInAsOwner>[0], businessName: string) {
   await signInAsOwner(page)
   if (page.url().includes('/setup')) {
-    await page.getByPlaceholder(/nama usaha/i).fill(businessName)
-    await page.getByRole('button', { name: /mulai sekarang/i }).click()
+    // SetupPage inputs — testids will be added when SetupPage is fully implemented
+    await page.getByTestId('input-business-name').fill(businessName)
+    await page.getByTestId('btn-setup-submit').click()
     await page.waitForURL(/\/cashier/)
   }
 }
@@ -26,11 +27,11 @@ test.describe('Member invite and Store Link', () => {
     await navigateTo(page, `${BASE}/settings`)
     await page.getByRole('heading', { name: /kelola anggota/i }).waitFor()
 
-    await page.getByPlaceholder(/anggota@gmail.com/i).fill('member@test.com')
-    await page.getByRole('button', { name: /undang anggota/i }).click()
+    await page.getByTestId('input-member-email').fill('member@test.com')
+    await page.getByTestId('btn-invite-member').click()
 
-    await expect(page.getByText(/tautan toko/i)).toBeVisible()
-    await expect(page.getByText(/sid=/i)).toBeVisible()
+    await expect(page.getByTestId('store-link-section')).toBeVisible()
+    await expect(page.getByTestId('store-link-url')).toContainText('sid=')
   })
 
   test("owner can revoke a member's access", async ({ page }) => {
@@ -40,13 +41,13 @@ test.describe('Member invite and Store Link', () => {
     await page.getByRole('heading', { name: /kelola anggota/i }).waitFor()
 
     // Invite first
-    await page.getByPlaceholder(/anggota@gmail.com/i).fill('revoke@test.com')
-    await page.getByRole('button', { name: /undang anggota/i }).click()
-    await expect(page.getByText(/tautan toko/i)).toBeVisible()
+    await page.getByTestId('input-member-email').fill('revoke@test.com')
+    await page.getByTestId('btn-invite-member').click()
+    await expect(page.getByTestId('store-link-section')).toBeVisible()
 
-    // Revoke
-    await page.getByRole('button', { name: /cabut/i }).first().click()
-    await expect(page.getByText('revoke@test.com')).not.toBeVisible()
+    // Revoke — use CSS prefix selector since member ID is a generated UUID
+    await page.locator('[data-testid^="btn-revoke-"]').click()
+    await expect(page.locator('[data-testid^="member-item-"]')).toHaveCount(0)
   })
 })
 
@@ -64,8 +65,8 @@ test.describe('Store Link join flow', () => {
       )
     })
     await page.goto(`${BASE}/join?sid=test-sheet-id`)
-    await expect(page.getByText(/bergabung ke toko/i)).toBeVisible()
-    await page.getByRole('button', { name: /masuk dengan google/i }).click()
+    await expect(page.getByTestId('join-page-heading')).toBeVisible()
+    await page.getByTestId('btn-join-sign-in').click()
     // MockAuthAdapter signs in as owner@test.com which exists in Users with role=owner
     await page.waitForURL(/\/cashier/)
   })
@@ -92,7 +93,7 @@ test.describe('POS terminal PIN lock', () => {
     await signInAndSetup(page, 'Toko PIN Test 1')
     await page.goto(`${BASE}/cashier`)
     // Without a PIN hash configured, locking is disabled — overlay must not appear
-    await expect(page.getByText(/terminal terkunci/i)).not.toBeVisible()
+    await expect(page.getByTestId('pin-lock-overlay')).not.toBeVisible()
   })
 
   test('cashier can unlock terminal with correct PIN', async ({ page }) => {
@@ -100,13 +101,13 @@ test.describe('POS terminal PIN lock', () => {
     await page.goto(`${BASE}/cashier`)
     // With no PIN configured, the lock screen never appears
     await expect(page.locator('body')).toBeVisible()
-    await expect(page.getByText(/terminal terkunci/i)).not.toBeVisible()
+    await expect(page.getByTestId('pin-lock-overlay')).not.toBeVisible()
   })
 
   test('wrong PIN does not unlock terminal', async ({ page }) => {
     await signInAndSetup(page, 'Toko PIN Test 3')
     await page.goto(`${BASE}/cashier`)
-    await expect(page.getByText(/terminal terkunci/i)).not.toBeVisible()
+    await expect(page.getByTestId('pin-lock-overlay')).not.toBeVisible()
   })
 })
 

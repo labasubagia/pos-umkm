@@ -61,12 +61,12 @@ export default function JoinPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-2xl font-bold">Bergabung ke Toko</h1>
+      <h1 className="text-2xl font-bold" data-testid="join-page-heading">Bergabung ke Toko</h1>
       <p className="text-muted-foreground text-center max-w-sm">
         Anda diundang untuk mengakses toko ini. Masuk dengan akun Google Anda untuk melanjutkan.
       </p>
       {error && <p className="text-red-500 text-sm max-w-sm text-center">{error}</p>}
-      <Button onClick={() => void handleJoin()} disabled={loading}>
+      <Button onClick={() => void handleJoin()} disabled={loading} data-testid="btn-join-sign-in">
         {loading ? 'Memuat...' : 'Masuk dengan Google'}
       </Button>
     </div>

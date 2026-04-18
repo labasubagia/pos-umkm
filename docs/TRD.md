@@ -647,6 +647,20 @@ describe('calculateTotal', () => {
 - Viewport: Tablet (768×1024) as primary (matches cashier terminal use case)
 - Base URL: `http://localhost:5173` for local; deployed URL for CI
 
+**Locator rule — `data-testid` required:**
+All interactive elements and key output elements in production components **must** carry a `data-testid` attribute. E2E tests **must** locate elements using `page.getByTestId()` as the primary selector. Text-based locators (`getByText`, `getByRole` with name, `getByPlaceholder`) are only permitted for:
+- Page-level URL assertions (`expect(page).toHaveURL(...)`)
+- Waiting for page transitions (`page.waitForURL(...)`)
+- Elements that have no production component (e.g., the `<body>` element)
+
+`getByRole`, `getByPlaceholder`, `.filter({ hasText })`, and `.first()` / `.last()` are **not allowed** as the primary locator in assertions or interactions. Every element that an E2E test interacts with or asserts on must be identified by its `data-testid`.
+
+**`data-testid` naming convention:**
+- Buttons: `btn-<action>` (e.g., `btn-pay`, `btn-invite-member`, `btn-method-cash`)
+- Inputs: `input-<field>` (e.g., `input-cash`, `input-discount-value`)
+- Output/display elements: `<semantic-name>` (e.g., `change-amount`, `receipt-preview`)
+- Per-item elements in lists: `<element>-<id>` (e.g., `product-card-e2e-prod-1`, `btn-retrieve-cart-0`)
+
 **Business flows covered:**
 
 | Spec file | Flow |
@@ -673,16 +687,17 @@ test('complete a cash transaction', async ({ page }) => {
   await page.goto('/')
   await signInAsTestCashier(page)
 
-  await page.getByPlaceholder('Cari produk...').fill('Indomie')
-  await page.getByText('Indomie Goreng').click()
-  await expect(page.getByTestId('cart-total')).toHaveText('Rp 3.500')
+  await page.getByTestId('product-search-input').fill('Indomie')
+  await page.getByTestId('product-card-prod-indomie').click()
+  await expect(page.getByTestId('btn-pay')).toContainText('3.500')
 
-  await page.getByRole('button', { name: 'Bayar' }).click()
-  await page.getByLabel('Tunai diterima').fill('5000')
+  await page.getByTestId('btn-pay').click()
+  await page.getByTestId('btn-method-cash').click()
+  await page.getByTestId('input-cash').fill('5000')
   await expect(page.getByTestId('change-amount')).toHaveText('Rp 1.500')
 
-  await page.getByRole('button', { name: 'Selesai' }).click()
-  await expect(page.getByText('Transaksi berhasil')).toBeVisible()
+  await page.getByTestId('btn-cash-confirm').click()
+  await expect(page.getByTestId('receipt-success')).toBeVisible()
 })
 ```
 

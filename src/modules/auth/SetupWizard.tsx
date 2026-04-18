@@ -69,6 +69,7 @@ export default function SetupWizard() {
             onChange={(e) => setBusinessName(e.target.value)}
             placeholder="Nama usaha Anda"
             required
+            data-testid="input-business-name"
           />
         </label>
 
@@ -98,7 +99,7 @@ export default function SetupWizard() {
 
         {error && <p className="text-red-500 text-sm">{error}</p>}
 
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" disabled={loading} data-testid="btn-setup-submit">
           {loading ? 'Menyiapkan...' : 'Mulai Sekarang'}
         </Button>
       </form>

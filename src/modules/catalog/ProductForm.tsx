@@ -78,6 +78,7 @@ export function ProductForm({
           onChange={(e) => setName(e.target.value)}
           placeholder="Contoh: Nasi Goreng Spesial"
           className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          data-testid="input-product-name"
         />
       </div>
 
@@ -90,6 +91,7 @@ export function ProductForm({
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
           className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          data-testid="select-product-category"
         >
           <option value="">-- Pilih Kategori --</option>
           {categories.map((c) => (
@@ -114,6 +116,7 @@ export function ProductForm({
             step={1}
             placeholder="15000"
             className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            data-testid="input-product-price"
           />
         </div>
 
@@ -130,6 +133,7 @@ export function ProductForm({
             step={1}
             placeholder="0"
             className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            data-testid="input-product-stock"
           />
         </div>
       </div>
@@ -172,6 +176,7 @@ export function ProductForm({
           type="submit"
           disabled={loading}
           className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+          data-testid="btn-product-submit"
         >
           {loading ? 'Menyimpan…' : submitLabel}
         </button>

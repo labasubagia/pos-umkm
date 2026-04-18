@@ -29,7 +29,7 @@ export function PinLock({ onUnlock }: PinLockProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-6 p-8">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background gap-6 p-8" data-testid="pin-lock-overlay">
       <div className="flex flex-col items-center gap-2">
         <h2 className="text-2xl font-bold">Terminal Terkunci</h2>
         <p className="text-muted-foreground text-sm">Masukkan PIN untuk melanjutkan</p>
@@ -45,11 +45,12 @@ export function PinLock({ onUnlock }: PinLockProps) {
           onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
           autoFocus
           aria-label="PIN"
+          data-testid="input-pin"
         />
         {error && (
           <p className="text-red-500 text-sm">PIN salah. Coba lagi.</p>
         )}
-        <Button type="submit" disabled={loading || pin.length < 4}>
+        <Button type="submit" disabled={loading || pin.length < 4} data-testid="btn-pin-unlock">
           {loading ? 'Memverifikasi...' : 'Buka Kunci'}
         </Button>
       </form>

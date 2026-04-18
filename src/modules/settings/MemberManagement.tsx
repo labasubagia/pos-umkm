@@ -68,6 +68,7 @@ export default function MemberManagement() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="anggota@gmail.com"
             required
+            data-testid="input-member-email"
           />
         </label>
         <label className="flex flex-col gap-1">
@@ -82,15 +83,15 @@ export default function MemberManagement() {
           </select>
         </label>
         {error && <p className="text-red-500 text-sm">{error}</p>}
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" disabled={loading} data-testid="btn-invite-member">
           {loading ? 'Mengundang...' : 'Undang Anggota'}
         </Button>
       </form>
 
       {storeLink && (
-        <div className="bg-green-50 border border-green-200 rounded p-4 max-w-sm">
+        <div className="bg-green-50 border border-green-200 rounded p-4 max-w-sm" data-testid="store-link-section">
           <p className="font-medium text-green-800 mb-1">Tautan Toko:</p>
-          <p className="break-all text-sm font-mono">{storeLink}</p>
+          <p className="break-all text-sm font-mono" data-testid="store-link-url">{storeLink}</p>
           <p className="text-xs text-green-700 mt-1">
             Bagikan tautan ini ke anggota untuk bergabung.
           </p>
@@ -104,12 +105,12 @@ export default function MemberManagement() {
         ) : (
           <ul className="flex flex-col gap-2">
             {members.map((m) => (
-              <li key={m.id} className="flex items-center justify-between border rounded p-3">
+              <li key={m.id} className="flex items-center justify-between border rounded p-3" data-testid={`member-item-${m.id}`}>
                 <div>
                   <p className="font-medium">{m.email}</p>
                   <p className="text-sm text-muted-foreground capitalize">{m.role}</p>
                 </div>
-                <Button variant="destructive" onClick={() => void handleRevoke(m.id)}>
+                <Button variant="destructive" onClick={() => void handleRevoke(m.id)} data-testid={`btn-revoke-${m.id}`}>
                   Cabut
                 </Button>
               </li>

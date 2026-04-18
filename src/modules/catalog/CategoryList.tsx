@@ -48,6 +48,7 @@ export function CategoryList() {
         <button
           onClick={() => setShowAddForm(true)}
           className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+          data-testid="btn-add-category"
         >
           + Tambah Kategori
         </button>
@@ -72,7 +73,7 @@ export function CategoryList() {
       ) : (
         <ul className="flex flex-col gap-2">
           {categories.map((cat) => (
-            <li key={cat.id} className="rounded border border-gray-200 p-3">
+            <li key={cat.id} className="rounded border border-gray-200 p-3" data-testid={`category-item-${cat.id}`}>
               {editingId === cat.id ? (
                 <CategoryForm
                   initialName={cat.name}
@@ -82,17 +83,19 @@ export function CategoryList() {
                 />
               ) : (
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">{cat.name}</span>
+                  <span className="font-medium" data-testid={`category-name-${cat.id}`}>{cat.name}</span>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setEditingId(cat.id)}
                       className="text-sm text-blue-600 hover:underline"
+                      data-testid={`btn-edit-category-${cat.id}`}
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleDelete(cat.id)}
                       className="text-sm text-red-600 hover:underline"
+                      data-testid={`btn-delete-category-${cat.id}`}
                     >
                       Hapus
                     </button>
