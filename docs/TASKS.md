@@ -1096,6 +1096,38 @@
 
 ---
 
+### T048 — App Shell & Navigation Bar
+
+- **Status:** ✅ done
+- **Phase:** 0 – Scaffold (retroactive)
+- **Depends on:** T003, T014, T019
+- **Test type:** unit
+- **Architecture note:** The `AppShell` component is used as a **React Router v6 layout route** — a route with no `path` that renders `<NavBar>` + `<Outlet>`. This ensures the nav bar appears on every authenticated page without each page component having to import it. Public routes (`/`, `/login`, `/join`, `/setup`) sit outside the layout route and render without a nav bar. Nav links are filtered at render time by `ROLE_RANK` (same logic as `RoleRoute`) so cashiers never see manager-only links — the actual route protection is still enforced by `RoleRoute`. See TRD §2.6 for the full layout diagram.
+- **Deliverables:**
+  - `src/components/NavBar.tsx`:
+    - `<header>` with `h-16` (4 rem) matching `CashierPage`'s `h-[calc(100vh-4rem)]`
+    - Logo, role-filtered nav links with icons (lucide-react), username display, sign-out button
+    - Calls `authAdapter.signOut()` + `clearAuth()` + navigates to `/` on sign-out
+    - All interactive/key elements have `data-testid` per TRD §2.6 naming table
+    - Responsive: labels hidden on `< sm` (460 px), username hidden on `< md` (768 px)
+  - `src/components/AppShell.tsx`:
+    - Renders `<NavBar />` + `<Outlet />` inside a `min-h-screen flex flex-col` container
+    - `data-testid="app-shell"` on root, `data-testid="main-content"` on `<main>`
+  - `src/router.tsx` updated:
+    - New pathless layout route wrapping all protected pages under `<ProtectedRoute> + <AppShell>`
+    - `<SetupWizard>` (`/setup`) remains outside the layout route (no nav during onboarding)
+- **Test cases (`NavBar.test.tsx`):**
+  - ✅ `renders logo text "POS UMKM"`
+  - ✅ `owner sees all 6 nav links (Kasir, Katalog, Inventori, Pelanggan, Laporan, Pengaturan)`
+  - ✅ `manager sees 5 nav links (not Pengaturan)`
+  - ✅ `cashier sees only Kasir link`
+  - ✅ `active route link has active styling`
+  - ✅ `renders username from auth store`
+  - ✅ `sign-out button calls authAdapter.signOut and clearAuth`
+  - ❌ `unauthenticated user sees no nav links and no username`
+
+---
+
 ### T043 — Business Profile & Tax Configuration
 
 - **Status:** ✅ done
@@ -1140,7 +1172,7 @@ The following tasks within each phase have no mutual dependencies and can be wor
 
 | Can run in parallel | Tasks |
 |---|---|
-| Phase 0 | T001 first, then T002–T009 all in parallel |
+| Phase 0 | T001 first, then T002–T009 + T048 all in parallel (T048 depends on T003, so after T003) |
 | Phase 1 | T010, T011, T012, T013 in parallel; then T045 (interface); then T046, T047 in parallel |
 | Phase 2 | T014 first; then T015 → T016 → T017 → T018 → T019 → T020 (mostly sequential) |
 | Phase 3–7 | All phases can start once Phase 2 is done; phases are independent of each other |

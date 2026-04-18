@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.1                               |
+| Version     | 2.2                               |
 | Status      | Draft                             |
 | Date        | April 2026                        |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -192,7 +192,10 @@ src/
 │   ├── formatters.ts    # IDR, date, number formatting utilities
 │   ├── validators.ts    # Input validation rules
 │   └── uuid.ts          # UUID v4 generator
-├── components/          # Shared, dumb UI components (Button, Modal, etc.)
+├── components/          # Shared, reusable UI components
+│   ├── NavBar.tsx       # Role-aware top navigation bar (links filtered by user role)
+│   ├── AppShell.tsx     # Authenticated page layout: NavBar + <Outlet /> (layout route)
+│   └── ui/              # shadcn/ui primitives (Button, Modal, etc.)
 ├── hooks/               # Shared React hooks (useDebounce, usePagination, etc.)
 └── tests/
     └── e2e/             # Playwright end-to-end tests
@@ -209,7 +212,57 @@ src/
 - No module imports from another module's internals. Shared state goes through Zustand stores or React context.
 - Pure functions (formatters, validators, calculations) live in `lib/` and are unit-testable without DOM or API.
 
-### 2.6 Adapter Pattern
+### 2.6 Application Layout — AppShell & NavBar
+
+Authenticated pages share a common layout provided by `AppShell`, which is mounted as a **React Router v6 layout route** in `src/router.tsx`. This avoids repeating nav markup in every page component.
+
+```
+router.tsx
+└── <ProtectedRoute>
+    └── <AppShell>            ← layout route (no path of its own)
+        ├── <NavBar />        ← rendered once, persists across route changes
+        └── <Outlet />        ← page-specific content (CashierPage, CatalogPage, …)
+```
+
+**AppShell (`src/components/AppShell.tsx`):** A thin wrapper that renders `<NavBar />` above and `<Outlet />` below. The outer element is `min-h-screen flex flex-col` so page content fills remaining viewport height.
+
+**NavBar (`src/components/NavBar.tsx`):** A `h-16` (4 rem) top navigation bar.
+
+| Area | Content |
+|---|---|
+| Left | Logo / app name ("POS UMKM") |
+| Centre | Role-filtered navigation links |
+| Right | Logged-in user's name + Keluar (sign-out) button |
+
+Navigation links are filtered at render time using the same `ROLE_RANK` hierarchy as `RoleRoute`. If a user's role is insufficient for a link, that link is simply not rendered (in addition to the route itself being protected by `RoleRoute`).
+
+| Route | Label | Min role | Icon |
+|---|---|---|---|
+| `/cashier` | Kasir | cashier | ShoppingCart |
+| `/catalog` | Katalog | manager | Package |
+| `/inventory` | Inventori | manager | Archive |
+| `/customers` | Pelanggan | manager | Users |
+| `/reports` | Laporan | manager | BarChart2 |
+| `/settings` | Pengaturan | owner | Settings |
+
+Public routes (`/`, `/login`, `/join`) and the setup wizard (`/setup`) are **outside** the `AppShell` layout route and do not show the NavBar.
+
+Responsive behaviour: labels are hidden below `sm` (640 px) — icons only. On `md`+ (768 px) the username is also displayed.
+
+**`data-testid` attributes** (E2E locators):
+
+| Element | `data-testid` |
+|---|---|
+| `<header>` wrapper | `navbar` |
+| App logo span | `navbar-logo` |
+| `<nav>` element | `navbar-nav` |
+| Each nav link | `nav-{route}` e.g. `nav-cashier` |
+| Username display | `navbar-username` |
+| Sign-out button | `btn-logout` |
+| `<AppShell>` root | `app-shell` |
+| `<main>` content area | `main-content` |
+
+### 2.7 Adapter Pattern
 
 All data reads/writes and authentication go through a **swappable adapter interface**, not hard-coded Google API calls. This allows the entire app to run without any Google account during development.
 

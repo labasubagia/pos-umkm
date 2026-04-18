@@ -12,15 +12,16 @@ import SetupWizard from './modules/auth/SetupWizard'
 import JoinPage from './modules/auth/JoinPage'
 import { ProtectedRoute } from './modules/auth/ProtectedRoute'
 import { RoleRoute } from './modules/auth/RoleRoute'
+import { AppShell } from './components/AppShell'
 
 export const router = createBrowserRouter(
   [
-    // Public routes
+    // Public routes (no nav bar)
     { path: '/', element: <LandingPage /> },
     { path: '/login', element: <LoginPage /> },
     { path: '/join', element: <JoinPage /> },
 
-    // Protected: all authenticated users
+    // Setup wizard — authenticated but no persistent nav (onboarding flow)
     {
       path: '/setup',
       element: (
@@ -29,67 +30,62 @@ export const router = createBrowserRouter(
         </ProtectedRoute>
       ),
     },
-    {
-      path: '/cashier',
-      element: (
-        <ProtectedRoute>
-          <CashierPage />
-        </ProtectedRoute>
-      ),
-    },
 
-    // Protected: manager+ only
+    // Protected routes — rendered inside AppShell (shows NavBar)
     {
-      path: '/catalog',
       element: (
         <ProtectedRoute>
-          <RoleRoute minRole="manager">
-            <CatalogPage />
-          </RoleRoute>
+          <AppShell />
         </ProtectedRoute>
       ),
-    },
-    {
-      path: '/customers',
-      element: (
-        <ProtectedRoute>
-          <RoleRoute minRole="manager">
-            <CustomersPage />
-          </RoleRoute>
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: '/inventory',
-      element: (
-        <ProtectedRoute>
-          <RoleRoute minRole="manager">
-            <InventoryPage />
-          </RoleRoute>
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: '/reports',
-      element: (
-        <ProtectedRoute>
-          <RoleRoute minRole="manager">
-            <ReportsPage />
-          </RoleRoute>
-        </ProtectedRoute>
-      ),
-    },
+      children: [
+        // All authenticated roles
+        { path: '/cashier', element: <CashierPage /> },
 
-    // Protected: owner only
-    {
-      path: '/settings',
-      element: (
-        <ProtectedRoute>
-          <RoleRoute minRole="owner">
-            <SettingsPage />
-          </RoleRoute>
-        </ProtectedRoute>
-      ),
+        // Manager+ only
+        {
+          path: '/catalog',
+          element: (
+            <RoleRoute minRole="manager">
+              <CatalogPage />
+            </RoleRoute>
+          ),
+        },
+        {
+          path: '/customers',
+          element: (
+            <RoleRoute minRole="manager">
+              <CustomersPage />
+            </RoleRoute>
+          ),
+        },
+        {
+          path: '/inventory',
+          element: (
+            <RoleRoute minRole="manager">
+              <InventoryPage />
+            </RoleRoute>
+          ),
+        },
+        {
+          path: '/reports',
+          element: (
+            <RoleRoute minRole="manager">
+              <ReportsPage />
+            </RoleRoute>
+          ),
+        },
+
+        // Owner only
+        {
+          path: '/settings',
+          element: (
+            <RoleRoute minRole="owner">
+              <SettingsPage />
+            </RoleRoute>
+          ),
+        },
+      ],
     },
 
     { path: '*', element: <NotFoundPage /> },
