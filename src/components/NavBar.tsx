@@ -28,12 +28,12 @@ const ROLE_RANK: Record<Role, number> = {
 }
 
 export const NAV_ITEMS = [
-  { to: '/cashier',   label: 'Kasir',      icon: ShoppingCart, minRole: 'cashier' as Role },
-  { to: '/catalog',   label: 'Katalog',    icon: Package,      minRole: 'manager' as Role },
-  { to: '/inventory', label: 'Inventori',  icon: Archive,      minRole: 'manager' as Role },
-  { to: '/customers', label: 'Pelanggan',  icon: Users,        minRole: 'manager' as Role },
-  { to: '/reports',   label: 'Laporan',    icon: BarChart2,    minRole: 'manager' as Role },
-  { to: '/settings',  label: 'Pengaturan', icon: Settings,     minRole: 'owner'   as Role },
+  { to: '/cashier', label: 'Kasir', icon: ShoppingCart, minRole: 'cashier' as Role },
+  { to: '/catalog', label: 'Katalog', icon: Package, minRole: 'manager' as Role },
+  { to: '/inventory', label: 'Inventori', icon: Archive, minRole: 'manager' as Role },
+  { to: '/customers', label: 'Pelanggan', icon: Users, minRole: 'manager' as Role },
+  { to: '/reports', label: 'Laporan', icon: BarChart2, minRole: 'manager' as Role },
+  { to: '/settings', label: 'Pengaturan', icon: Settings, minRole: 'owner' as Role },
 ]
 
 export function NavBar() {
@@ -52,10 +52,10 @@ export function NavBar() {
 
   return (
     <header
-      className="bg-white border-b shrink-0"
+      className="shrink-0"
       data-testid="navbar"
     >
-      <div className="mx-auto max-w-6xl h-14 md:h-16 flex items-center px-4 gap-2">
+      <div className="bg-white border-b mx-auto max-w-6xl h-14 md:h-16 flex items-center px-4 gap-2">
         {/* Logo / app name */}
         <span
           className="font-bold text-blue-600 text-lg shrink-0"
