@@ -17,6 +17,7 @@ import {
   calculateTax,
   calculateTotal,
   commitTransaction,
+  ensureMonthlySheetExists,
   CashierError,
 } from '../modules/cashier/cashier.service'
 import { getQRISImageUrl } from '../modules/settings/settings.service'
@@ -57,6 +58,9 @@ export default function CashierPage() {
     if (!user || !spreadsheetId) return
     setTxError('')
     try {
+      // Ensure the monthly transaction sheet exists before writing to it.
+      // Creates it (with headers) on the first transaction of each month.
+      await ensureMonthlySheetExists(spreadsheetId)
       const tx = await commitTransaction(
         items,
         discount,

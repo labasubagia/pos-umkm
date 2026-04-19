@@ -96,21 +96,18 @@ export async function createMasterSpreadsheet(businessName: string): Promise<str
   try {
     const name = `POS UMKM — Master — ${businessName}`
 
-    // Create (or find) the folder hierarchy apps/pos_umkm/<businessName>/
-    // and place the spreadsheet inside it. GoogleDataAdapter implements ensureFolder;
-    // MockDataAdapter skips folder creation (returns null, file goes to root).
     let parentFolderId: string | undefined
     if (dataAdapter.ensureFolder) {
       const folderId = await dataAdapter.ensureFolder(['apps', 'pos_umkm', businessName])
       if (folderId) {
         parentFolderId = folderId
-        // Persist folder ID so monthly sheets land in the same folder.
+        // Persist folder ID and store name so monthly sheets know their folder path.
         localStorage.setItem('storeFolderId', folderId)
+        localStorage.setItem('storeName', businessName)
       }
     }
 
     const id = await dataAdapter.createSpreadsheet(name, parentFolderId, [...MASTER_TABS])
-    // Update the live adapter instance — it was constructed with an empty ID.
     dataAdapter.setSpreadsheetId(id)
     return id
   } catch (err) {
@@ -165,13 +162,32 @@ export function getCurrentMonthSheetId(): string | null {
  * Named "POS UMKM — Transactions — YYYY-MM".
  * The spreadsheetId is persisted to localStorage keyed by "txSheet_YYYY-MM".
  */
+/**
+ * Creates a new monthly transaction spreadsheet.
+ * Named "POS UMKM — Transactions — YYYY-MM".
+ * Placed in apps/pos_umkm/<Store Name>/transactions/<Year>/<Month>/ in Drive.
+ * The spreadsheetId is persisted to localStorage keyed by "txSheet_YYYY-MM".
+ */
 export async function createMonthlySheet(year: number, month: number): Promise<string> {
   try {
     const mm = String(month).padStart(2, '0')
     const name = `POS UMKM — Transactions — ${year}-${mm}`
-    // Reuse the store folder created during master-sheet setup so monthly sheets
-    // sit alongside the master in apps/pos_umkm/<Store Name>/.
-    const parentFolderId = localStorage.getItem('storeFolderId') ?? undefined
+
+    let parentFolderId: string | undefined
+    if (dataAdapter.ensureFolder) {
+      const storeName = localStorage.getItem('storeName')
+      if (storeName) {
+        // Place sheet in apps/pos_umkm/<Store Name>/transactions/<Year>/<Month>/
+        const folderId = await dataAdapter.ensureFolder([
+          'apps', 'pos_umkm', storeName, 'transactions', String(year), mm,
+        ])
+        if (folderId) parentFolderId = folderId
+      } else {
+        // Fallback: use the store folder directly (pre-existing sessions without storeName)
+        parentFolderId = localStorage.getItem('storeFolderId') ?? undefined
+      }
+    }
+
     const id = await dataAdapter.createSpreadsheet(name, parentFolderId, [...MONTHLY_TABS])
     localStorage.setItem(monthKey(year, month), id)
     return id
