@@ -5,14 +5,17 @@
  * and spreadsheetId from localStorage. Two things it cannot restore:
  *
  *   1. accessToken — intentionally excluded for XSS safety. Restored by
- *      calling authAdapter.restoreSession().
+ *      calling authAdapter.restoreSession() in a useEffect.
  *   2. In-memory adapter routing — dataAdapter keeps its spreadsheetId in
- *      memory and loses it on refresh. Restored from the persisted
- *      spreadsheetId and the txSheet_* key in localStorage.
+ *      memory and loses it on refresh.
+ *
+ * Adapter routing is restored SYNCHRONOUSLY before children render so that
+ * page-level effects (e.g. CashierPage loading products) can make API calls
+ * immediately without racing against this component's useEffect.
  *
  * Behaviour matrix:
- *   - Valid session   → setAccessToken(); restore adapter routing.
- *   - Expired session + Google → clearAuth() → ProtectedRoute → /login.
+ *   - Valid session   → setAccessToken(); adapter already wired synchronously.
+ *   - Expired session + Google → clearAuth() → ProtectedRoute → landing page.
  *   - Expired session + mock  → keep persisted state (dev convenience).
  *
  * Renders children immediately — ProtectedRoute guards protected pages via
@@ -31,19 +34,21 @@ interface Props {
 export function AuthInitializer({ children }: Props) {
   const { isAuthenticated, spreadsheetId, setAccessToken, clearAuth } = useAuth()
 
-  useEffect(() => {
-    // Restore in-memory adapter routing from persisted state so API calls
-    // work immediately after a page refresh (before any user interaction).
-    if (spreadsheetId) {
-      dataAdapter.setSpreadsheetId(spreadsheetId)
-      // Monthly transaction sheet is still stored directly in localStorage by
-      // setup.service (not yet moved to Zustand).
-      const now = new Date()
-      const mm = String(now.getMonth() + 1).padStart(2, '0')
-      const monthlyId = localStorage.getItem(`txSheet_${now.getFullYear()}-${mm}`)
-      if (monthlyId) dataAdapter.setMonthlySpreadsheetId(monthlyId)
-    }
+  // ── Synchronous adapter wiring ──────────────────────────────────────────────
+  // Restore in-memory dataAdapter routing from persisted Zustand state BEFORE
+  // children render, so child useEffects that load page data don't get a null
+  // spreadsheetId. This is safe to call during render because it is a
+  // non-React side effect (no setState, no DOM mutation).
+  if (spreadsheetId) {
+    dataAdapter.setSpreadsheetId(spreadsheetId)
+    const now = new Date()
+    const mm = String(now.getMonth() + 1).padStart(2, '0')
+    const monthlyId = localStorage.getItem(`txSheet_${now.getFullYear()}-${mm}`)
+    if (monthlyId) dataAdapter.setMonthlySpreadsheetId(monthlyId)
+  }
 
+  // ── Async token restoration ─────────────────────────────────────────────────
+  useEffect(() => {
     void authAdapter.restoreSession().then((user) => {
       if (user) {
         // Session is valid — inject token so Google API calls are authorised.
