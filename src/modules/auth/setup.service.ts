@@ -182,14 +182,14 @@ export async function createMonthlySheet(year: number, month: number): Promise<s
 
 /**
  * Writes the column header row to every tab of a Monthly Spreadsheet.
- * Must be called once after createMonthlySheet.
+ * Must be called after setMonthlySpreadsheetId(id) so that writeHeaders
+ * routes to the monthly spreadsheet and not the master.
  * In MockDataAdapter this is a no-op.
  */
 export async function initializeMonthlySheets(spreadsheetId: string): Promise<void> {
   if (!spreadsheetId) {
     throw new SetupError('initializeMonthlySheets: spreadsheetId is required')
   }
-  dataAdapter.setSpreadsheetId(spreadsheetId)
   await Promise.all(
     MONTHLY_TABS.map((tab) =>
       dataAdapter.writeHeaders(tab, MONTHLY_TAB_HEADERS[tab] ?? []),

@@ -26,6 +26,11 @@ export default function LoginPage() {
     if (existingId) {
       dataAdapter.setSpreadsheetId(existingId)
       setSpreadsheetId(existingId)
+      // Restore monthly sheet routing if a monthly sheet exists for this month.
+      const now = new Date()
+      const mm = String(now.getMonth() + 1).padStart(2, '0')
+      const monthlyId = localStorage.getItem(`txSheet_${now.getFullYear()}-${mm}`)
+      if (monthlyId) dataAdapter.setMonthlySpreadsheetId(monthlyId)
       navigate('/cashier')
     } else {
       navigate('/setup')

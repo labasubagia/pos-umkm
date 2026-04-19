@@ -95,6 +95,10 @@ export class MockDataAdapter implements DataAdapter {
     // intentional no-op: mock adapter doesn't use a spreadsheetId field
   }
 
+  setMonthlySpreadsheetId(_id: string): void {
+    // intentional no-op: mock stores all tabs in localStorage without routing
+  }
+
   /**
    * No-op in the mock adapter — mock sheets use object keys as column names
    * directly, so header rows are not needed.

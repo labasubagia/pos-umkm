@@ -22,13 +22,26 @@ import { generateId } from '../../uuid'
 const DRIVE_API = 'https://www.googleapis.com/drive/v3'
 const MASTER_LS_KEY = 'masterSpreadsheetId'
 
+/** Tabs that live in the monthly transaction spreadsheet (not the master). */
+const MONTHLY_TAB_NAMES = new Set(['Transactions', 'Transaction_Items', 'Refunds'])
+
 export class GoogleDataAdapter implements DataAdapter {
-  private spreadsheetId: string
+  private spreadsheetId: string         // master spreadsheet
+  private monthlySpreadsheetId: string  // current month's transaction spreadsheet
   private readonly getToken: () => string
 
   constructor(spreadsheetId: string, getToken: () => string) {
     this.spreadsheetId = spreadsheetId
+    this.monthlySpreadsheetId = ''
     this.getToken = getToken
+  }
+
+  /** Routes to monthly spreadsheet for transaction tabs; master for everything else. */
+  private resolveId(sheetName: string): string {
+    if (MONTHLY_TAB_NAMES.has(sheetName) && this.monthlySpreadsheetId) {
+      return this.monthlySpreadsheetId
+    }
+    return this.spreadsheetId
   }
 
   /**
@@ -38,9 +51,8 @@ export class GoogleDataAdapter implements DataAdapter {
   async getSheet(sheetName: string): Promise<Record<string, unknown>[]> {
     try {
       const token = this.getToken()
-      // Row 0 is headers (raw, before strip); sheetsGet strips header internally
-      // We need the header row to map columns → keys, so fetch with raw range
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${encodeURIComponent(sheetName)}`
+      const sid = this.resolveId(sheetName)
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${encodeURIComponent(sheetName)}`
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       if (!res.ok) {
         const body = await res.text().catch(() => '')
@@ -75,9 +87,12 @@ export class GoogleDataAdapter implements DataAdapter {
    */
   async writeHeaders(sheetName: string, headers: string[]): Promise<void> {
     const token = this.getToken()
+    const sid = this.resolveId(sheetName)
+    // Encode only the sheet name; keep the range notation (!1:1) unencoded.
     const range = `${sheetName}!1:1`
+    const encodedRange = `${encodeURIComponent(sheetName)}!1:1`
     const res = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${encodedRange}?valueInputOption=RAW`,
       {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -90,26 +105,21 @@ export class GoogleDataAdapter implements DataAdapter {
     }
   }
 
-  /**
-   * Fetches the header row of the given sheet and maps the row object to an
-   * ordered value array matching header columns. Falls back to Object.values()
-   * if no headers exist (e.g. in tests without real Sheets API).
-   * Appends the ordered row via sheetsAppend.
-   */
   async appendRow(sheetName: string, row: Record<string, unknown>): Promise<void> {
     try {
       const token = this.getToken()
+      const sid = this.resolveId(sheetName)
       const rowWithId = row['id'] ? row : { id: generateId(), ...row }
 
-      // Fetch only row 1 (header) to determine column order — cheap single-row read.
-      const headerUrl = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${encodeURIComponent(sheetName + '!1:1')}`
+      // Fetch only row 1 (header) to determine column order.
+      // Encode the sheet name only; append the range notation unencoded.
+      const headerUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${encodeURIComponent(sheetName)}!1:1`
       const headerRes = await fetch(headerUrl, { headers: { Authorization: `Bearer ${token}` } })
       let values: unknown[]
       if (headerRes.ok) {
         const headerData = await headerRes.json()
         const headers: string[] = (headerData.values?.[0] ?? []) as string[]
         if (headers.length > 0) {
-          // Map values in header column order; use null for missing keys.
           values = headers.map((h) => rowWithId[h] ?? null)
         } else {
           values = Object.values(rowWithId)
@@ -118,7 +128,7 @@ export class GoogleDataAdapter implements DataAdapter {
         values = Object.values(rowWithId)
       }
 
-      await sheetsAppend(this.spreadsheetId, sheetName, [values] as unknown as (string | number | boolean)[][], token)
+      await sheetsAppend(sid, sheetName, [values] as unknown as (string | number | boolean)[][], token)
     } catch (err) {
       if (err instanceof SheetsApiError) {
         throw new AdapterError(`appendRow failed for "${sheetName}": ${err.message}`, err)
@@ -139,8 +149,8 @@ export class GoogleDataAdapter implements DataAdapter {
   ): Promise<void> {
     try {
       const token = this.getToken()
-      // Fetch raw rows (including header) to find row number
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${encodeURIComponent(sheetName)}`
+      const sid = this.resolveId(sheetName)
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${encodeURIComponent(sheetName)}`
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       if (!res.ok) throw new SheetsApiError(res.status, `Failed to fetch sheet "${sheetName}"`)
       const data = await res.json()
@@ -158,7 +168,7 @@ export class GoogleDataAdapter implements DataAdapter {
       const sheetRowNumber = dataRowIndex + 2 // +1 for header, +1 for 1-based
       const colLetter = columnToLetter(colIndex)
       const range = `${sheetName}!${colLetter}${sheetRowNumber}`
-      await sheetsUpdate(this.spreadsheetId, range, [[value as string]], token)
+      await sheetsUpdate(sid, range, [[value as string]], token)
     } catch (err) {
       if (err instanceof AdapterError) throw err
       if (err instanceof SheetsApiError) {
@@ -176,6 +186,11 @@ export class GoogleDataAdapter implements DataAdapter {
   /** Updates the active spreadsheetId so subsequent calls target the right sheet. */
   setSpreadsheetId(id: string): void {
     this.spreadsheetId = id
+  }
+
+  /** Routes Transactions/Transaction_Items/Refunds writes to the monthly spreadsheet. */
+  setMonthlySpreadsheetId(id: string): void {
+    this.monthlySpreadsheetId = id
   }
 
   /**

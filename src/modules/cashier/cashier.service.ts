@@ -206,10 +206,16 @@ export function validateSplitPayment(
  */
 export async function ensureMonthlySheetExists(_masterSpreadsheetId: string): Promise<string> {
   const existing = getCurrentMonthSheetId()
-  if (existing) return existing
+  if (existing) {
+    // Ensure the adapter routes monthly tab writes to the correct spreadsheet.
+    dataAdapter.setMonthlySpreadsheetId(existing)
+    return existing
+  }
 
   const now = new Date()
   const id = await createMonthlySheet(now.getFullYear(), now.getMonth() + 1)
+  // Set routing BEFORE initializeMonthlySheets so writeHeaders goes to the monthly sheet.
+  dataAdapter.setMonthlySpreadsheetId(id)
   await initializeMonthlySheets(id)
   await shareSheetWithAllMembers(id)
   return id

@@ -65,6 +65,15 @@ export interface DataAdapter {
   setSpreadsheetId(id: string): void
 
   /**
+   * Sets the monthly transaction spreadsheet ID.
+   * After this call, reads/writes to Transactions, Transaction_Items, and Refunds
+   * tabs are routed to this spreadsheet; all other tabs continue to use the
+   * master spreadsheetId. No-op in MockDataAdapter (mock stores all tabs in
+   * localStorage with no multi-spreadsheet concept).
+   */
+  setMonthlySpreadsheetId(id: string): void
+
+  /**
    * Writes a header row (row 1) to the named sheet tab.
    * Must be called once after a new spreadsheet is created so that appendRow
    * can map object keys to the correct column positions.
