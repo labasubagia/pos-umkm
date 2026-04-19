@@ -5,7 +5,7 @@
 
 ## How to Use This Document
 
-- **Status values:** `todo` | `in-progress` | `done` | `blocked`
+- **Status values:** `todo` | `in-progress` | `done` | `blocked` | `need-check`
 - **Parallelism:** Tasks within the same phase that share no `depends_on` overlap can be worked on simultaneously by different agents.
 - **TDD rule:** Write the failing test(s) first, then implement, then refactor. Mark status `in-progress` before starting, `done` after all tests pass.
 - **Architecture rule:** After completing each task, verify no module imports another module's internals. All data reads/writes go through `lib/adapters/` (the `DataAdapter` interface) — never call `lib/adapters/google/sheets/` or Google APIs directly from modules. `lib/adapters/google/sheets/` is used only inside `GoogleDataAdapter`.
@@ -159,7 +159,7 @@
 - **Deliverables:**
   - Create all module folders with `index.ts` barrel files:
     `src/modules/{auth,catalog,cashier,inventory,customers,reports,settings}/`
-  - `src/lib/{sheets,formatters.ts,validators.ts,uuid.ts}`
+  - `src/lib/{formatters.ts,validators.ts,uuid.ts}`
   - `src/tests/e2e/` with spec file stubs
   - ESLint configured with `@typescript-eslint` + `import` plugin
   - `.eslintrc.ts` rule: warn on cross-module internal imports
@@ -417,7 +417,7 @@
 - **Test cases (`setup.service.test.ts`):**
   - ✅ `createMasterSpreadsheet calls Drive API with correct body`
   - ✅ `createMasterSpreadsheet returns spreadsheetId from response`
-  - ✅ `initializeMasterSheets creates all 10 required tabs`
+  - ✅ `initializeMasterSheets creates all 11 required tabs`
   - ✅ `initializeMasterSheets writes frozen header row 1 on each tab`
   - ✅ `saveSpreadsheetId writes to localStorage key "masterSpreadsheetId"`
   - ❌ `createMasterSpreadsheet throws SetupError on Drive API failure`
@@ -434,14 +434,14 @@
 - **Architecture note:** A new monthly spreadsheet is created on the first transaction of each new calendar month (lazy creation) — by an owner or manager session only (cashiers lack the `drive` scope to create files). The recommended pattern is to pre-create next month's sheet during the last week of the current month when an owner/manager session is active. The `spreadsheetId` for each month is registered in the master sheet's `Monthly_Sheets` tab (`year_month → spreadsheetId`). On app load, the auth flow reads `Monthly_Sheets` to resolve the current month's sheet — no Drive folder listing needed.
 - **Deliverables:**
   - `src/modules/auth/setup.service.ts` (additions):
-    - `getCurrentMonthSheetId(): string | null` — reads from `localStorage`
+    - `getCurrentMonthSheetId(token, masterSpreadsheetId): string | null` — reads from `Monthly_Sheets` tab in master sheet
     - `createMonthlySheet(year, month, token, masterSpreadsheetId)` → `spreadsheetId`
     - `initializeMonthlySheets(spreadsheetId, token)` → creates Transactions, Transaction_Items, Refunds tabs
     - `shareSheetWithAllMembers(spreadsheetId, token, masterSpreadsheetId)` — reads Members tab, shares with each member
 - **Test cases (`setup.service.test.ts` additions):**
   - ✅ `getCurrentMonthSheetId returns null when localStorage is empty`
   - ✅ `getCurrentMonthSheetId returns stored id for current month key`
-  - ✅ `createMonthlySheet names spreadsheet "POS UMKM — Transactions — YYYY-MM"`
+  - ✅ `createMonthlySheet names spreadsheet "transaction_<year>-<month>" inside the year folder`
   - ✅ `initializeMonthlySheets creates Transactions, Transaction_Items, Refunds tabs`
   - ✅ `shareSheetWithAllMembers reads Members tab and calls Drive API share for each active member`
   - ❌ `createMonthlySheet throws on Drive API error`
@@ -1019,7 +1019,7 @@
 - **Architecture note:** For date ranges spanning multiple months, the service fetches each relevant Monthly Sheet sequentially (not in parallel, to stay within API rate limits). Results are merged and aggregated client-side. The UI allows filtering by cashier (user email), category, and payment method.
 - **Deliverables:**
   - `src/modules/reports/reports.service.ts` (additions):
-    - `fetchTransactionsForRange(startDate, endDate, token, localStorage): Transaction[]`
+    - `fetchTransactionsForRange(startDate, endDate, token, masterSpreadsheetId): Transaction[]`
     - `filterTransactions(transactions, filters: ReportFilters): Transaction[]`
   - `src/modules/reports/SalesReport.tsx` — date pickers + filter controls + results table
 - **Test cases:**
