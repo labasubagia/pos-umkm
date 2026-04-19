@@ -79,13 +79,16 @@ export class GoogleAuthAdapter implements AuthAdapter {
     const id = localStorage.getItem(LS_USER_ID)
     const email = localStorage.getItem(LS_USER_EMAIL)
     const name = localStorage.getItem(LS_USER_NAME)
-    if (!id || !email || !name) {
+    if (!id || !email) {
       this.clearStorage()
       return null
     }
 
     this.accessToken = token
-    this.currentUser = { id, email, name, role: 'owner' }
+    this.currentUser = { id, email, role: 'owner', name: '' }
+    if (name) {
+      this.currentUser.name = name
+    }
     return this.currentUser
   }
 
