@@ -12,7 +12,7 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Checkbox } from '../../components/ui/checkbox'
 import { Alert, AlertDescription } from '../../components/ui/alert'
-import { createMasterSpreadsheet, initializeMasterSheets, saveSpreadsheetId } from './setup.service'
+import { runFirstTimeSetup } from './setup.service'
 import { dataAdapter } from '../../lib/adapters'
 import { nowUTC } from '../../lib/formatters'
 import { useAuth } from './useAuth'
@@ -25,7 +25,7 @@ const TIMEZONES = [
 
 export default function SetupWizard() {
   const navigate = useNavigate()
-  const { setSpreadsheetId } = useAuth()
+  const { setSpreadsheetId, user } = useAuth()
   const [businessName, setBusinessName] = useState('')
   const [timezone, setTimezone] = useState('Asia/Jakarta')
   const [ppnEnabled, setPpnEnabled] = useState(false)
@@ -41,9 +41,10 @@ export default function SetupWizard() {
     setLoading(true)
     setError(null)
     try {
-      const spreadsheetId = await createMasterSpreadsheet(businessName.trim())
-      await initializeMasterSheets(spreadsheetId)
-      saveSpreadsheetId(spreadsheetId)
+      const { masterSpreadsheetId } = await runFirstTimeSetup(
+        businessName.trim(),
+        user?.email ?? '',
+      )
 
       // Persist settings as key-value rows (matching settings.service.ts read format)
       const settingsRows = [
@@ -59,7 +60,7 @@ export default function SetupWizard() {
         ),
       )
 
-      setSpreadsheetId(spreadsheetId)
+      setSpreadsheetId(masterSpreadsheetId)
       navigate('/cashier')
     } catch (err) {
       setError(`Setup gagal: ${String(err)}`)

@@ -201,6 +201,54 @@ export function saveSpreadsheetId(spreadsheetId: string): void {
   localStorage.setItem('masterSpreadsheetId', spreadsheetId)
 }
 
+/**
+ * Returns the localStorage key used to cache a monthly transaction sheet ID.
+ * LoginPage reads this key on session restore to avoid a Sheets API lookup.
+ * Example: txSheet_2026-04
+ */
+export function monthlySheetKey(year: number, month: number): string {
+  return `txSheet_${year}-${mm(month)}`
+}
+
+/**
+ * Full first-time setup orchestrator — implements TRD §3.3 steps 3–8 and 10.
+ *
+ * Runs every sub-step in the correct order so the caller (SetupWizard) only
+ * needs a single await. Safe to call from the UI layer.
+ *
+ * Steps performed:
+ *   1. createMasterSpreadsheet  — main + store folder + master spreadsheet
+ *   2. initializeMasterSheets   — frozen header rows on all master tabs
+ *   3. saveSpreadsheetId        — persists masterSpreadsheetId to localStorage
+ *   4. createMonthlySheet       — current month's transaction spreadsheet
+ *   5. setMonthlySpreadsheetId  — routes adapter writes to the monthly sheet
+ *   6. initializeMonthlySheets  — frozen header rows on all monthly tabs
+ *   7. saves monthly ID         — persists txSheet_<year>-<month> to localStorage
+ *
+ * @param businessName  Display name of the store.
+ * @param ownerEmail    Owner's Google account email (written to main.Stores).
+ */
+export async function runFirstTimeSetup(
+  businessName: string,
+  ownerEmail = '',
+): Promise<{ masterSpreadsheetId: string; monthlySpreadsheetId: string }> {
+  // Steps 1–3: create and initialize master spreadsheet.
+  const masterSpreadsheetId = await createMasterSpreadsheet(businessName, ownerEmail)
+  await initializeMasterSheets(masterSpreadsheetId)
+  saveSpreadsheetId(masterSpreadsheetId)
+
+  // Steps 4–7: create and initialize the current month's transaction spreadsheet.
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  const monthlySpreadsheetId = await createMonthlySheet(year, month)
+  dataAdapter.setMonthlySpreadsheetId(monthlySpreadsheetId)
+  await initializeMonthlySheets(monthlySpreadsheetId)
+  localStorage.setItem(monthlySheetKey(year, month), monthlySpreadsheetId)
+
+  return { masterSpreadsheetId, monthlySpreadsheetId }
+}
+
 // ─── T016 ─────────────────────────────────────────────────────────────────────
 
 /**
