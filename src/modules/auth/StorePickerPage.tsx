@@ -20,10 +20,10 @@ import { Alert, AlertDescription } from '../../components/ui/alert'
 
 export default function StorePickerPage() {
   const navigate = useNavigate()
-  const { user, setSpreadsheetId } = useAuth()
+  const { user, setSpreadsheetId, setStores } = useAuth()
 
   const [loading, setLoading] = useState(true)
-  const [stores, setStores] = useState<StoreRecord[]>([])
+  const [localStores, setLocalStores] = useState<StoreRecord[]>([])
   const [error, setError] = useState<string | null>(null)
   const [activating, setActivating] = useState(false)
 
@@ -34,6 +34,8 @@ export default function StorePickerPage() {
   async function resolveStores() {
     try {
       const { stores: list } = await findOrCreateMain(user?.email ?? '')
+      // Always persist the full store list in Zustand for NavBar access.
+      setStores(list, null)
       if (list.length === 0) {
         navigate('/setup', { replace: true })
         return
@@ -42,7 +44,7 @@ export default function StorePickerPage() {
         await activate(list[0])
         return
       }
-      setStores(list)
+      setLocalStores(list)
     } catch (err) {
       setError(`Gagal memuat daftar toko: ${String(err)}`)
     } finally {
@@ -55,6 +57,7 @@ export default function StorePickerPage() {
     try {
       await activateStore(store)
       setSpreadsheetId(store.master_spreadsheet_id)
+      setStores(localStores.length > 0 ? localStores : [store], store.store_id)
       navigate('/cashier', { replace: true })
     } catch (err) {
       setError(`Gagal mengaktifkan toko: ${String(err)}`)
@@ -89,7 +92,7 @@ export default function StorePickerPage() {
       <p className="text-muted-foreground">Pilih toko yang ingin Anda buka.</p>
 
       <div className="flex flex-col gap-3 w-full max-w-sm" data-testid="store-list">
-        {stores.map((store) => (
+        {localStores.map((store) => (
           <button
             key={store.store_id}
             className="rounded-lg border border-border bg-card px-4 py-3 text-left hover:bg-accent transition-colors"

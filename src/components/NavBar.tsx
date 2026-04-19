@@ -2,7 +2,7 @@
  * NavBar — role-aware top navigation bar.
  *
  * Mobile (< md): shows only the logo and sign-out button.
- * md+: shows logo, role-filtered nav links, username, sign-out.
+ * md+: shows logo, role-filtered nav links, store picker (owner, 2+ stores), username, sign-out.
  *
  * Navigation on mobile is handled by BottomNav (see AppShell).
  */
@@ -15,9 +15,11 @@ import {
   BarChart2,
   Settings,
   LogOut,
+  Store,
 } from 'lucide-react'
 import { useAuth } from '../modules/auth/useAuth'
-import { authAdapter } from '../lib/adapters'
+import { authAdapter, dataAdapter } from '../lib/adapters'
+import { activateStore } from '../modules/auth/setup.service'
 import type { Role } from '../lib/adapters/types'
 import { Button } from './ui/button'
 
@@ -37,17 +39,34 @@ export const NAV_ITEMS = [
 ]
 
 export function NavBar() {
-  const { user, role, clearAuth } = useAuth()
+  const { user, role, stores, activeStoreId, clearAuth, setSpreadsheetId, setStores } = useAuth()
   const navigate = useNavigate()
 
   const visibleItems = NAV_ITEMS.filter(
     (item) => role && ROLE_RANK[role] >= ROLE_RANK[item.minRole],
   )
 
+  const showStorePicker = role === 'owner' && stores.length >= 2
+
   async function handleSignOut() {
     await authAdapter.signOut()
     clearAuth()
     navigate('/', { replace: true })
+  }
+
+  async function handleStoreChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const storeId = e.target.value
+    const store = stores.find((s) => s.store_id === storeId)
+    if (!store || store.store_id === activeStoreId) return
+    try {
+      await activateStore(store)
+      dataAdapter.setSpreadsheetId(store.master_spreadsheet_id)
+      setSpreadsheetId(store.master_spreadsheet_id)
+      setStores(stores, storeId)
+      navigate('/cashier', { replace: true })
+    } catch {
+      // Silent — store picker reverts visually on next render
+    }
   }
 
   return (
@@ -84,6 +103,26 @@ export function NavBar() {
 
         {/* Spacer so logout stays right-aligned on mobile */}
         <div className="flex-1 md:hidden" />
+
+        {/* Store picker — owner with 2+ stores */}
+        {showStorePicker && (
+          <div className="flex items-center gap-1 shrink-0" data-testid="store-picker">
+            <Store className="h-4 w-4 text-gray-500 hidden sm:block" />
+            <select
+              value={activeStoreId ?? ''}
+              onChange={(e) => void handleStoreChange(e)}
+              className="text-sm border border-input rounded-md px-2 py-1 bg-background focus:outline-none focus:ring-2 focus:ring-ring max-w-[160px] truncate"
+              data-testid="select-store"
+              aria-label="Pilih toko"
+            >
+              {stores.map((store) => (
+                <option key={store.store_id} value={store.store_id}>
+                  {store.store_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* User info + sign-out */}
         {user && (
