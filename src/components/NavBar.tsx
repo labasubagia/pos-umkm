@@ -52,59 +52,61 @@ export function NavBar() {
 
   return (
     <header
-      className="h-14 md:h-16 bg-white border-b flex items-center px-4 gap-2 shrink-0"
+      className="bg-white border-b shrink-0"
       data-testid="navbar"
     >
-      {/* Logo / app name */}
-      <span
-        className="font-bold text-blue-600 text-lg shrink-0"
-        data-testid="navbar-logo"
-      >
-        POS UMKM
-      </span>
+      <div className="mx-auto max-w-screen-xl h-14 md:h-16 flex items-center px-4 gap-2">
+        {/* Logo / app name */}
+        <span
+          className="font-bold text-blue-600 text-lg shrink-0"
+          data-testid="navbar-logo"
+        >
+          POS UMKM
+        </span>
 
-      {/* Nav links — hidden on mobile, shown on md+ */}
-      <nav className="hidden md:flex gap-1 flex-1 ml-2" data-testid="navbar-nav">
-        {visibleItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            data-testid={`nav-${to.slice(1)}`}
-          >
-            {({ isActive }) => (
-              <Button variant={isActive ? 'secondary' : 'ghost'} size="sm">
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="hidden lg:inline">{label}</span>
-              </Button>
-            )}
-          </NavLink>
-        ))}
-      </nav>
+        {/* Nav links — hidden on mobile, shown on md+ */}
+        <nav className="hidden md:flex gap-1 flex-1 ml-2" data-testid="navbar-nav">
+          {visibleItems.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              data-testid={`nav-${to.slice(1)}`}
+            >
+              {({ isActive }) => (
+                <Button variant={isActive ? 'secondary' : 'ghost'} size="sm">
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="hidden lg:inline">{label}</span>
+                </Button>
+              )}
+            </NavLink>
+          ))}
+        </nav>
 
-      {/* Spacer so logout stays right-aligned on mobile */}
-      <div className="flex-1 md:hidden" />
+        {/* Spacer so logout stays right-aligned on mobile */}
+        <div className="flex-1 md:hidden" />
 
-      {/* User info + sign-out */}
-      {user && (
-        <div className="flex items-center gap-2 shrink-0">
-          <span
-            className="text-sm text-gray-600 hidden lg:inline"
-            data-testid="navbar-username"
-          >
-            {user.name}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSignOut}
-            data-testid="btn-logout"
-            aria-label="Keluar"
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden md:inline">Keluar</span>
-          </Button>
-        </div>
-      )}
+        {/* User info + sign-out */}
+        {user && (
+          <div className="flex items-center gap-2 shrink-0">
+            <span
+              className="text-sm text-gray-600 hidden lg:inline"
+              data-testid="navbar-username"
+            >
+              {user.name}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSignOut}
+              data-testid="btn-logout"
+              aria-label="Keluar"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden md:inline">Keluar</span>
+            </Button>
+          </div>
+        )}
+      </div>
     </header>
   )
 }

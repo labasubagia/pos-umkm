@@ -13,6 +13,7 @@ import JoinPage from './modules/auth/JoinPage'
 import { ProtectedRoute } from './modules/auth/ProtectedRoute'
 import { RoleRoute } from './modules/auth/RoleRoute'
 import { AppShell } from './components/AppShell'
+import { PageLayout } from './components/PageLayout'
 
 export const router = createBrowserRouter(
   [
@@ -42,48 +43,51 @@ export const router = createBrowserRouter(
         // All authenticated roles
         { path: '/cashier', element: <CashierPage /> },
 
-        // Manager+ only
+        // Manager+ and owner — wrapped in PageLayout for consistent padding/max-width
         {
-          path: '/catalog',
-          element: (
-            <RoleRoute minRole="manager">
-              <CatalogPage />
-            </RoleRoute>
-          ),
-        },
-        {
-          path: '/customers',
-          element: (
-            <RoleRoute minRole="manager">
-              <CustomersPage />
-            </RoleRoute>
-          ),
-        },
-        {
-          path: '/inventory',
-          element: (
-            <RoleRoute minRole="manager">
-              <InventoryPage />
-            </RoleRoute>
-          ),
-        },
-        {
-          path: '/reports',
-          element: (
-            <RoleRoute minRole="manager">
-              <ReportsPage />
-            </RoleRoute>
-          ),
-        },
-
-        // Owner only
-        {
-          path: '/settings',
-          element: (
-            <RoleRoute minRole="owner">
-              <SettingsPage />
-            </RoleRoute>
-          ),
+          element: <PageLayout />,
+          children: [
+            {
+              path: '/catalog',
+              element: (
+                <RoleRoute minRole="manager">
+                  <CatalogPage />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: '/customers',
+              element: (
+                <RoleRoute minRole="manager">
+                  <CustomersPage />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: '/inventory',
+              element: (
+                <RoleRoute minRole="manager">
+                  <InventoryPage />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: '/reports',
+              element: (
+                <RoleRoute minRole="manager">
+                  <ReportsPage />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: '/settings',
+              element: (
+                <RoleRoute minRole="owner">
+                  <SettingsPage />
+                </RoleRoute>
+              ),
+            },
+          ],
         },
       ],
     },

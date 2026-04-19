@@ -17,24 +17,22 @@ export default function CatalogPage() {
   }, [loadCatalog])
 
   return (
-    <div className="mx-auto max-w-3xl p-4 md:p-6">
+    <>
       {loading ? (
         <p className="text-sm text-gray-500">Memuat katalog…</p>
       ) : (
         <Tabs defaultValue="products" className="gap-0">
-          <div className="overflow-x-auto mb-4">
-            <TabsList variant="line" className="min-w-full">
-              <TabsTrigger value="products" data-testid="btn-tab-products">Produk</TabsTrigger>
-              <TabsTrigger value="categories" data-testid="btn-tab-categories">Kategori</TabsTrigger>
-              <TabsTrigger value="import" data-testid="btn-tab-import">Import CSV</TabsTrigger>
-            </TabsList>
-          </div>
+          <TabsList variant="line" className="w-full mb-4">
+            <TabsTrigger value="products" data-testid="btn-tab-products">Produk</TabsTrigger>
+            <TabsTrigger value="categories" data-testid="btn-tab-categories">Kategori</TabsTrigger>
+            <TabsTrigger value="import" data-testid="btn-tab-import">Import CSV</TabsTrigger>
+          </TabsList>
           <TabsContent value="products"><ProductList /></TabsContent>
           <TabsContent value="categories"><CategoryList /></TabsContent>
           <TabsContent value="import"><CSVImport /></TabsContent>
         </Tabs>
       )}
-    </div>
+    </>
   )
 }
 
