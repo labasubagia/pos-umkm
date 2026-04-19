@@ -13,7 +13,7 @@
  * Members only need the `spreadsheets` scope — they access a sheet shared
  * with them, not one they created. The adapter handles scope selection.
  */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../../components/ui/button'
 import { Alert, AlertDescription } from '../../components/ui/alert'
@@ -29,14 +29,6 @@ export default function JoinPage() {
   const [loading, setLoading] = useState(false)
 
   const sid = params.get('sid')
-
-  useEffect(() => {
-    // Persist the spreadsheetId immediately — before the user signs in —
-    // so the adapter is ready when auth completes.
-    if (sid) {
-      localStorage.setItem('masterSpreadsheetId', sid)
-    }
-  }, [sid])
 
   async function handleJoin() {
     if (!sid) {

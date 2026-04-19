@@ -8,13 +8,17 @@ interface AuthState {
   role: Role | null
   /** In-memory only — never written to localStorage to prevent XSS token theft. */
   accessToken: string | null
+  /** Master spreadsheet ID for the active store (persisted). */
   spreadsheetId: string | null
+  /** Main spreadsheet ID — one per Google account, shared across all stores (persisted). */
+  mainSpreadsheetId: string | null
   isAuthenticated: boolean
   stores: StoreRecord[]
   activeStoreId: string | null
   setUser: (user: User, role: Role, accessToken: string) => void
   setAccessToken: (token: string) => void
   setSpreadsheetId: (id: string) => void
+  setMainSpreadsheetId: (id: string) => void
   setStores: (stores: StoreRecord[], activeStoreId: string | null) => void
   clearAuth: () => void
 }
@@ -35,6 +39,7 @@ export const useAuthStore = create<AuthState>()(
       role: null,
       accessToken: null,
       spreadsheetId: null,
+      mainSpreadsheetId: null,
       isAuthenticated: false,
       stores: [],
       activeStoreId: null,
@@ -42,6 +47,7 @@ export const useAuthStore = create<AuthState>()(
         set({ user, role, accessToken, isAuthenticated: true }),
       setAccessToken: (token) => set({ accessToken: token }),
       setSpreadsheetId: (id) => set({ spreadsheetId: id }),
+      setMainSpreadsheetId: (id) => set({ mainSpreadsheetId: id }),
       setStores: (stores, activeStoreId) => set({ stores, activeStoreId }),
       clearAuth: () =>
         set({
@@ -49,6 +55,8 @@ export const useAuthStore = create<AuthState>()(
           role: null,
           accessToken: null,
           isAuthenticated: false,
+          spreadsheetId: null,
+          mainSpreadsheetId: null,
           stores: [],
           activeStoreId: null,
         }),
@@ -61,6 +69,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         role: state.role,
         spreadsheetId: state.spreadsheetId,
+        mainSpreadsheetId: state.mainSpreadsheetId,
         isAuthenticated: state.isAuthenticated,
         stores: state.stores,
         activeStoreId: state.activeStoreId,

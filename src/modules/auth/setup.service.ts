@@ -14,6 +14,7 @@
 import { dataAdapter } from '../../lib/adapters'
 import { generateId } from '../../lib/uuid'
 import { nowUTC } from '../../lib/formatters'
+import { useAuthStore } from '../../store/authStore'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -120,23 +121,47 @@ export class SetupError extends Error {
   }
 }
 
-/** Returns the mainSpreadsheetId from localStorage, or null if not yet created. */
+/** Returns the mainSpreadsheetId from Zustand (persisted), falling back to the
+ *  legacy direct localStorage key for users migrating from pre-Zustand sessions. */
 export function getMainSpreadsheetId(): string | null {
-  return localStorage.getItem('mainSpreadsheetId')
+  return useAuthStore.getState().mainSpreadsheetId ?? localStorage.getItem('mainSpreadsheetId')
 }
 
-/** Persists the mainSpreadsheetId to localStorage. */
+/** Persists the mainSpreadsheetId to Zustand (which persists to localStorage via
+ *  the `pos-umkm-auth` key). Also writes the legacy direct key so old code paths
+ *  and any backward-compat reads continue to work during the transition period. */
 export function saveMainSpreadsheetId(id: string): void {
-  localStorage.setItem('mainSpreadsheetId', id)
+  useAuthStore.getState().setMainSpreadsheetId(id)
+  localStorage.setItem('mainSpreadsheetId', id) // legacy fallback key
 }
 
 /**
- * Persists the master spreadsheetId to localStorage under the canonical key.
- * The spreadsheetId is not sensitive (it's a public file identifier), so
- * localStorage is the right storage tier — it survives page refreshes.
+ * Persists the master spreadsheetId to Zustand (persisted) and the legacy
+ * direct localStorage key. Called from runStoreSetup after creating a new store.
  */
 export function saveSpreadsheetId(spreadsheetId: string): void {
-  localStorage.setItem('masterSpreadsheetId', spreadsheetId)
+  useAuthStore.getState().setSpreadsheetId(spreadsheetId)
+  localStorage.setItem('masterSpreadsheetId', spreadsheetId) // legacy fallback key
+}
+
+/**
+ * Removes all setup-related localStorage keys. Call this on sign-out to prevent
+ * stale spreadsheet IDs from being picked up on the next login (especially if a
+ * different Google account signs in on the same device).
+ *
+ * Note: Zustand `clearAuth()` already clears the persisted `pos-umkm-auth` blob.
+ * This function cleans up the additional direct-write keys that setup.service.ts
+ * and legacy code paths write to localStorage independently.
+ */
+export function clearSetupStorage(): void {
+  localStorage.removeItem('mainSpreadsheetId')
+  localStorage.removeItem('masterSpreadsheetId')
+  localStorage.removeItem('activeStoreId')
+  localStorage.removeItem('storeFolderId')
+  // Clear all monthly transaction sheet cache keys (txSheet_YYYY-MM).
+  Object.keys(localStorage)
+    .filter((k) => k.startsWith('txSheet_'))
+    .forEach((k) => localStorage.removeItem(k))
 }
 
 /**
@@ -248,7 +273,8 @@ export async function activateStore(store: StoreRecord): Promise<void> {
   const { master_spreadsheet_id: masterId, store_id: storeId } = store
 
   dataAdapter.setSpreadsheetId(masterId)
-  localStorage.setItem('masterSpreadsheetId', masterId)
+  // activeStoreId must be in localStorage synchronously — createMonthlySheet()
+  // reads it during this same call to determine the Drive folder path.
   localStorage.setItem('activeStoreId', storeId)
 
   const now = new Date()

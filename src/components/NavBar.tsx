@@ -18,6 +18,7 @@ import {
   Store,
 } from 'lucide-react'
 import { useAuth } from '../modules/auth/useAuth'
+import { clearSetupStorage } from '../modules/auth/setup.service'
 import { authAdapter, dataAdapter } from '../lib/adapters'
 import { activateStore } from '../modules/auth/setup.service'
 import type { Role } from '../lib/adapters/types'
@@ -51,6 +52,7 @@ export function NavBar() {
   async function handleSignOut() {
     await authAdapter.signOut()
     clearAuth()
+    clearSetupStorage()
     navigate('/', { replace: true })
   }
 

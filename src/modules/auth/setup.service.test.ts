@@ -29,6 +29,7 @@ import {
 } from './setup.service'
 
 import * as adapters from '../../lib/adapters'
+import { useAuthStore } from '../../store/authStore'
 
 // jsdom localStorage.clear() may not exist in all vitest environments; use Map-backed mock
 const localStorageMock = (() => {
@@ -50,6 +51,8 @@ Object.defineProperty(globalThis, 'localStorage', {
 
 beforeEach(() => {
   localStorageMock.clear()
+  // Reset Zustand auth store so mainSpreadsheetId/spreadsheetId don't leak between tests.
+  useAuthStore.getState().clearAuth()
   vi.restoreAllMocks()
 })
 
@@ -248,7 +251,8 @@ describe('findOrCreateMain', () => {
   })
 
   it('reads stores from existing main when mainSpreadsheetId is cached', async () => {
-    localStorage.setItem('mainSpreadsheetId', 'existing-main-id')
+    // Seed via Zustand (primary source of truth) rather than direct localStorage key.
+    useAuthStore.getState().setMainSpreadsheetId('existing-main-id')
     vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
       {
         store_id: 'sid-1', store_name: 'Toko A',
@@ -283,16 +287,19 @@ describe('activateStore', () => {
     joined_at: '2026-04-01T00:00:00Z',
   }
 
-  it('saves masterSpreadsheetId and activeStoreId to localStorage', async () => {
+  it('saves activeStoreId to localStorage and routes adapter to master sheet', async () => {
     vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([]) // no monthly sheet yet
     vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('monthly-id')
     vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
     vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
     vi.spyOn(adapters.dataAdapter, 'setMonthlySpreadsheetId').mockImplementation(() => {})
+    const setSpreadsheetIdSpy = vi.spyOn(adapters.dataAdapter, 'setSpreadsheetId').mockImplementation(() => {})
 
     await activateStore(store)
 
-    expect(localStorage.getItem('masterSpreadsheetId')).toBe('master-100')
+    // masterSpreadsheetId is now set via the in-memory adapter, not direct localStorage.
+    expect(setSpreadsheetIdSpy).toHaveBeenCalledWith('master-100')
+    // activeStoreId must still be in localStorage — createMonthlySheet() reads it synchronously.
     expect(localStorage.getItem('activeStoreId')).toBe('sid-100')
   })
 
