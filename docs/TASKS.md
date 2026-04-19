@@ -20,6 +20,7 @@
 | 🔄 | in-progress |
 | ✅ | done |
 | 🚫 | blocked |
+| 🔍 | need-check — task was implemented but its architecture note or test cases were updated; verify the implementation still matches before closing |
 
 ---
 
@@ -402,15 +403,15 @@
 
 ### T015 — First-Time Setup: Create Master Spreadsheet
 
-- **Status:** ✅ done
+- **Status:** 🔍 need-check
 - **Phase:** 2 – Auth
 - **Depends on:** T014, T046, T011
 - **Test type:** unit
-- **Architecture note:** The Drive API `files.create` call (to create the spreadsheet) uses the `drive.file` scope, which is only requested for the owner on first setup. Subsequent logins (and all member logins) only need the `spreadsheets` scope — narrower and less alarming in the OAuth consent screen. The `spreadsheetId` is saved to `localStorage` (not sensitive — it's a public file identifier, like a filename).
+- **Architecture note:** The Drive API calls use the `drive` scope, which is requested only for the owner at first-time setup (and when inviting members or creating branches). Subsequent cashier/member logins only need the `spreadsheets` scope. On setup the owner session creates the full folder hierarchy (`apps/pos_umkm/stores/<store_id>/`), the `main` spreadsheet, and the `master` spreadsheet. The `masterSpreadsheetId` and `activeStoreId` are saved to `localStorage` (not sensitive — file identifiers, like filenames).
 - **Deliverables:**
   - `src/modules/auth/setup.service.ts`:
     - `createMasterSpreadsheet(businessName, token)` → returns `spreadsheetId`
-    - `initializeMasterSheets(spreadsheetId, token)` → creates all tab headers (Settings, Users, Categories, Products, Variants, Customers, Purchase_Orders, Purchase_Order_Items, Stock_Log, Audit_Log)
+    - `initializeMasterSheets(spreadsheetId, token)` → creates all tab headers (Settings, Members, Categories, Products, Variants, Customers, Purchase_Orders, Purchase_Order_Items, Stock_Log, Audit_Log, Monthly_Sheets)
     - `saveSpreadsheetId(spreadsheetId)` → writes to `localStorage`
   - `src/modules/auth/SetupWizard.tsx` — onboarding form: business name, timezone, PPN toggle
 - **Test cases (`setup.service.test.ts`):**
@@ -426,46 +427,46 @@
 
 ### T016 — Monthly Transaction Spreadsheet Management
 
-- **Status:** ✅ done
+- **Status:** 🔍 need-check
 - **Phase:** 2 – Auth
 - **Depends on:** T015, T046
 - **Test type:** unit
-- **Architecture note:** A new monthly spreadsheet is created on the first transaction of each new calendar month (lazy creation). This avoids needing a scheduled job (which would require a backend). The `spreadsheetId` for the current month is stored in `localStorage` keyed by `"txSheet_YYYY-MM"`. On app load, the auth flow checks if the current month's sheet exists; if not, it is created during the first transaction (not on login, to avoid unnecessary Drive API calls for owners who don't transact every day).
+- **Architecture note:** A new monthly spreadsheet is created on the first transaction of each new calendar month (lazy creation) — by an owner or manager session only (cashiers lack the `drive` scope to create files). The recommended pattern is to pre-create next month's sheet during the last week of the current month when an owner/manager session is active. The `spreadsheetId` for each month is registered in the master sheet's `Monthly_Sheets` tab (`year_month → spreadsheetId`). On app load, the auth flow reads `Monthly_Sheets` to resolve the current month's sheet — no Drive folder listing needed.
 - **Deliverables:**
   - `src/modules/auth/setup.service.ts` (additions):
     - `getCurrentMonthSheetId(): string | null` — reads from `localStorage`
     - `createMonthlySheet(year, month, token, masterSpreadsheetId)` → `spreadsheetId`
     - `initializeMonthlySheets(spreadsheetId, token)` → creates Transactions, Transaction_Items, Refunds tabs
-    - `shareSheetWithAllMembers(spreadsheetId, token, masterSpreadsheetId)` — reads Users tab, shares with each member
+    - `shareSheetWithAllMembers(spreadsheetId, token, masterSpreadsheetId)` — reads Members tab, shares with each member
 - **Test cases (`setup.service.test.ts` additions):**
   - ✅ `getCurrentMonthSheetId returns null when localStorage is empty`
   - ✅ `getCurrentMonthSheetId returns stored id for current month key`
   - ✅ `createMonthlySheet names spreadsheet "POS UMKM — Transactions — YYYY-MM"`
   - ✅ `initializeMonthlySheets creates Transactions, Transaction_Items, Refunds tabs`
-  - ✅ `shareSheetWithAllMembers reads Users tab and calls Drive API share for each active member`
+  - ✅ `shareSheetWithAllMembers reads Members tab and calls Drive API share for each active member`
   - ❌ `createMonthlySheet throws on Drive API error`
 
 ---
 
 ### T017 — Member Invite Flow
 
-- **Status:** ✅ done
+- **Status:** 🔍 need-check
 - **Phase:** 2 – Auth
 - **Depends on:** T015, T046, T012
 - **Test type:** unit + e2e
-- **Architecture note:** Inviting a member requires two actions: (1) share the Master Sheet via Drive API, (2) append a row to the `Users` tab. The Store Link is a URL containing the `spreadsheetId` encoded in a query param. The owner never needs to share a password — the link is the invite mechanism. The invited user must still authenticate with Google (they need to have a Google account).
+- **Architecture note:** Inviting a member requires two actions: (1) share the `stores/<store_id>/` folder via Drive API (granting access to all current and future files inside), (2) append a row to the `Members` tab. The Store Link is a URL containing the `masterSpreadsheetId` encoded in a query param (`/join?sid=<id>`). The owner never needs to share a password — the link is the invite mechanism. The invited user must still authenticate with Google.
 - **Deliverables:**
   - `src/modules/settings/members.service.ts`:
-    - `inviteMember(email, role, token, masterSpreadsheetId)` — shares sheet + appends to Users tab
-    - `generateStoreLink(spreadsheetId): string` — returns `https://<domain>/join?sid=<spreadsheetId>`
-    - `revokeMember(userId, token, masterSpreadsheetId)` — sets `deleted_at` in Users tab (soft delete); does not unshare Drive (must be done manually)
-    - `listMembers(token, masterSpreadsheetId): User[]`
+    - `inviteMember(email, role, token, masterSpreadsheetId)` — shares `stores/<store_id>/` folder + appends to Members tab
+    - `generateStoreLink(masterSpreadsheetId): string` — returns `https://<domain>/join?sid=<masterSpreadsheetId>`
+    - `revokeMember(userId, token, masterSpreadsheetId)` — sets `deleted_at` in Members tab (soft delete); does not unshare Drive folder (must be done manually)
+    - `listMembers(token, masterSpreadsheetId): Member[]`
   - `src/modules/settings/MemberManagement.tsx` — UI for invite + list + revoke
 - **Test cases (`members.service.test.ts`):**
-  - ✅ `inviteMember appends correct row to Users tab with role and invited_at`
+  - ✅ `inviteMember appends correct row to Members tab with role and invited_at`
   - ✅ `inviteMember calls Drive API share with editor permission`
   - ✅ `generateStoreLink includes spreadsheetId as ?sid= query param`
-  - ✅ `revokeMember sets deleted_at on correct Users row`
+  - ✅ `revokeMember sets deleted_at on correct Members row`
   - ✅ `listMembers filters out rows where deleted_at is non-empty`
   - ❌ `inviteMember throws if email is invalid`
   - ❌ `inviteMember throws if role is not owner/manager/cashier`
@@ -478,21 +479,21 @@
 
 ### T018 — Store Link Join Flow (Member Onboarding)
 
-- **Status:** ✅ done
+- **Status:** 🔍 need-check
 - **Phase:** 2 – Auth
 - **Depends on:** T017, T014
 - **Test type:** unit + e2e
-- **Architecture note:** When a member opens a Store Link (`/join?sid=<id>`), the app extracts the `spreadsheetId` and stores it in `localStorage` before prompting Google Login. Members only request the `spreadsheets` scope (not `drive.file`) because they access a sheet shared with them — they don't need to create files. Their role is resolved by reading the `Users` tab and matching by email.
+- **Architecture note:** When a member opens a Store Link (`/join?sid=<masterSpreadsheetId>`), the app stores the `masterSpreadsheetId` in `localStorage` before prompting Google Login. Members only request the `spreadsheets` scope (not `drive`) because they access spreadsheets shared via the store folder — they don't need Drive API access. Their role is resolved by reading the `Members` tab and matching by email. After joining, the app reads `Settings` to get `store_id` and `drive_folder_id`, then creates/updates the member's own `main` spreadsheet with a `Stores` row for this store.
 - **Deliverables:**
   - `src/modules/auth/JoinPage.tsx` — reads `?sid` param, stores it, shows Google Login
   - `src/modules/auth/auth.service.ts`:
-    - `resolveUserRole(email, token, masterSpreadsheetId): Role` — reads Users tab
-    - `isFirstTimeOwner(masterSpreadsheetId): boolean` — checks if Users tab is empty
+    - `resolveUserRole(email, token, masterSpreadsheetId): Role` — reads Members tab
+    - `isFirstTimeOwner(masterSpreadsheetId): boolean` — checks if Members tab is empty
 - **Test cases (`auth.service.test.ts`):**
   - ✅ `resolveUserRole returns "cashier" for a known member email`
   - ✅ `resolveUserRole returns "owner" for the store owner email`
-  - ✅ `isFirstTimeOwner returns true when Users tab has no rows`
-  - ❌ `resolveUserRole throws UnauthorizedError if email not in Users tab`
+  - ✅ `isFirstTimeOwner returns true when Members tab has no rows`
+  - ❌ `resolveUserRole throws UnauthorizedError if email not in Members tab`
   - ❌ `resolveUserRole throws if member has been revoked (deleted_at set)`
 - **E2E spec:** `src/tests/e2e/members.flow.spec.ts`
   - `"member can join store via Store Link and is assigned correct role"`
@@ -525,11 +526,11 @@
 
 ### T020 — POS Terminal PIN Lock
 
-- **Status:** ✅ done
+- **Status:** 🔍 need-check
 - **Phase:** 2 – Auth
 - **Depends on:** T018, T012
 - **Test type:** unit + e2e
-- **Architecture note:** The PIN is hashed with bcrypt (via `bcryptjs`, a pure JS implementation — no native dependency required in browser) before being stored in the `Users` sheet. PIN validation happens entirely in the browser using `bcryptjs.compare()`. No network call is needed for unlock. The idle timer uses `setTimeout` reset on any user interaction event (`mousemove`, `keydown`, `touchstart`).
+- **Architecture note:** The PIN is hashed with bcrypt (via `bcryptjs`, a pure JS implementation — no native dependency required in browser) before being stored in the `Members` sheet. PIN validation happens entirely in the browser using `bcryptjs.compare()`. No network call is needed for unlock. The idle timer uses `setTimeout` reset on any user interaction event (`mousemove`, `keydown`, `touchstart`).
 - **Deliverables:**
   - `src/modules/auth/PinLock.tsx` — lock screen overlay component
   - `src/modules/auth/usePinLock.ts` — idle timer hook, lock/unlock state

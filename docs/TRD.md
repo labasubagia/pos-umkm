@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.4                               |
+| Version     | 2.5                               |
 | Status      | Draft                             |
 | Date        | April 2026                        |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -48,8 +48,8 @@ POS UMKM MVP is a **static Single-Page Application (SPA)** — a purely client-s
 │   ┌─────────────────────────────────────────────┐    │
 │   │          React SPA (static files)            │    │
 │   │  ┌─────────────┐   ┌─────────────────────┐  │    │
-│   │  │  Google GIS  │   │  Google Sheets API  │  │    │
-│   │  │  (Auth SDK)  │   │  v4 (data storage)  │  │    │
+│   │  │  Google GIS  │   │  Sheets API v4      │  │    │
+│   │  │  (Auth SDK)  │   │  + Drive API v3     │  │    │
 │   │  └──────┬───────┘   └──────────┬──────────┘  │    │
 │   └─────────┼──────────────────────┼─────────────┘    │
 └─────────────┼──────────────────────┼──────────────────┘
@@ -58,13 +58,14 @@ POS UMKM MVP is a **static Single-Page Application (SPA)** — a purely client-s
  │                   Google Cloud                        │
  │   ┌──────────────────┐   ┌──────────────────────┐    │
  │   │  Google Identity  │   │  Google Drive        │    │
- │   │  Services (auth)  │   │  ┌────────────────┐  │    │
- │   └──────────────────┘   │  │ Master Sheet    │  │    │
- │                           │  │ (Products, etc) │  │    │
- │                           │  ├────────────────┤  │    │
- │                           │  │ Monthly Sheet   │  │    │
- │                           │  │ (Transactions)  │  │    │
- │                           │  └────────────────┘  │    │
+ │   │  Services (auth)  │   │  (owner's account)   │    │
+ │   └──────────────────┘   │  apps/pos_umkm/       │    │
+ │                           │  ├── main [sheet]     │    │
+ │                           │  └── stores/          │    │
+ │                           │      └── <store_id>/  │    │
+ │                           │          ├── master   │    │
+ │                           │          └── trans-   │    │
+ │                           │              actions/ │    │
  │                           └──────────────────────┘    │
  └───────────────────────────────────────────────────────┘
 
@@ -73,7 +74,7 @@ Static files hosted on: GitHub Pages / Netlify / Vercel (free tier)
 
 ### 1.3 Data Ownership & Sharing
 
-Each business owner's data lives in **their own Google Drive** across two types of spreadsheets (see §4). The owner can invite family members or staff to collaborate by sharing these spreadsheets via Google Drive. The app never stores user data on its own servers.
+Each business owner's data lives in **their own Google Drive** organized under `apps/pos_umkm/` (see §4.2). The owner can own multiple stores (branches), each with its own folder and spreadsheets. Staff members are invited by sharing the entire store folder — all files inside (master sheet, current and future monthly sheets) become accessible immediately. The app never stores user data on its own servers.
 
 ### 1.4 MVP Constraints
 
@@ -355,19 +356,26 @@ npm run build                      # always builds with VITE_ADAPTER=google
 | `profile` | All users | Display name and photo in the UI |
 | `email` | All users | Identify the account |
 | `https://www.googleapis.com/auth/spreadsheets` | All users | Read and write spreadsheet data |
-| `https://www.googleapis.com/auth/drive.file` | Owner only (first setup) | Create the master spreadsheet in the owner's Drive |
+| `https://www.googleapis.com/auth/drive` | Owner only | Create folder structure, share folders with members, create spreadsheets |
 
-> **Family/staff members** only need the `spreadsheets` scope — they access a sheet shared with them, not a sheet they created. The app detects whether the user is an owner or member based on the `Users` record in the master sheet.
+> **Members** only need the `spreadsheets` scope — they access spreadsheets shared via the store folder. The `drive` scope is requested only for the owner at first-time setup (and when inviting members or creating new branches). The app detects whether the user is an owner or member based on the `Members` record in the master sheet.
 
 ### 3.3 First-Time Setup (Owner)
 
 On first login by the store owner:
-1. App requests `drive.file` + `spreadsheets` scopes
-2. Calls Drive API to create a spreadsheet named `POS UMKM — Master — [Business Name]`
-3. Initializes all master sheet tabs with frozen header rows (see §4)
-4. Creates a new monthly transaction spreadsheet for the current month (see §4.2)
-5. Stores both `spreadsheetId` values in `localStorage` (file IDs, not sensitive)
-6. Saves the owner's profile in the `Users` sheet with role `owner`
+1. App requests `drive` + `spreadsheets` scopes
+2. Calls Drive API to create the `apps/pos_umkm/` folder hierarchy if it doesn't exist
+3. Creates `apps/pos_umkm/main` spreadsheet (the owner's personal store registry) with a `Stores` tab
+4. Generates a UUID as the store's permanent `store_id`
+5. Creates `apps/pos_umkm/stores/<store_id>/` folder and `transactions/<current_year>/` subfolder
+6. Creates `master` spreadsheet inside `apps/pos_umkm/stores/<store_id>/`
+7. Initializes all master sheet tabs with frozen header rows (see §4.3); writes `store_id` to `Settings` tab
+8. Creates the current month's transaction spreadsheet inside `transactions/<year>/`
+9. Adds a row to `main.Stores` with the new store's details (store_id, store_name, spreadsheet IDs, folder ID)
+10. Saves `masterSpreadsheetId` and `store_id` to `localStorage` as the active store context
+11. Saves the owner's profile in the `Members` sheet with role `owner`
+
+**Multiple branches:** Repeating steps 4–11 from the Settings screen creates a new branch. The owner's `main.Stores` tab accumulates one row per branch.
 
 ### 3.4 Family & Member Access
 
@@ -375,30 +383,41 @@ On first login by the store owner:
 
 **Flow:**
 1. **Owner invites a member:**
-   - Owner opens Settings → Manage Members → enters member's email
-   - App calls Google Drive API to share the Master Sheet and the current Monthly Sheet with the email as an **editor**
-   - App appends a row to the `Users` sheet: `{id, email, name, role: "cashier", invited_at}`
-   - App displays a **Store Link** — a URL containing the `spreadsheetId` (e.g., `https://pos-umkm.app/join?sid=<spreadsheetId>`)
+   - Owner opens Settings → Manage Members → enters member's email and role
+   - App calls Drive API to **share the entire `stores/<store_id>/` folder** with the email as an **editor**
+   - This grants access to all existing files (master sheet, all monthly sheets) and all future files created inside the folder — no re-sharing required when new monthly sheets are added
+   - App appends a row to the `Members` sheet: `{id, email, name, role: "cashier", invited_at}`
+   - App displays a **Store Link** — a URL containing the `masterSpreadsheetId` (e.g., `https://pos-umkm.app/join?sid=<masterSpreadsheetId>`)
 
 2. **Member joins:**
    - Member opens the Store Link in their browser
-   - App extracts the `spreadsheetId` from the URL and stores it in `localStorage`
-   - Member clicks "Sign in with Google" — only requests `spreadsheets` scope (no `drive.file`)
-   - App reads the `Users` sheet to find their email, loads their role and permissions
-   - Member can now read/write the shared spreadsheet with their assigned role
+   - App stores `masterSpreadsheetId` in `localStorage`
+   - Member clicks "Sign in with Google" — only requests the `spreadsheets` scope (no `drive` needed)
+   - App reads `Members` tab to find their email, loads role and permissions
+   - App reads `Settings` tab to get `store_id`, `store_name`, and `drive_folder_id`
+   - App creates (or reads) the member's own `main` spreadsheet in their Drive and adds a `Stores` row with the store details
+   - Member can now read/write the shared spreadsheets with their assigned role
 
 3. **Monthly sheet access:**
-   - At the start of each month, the owner's session (or any session that first triggers a transaction) creates a new monthly sheet and shares it with all `Users` sheet members automatically
+   - Because the entire `stores/<store_id>/` folder is shared, any new monthly sheet created inside it is **automatically accessible** to all invited members — zero extra sharing API calls
+   - The owner or manager creates the new monthly sheet; cashiers cannot (they lack the `drive` scope)
+   - The recommended workflow: the app pre-creates next month's sheet during the last week of the current month when an owner/manager session is active
 
-4. **Role enforcement:**
-   - Role is read from the `Users` sheet on login and stored in React state
+4. **Store switching (multi-branch owner):**
+   - The owner's `main.Stores` tab lists all branches they own or manage
+   - Active store is tracked in `localStorage` (`activeStoreId`)
+   - Switching branches updates `localStorage` and reloads master data from the selected branch's spreadsheets
+   - A member who works at multiple stores has multiple rows in their own `main.Stores` tab, one per store
+
+5. **Role enforcement:**
+   - Role is read from the `Members` sheet on login and stored in React state
    - UI hides or disables features based on role (e.g., cashier cannot view reports or change prices)
    - This is UI-level enforcement only (no server-side enforcement, as there is no backend); this is acceptable for a family trust model
 
 | Role | Permissions |
 |---|---|
-| `owner` | Full access: all features, member management, settings |
-| `manager` | Reports, inventory, cashier — no member management |
+| `owner` | Full access: all features, member management, settings, branch creation |
+| `manager` | Reports, inventory, cashier — no member management, no branch creation |
 | `cashier` | Cashier screen only — no reports, no settings |
 
 ### 3.5 POS Terminal Lock
@@ -413,23 +432,64 @@ On first login by the store owner:
 
 > **During development** (`VITE_ADAPTER=mock`): `MockDataAdapter` mirrors this exact schema in `localStorage`. Key format: `mock_<TabName>` (e.g., `mock_Products`, `mock_Transactions_2026-04`). All tab names, column orders, and data conventions below apply to both adapters identically — this is the contract the adapter interface enforces.
 
-### 4.1 Two-Spreadsheet Model
+### 4.1 Three-Spreadsheet Model
 
-Data is split across two types of Google Spreadsheet to prevent any single file from growing too large and to keep master data and transactional data separate:
+Data is split across three types of Google Spreadsheet:
 
-| Spreadsheet | Naming Pattern | Contents |
+| Spreadsheet | Location in Drive | Contents |
 |---|---|---|
-| **Master** | `POS UMKM — Master — [Business Name]` | All reference/master data; permanent |
-| **Monthly** | `POS UMKM — Transactions — [YYYY-MM]` | Transactions for a single calendar month |
+| **Main** | `apps/pos_umkm/main` | Owner's personal store registry; never shared with members |
+| **Master** | `apps/pos_umkm/stores/<store_id>/master` | All reference/master data for one store; permanent |
+| **Monthly** | `apps/pos_umkm/stores/<store_id>/transactions/<year>/transaction_<year>-<month>` | Transactions for a single calendar month |
 
-A new Monthly spreadsheet is automatically created on the first transaction of each new month. Both spreadsheets are shared with all members in the `Users` sheet whenever a new monthly sheet is created.
+The **Main** spreadsheet is private to each user's Google account. It tracks which stores the user belongs to and which store is the active context. A new Monthly spreadsheet is automatically created on the first transaction of each new month (by an owner or manager session). Because the entire `stores/<store_id>/` folder is shared with members, new monthly sheets are accessible to them immediately without additional Drive API calls.
 
-### 4.2 Master Spreadsheet — Sheet Tabs
+### 4.2 Drive Folder Structure
+
+```
+My Drive (owner's Google account)
+└── apps/
+    └── pos_umkm/
+        ├── main  [spreadsheet — private, never shared]
+        │   └── Stores tab
+        │       columns: store_id, store_name, master_spreadsheet_id,
+        │                drive_folder_id, owner_email, my_role, joined_at
+        │
+        └── stores/
+            └── <store_id>/               ← folder shared with all members
+                ├── master  [spreadsheet]
+                │   ├── Settings          ← includes store_id (UUID), store_name, etc.
+                │   ├── Members           ← staff list with roles and bcrypt PINs
+                │   ├── Categories, Products, Variants
+                │   ├── Customers
+                │   ├── Purchase_Orders, Purchase_Order_Items
+                │   ├── Stock_Log, Audit_Log
+                │   └── Monthly_Sheets    ← registry: year_month → spreadsheet_id
+                │
+                └── transactions/
+                    └── <year>/
+                        └── transaction_<year>-<month>  [spreadsheet]
+                            ├── Transactions
+                            ├── Transaction_Items
+                            └── Refunds
+```
+
+**Active store context** is stored in `localStorage` (`activeStoreId`, `masterSpreadsheetId`). On app load the app reads from localStorage for fast startup; the `main.Stores` tab is the source of truth for the full store list.
+
+**`Monthly_Sheets` registry tab** — the master sheet keeps a tab listing all monthly spreadsheet IDs. This allows any user (including members who don't have Drive folder listing access) to discover the correct monthly spreadsheet ID for any month without a Drive API call.
+
+| Column | Detail |
+|---|---|
+| `year_month` | e.g., `2026-04` |
+| `spreadsheet_id` | Google-assigned ID of the monthly spreadsheet |
+| `created_at` | ISO 8601 UTC timestamp |
+
+### 4.3 Master Spreadsheet — Sheet Tabs
 
 | Tab Name | Purpose |
 |---|---|
-| `Settings` | Business profile, tax rate, receipt footer, timezone, PIN salt |
-| `Users` | All members (owner, managers, cashiers) with roles and bcrypt-hashed PINs |
+| `Settings` | Business profile, tax rate, receipt footer, timezone, PIN salt, `store_id` (UUID) |
+| `Members` | All staff (owner, managers, cashiers) with roles and bcrypt-hashed PINs |
 | `Categories` | Product category list |
 | `Products` | Product catalog — SKU, price, cost, stock, min_stock, category |
 | `Variants` | Product variants (size, color) linked to Products |
@@ -438,8 +498,9 @@ A new Monthly spreadsheet is automatically created on the first transaction of e
 | `Purchase_Order_Items` | Line items for each purchase order |
 | `Stock_Log` | Append-only stock adjustment history |
 | `Audit_Log` | Append-only log of sensitive actions (price changes, refunds, member changes) |
+| `Monthly_Sheets` | Registry of all monthly transaction spreadsheet IDs (year_month → spreadsheet_id) |
 
-### 4.3 Monthly Transaction Spreadsheet — Sheet Tabs
+### 4.4 Monthly Transaction Spreadsheet — Sheet Tabs
 
 | Tab Name | Purpose |
 |---|---|
@@ -447,7 +508,7 @@ A new Monthly spreadsheet is automatically created on the first transaction of e
 | `Transaction_Items` | One row per line item, linked to a transaction by `transaction_id` |
 | `Refunds` | Refund records linked to original transactions |
 
-### 4.4 Row Format Conventions
+### 4.5 Row Format Conventions
 
 - **Row 1:** Frozen header row. Never modified after initialization.
 - **Row 2+:** Data rows, appended only. No sorting or reordering.
@@ -457,25 +518,27 @@ A new Monthly spreadsheet is automatically created on the first transaction of e
 - **Monetary values:** Plain integers in IDR (no decimals). `Rp 15.000` → stored as `15000`.
 - **References:** Foreign keys are stored as UUID strings (not sheet row numbers, which can shift).
 
-### 4.5 Example: Products Tab
+### 4.6 Example: Products Tab
 
 | A: id | B: sku | C: name | D: category_id | E: price | F: cost_price | G: stock | H: min_stock | I: has_variants | J: image_url | K: deleted_at |
 |---|---|---|---|---|---|---|---|---|---|---|
 | uuid | SKU001 | Indomie Goreng | uuid-cat | 3500 | 2500 | 48 | 10 | FALSE | | |
 
-### 4.6 Example: Transactions Tab (Monthly Sheet)
+### 4.7 Example: Transactions Tab (Monthly Sheet)
 
 | A: id | B: created_at | C: cashier_id | D: customer_id | E: subtotal | F: discount | G: tax | H: total | I: payment_method | J: cash_received | K: change | L: notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | uuid | 2026-04-18T… | user-uuid | uuid or empty | 15000 | 0 | 1650 | 16650 | CASH | 20000 | 3350 | |
 
-### 4.7 Reading Data
+### 4.8 Reading Data
 
 - **Master data (products, categories, customers):** Fetched once on app load; cached in Zustand store; refreshed when the user navigates to the catalog.
 - **Product search:** Performed client-side against the Zustand store (no API call per keystroke).
+- **Active store context:** Read from `localStorage` on startup (`activeStoreId`, `masterSpreadsheetId`). The `main.Stores` tab is the source of truth for multi-branch store lists.
+- **Monthly sheet lookup:** The app reads `Monthly_Sheets` tab in the master sheet to resolve `year_month → spreadsheetId` — no Drive folder listing needed.
 - **Reports:** Fetch the relevant Monthly spreadsheet's `Transactions` and `Transaction_Items` tabs in full; aggregate in JavaScript. For multi-month reports, fetch each monthly spreadsheet sequentially.
 
-### 4.8 Writing Data
+### 4.9 Writing Data
 
 - New records: `values.append` to add a row to the appropriate tab.
 - Stock updates: `values.get` to read the current stock row, compute new value, then `values.update` on that specific cell.
@@ -483,7 +546,7 @@ A new Monthly spreadsheet is automatically created on the first transaction of e
 
 > **Stock update race condition:** Read → compute → write is not atomic. For single-cashier (or family-trust) use this is acceptable. Owners should run periodic stock opname to reconcile discrepancies.
 
-### 4.9 API Calls Per Transaction
+### 4.10 API Calls Per Transaction
 
 A typical transaction (3 distinct products):
 1. `values.append` → `Transactions` tab (1 call)
@@ -500,14 +563,31 @@ The following diagram shows the logical relationships between data entities. Eac
 
 ```mermaid
 erDiagram
+    Stores {
+        uuid   store_id PK
+        string store_name
+        string master_spreadsheet_id
+        string drive_folder_id
+        string owner_email
+        string my_role
+        string joined_at
+    }
+
+    Monthly_Sheets {
+        string year_month PK
+        string spreadsheet_id
+        string created_at
+    }
+
     Settings {
+        uuid   store_id PK
         string business_name
         string timezone
         int    tax_rate
         string receipt_footer
     }
 
-    Users {
+    Members {
         uuid   id PK
         string email
         string name
@@ -636,14 +716,15 @@ erDiagram
     Transactions    ||--o{ Transaction_Items   : "contains"
     Transactions    ||--o{ Refunds             : "may have"
     Customers       ||--o{ Transactions        : "makes"
-    Users           ||--o{ Transactions        : "processes"
-    Users           ||--o{ Stock_Log           : "logs"
-    Users           ||--o{ Audit_Log           : "creates"
+    Members         ||--o{ Transactions        : "processes"
+    Members         ||--o{ Stock_Log           : "logs"
+    Members         ||--o{ Audit_Log           : "creates"
 ```
 
 **Spreadsheet mapping:**
-- **Master sheet:** Settings, Users, Categories, Products, Variants, Customers, Purchase_Orders, Purchase_Order_Items, Stock_Log, Audit_Log
-- **Monthly sheets:** Transactions, Transaction_Items, Refunds
+- **Main sheet** (`apps/pos_umkm/main`): Stores
+- **Master sheet** (`stores/<store_id>/master`): Settings, Members, Categories, Products, Variants, Customers, Purchase_Orders, Purchase_Order_Items, Stock_Log, Audit_Log, Monthly_Sheets
+- **Monthly sheets** (`stores/<store_id>/transactions/<year>/transaction_<year>-<month>`): Transactions, Transaction_Items, Refunds
 
 ---
 
@@ -655,10 +736,10 @@ erDiagram
 | Auth token | OAuth access token in memory only; never written to localStorage or cookies |
 | Data storage | User data in owner's Google Drive; Google handles encryption at rest |
 | App secrets | No server-side secrets; Google OAuth client ID is public (registered to the app domain) |
-| OAuth scope | `drive.file` (owner setup only) + `spreadsheets`; cannot access unrelated Drive files |
-| PIN storage | PIN stored as bcrypt hash in `Users` sheet; raw PIN never stored or transmitted |
+| OAuth scope | `drive` (owner — folder creation and sharing) + `spreadsheets` (all users); members need `spreadsheets` only |
+| PIN storage | PIN stored as bcrypt hash in `Members` sheet; raw PIN never stored or transmitted |
 | Audit log | Sensitive actions (price edits, stock adjustments, refunds, member changes) appended to `Audit_Log` tab |
-| Member access | Data sharing via Google Drive's native sharing; each member authenticates with their own Google account |
+| Member access | Data sharing via Google Drive folder sharing (`stores/<store_id>/`); each member authenticates with their own Google account |
 | Data residency | Data stored on Google's globally distributed servers. Known MVP trade-off vs. UU No. 27/2022; revisit for production |
 
 ---
@@ -921,16 +1002,19 @@ Users must be clearly informed at login that an active internet connection is re
 | **OAuth 2.0** | Authorization framework; the app gets a token to act on behalf of the user without seeing their password |
 | **Access Token** | Short-lived credential (1 hour) from Google after login; used in all Sheets API calls |
 | **Google Sheets API v4** | Google's REST API for reading and writing spreadsheet data |
-| **`drive.file` scope** | OAuth scope limiting the app to only Drive files it created — safer than full Drive access |
+| **`drive` scope** | OAuth scope granting full Google Drive access; required by the owner to create folders and share them with members |
 | **`values.append`** | Sheets API method to add rows — used for all new record writes |
 | **`values.update`** | Sheets API method to overwrite specific cells — used for stock decrements and settings changes |
 | **spreadsheetId** | Unique identifier for a Google Sheets file; found in the file's URL |
-| **Store Link** | A URL containing the `spreadsheetId` that the owner shares with family members to join the store |
-| **Master Sheet** | The permanent Google Spreadsheet containing all reference data (products, users, settings) |
-| **Monthly Sheet** | A Google Spreadsheet created per calendar month containing only that month's transactions |
+| **Store Link** | A URL containing the `masterSpreadsheetId` that the owner shares with members to join the store (`/join?sid=<id>`) |
+| **Main Sheet** | The private `apps/pos_umkm/main` spreadsheet in each user's Drive; tracks which stores they belong to (`Stores` tab) |
+| **Master Sheet** | The permanent Google Spreadsheet inside `stores/<store_id>/` containing all reference data (products, members, settings) |
+| **Monthly Sheet** | A Google Spreadsheet created per calendar month inside `transactions/<year>/` containing only that month's transactions |
+| **Monthly_Sheets tab** | A tab in the Master Sheet that acts as a registry mapping `year_month → spreadsheetId` for fast monthly sheet lookup |
+| **store_id** | A UUID generated on store creation, written to `Settings.store_id`; used as the folder name and stable store identifier |
 | **UUID v4** | Universally Unique Identifier v4 — randomly generated primary key for all records |
 | **Soft delete** | Marking a record deleted via `deleted_at` timestamp instead of removing the row |
-| **bcrypt** | Password hashing algorithm used to store cashier PINs in the `Users` tab |
+| **bcrypt** | Password hashing algorithm used to store cashier PINs in the `Members` tab |
 | **TDD** | Test-Driven Development — write a failing test first, then write code to make it pass |
 | **Vitest** | Fast unit test runner compatible with Vite; used for unit and integration tests |
 | **MSW** | Mock Service Worker — intercepts `fetch` calls in tests to mock API responses |
@@ -944,4 +1028,4 @@ Users must be clearly informed at login that an active internet connection is re
 
 ---
 
-*End of Document — POS UMKM TRD v2.1*
+*End of Document — POS UMKM TRD v2.5*
