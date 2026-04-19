@@ -2,8 +2,12 @@
  * LoginPage — the entry point for unauthenticated users.
  *
  * On mount, tries to restore a previous GIS session from localStorage (token +
- * expiry stored by GoogleAuthAdapter). If the stored token is still valid the
- * user is sent directly to /cashier or /setup without seeing the login button.
+ * expiry stored by GoogleAuthAdapter). If the stored token is still valid and a
+ * masterSpreadsheetId is cached, the user is sent directly to /cashier.
+ * Otherwise the sign-in button is shown.
+ *
+ * After any successful sign-in (restore or fresh), the user is redirected to
+ * /stores where StorePickerPage resolves which store to activate.
  *
  * In mock mode (VITE_ADAPTER=mock) restoreSession returns null instantly so
  * the sign-in button is always shown.
@@ -19,13 +23,20 @@ export default function LoginPage() {
   const { setUser, setSpreadsheetId } = useAuth()
   const [restoring, setRestoring] = useState(true)
 
-  /** Shared navigation logic after any successful auth (restore or fresh sign-in). */
+  /**
+   * Shared navigation logic after any successful auth (restore or fresh sign-in).
+   *
+   * Fast path: if masterSpreadsheetId is cached in localStorage, restore the
+   * adapter routing and go straight to /cashier (skips StorePickerPage).
+   * Slow path: navigate to /stores so StorePickerPage can call findOrCreateMain().
+   */
   function onAuthenticated(user: Parameters<typeof setUser>[0], token: string) {
     setUser(user, user.role, token)
-    const existingId = dataAdapter.getSpreadsheetId('master')
-    if (existingId) {
-      dataAdapter.setSpreadsheetId(existingId)
-      setSpreadsheetId(existingId)
+
+    const masterId = localStorage.getItem('masterSpreadsheetId')
+    if (masterId) {
+      dataAdapter.setSpreadsheetId(masterId)
+      setSpreadsheetId(masterId)
       // Restore monthly sheet routing if a monthly sheet exists for this month.
       const now = new Date()
       const mm = String(now.getMonth() + 1).padStart(2, '0')
@@ -33,7 +44,7 @@ export default function LoginPage() {
       if (monthlyId) dataAdapter.setMonthlySpreadsheetId(monthlyId)
       navigate('/cashier')
     } else {
-      navigate('/setup')
+      navigate('/stores')
     }
   }
 

@@ -385,12 +385,13 @@
 - **Phase:** 2 – Auth
 - **Depends on:** T045, T046
 - **Test type:** unit
-- **Architecture note:** `@react-oauth/google` is used as a thin React wrapper around GIS. The access token is stored in the Zustand `authStore` in memory only — never in `localStorage` or cookies. This prevents XSS token theft. Token refresh is triggered silently by GIS when the token nears expiry; the store is updated via the `onSuccess` callback.
+- **Architecture note:** `@react-oauth/google` is used as a thin React wrapper around GIS. The access token is stored in the Zustand `authStore` in memory only — never in `localStorage` or cookies. This prevents XSS token theft. Token refresh is triggered silently by GIS when the token nears expiry; the store is updated via the `onSuccess` callback. After sign-in, `LoginPage` checks for a cached `masterSpreadsheetId`; if found, routes to `/cashier` (fast path); otherwise routes to `/stores` (StorePickerPage) for store resolution.
 - **Deliverables:**
   - `src/modules/auth/AuthProvider.tsx` — wraps app with `GoogleOAuthProvider`
   - `src/modules/auth/useAuth.ts` — Zustand store: `{ user, role, accessToken, spreadsheetId, isAuthenticated }`
-  - `src/modules/auth/LoginPage.tsx` — "Sign in with Google" button
+  - `src/modules/auth/LoginPage.tsx` — "Sign in with Google" button; navigates to `/stores` after login
   - `src/modules/auth/ProtectedRoute.tsx` — redirects unauthenticated users to `/`
+  - `src/modules/auth/StorePickerPage.tsx` — calls `findOrCreateMain()` on mount; routes based on store count (0 → /setup, 1 → auto-activate, 2+ → show picker)
 - **Test cases (`auth.test.ts`):**
   - ✅ `isAuthenticated is false on initial state`
   - ✅ `login sets user, role, accessToken in store`
@@ -407,19 +408,29 @@
 - **Phase:** 2 – Auth
 - **Depends on:** T014, T046, T011
 - **Test type:** unit
-- **Architecture note:** The Drive API calls use the `drive` scope, which is requested only for the owner at first-time setup (and when inviting members or creating branches). Subsequent cashier/member logins only need the `spreadsheets` scope. On setup the owner session creates the full folder hierarchy (`apps/pos_umkm/stores/<store_id>/`), the `main` spreadsheet, and the `master` spreadsheet. The `masterSpreadsheetId` and `activeStoreId` are saved to `localStorage` (not sensitive — file identifiers, like filenames).
+- **Architecture note:** The Drive API calls use the `drive` scope, which is requested only for the owner at first-time setup (and when inviting members or creating branches). Subsequent cashier/member logins only need the `spreadsheets` scope. On setup the owner session creates the full folder hierarchy (`apps/pos_umkm/stores/<store_id>/`), the `main` spreadsheet (via `findOrCreateMain`), and the `master` spreadsheet. The `mainSpreadsheetId`, `masterSpreadsheetId`, and `activeStoreId` are saved to `localStorage`. `SetupWizard` calls `runStoreSetup()` (not `runFirstTimeSetup`) — `findOrCreateMain()` is called earlier by `StorePickerPage` before navigating to `/setup`.
 - **Deliverables:**
   - `src/modules/auth/setup.service.ts`:
-    - `createMasterSpreadsheet(businessName, token)` → returns `spreadsheetId`
-    - `initializeMasterSheets(spreadsheetId, token)` → creates all tab headers (Settings, Members, Categories, Products, Variants, Customers, Purchase_Orders, Purchase_Order_Items, Stock_Log, Audit_Log, Monthly_Sheets)
+    - `findOrCreateMain(ownerEmail?)` → `{ mainSpreadsheetId, stores[] }` — creates `apps/pos_umkm/main` if absent
+    - `createMasterSpreadsheet(businessName, ownerEmail, mainSpreadsheetId)` → returns `masterSpreadsheetId`
+    - `initializeMasterSheets(spreadsheetId)` → creates all tab headers (Settings, Members, Categories, Products, Variants, Customers, Purchase_Orders, Purchase_Order_Items, Stock_Log, Audit_Log, Monthly_Sheets)
+    - `activateStore(store)` → routes adapter to master + monthly sheets, saves IDs to localStorage
+    - `runStoreSetup(businessName, ownerEmail?)` → orchestrates master + monthly sheet creation
     - `saveSpreadsheetId(spreadsheetId)` → writes to `localStorage`
-  - `src/modules/auth/SetupWizard.tsx` — onboarding form: business name, timezone, PPN toggle
+  - `src/modules/auth/SetupWizard.tsx` — onboarding form: business name, timezone, PPN toggle; calls `runStoreSetup()`
 - **Test cases (`setup.service.test.ts`):**
-  - ✅ `createMasterSpreadsheet calls Drive API with correct body`
-  - ✅ `createMasterSpreadsheet returns spreadsheetId from response`
+  - ✅ `createMasterSpreadsheet creates only master spreadsheet (not main)`
+  - ✅ `createMasterSpreadsheet registers store in main.Stores tab`
+  - ✅ `createMasterSpreadsheet saves activeStoreId to localStorage`
   - ✅ `initializeMasterSheets creates all 11 required tabs`
-  - ✅ `initializeMasterSheets writes frozen header row 1 on each tab`
+  - ✅ `initializeMasterSheets writes correct headers for each tab`
   - ✅ `saveSpreadsheetId writes to localStorage key "masterSpreadsheetId"`
+  - ✅ `findOrCreateMain creates main and returns empty stores when mainSpreadsheetId is not in localStorage`
+  - ✅ `findOrCreateMain reads stores from existing main when mainSpreadsheetId is cached`
+  - ✅ `activateStore saves masterSpreadsheetId and activeStoreId to localStorage`
+  - ✅ `activateStore creates monthly sheet when none exists for current month`
+  - ✅ `runStoreSetup throws SetupError when mainSpreadsheetId is not in localStorage`
+  - ✅ `runStoreSetup returns masterSpreadsheetId and monthlySpreadsheetId`
   - ❌ `createMasterSpreadsheet throws SetupError on Drive API failure`
   - ❌ `initializeMasterSheets throws if spreadsheetId is invalid`
 

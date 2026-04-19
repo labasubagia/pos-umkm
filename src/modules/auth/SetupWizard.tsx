@@ -12,7 +12,7 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Checkbox } from '../../components/ui/checkbox'
 import { Alert, AlertDescription } from '../../components/ui/alert'
-import { runFirstTimeSetup } from './setup.service'
+import { runStoreSetup } from './setup.service'
 import { dataAdapter } from '../../lib/adapters'
 import { nowUTC } from '../../lib/formatters'
 import { useAuth } from './useAuth'
@@ -41,7 +41,7 @@ export default function SetupWizard() {
     setLoading(true)
     setError(null)
     try {
-      const { masterSpreadsheetId } = await runFirstTimeSetup(
+      const { masterSpreadsheetId } = await runStoreSetup(
         businessName.trim(),
         user?.email ?? '',
       )

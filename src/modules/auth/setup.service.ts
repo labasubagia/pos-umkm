@@ -2,9 +2,10 @@
  * setup.service.ts — Owner first-time setup and monthly sheet management.
  *
  * Responsible for:
- * 1. Creating the Master Spreadsheet (once, on first login).
- * 2. Initializing all required tab headers in the Master Sheet.
- * 3. Managing monthly transaction spreadsheets (lazy creation on first tx).
+ * 1. Detecting or creating the Main spreadsheet (owner's personal store registry).
+ * 2. Creating store spreadsheets (master + monthly) for each branch.
+ * 3. Activating a store by routing the adapter to the correct spreadsheets.
+ * 4. Managing monthly transaction spreadsheets (lazy creation on first tx).
  *
  * Uses the active DataAdapter so these calls work with both Mock and Google
  * adapters — no direct Sheets API calls from this file.
@@ -13,6 +14,8 @@
 import { dataAdapter } from '../../lib/adapters'
 import { generateId } from '../../lib/uuid'
 import { nowUTC } from '../../lib/formatters'
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Tab names that must exist in the Main Spreadsheet (owner's personal store registry). */
 export const MAIN_TABS = ['Stores'] as const
@@ -65,9 +68,7 @@ export const MASTER_TAB_HEADERS: Record<string, string[]> = {
   Monthly_Sheets: ['id', 'year_month', 'spreadsheetId', 'created_at'],
 }
 
-/**
- * Column headers for each Monthly Sheet tab.
- */
+/** Column headers for each Monthly Sheet tab. */
 export const MONTHLY_TAB_HEADERS: Record<string, string[]> = {
   Transactions: [
     'id', 'created_at', 'cashier_id', 'customer_id',
@@ -85,6 +86,24 @@ export const MONTHLY_TAB_HEADERS: Record<string, string[]> = {
   ],
 }
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+/**
+ * One row from the main.Stores tab — represents a store the user owns or has joined.
+ * This is the shape returned by listStores() and consumed by activateStore().
+ */
+export interface StoreRecord {
+  store_id: string
+  store_name: string
+  master_spreadsheet_id: string
+  drive_folder_id: string
+  owner_email: string
+  my_role: string
+  joined_at: string
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
 /** Returns the zero-padded month string, e.g. "04" for April. */
 function mm(month: number): string {
   return String(month).padStart(2, '0')
@@ -101,54 +120,190 @@ export class SetupError extends Error {
   }
 }
 
-// ─── T015 ─────────────────────────────────────────────────────────────────────
+/** Returns the mainSpreadsheetId from localStorage, or null if not yet created. */
+export function getMainSpreadsheetId(): string | null {
+  return localStorage.getItem('mainSpreadsheetId')
+}
+
+/** Persists the mainSpreadsheetId to localStorage. */
+export function saveMainSpreadsheetId(id: string): void {
+  localStorage.setItem('mainSpreadsheetId', id)
+}
 
 /**
- * First-time setup: creates the Main and Master spreadsheets in the owner's
- * Google Drive following TRD §3.3.
+ * Persists the master spreadsheetId to localStorage under the canonical key.
+ * The spreadsheetId is not sensitive (it's a public file identifier), so
+ * localStorage is the right storage tier — it survives page refreshes.
+ */
+export function saveSpreadsheetId(spreadsheetId: string): void {
+  localStorage.setItem('masterSpreadsheetId', spreadsheetId)
+}
+
+/**
+ * Returns the localStorage key used to cache a monthly transaction sheet ID.
+ * LoginPage reads this key on session restore to avoid a Sheets API lookup.
+ * Example: txSheet_2026-04
+ */
+export function monthlySheetKey(year: number, month: number): string {
+  return `txSheet_${year}-${mm(month)}`
+}
+
+// ─── Main Spreadsheet ─────────────────────────────────────────────────────────
+
+/**
+ * Creates the `main` spreadsheet at apps/pos_umkm/main in the owner's Drive.
+ * This is the owner's private store registry (never shared with members).
+ * Called once per Google account — subsequent logins read from it.
+ * Writes the Stores tab header row immediately after creation.
+ */
+export async function createMainSpreadsheet(ownerEmail = ''): Promise<string> {
+  try {
+    let parentFolderId: string | undefined
+    if (dataAdapter.ensureFolder) {
+      const fid = await dataAdapter.ensureFolder(['apps', 'pos_umkm'])
+      if (fid) parentFolderId = fid
+    }
+    const mainId = await dataAdapter.createSpreadsheet('main', parentFolderId, [...MAIN_TABS])
+    dataAdapter.setSpreadsheetId(mainId)
+    await dataAdapter.writeHeaders('Stores', MAIN_TAB_HEADERS['Stores'] ?? [])
+    void ownerEmail // reserved for future row insertion on member join flow
+    return mainId
+  } catch (err) {
+    throw new SetupError(`createMainSpreadsheet failed: ${String(err)}`, err)
+  }
+}
+
+/**
+ * Reads all store rows from main.Stores.
+ * Temporarily routes the adapter to mainSpreadsheetId, then leaves it pointing
+ * at main — callers that activate a store must call setSpreadsheetId(masterId).
+ */
+export async function listStores(mainSpreadsheetId: string): Promise<StoreRecord[]> {
+  dataAdapter.setSpreadsheetId(mainSpreadsheetId)
+  const rows = await dataAdapter.getSheet('Stores')
+  return rows
+    .filter((r) => r['store_id'] && r['master_spreadsheet_id'])
+    .map((r) => ({
+      store_id: String(r['store_id']),
+      store_name: String(r['store_name'] ?? ''),
+      master_spreadsheet_id: String(r['master_spreadsheet_id']),
+      drive_folder_id: String(r['drive_folder_id'] ?? ''),
+      owner_email: String(r['owner_email'] ?? ''),
+      my_role: String(r['my_role'] ?? 'owner'),
+      joined_at: String(r['joined_at'] ?? ''),
+    }))
+}
+
+/**
+ * Post-login entry point: finds the owner's main spreadsheet or creates it.
+ *
+ * On every login (not just first-time) this function:
+ *   1. Checks localStorage for a cached mainSpreadsheetId.
+ *   2. If found: reads stores from main.Stores and returns the list.
+ *   3. If not found: creates apps/pos_umkm/main, saves the ID, returns empty list.
+ *
+ * The caller (StorePickerPage) routes to /setup (0 stores), auto-activates
+ * (1 store), or shows the picker (2+ stores).
+ */
+export async function findOrCreateMain(
+  ownerEmail = '',
+): Promise<{ mainSpreadsheetId: string; stores: StoreRecord[] }> {
+  try {
+    let mainId = getMainSpreadsheetId()
+    if (!mainId) {
+      mainId = await createMainSpreadsheet(ownerEmail)
+      saveMainSpreadsheetId(mainId)
+      return { mainSpreadsheetId: mainId, stores: [] }
+    }
+    const stores = await listStores(mainId)
+    return { mainSpreadsheetId: mainId, stores }
+  } catch (err) {
+    throw new SetupError(`findOrCreateMain failed: ${String(err)}`, err)
+  }
+}
+
+// ─── Store Activation ─────────────────────────────────────────────────────────
+
+/**
+ * Activates a store selected from the store picker.
+ *
+ * Sets the adapter's master spreadsheet routing, saves IDs to localStorage,
+ * then resolves the current month's transaction sheet (creating it if missing
+ * and the user has the `drive` scope — owners and managers only).
+ *
+ * Cashiers who lack the drive scope will land on a store without a monthly sheet
+ * if the owner has not yet created one for this month; pages should handle this
+ * gracefully with an empty-state message rather than crashing.
+ */
+export async function activateStore(store: StoreRecord): Promise<void> {
+  const { master_spreadsheet_id: masterId, store_id: storeId } = store
+
+  dataAdapter.setSpreadsheetId(masterId)
+  localStorage.setItem('masterSpreadsheetId', masterId)
+  localStorage.setItem('activeStoreId', storeId)
+
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+
+  let monthlyId = await getCurrentMonthSheetId()
+  if (!monthlyId) {
+    try {
+      monthlyId = await createMonthlySheet(year, month)
+      dataAdapter.setMonthlySpreadsheetId(monthlyId)
+      await initializeMonthlySheets(monthlyId)
+    } catch {
+      // Cashiers lack the drive scope to create monthly sheets.
+      // The monthly sheet must be pre-created by an owner or manager.
+      return
+    }
+  } else {
+    dataAdapter.setMonthlySpreadsheetId(monthlyId)
+  }
+
+  localStorage.setItem(monthlySheetKey(year, month), monthlyId)
+}
+
+// ─── Master Spreadsheet ───────────────────────────────────────────────────────
+
+/**
+ * Creates the `master` spreadsheet for a new store and registers it in main.Stores.
+ *
+ * Assumes the main spreadsheet already exists — call findOrCreateMain() first.
+ * Does NOT create main (that is findOrCreateMain's responsibility).
  *
  * Steps:
- *   1. Creates `apps/pos_umkm/main` (owner's private store registry).
- *   2. Writes headers + registers the new store in `main.Stores`.
- *   3. Generates a UUID store_id and creates the store folder
- *      at `apps/pos_umkm/stores/<store_id>/`.
- *   4. Creates `master` spreadsheet inside the store folder.
- *   5. Saves `activeStoreId` and `storeFolderId` to localStorage.
- *   6. Returns the master spreadsheetId.
+ *   1. Generates a UUID store_id.
+ *   2. Creates apps/pos_umkm/stores/<store_id>/ folder.
+ *   3. Creates `master` spreadsheet inside the store folder.
+ *   4. Registers the new store in main.Stores tab.
+ *   5. Restores adapter routing to master.
+ *   6. Saves activeStoreId and storeFolderId to localStorage.
  *
- * @param businessName  Display name of the store.
- * @param ownerEmail    Owner's Google account email (used for main.Stores row).
+ * @param businessName    Store display name.
+ * @param ownerEmail      Owner's Google account email.
+ * @param mainSpreadsheetId  The main spreadsheet to register the store in.
  */
 export async function createMasterSpreadsheet(
   businessName: string,
   ownerEmail = '',
+  mainSpreadsheetId: string,
 ): Promise<string> {
   try {
     const storeId = generateId()
 
-    // ── 1. Create main spreadsheet (apps/pos_umkm/main) ──────────────────────
-    let posUmkmiParentId: string | undefined
-    if (dataAdapter.ensureFolder) {
-      const fid = await dataAdapter.ensureFolder(['apps', 'pos_umkm'])
-      if (fid) posUmkmiParentId = fid
-    }
-    const mainId = await dataAdapter.createSpreadsheet('main', posUmkmiParentId, [...MAIN_TABS])
-
-    // Write headers to main.Stores tab.
-    dataAdapter.setSpreadsheetId(mainId)
-    await dataAdapter.writeHeaders('Stores', MAIN_TAB_HEADERS['Stores'] ?? [])
-
-    // ── 2. Create store folder and master spreadsheet ─────────────────────────
+    // ── 1. Create store folder ────────────────────────────────────────────────
     let storeFolderId: string | undefined
     if (dataAdapter.ensureFolder) {
       const fid = await dataAdapter.ensureFolder(['apps', 'pos_umkm', 'stores', storeId])
       if (fid) storeFolderId = fid
     }
 
+    // ── 2. Create master spreadsheet ──────────────────────────────────────────
     const masterId = await dataAdapter.createSpreadsheet('master', storeFolderId, [...MASTER_TABS])
 
     // ── 3. Register new store in main.Stores ──────────────────────────────────
-    dataAdapter.setSpreadsheetId(mainId)
+    dataAdapter.setSpreadsheetId(mainSpreadsheetId)
     await dataAdapter.appendRow('Stores', {
       store_id: storeId,
       store_name: businessName,
@@ -192,64 +347,7 @@ export async function initializeMasterSheets(spreadsheetId: string): Promise<voi
   )
 }
 
-/**
- * Persists the master spreadsheetId to localStorage under the canonical key.
- * The spreadsheetId is not sensitive (it's a public file identifier), so
- * localStorage is the right storage tier — it survives page refreshes.
- */
-export function saveSpreadsheetId(spreadsheetId: string): void {
-  localStorage.setItem('masterSpreadsheetId', spreadsheetId)
-}
-
-/**
- * Returns the localStorage key used to cache a monthly transaction sheet ID.
- * LoginPage reads this key on session restore to avoid a Sheets API lookup.
- * Example: txSheet_2026-04
- */
-export function monthlySheetKey(year: number, month: number): string {
-  return `txSheet_${year}-${mm(month)}`
-}
-
-/**
- * Full first-time setup orchestrator — implements TRD §3.3 steps 3–8 and 10.
- *
- * Runs every sub-step in the correct order so the caller (SetupWizard) only
- * needs a single await. Safe to call from the UI layer.
- *
- * Steps performed:
- *   1. createMasterSpreadsheet  — main + store folder + master spreadsheet
- *   2. initializeMasterSheets   — frozen header rows on all master tabs
- *   3. saveSpreadsheetId        — persists masterSpreadsheetId to localStorage
- *   4. createMonthlySheet       — current month's transaction spreadsheet
- *   5. setMonthlySpreadsheetId  — routes adapter writes to the monthly sheet
- *   6. initializeMonthlySheets  — frozen header rows on all monthly tabs
- *   7. saves monthly ID         — persists txSheet_<year>-<month> to localStorage
- *
- * @param businessName  Display name of the store.
- * @param ownerEmail    Owner's Google account email (written to main.Stores).
- */
-export async function runFirstTimeSetup(
-  businessName: string,
-  ownerEmail = '',
-): Promise<{ masterSpreadsheetId: string; monthlySpreadsheetId: string }> {
-  // Steps 1–3: create and initialize master spreadsheet.
-  const masterSpreadsheetId = await createMasterSpreadsheet(businessName, ownerEmail)
-  await initializeMasterSheets(masterSpreadsheetId)
-  saveSpreadsheetId(masterSpreadsheetId)
-
-  // Steps 4–7: create and initialize the current month's transaction spreadsheet.
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
-  const monthlySpreadsheetId = await createMonthlySheet(year, month)
-  dataAdapter.setMonthlySpreadsheetId(monthlySpreadsheetId)
-  await initializeMonthlySheets(monthlySpreadsheetId)
-  localStorage.setItem(monthlySheetKey(year, month), monthlySpreadsheetId)
-
-  return { masterSpreadsheetId, monthlySpreadsheetId }
-}
-
-// ─── T016 ─────────────────────────────────────────────────────────────────────
+// ─── Monthly Spreadsheet ──────────────────────────────────────────────────────
 
 /**
  * Returns the spreadsheetId for the current calendar month's transaction sheet
@@ -335,6 +433,68 @@ export async function initializeMonthlySheets(spreadsheetId: string): Promise<vo
   )
 }
 
+// ─── Setup Orchestrators ──────────────────────────────────────────────────────
+
+/**
+ * Creates a new store (master + monthly spreadsheets) using the main spreadsheet
+ * already present in localStorage. Called from SetupWizard for both first-time
+ * setup and adding a new branch.
+ *
+ * Precondition: findOrCreateMain() must have been called before navigating to
+ * /setup, so that mainSpreadsheetId is persisted in localStorage.
+ *
+ * Steps:
+ *   1. createMasterSpreadsheet → store folder + master spreadsheet + main.Stores row
+ *   2. initializeMasterSheets  → frozen header rows on all master tabs
+ *   3. saveSpreadsheetId       → persists masterSpreadsheetId to localStorage
+ *   4. createMonthlySheet      → current month's transaction spreadsheet
+ *   5. setMonthlySpreadsheetId → routes adapter writes to the monthly sheet
+ *   6. initializeMonthlySheets → frozen header rows on all monthly tabs
+ *   7. saves txSheet key       → persists monthly ID for fast session restore
+ */
+export async function runStoreSetup(
+  businessName: string,
+  ownerEmail = '',
+): Promise<{ masterSpreadsheetId: string; monthlySpreadsheetId: string }> {
+  const mainId = getMainSpreadsheetId()
+  if (!mainId) {
+    throw new SetupError(
+      'runStoreSetup: mainSpreadsheetId not found in localStorage. Call findOrCreateMain() first.',
+    )
+  }
+
+  const masterSpreadsheetId = await createMasterSpreadsheet(businessName, ownerEmail, mainId)
+  await initializeMasterSheets(masterSpreadsheetId)
+  saveSpreadsheetId(masterSpreadsheetId)
+
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  const monthlySpreadsheetId = await createMonthlySheet(year, month)
+  dataAdapter.setMonthlySpreadsheetId(monthlySpreadsheetId)
+  await initializeMonthlySheets(monthlySpreadsheetId)
+  localStorage.setItem(monthlySheetKey(year, month), monthlySpreadsheetId)
+
+  return { masterSpreadsheetId, monthlySpreadsheetId }
+}
+
+/**
+ * Full first-time setup orchestrator — implements TRD §3.3 steps 3–8 and 10.
+ * Combines findOrCreateMain + runStoreSetup into one call.
+ * Retained for testing convenience and backward compatibility.
+ *
+ * @param businessName  Display name of the store.
+ * @param ownerEmail    Owner's Google account email.
+ */
+export async function runFirstTimeSetup(
+  businessName: string,
+  ownerEmail = '',
+): Promise<{ masterSpreadsheetId: string; monthlySpreadsheetId: string }> {
+  const { mainSpreadsheetId } = await findOrCreateMain(ownerEmail)
+  saveMainSpreadsheetId(mainSpreadsheetId)
+  return runStoreSetup(businessName, ownerEmail)
+}
+
 /**
  * Shares the given spreadsheet with all active members listed in the Members tab.
  * Active members are rows where deleted_at is falsy.
@@ -351,3 +511,4 @@ export async function shareSheetWithAllMembers(spreadsheetId: string): Promise<v
     ),
   )
 }
+

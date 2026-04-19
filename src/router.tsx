@@ -9,6 +9,7 @@ import SettingsPage from './pages/SettingsPage'
 import NotFoundPage from './pages/NotFoundPage'
 import LoginPage from './modules/auth/LoginPage'
 import SetupWizard from './modules/auth/SetupWizard'
+import StorePickerPage from './modules/auth/StorePickerPage'
 import JoinPage from './modules/auth/JoinPage'
 import { ProtectedRoute } from './modules/auth/ProtectedRoute'
 import { RoleRoute } from './modules/auth/RoleRoute'
@@ -28,6 +29,16 @@ export const router = createBrowserRouter(
       element: (
         <ProtectedRoute>
           <SetupWizard />
+        </ProtectedRoute>
+      ),
+    },
+
+    // Store picker — authenticated, resolves the active store after every login
+    {
+      path: '/stores',
+      element: (
+        <ProtectedRoute>
+          <StorePickerPage />
         </ProtectedRoute>
       ),
     },

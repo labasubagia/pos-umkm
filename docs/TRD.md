@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.5                               |
+| Version     | 2.6                               |
 | Status      | Draft                             |
 | Date        | April 2026                        |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -347,6 +347,9 @@ npm run build                      # always builds with VITE_ADAPTER=google
 5. The app stores the access token **in memory only** (never localStorage, never a cookie)
 6. All `GoogleDataAdapter` calls include `Authorization: Bearer <token>` header
 7. When the token expires, GIS silently refreshes it (`prompt: 'none'`) as long as the browser session is active
+8. After successful auth, `LoginPage` checks for a cached `masterSpreadsheetId` in `localStorage`:
+   - **Fast path (returning user):** `masterSpreadsheetId` found → restores adapter routing → navigates to `/cashier`
+   - **Slow path (new session):** no cached ID → navigates to `/stores` (StorePickerPage)
 
 ### 3.2 Google OAuth Scopes
 
@@ -360,22 +363,32 @@ npm run build                      # always builds with VITE_ADAPTER=google
 
 > **Members** only need the `spreadsheets` scope — they access spreadsheets shared via the store folder. The `drive` scope is requested only for the owner at first-time setup (and when inviting members or creating new branches). The app detects whether the user is an owner or member based on the `Members` record in the master sheet.
 
-### 3.3 First-Time Setup (Owner)
+### 3.3 First-Time Setup (Owner) and Post-Login Store Resolution
 
-On first login by the store owner:
-1. App requests `drive` + `spreadsheets` scopes
-2. Calls Drive API to create the `apps/pos_umkm/` folder hierarchy if it doesn't exist
-3. Creates `apps/pos_umkm/main` spreadsheet (the owner's personal store registry) with a `Stores` tab
-4. Generates a UUID as the store's permanent `store_id`
-5. Creates `apps/pos_umkm/stores/<store_id>/` folder and `transactions/<current_year>/` subfolder
-6. Creates `master` spreadsheet inside `apps/pos_umkm/stores/<store_id>/`
-7. Initializes all master sheet tabs with frozen header rows (see §4.3); writes `store_id` to `Settings` tab
-8. Creates the current month's transaction spreadsheet inside `transactions/<year>/`
-9. Adds a row to `main.Stores` with the new store's details (store_id, store_name, spreadsheet IDs, folder ID)
-10. Saves `masterSpreadsheetId` and `store_id` to `localStorage` as the active store context
-11. Saves the owner's profile in the `Members` sheet with role `owner`
+Every login (first-time and returning) goes through `/stores` (StorePickerPage) unless `masterSpreadsheetId` is already in `localStorage`. StorePickerPage calls `findOrCreateMain()` which:
 
-**Multiple branches:** Repeating steps 4–11 from the Settings screen creates a new branch. The owner's `main.Stores` tab accumulates one row per branch.
+1. Checks `localStorage` for a cached `mainSpreadsheetId`
+2. If not found: calls Drive API to create `apps/pos_umkm/main` spreadsheet with a `Stores` tab, saves ID to `localStorage`
+3. Returns the list of stores from `main.Stores`
+
+**Based on store count:**
+- **0 stores (first-time owner):** navigates to `/setup` (SetupWizard)
+- **1 store:** auto-activates the store and navigates to `/cashier`
+- **2+ stores:** shows a store picker UI; user selects a branch or adds a new one
+
+**When navigating to /setup (SetupWizard):**
+
+1. Collects business name, timezone, and PPN toggle from the owner
+2. Generates a UUID as the store's permanent `store_id`
+3. Creates `apps/pos_umkm/stores/<store_id>/` folder (Drive scope required)
+4. Creates `master` spreadsheet inside `apps/pos_umkm/stores/<store_id>/`
+5. Initializes all master sheet tabs with frozen header rows (see §4.3); writes `store_id` to `Settings` tab
+6. Creates the current month's transaction spreadsheet inside `transactions/<year>/`
+7. Adds a row to `main.Stores` with the new store's details
+8. Saves `masterSpreadsheetId`, `activeStoreId`, and `mainSpreadsheetId` to `localStorage`
+9. Saves the owner's profile in the `Members` sheet with role `owner`
+
+**Multiple branches:** From the Settings screen, the owner can add branches. Each branch goes through steps 2–9 above. The owner's `main.Stores` tab accumulates one row per branch.
 
 ### 3.4 Family & Member Access
 
@@ -474,7 +487,14 @@ My Drive (owner's Google account)
                             └── Refunds
 ```
 
-**Active store context** is stored in `localStorage` (`activeStoreId`, `masterSpreadsheetId`). On app load the app reads from localStorage for fast startup; the `main.Stores` tab is the source of truth for the full store list.
+**Active store context** is stored in `localStorage` (`activeStoreId`, `masterSpreadsheetId`, `mainSpreadsheetId`). On app load the app reads from localStorage for fast startup; the `main.Stores` tab is the source of truth for the full store list.
+
+| localStorage key | Value | Set by |
+|---|---|---|
+| `mainSpreadsheetId` | ID of the owner's `main` spreadsheet | `findOrCreateMain()` |
+| `masterSpreadsheetId` | ID of the active store's master spreadsheet | `activateStore()` / `runStoreSetup()` |
+| `activeStoreId` | UUID of the active store | `createMasterSpreadsheet()` / `activateStore()` |
+| `txSheet_<year>-<mm>` | ID of the monthly spreadsheet for that month | `runStoreSetup()` / `activateStore()` |
 
 **`Monthly_Sheets` registry tab** — the master sheet keeps a tab listing all monthly spreadsheet IDs. This allows any user (including members who don't have Drive folder listing access) to discover the correct monthly spreadsheet ID for any month without a Drive API call.
 
