@@ -296,7 +296,7 @@ describe('updateStoreName', () => {
 
     await updateStoreName('sid-1', 'Toko Baru', 'master-1')
 
-    expect(updateSpy).toHaveBeenCalledWith('Stores', 'row-1', 'store_name', 'Toko Baru')
+    expect(updateSpy).toHaveBeenCalledWith('Stores', 'sid-1', 'store_name', 'Toko Baru')
     // Must restore adapter to master spreadsheet after the update.
     expect(setIdSpy).toHaveBeenLastCalledWith('master-1')
   })
