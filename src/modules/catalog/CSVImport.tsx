@@ -74,7 +74,7 @@ export function CSVImport() {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Import Produk via CSV</h2>
         <a
-          href="/pos-umkm/templates/products-template.csv"
+          href="/templates/products-template.csv"
           download
           className="text-sm text-blue-600 hover:underline"
         >

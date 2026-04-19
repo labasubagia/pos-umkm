@@ -40,7 +40,7 @@
 - **Deliverables:**
   - `package.json` with correct scripts: `dev`, `build`, `preview`, `test`, `test:e2e`
   - `tsconfig.json` with strict mode enabled
-  - `vite.config.ts` with base path set for GitHub Pages deployment (`base: '/pos-umkm/'`)
+  - `vite.config.ts` configured for Vite + React + Tailwind
   - `.gitignore` covering `node_modules`, `dist`, `.env*`
   - `README.md` with setup instructions
 

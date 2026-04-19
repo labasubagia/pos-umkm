@@ -8,7 +8,7 @@
 import { test, expect } from '@playwright/test'
 import { signInAsOwner, navigateTo } from './helpers/auth'
 
-const BASE = '/pos-umkm'
+const BASE = ''
 
 async function signInAndSetup(page: Parameters<typeof signInAsOwner>[0]) {
   await signInAsOwner(page)

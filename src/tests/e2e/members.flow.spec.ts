@@ -7,7 +7,7 @@
 import { test, expect } from '@playwright/test'
 import { signInAsOwner, navigateTo } from './helpers/auth'
 
-const BASE = '/pos-umkm'
+const BASE = ''
 
 /** Sign in and complete setup if needed, returning on /cashier. */
 async function signInAndSetup(page: Parameters<typeof signInAsOwner>[0], businessName: string) {

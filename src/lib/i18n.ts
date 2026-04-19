@@ -18,7 +18,7 @@ i18next
     defaultNS: 'common',
     ns: ['common'],
     backend: {
-      loadPath: '/pos-umkm/locales/{{lng}}/{{ns}}.json',
+      loadPath: '/locales/{{lng}}/{{ns}}.json',
     },
     detection: {
       order: ['localStorage', 'navigator'],

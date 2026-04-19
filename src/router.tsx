@@ -105,6 +105,6 @@ export const router = createBrowserRouter(
 
     { path: '*', element: <NotFoundPage /> },
   ],
-  { basename: '/pos-umkm' },
+  { basename: '/' },
 )
 

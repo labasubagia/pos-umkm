@@ -1,6 +1,6 @@
 import { type Page } from '@playwright/test'
 
-const BASE = '/pos-umkm'
+const BASE = ''
 
 /**
  * Sign in as owner using the mock auth flow.
