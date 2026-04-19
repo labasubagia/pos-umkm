@@ -92,7 +92,7 @@ export function NavBar() {
               className="text-sm text-gray-600 hidden lg:inline"
               data-testid="navbar-username"
             >
-              {user.name}
+              {user?.name ?? user?.email}
             </span>
             <Button
               variant="ghost"

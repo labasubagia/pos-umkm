@@ -128,7 +128,11 @@ export class GoogleAuthAdapter implements AuthAdapter {
             this.currentUser = user
             localStorage.setItem(LS_USER_ID, user.id)
             localStorage.setItem(LS_USER_EMAIL, user.email)
-            localStorage.setItem(LS_USER_NAME, user.name)
+            if (user.name) {
+              localStorage.setItem(LS_USER_NAME, user.name)
+            } else {
+              localStorage.removeItem(LS_USER_NAME)
+            }
             resolve(user)
           } catch (err) {
             reject(err)
