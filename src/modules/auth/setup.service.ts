@@ -247,15 +247,15 @@ export async function updateStoreName(
 
   try {
     dataAdapter.setSpreadsheetId(mainId)
-    const rows = await dataAdapter.getSheet('Stores')
-    const row = rows.find((r) => String(r['store_id']) === storeId)
-    if (!row) throw new SetupError(`updateStoreName: store ${storeId} not found in main.Stores`)
-    // updateCell identifies the row by the value in its first column.
-    // For the Stores tab the first column is store_id (no separate id column).
+    // updateCell reads the sheet once internally and throws AdapterError if
+    // the row is not found — no need for a separate getSheet pre-check.
     await dataAdapter.updateCell('Stores', storeId, 'store_name', newName)
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AdapterError' && err.message.includes('not found')) {
+      throw new SetupError(`updateStoreName: store ${storeId} not found in main.Stores`)
+    }
+    throw err
   } finally {
-    // Always restore master as the active spreadsheet so subsequent calls
-    // (e.g. reading Settings) continue to target the correct store sheet.
     dataAdapter.setSpreadsheetId(masterSpreadsheetId)
   }
 }

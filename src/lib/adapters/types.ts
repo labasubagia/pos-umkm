@@ -45,6 +45,20 @@ export interface DataAdapter {
   ): Promise<void>
 
   /**
+   * Upsert by a named lookup column in a single API round-trip.
+   * Reads the sheet once, batch-updates rows where lookupColumn matches,
+   * and appends new rows for unmatched entries using makeNewRow.
+   * Ideal for key-value store sheets (e.g. Settings).
+   */
+  batchUpsertByKey(
+    sheetName: string,
+    lookupColumn: string,
+    updateColumn: string,
+    entries: Array<{ lookupValue: string; value: unknown }>,
+    makeNewRow: (lookupValue: string, value: unknown) => Record<string, unknown>,
+  ): Promise<void>
+
+  /**
    * Soft-deletes a row by setting its `deleted_at` timestamp.
    * The row is never physically removed; getSheet filters it out.
    * Throws AdapterError if the row is not found.

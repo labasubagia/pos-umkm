@@ -92,35 +92,23 @@ export async function getQRISImage(): Promise<string> {
 /**
  * Saves multiple settings in a single round-trip.
  *
- * Reads the Settings sheet ONCE, then sends all cell updates in a single
- * batchUpdateCells call (1 GET + 1 batchUpdate vs. the old 2N GETs + N PUTs).
- * New keys that don't yet exist are appended individually (rare — only on
- * first-time setup before the sheet is fully populated).
+ * Uses batchUpsertByKey: the adapter reads the Settings sheet ONCE, then
+ * batch-updates all existing keys in one POST and appends any missing keys.
+ * Result: 1 GET + 1 batchUpdate (vs. old 2N GETs + N PUTs).
  */
 export async function saveSettings(settings: Partial<BusinessSettings>): Promise<void> {
-  const entries = Object.entries(settings).filter(([, v]) => v !== undefined) as [string, string | number][]
+  const entries = (Object.entries(settings) as [string, string | number | undefined][])
+    .filter(([, v]) => v !== undefined)
+    .map(([key, value]) => ({ lookupValue: key, value: String(value) }))
   if (entries.length === 0) return
 
-  const rows = await dataAdapter.getSheet('Settings')
-
-  const updates: Array<{ rowId: string; column: string; value: unknown }> = []
-  const appends: Array<{ key: string; value: string }> = []
-
-  for (const [key, value] of entries) {
-    const existing = rows.find((r) => r['key'] === key)
-    if (existing) {
-      updates.push({ rowId: existing['id'] as string, column: 'value', value: String(value) })
-    } else {
-      appends.push({ key, value: String(value) })
-    }
-  }
-
-  if (updates.length > 0) {
-    await dataAdapter.batchUpdateCells('Settings', updates)
-  }
-  for (const { key, value } of appends) {
-    await dataAdapter.appendRow('Settings', { key, value, updated_at: nowUTC() })
-  }
+  await dataAdapter.batchUpsertByKey(
+    'Settings',
+    'key',
+    'value',
+    entries,
+    (key, value) => ({ key, value: String(value), updated_at: nowUTC() }),
+  )
 }
 
 /** Saves a single setting key-value pair. */

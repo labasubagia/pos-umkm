@@ -70,6 +70,25 @@ export class MockDataAdapter implements DataAdapter {
     }
   }
 
+  /** Upsert by key column: update existing rows, append missing ones (loops in mock). */
+  async batchUpsertByKey(
+    sheetName: string,
+    lookupColumn: string,
+    updateColumn: string,
+    entries: Array<{ lookupValue: string; value: unknown }>,
+    makeNewRow: (lookupValue: string, value: unknown) => Record<string, unknown>,
+  ): Promise<void> {
+    const rows = readRows(sheetName).filter((r) => !r['deleted_at'])
+    for (const { lookupValue, value } of entries) {
+      const existing = rows.find((r) => r[lookupColumn] === lookupValue)
+      if (existing) {
+        await this.updateCell(sheetName, existing['id'] as string, updateColumn, value)
+      } else {
+        await this.appendRow(sheetName, makeNewRow(lookupValue, value))
+      }
+    }
+  }
+
   /**
    * Soft-deletes a row by stamping `deleted_at` with the current UTC timestamp.
    * The row remains in localStorage but is excluded by getSheet.

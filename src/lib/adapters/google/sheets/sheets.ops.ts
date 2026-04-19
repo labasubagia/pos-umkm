@@ -216,3 +216,67 @@ export async function batchUpdateCells(
     throw err
   }
 }
+
+/**
+ * Upsert by a named key column in a single API round-trip.
+ *
+ * Reads the sheet ONCE, then:
+ *   - rows where `lookupColumn === entry.lookupValue` → batched into one batchUpdate
+ *   - entries with no matching row → appended individually
+ *
+ * Ideal for key-value store sheets (e.g. Settings) where the caller knows
+ * the lookup key but not the row UUID.
+ */
+export async function batchUpsertByKey(
+  spreadsheetId: string,
+  sheetName: string,
+  lookupColumn: string,
+  updateColumn: string,
+  entries: Array<{ lookupValue: string; value: unknown }>,
+  makeNewRow: (lookupValue: string, value: unknown) => Record<string, unknown>,
+  token: string,
+): Promise<void> {
+  if (entries.length === 0) return
+  try {
+    const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    if (!res.ok) throw new SheetsApiError(res.status, `Failed to fetch sheet "${sheetName}"`)
+    const data = await res.json()
+    const rows: string[][] = data.values ?? []
+
+    const headers = rows.length > 0 ? rows[0] : []
+    const dataRows = rows.slice(1)
+    const lookupColIndex = headers.indexOf(lookupColumn)
+    const updateColIndex = headers.indexOf(updateColumn)
+
+    const rangeUpdates: Array<{ range: string; values: (string | number | boolean)[][] }> = []
+    const toAppend: Array<{ lookupValue: string; value: unknown }> = []
+
+    for (const entry of entries) {
+      const dataRowIndex = lookupColIndex >= 0
+        ? dataRows.findIndex((r) => r[lookupColIndex] === entry.lookupValue)
+        : -1
+
+      if (dataRowIndex === -1 || lookupColIndex === -1 || updateColIndex === -1) {
+        toAppend.push(entry)
+      } else {
+        const sheetRowNumber = dataRowIndex + 2
+        rangeUpdates.push({
+          range: `${sheetName}!${columnToLetter(updateColIndex)}${sheetRowNumber}`,
+          values: [[entry.value as string]],
+        })
+      }
+    }
+
+    if (rangeUpdates.length > 0) {
+      await sheetsBatchUpdate(spreadsheetId, rangeUpdates, token)
+    }
+    for (const { lookupValue, value } of toAppend) {
+      await sheetsAppend(spreadsheetId, sheetName, [Object.values(makeNewRow(lookupValue, value))], token)
+    }
+  } catch (err) {
+    if (err instanceof AdapterError) throw err
+    if (err instanceof SheetsApiError) throw new AdapterError(`batchUpsertByKey failed: ${err.message}`, err)
+    throw err
+  }
+}

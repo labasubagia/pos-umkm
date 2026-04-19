@@ -50,34 +50,34 @@ describe('getSettings', () => {
 })
 
 describe('saveSettings', () => {
-  it('writes each changed field via updateCell when key already exists', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
-      { id: 'row-1', key: 'business_name', value: 'Old Name', updated_at: '' },
-      { id: 'row-2', key: 'tax_rate', value: '11', updated_at: '' },
-    ])
-    const updateSpy = vi
-      .spyOn(adapters.dataAdapter, 'updateCell')
+  it('calls batchUpsertByKey with all changed fields', async () => {
+    const upsertSpy = vi
+      .spyOn(adapters.dataAdapter, 'batchUpsertByKey')
       .mockResolvedValue()
 
     await saveSettings({ business_name: 'New Name', tax_rate: 5 })
 
-    expect(updateSpy).toHaveBeenCalledWith('Settings', 'row-1', 'value', 'New Name')
-    expect(updateSpy).toHaveBeenCalledWith('Settings', 'row-2', 'value', '5')
-    expect(updateSpy).toHaveBeenCalledTimes(2)
+    expect(upsertSpy).toHaveBeenCalledWith(
+      'Settings',
+      'key',
+      'value',
+      expect.arrayContaining([
+        { lookupValue: 'business_name', value: 'New Name' },
+        { lookupValue: 'tax_rate', value: '5' },
+      ]),
+      expect.any(Function),
+    )
+    expect(upsertSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('appends new row when key does not exist yet', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
-    const appendSpy = vi
-      .spyOn(adapters.dataAdapter, 'appendRow')
+  it('does nothing when no fields provided', async () => {
+    const upsertSpy = vi
+      .spyOn(adapters.dataAdapter, 'batchUpsertByKey')
       .mockResolvedValue()
 
-    await saveSettings({ business_name: 'My Warung' })
+    await saveSettings({})
 
-    expect(appendSpy).toHaveBeenCalledWith(
-      'Settings',
-      expect.objectContaining({ key: 'business_name', value: 'My Warung' }),
-    )
+    expect(upsertSpy).not.toHaveBeenCalled()
   })
 })
 
