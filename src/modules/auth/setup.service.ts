@@ -11,7 +11,6 @@
  */
 
 import { dataAdapter } from '../../lib/adapters'
-import { nowUTC } from '../../lib/formatters'
 
 /** All tab names that must exist in the Master Spreadsheet. */
 export const MASTER_TABS = [
@@ -29,6 +28,44 @@ export const MASTER_TABS = [
 
 /** All tab names that must exist in each Monthly Spreadsheet. */
 export const MONTHLY_TABS = ['Transactions', 'Transaction_Items', 'Refunds'] as const
+
+/**
+ * Column headers for each Master Sheet tab.
+ * These must match the keys written by the corresponding service's appendRow calls
+ * so that GoogleDataAdapter can map object keys to the correct column positions.
+ */
+export const MASTER_TAB_HEADERS: Record<string, string[]> = {
+  Settings: ['id', 'key', 'value', 'updated_at'],
+  Users: ['id', 'email', 'name', 'role', 'invited_at', 'deleted_at'],
+  Categories: ['id', 'name', 'created_at', 'deleted_at'],
+  Products: ['id', 'category_id', 'name', 'sku', 'price', 'stock', 'has_variants', 'created_at', 'deleted_at'],
+  Variants: ['id', 'product_id', 'option_name', 'option_value', 'price', 'stock', 'created_at', 'deleted_at'],
+  Customers: ['id', 'name', 'phone', 'email', 'created_at', 'deleted_at'],
+  Purchase_Orders: ['id', 'supplier', 'status', 'created_at', 'deleted_at'],
+  Purchase_Order_Items: ['id', 'order_id', 'product_id', 'product_name', 'qty', 'cost_price', 'created_at'],
+  Stock_Log: ['id', 'product_id', 'reason', 'qty_before', 'qty_after', 'created_at'],
+  Audit_Log: ['id', 'event', 'data', 'created_at'],
+}
+
+/**
+ * Column headers for each Monthly Sheet tab.
+ */
+export const MONTHLY_TAB_HEADERS: Record<string, string[]> = {
+  Transactions: [
+    'id', 'created_at', 'cashier_id', 'customer_id',
+    'subtotal', 'discount_type', 'discount_value', 'discount_amount',
+    'tax', 'total', 'payment_method', 'cash_received', 'change',
+    'receipt_number', 'notes',
+  ],
+  Transaction_Items: [
+    'id', 'transaction_id', 'product_id', 'variant_id',
+    'name', 'price', 'quantity', 'subtotal',
+  ],
+  Refunds: [
+    'id', 'transaction_id', 'product_id', 'product_name',
+    'qty', 'unit_price', 'reason', 'created_at',
+  ],
+}
 
 /** localStorage key pattern for monthly sheets. */
 function monthKey(year: number, month: number): string {
@@ -82,27 +119,21 @@ export async function createMasterSpreadsheet(businessName: string): Promise<str
 }
 
 /**
- * Initializes all required tab headers in the Master Spreadsheet.
- * Appends a header-sentinel row to each tab so the adapter can detect
- * that the tab has been set up. In GoogleDataAdapter this creates the
- * actual sheet tabs with frozen header rows.
- *
- * For the MockDataAdapter this appends metadata rows so getSheet works.
+ * Writes the column header row to every tab of the Master Spreadsheet.
+ * Must be called once after createMasterSpreadsheet so that GoogleDataAdapter
+ * can map object keys to the correct column positions in subsequent appendRow calls.
+ * In MockDataAdapter this is a no-op — the mock uses object keys directly.
  */
 export async function initializeMasterSheets(spreadsheetId: string): Promise<void> {
   if (!spreadsheetId) {
     throw new SetupError('initializeMasterSheets: spreadsheetId is required')
   }
   // Ensure the adapter targets the correct spreadsheet before writing.
-  // Critical for GoogleDataAdapter which may still hold an empty ID if this is
-  // called independently of createMasterSpreadsheet.
   dataAdapter.setSpreadsheetId(spreadsheetId)
-  // Append a sentinel record to each tab to mark it as initialized.
-  // Tabs already exist (created by createSpreadsheet with the tabs param);
-  // this write just confirms they are writable and records the setup timestamp.
+  // Write one header row per tab concurrently.
   await Promise.all(
     MASTER_TABS.map((tab) =>
-      dataAdapter.appendRow(tab, { _initialized: true, created_at: nowUTC() }),
+      dataAdapter.writeHeaders(tab, MASTER_TAB_HEADERS[tab] ?? []),
     ),
   )
 }
@@ -150,15 +181,18 @@ export async function createMonthlySheet(year: number, month: number): Promise<s
 }
 
 /**
- * Initializes the Transactions, Transaction_Items, and Refunds tabs in a monthly sheet.
+ * Writes the column header row to every tab of a Monthly Spreadsheet.
+ * Must be called once after createMonthlySheet.
+ * In MockDataAdapter this is a no-op.
  */
 export async function initializeMonthlySheets(spreadsheetId: string): Promise<void> {
   if (!spreadsheetId) {
     throw new SetupError('initializeMonthlySheets: spreadsheetId is required')
   }
+  dataAdapter.setSpreadsheetId(spreadsheetId)
   await Promise.all(
     MONTHLY_TABS.map((tab) =>
-      dataAdapter.appendRow(tab, { _initialized: true, created_at: nowUTC() }),
+      dataAdapter.writeHeaders(tab, MONTHLY_TAB_HEADERS[tab] ?? []),
     ),
   )
 }

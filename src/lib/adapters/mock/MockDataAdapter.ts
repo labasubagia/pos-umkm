@@ -96,6 +96,14 @@ export class MockDataAdapter implements DataAdapter {
   }
 
   /**
+   * No-op in the mock adapter — mock sheets use object keys as column names
+   * directly, so header rows are not needed.
+   */
+  async writeHeaders(_sheetName: string, _headers: string[]): Promise<void> {
+    // intentional no-op
+  }
+
+  /**
    * No-op in the mock adapter.
    * Logs to console so developers can see the intent during local dev.
    */

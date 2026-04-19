@@ -65,6 +65,14 @@ export interface DataAdapter {
   setSpreadsheetId(id: string): void
 
   /**
+   * Writes a header row (row 1) to the named sheet tab.
+   * Must be called once after a new spreadsheet is created so that appendRow
+   * can map object keys to the correct column positions.
+   * No-op in MockDataAdapter (mock uses object keys directly).
+   */
+  writeHeaders(sheetName: string, headers: string[]): Promise<void>
+
+  /**
    * Ensures a Drive folder hierarchy exists and returns the leaf folder ID.
    * Path is an ordered list of folder names from root: ['apps', 'pos_umkm', 'Toko LB'].
    * Returns null in MockDataAdapter (mock never touches Drive).

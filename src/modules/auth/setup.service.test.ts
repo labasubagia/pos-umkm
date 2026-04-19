@@ -72,8 +72,8 @@ describe('createMasterSpreadsheet', () => {
 })
 
 describe('initializeMasterSheets', () => {
-  it('creates all 10 required tabs', async () => {
-    const spy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+  it('writes header row to all 10 required tabs', async () => {
+    const spy = vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
 
     await initializeMasterSheets('sid-001')
 
@@ -81,13 +81,16 @@ describe('initializeMasterSheets', () => {
     expect(calledTabs.sort()).toEqual([...MASTER_TABS].sort())
   })
 
-  it('writes frozen header row 1 on each tab (appends a row per tab)', async () => {
-    const spy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+  it('writes correct headers for each tab', async () => {
+    const spy = vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
 
     await initializeMasterSheets('sid-001')
 
-    // One appendRow call per tab — 10 tabs
+    // One writeHeaders call per tab — 10 tabs
     expect(spy).toHaveBeenCalledTimes(MASTER_TABS.length)
+    // Spot-check: Settings tab should have key-value headers
+    const settingsCall = spy.mock.calls.find((c) => c[0] === 'Settings')
+    expect(settingsCall?.[1]).toEqual(['id', 'key', 'value', 'updated_at'])
   })
 
   it('throws if spreadsheetId is invalid (empty string)', async () => {
@@ -137,8 +140,8 @@ describe('createMonthlySheet', () => {
 })
 
 describe('initializeMonthlySheets', () => {
-  it('creates Transactions, Transaction_Items, Refunds tabs', async () => {
-    const spy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+  it('writes headers to Transactions, Transaction_Items, Refunds tabs', async () => {
+    const spy = vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
 
     await initializeMonthlySheets('monthly-sid-001')
 

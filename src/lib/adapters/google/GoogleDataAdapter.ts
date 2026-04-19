@@ -69,16 +69,56 @@ export class GoogleDataAdapter implements DataAdapter {
   }
 
   /**
-   * Maps the object to an ordered row array (matching header order) and
-   * appends it via sheetsAppend.
+   * Writes the header row (row 1) to the named sheet tab using values.update.
+   * Must be called once after a new tab is created so that appendRow can map
+   * object keys to the correct column positions.
+   */
+  async writeHeaders(sheetName: string, headers: string[]): Promise<void> {
+    const token = this.getToken()
+    const range = `${sheetName}!1:1`
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
+      {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ range, majorDimension: 'ROWS', values: [headers] }),
+      },
+    )
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      throw new AdapterError(`writeHeaders failed for "${sheetName}": ${body}`)
+    }
+  }
+
+  /**
+   * Fetches the header row of the given sheet and maps the row object to an
+   * ordered value array matching header columns. Falls back to Object.values()
+   * if no headers exist (e.g. in tests without real Sheets API).
+   * Appends the ordered row via sheetsAppend.
    */
   async appendRow(sheetName: string, row: Record<string, unknown>): Promise<void> {
     try {
       const token = this.getToken()
       const rowWithId = row['id'] ? row : { id: generateId(), ...row }
-      // Append as a single-row 2D array; column order doesn't matter for append
-      const values = [Object.values(rowWithId)]
-      await sheetsAppend(this.spreadsheetId, sheetName, values as unknown as (string | number | boolean)[][], token)
+
+      // Fetch only row 1 (header) to determine column order — cheap single-row read.
+      const headerUrl = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${encodeURIComponent(sheetName + '!1:1')}`
+      const headerRes = await fetch(headerUrl, { headers: { Authorization: `Bearer ${token}` } })
+      let values: unknown[]
+      if (headerRes.ok) {
+        const headerData = await headerRes.json()
+        const headers: string[] = (headerData.values?.[0] ?? []) as string[]
+        if (headers.length > 0) {
+          // Map values in header column order; use null for missing keys.
+          values = headers.map((h) => rowWithId[h] ?? null)
+        } else {
+          values = Object.values(rowWithId)
+        }
+      } else {
+        values = Object.values(rowWithId)
+      }
+
+      await sheetsAppend(this.spreadsheetId, sheetName, [values] as unknown as (string | number | boolean)[][], token)
     } catch (err) {
       if (err instanceof SheetsApiError) {
         throw new AdapterError(`appendRow failed for "${sheetName}": ${err.message}`, err)

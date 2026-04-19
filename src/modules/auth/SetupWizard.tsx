@@ -14,6 +14,7 @@ import { Checkbox } from '../../components/ui/checkbox'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { createMasterSpreadsheet, initializeMasterSheets, saveSpreadsheetId } from './setup.service'
 import { dataAdapter } from '../../lib/adapters'
+import { nowUTC } from '../../lib/formatters'
 import { useAuth } from './useAuth'
 
 const TIMEZONES = [
@@ -44,13 +45,19 @@ export default function SetupWizard() {
       await initializeMasterSheets(spreadsheetId)
       saveSpreadsheetId(spreadsheetId)
 
-      // Persist settings row
-      await dataAdapter.appendRow('Settings', {
-        business_name: businessName.trim(),
-        timezone,
-        tax_rate: ppnEnabled ? 11 : 0,
-        receipt_footer: '',
-      })
+      // Persist settings as key-value rows (matching settings.service.ts read format)
+      const settingsRows = [
+        { key: 'business_name', value: businessName.trim() },
+        { key: 'timezone', value: timezone },
+        { key: 'tax_rate', value: ppnEnabled ? 11 : 0 },
+        { key: 'receipt_footer', value: '' },
+      ]
+      const ts = nowUTC()
+      await Promise.all(
+        settingsRows.map((s) =>
+          dataAdapter.appendRow('Settings', { ...s, updated_at: ts }),
+        ),
+      )
 
       setSpreadsheetId(spreadsheetId)
       navigate('/cashier')
