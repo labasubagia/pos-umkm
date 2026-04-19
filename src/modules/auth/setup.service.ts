@@ -14,6 +14,20 @@ import { dataAdapter } from '../../lib/adapters'
 import { generateId } from '../../lib/uuid'
 import { nowUTC } from '../../lib/formatters'
 
+/** Tab names that must exist in the Main Spreadsheet (owner's personal store registry). */
+export const MAIN_TABS = ['Stores'] as const
+
+/**
+ * Column headers for the Main Spreadsheet's Stores tab.
+ * TRD §4.2: private to the owner's Google account; never shared with members.
+ */
+export const MAIN_TAB_HEADERS: Record<string, string[]> = {
+  Stores: [
+    'store_id', 'store_name', 'master_spreadsheet_id',
+    'drive_folder_id', 'owner_email', 'my_role', 'joined_at',
+  ],
+}
+
 /** All tab names that must exist in the Master Spreadsheet. */
 export const MASTER_TABS = [
   'Settings',
@@ -90,29 +104,69 @@ export class SetupError extends Error {
 // ─── T015 ─────────────────────────────────────────────────────────────────────
 
 /**
- * Creates the Master Spreadsheet inside `apps/pos_umkm/<businessName>/` in the
- * owner's Google Drive. Uses `drive.file` scope — called once on first login.
- * Updates the adapter's active spreadsheetId immediately so subsequent calls work.
- * Returns the new spreadsheetId.
+ * First-time setup: creates the Main and Master spreadsheets in the owner's
+ * Google Drive following TRD §3.3.
+ *
+ * Steps:
+ *   1. Creates `apps/pos_umkm/main` (owner's private store registry).
+ *   2. Writes headers + registers the new store in `main.Stores`.
+ *   3. Generates a UUID store_id and creates the store folder
+ *      at `apps/pos_umkm/stores/<store_id>/`.
+ *   4. Creates `master` spreadsheet inside the store folder.
+ *   5. Saves `activeStoreId` and `storeFolderId` to localStorage.
+ *   6. Returns the master spreadsheetId.
+ *
+ * @param businessName  Display name of the store.
+ * @param ownerEmail    Owner's Google account email (used for main.Stores row).
  */
-export async function createMasterSpreadsheet(businessName: string): Promise<string> {
+export async function createMasterSpreadsheet(
+  businessName: string,
+  ownerEmail = '',
+): Promise<string> {
   try {
-    const name = `POS UMKM — Master — ${businessName}`
+    const storeId = generateId()
 
-    let parentFolderId: string | undefined
+    // ── 1. Create main spreadsheet (apps/pos_umkm/main) ──────────────────────
+    let posUmkmiParentId: string | undefined
     if (dataAdapter.ensureFolder) {
-      const folderId = await dataAdapter.ensureFolder(['apps', 'pos_umkm', businessName])
-      if (folderId) {
-        parentFolderId = folderId
-        // Persist folder ID and store name so monthly sheets know their folder path.
-        localStorage.setItem('storeFolderId', folderId)
-        localStorage.setItem('storeName', businessName)
-      }
+      const fid = await dataAdapter.ensureFolder(['apps', 'pos_umkm'])
+      if (fid) posUmkmiParentId = fid
+    }
+    const mainId = await dataAdapter.createSpreadsheet('main', posUmkmiParentId, [...MAIN_TABS])
+
+    // Write headers to main.Stores tab.
+    dataAdapter.setSpreadsheetId(mainId)
+    await dataAdapter.writeHeaders('Stores', MAIN_TAB_HEADERS['Stores'] ?? [])
+
+    // ── 2. Create store folder and master spreadsheet ─────────────────────────
+    let storeFolderId: string | undefined
+    if (dataAdapter.ensureFolder) {
+      const fid = await dataAdapter.ensureFolder(['apps', 'pos_umkm', 'stores', storeId])
+      if (fid) storeFolderId = fid
     }
 
-    const id = await dataAdapter.createSpreadsheet(name, parentFolderId, [...MASTER_TABS])
-    dataAdapter.setSpreadsheetId(id)
-    return id
+    const masterId = await dataAdapter.createSpreadsheet('master', storeFolderId, [...MASTER_TABS])
+
+    // ── 3. Register new store in main.Stores ──────────────────────────────────
+    dataAdapter.setSpreadsheetId(mainId)
+    await dataAdapter.appendRow('Stores', {
+      store_id: storeId,
+      store_name: businessName,
+      master_spreadsheet_id: masterId,
+      drive_folder_id: storeFolderId ?? '',
+      owner_email: ownerEmail,
+      my_role: 'owner',
+      joined_at: nowUTC(),
+    })
+
+    // Restore master as the active spreadsheet for all subsequent calls.
+    dataAdapter.setSpreadsheetId(masterId)
+
+    // Persist store context so monthly sheets and other services can locate the folder.
+    localStorage.setItem('activeStoreId', storeId)
+    if (storeFolderId) localStorage.setItem('storeFolderId', storeFolderId)
+
+    return masterId
   } catch (err) {
     throw new SetupError(`createMasterSpreadsheet failed: ${String(err)}`, err)
   }
@@ -187,15 +241,15 @@ export async function createMonthlySheet(year: number, month: number): Promise<s
 
     let parentFolderId: string | undefined
     if (dataAdapter.ensureFolder) {
-      const storeName = localStorage.getItem('storeName')
-      if (storeName) {
-        // Place sheet in apps/pos_umkm/<Store Name>/transactions/<Year>/<Month>/
+      const storeId = localStorage.getItem('activeStoreId')
+      if (storeId) {
+        // Place sheet in apps/pos_umkm/stores/<store_id>/transactions/<year>/
         const folderId = await dataAdapter.ensureFolder([
-          'apps', 'pos_umkm', storeName, 'transactions', String(year), mm(month),
+          'apps', 'pos_umkm', 'stores', storeId, 'transactions', String(year),
         ])
         if (folderId) parentFolderId = folderId
       } else {
-        // Fallback: use the store folder directly (pre-existing sessions without storeName)
+        // Fallback: use the store folder directly (pre-existing sessions without activeStoreId)
         parentFolderId = localStorage.getItem('storeFolderId') ?? undefined
       }
     }

@@ -8,6 +8,8 @@ import {
   createMasterSpreadsheet,
   initializeMasterSheets,
   saveSpreadsheetId,
+  MAIN_TABS,
+  MAIN_TAB_HEADERS,
   MASTER_TABS,
   MONTHLY_TABS,
   getCurrentMonthSheetId,
@@ -45,23 +47,60 @@ beforeEach(() => {
 // ─── T015 ───────────────────────────────────────────────────────────────────
 
 describe('createMasterSpreadsheet', () => {
-  it('calls Drive API with correct body (via dataAdapter.createSpreadsheet)', async () => {
-    vi.spyOn(adapters.dataAdapter, 'ensureFolder' as keyof typeof adapters.dataAdapter).mockResolvedValue('folder-id-abc')
-    const spy = vi
+  it('creates main spreadsheet then master spreadsheet with correct names', async () => {
+    vi.spyOn(adapters.dataAdapter, 'ensureFolder' as keyof typeof adapters.dataAdapter)
+      .mockResolvedValue('folder-id-abc')
+    const createSpy = vi
       .spyOn(adapters.dataAdapter, 'createSpreadsheet')
-      .mockResolvedValue('sheet-id-123')
+      .mockResolvedValueOnce('main-id-000')   // first call: main
+      .mockResolvedValueOnce('sheet-id-123')  // second call: master
+    vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
+    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
 
     const id = await createMasterSpreadsheet('Toko Santoso')
 
-    expect(spy).toHaveBeenCalledWith('POS UMKM — Master — Toko Santoso', 'folder-id-abc', expect.arrayContaining([...MASTER_TABS]))
+    // Main spreadsheet must be named 'main' (TRD §4.1)
+    expect(createSpy).toHaveBeenNthCalledWith(1, 'main', 'folder-id-abc', ['Stores'])
+    // Master spreadsheet must be named 'master' (TRD §4.1) with all required tabs
+    expect(createSpy).toHaveBeenNthCalledWith(2, 'master', 'folder-id-abc', expect.arrayContaining([...MASTER_TABS]))
+    // Returns the master spreadsheetId
     expect(id).toBe('sheet-id-123')
   })
 
-  it('returns spreadsheetId from response', async () => {
-    vi.spyOn(adapters.dataAdapter, 'ensureFolder' as keyof typeof adapters.dataAdapter).mockResolvedValue('folder-id-xyz')
-    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('abc-456')
-    const id = await createMasterSpreadsheet('Warung Ibu')
-    expect(id).toBe('abc-456')
+  it('writes Stores headers and registers store in main.Stores', async () => {
+    vi.spyOn(adapters.dataAdapter, 'ensureFolder' as keyof typeof adapters.dataAdapter)
+      .mockResolvedValue('folder-id-abc')
+    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet')
+      .mockResolvedValueOnce('main-id-000')
+      .mockResolvedValueOnce('master-id-001')
+    const headersSpy = vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
+    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+
+    await createMasterSpreadsheet('Warung Ibu', 'owner@example.com')
+
+    // Headers written to main.Stores
+    expect(headersSpy).toHaveBeenCalledWith('Stores', expect.arrayContaining(['store_id', 'store_name', 'master_spreadsheet_id']))
+    // Store row registered in main.Stores
+    expect(appendSpy).toHaveBeenCalledWith('Stores', expect.objectContaining({
+      store_name: 'Warung Ibu',
+      master_spreadsheet_id: 'master-id-001',
+      owner_email: 'owner@example.com',
+      my_role: 'owner',
+    }))
+  })
+
+  it('saves activeStoreId to localStorage', async () => {
+    vi.spyOn(adapters.dataAdapter, 'ensureFolder' as keyof typeof adapters.dataAdapter)
+      .mockResolvedValue('folder-id-abc')
+    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet')
+      .mockResolvedValueOnce('main-id-000')
+      .mockResolvedValueOnce('master-id-999')
+    vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
+    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+
+    await createMasterSpreadsheet('Toko X')
+
+    expect(localStorage.getItem('activeStoreId')).toBeTruthy()
   })
 
   it('throws SetupError on Drive API failure', async () => {
@@ -141,13 +180,26 @@ describe('createMonthlySheet', () => {
 
     await createMonthlySheet(2026, 4)
 
-    // parentFolderId is undefined when storeFolderId is not in localStorage
+    // parentFolderId is undefined when ensureFolder is not available (MockDataAdapter)
     expect(createSpy).toHaveBeenCalledWith('transaction_2026-04', undefined, expect.arrayContaining([...MONTHLY_TABS]))
     // Must register the new ID in the Monthly_Sheets registry tab
     expect(appendSpy).toHaveBeenCalledWith('Monthly_Sheets', expect.objectContaining({
       year_month: '2026-04',
       spreadsheetId: 'monthly-id-001',
     }))
+  })
+
+  it('uses activeStoreId from localStorage to build the year folder path', async () => {
+    localStorage.setItem('activeStoreId', 'store-uuid-999')
+    const ensureSpy = vi
+      .spyOn(adapters.dataAdapter, 'ensureFolder' as keyof typeof adapters.dataAdapter)
+      .mockResolvedValue('txn-folder-id')
+    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('monthly-id-002')
+    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+
+    await createMonthlySheet(2026, 4)
+
+    expect(ensureSpy).toHaveBeenCalledWith(['apps', 'pos_umkm', 'stores', 'store-uuid-999', 'transactions', '2026'])
   })
 
   it('throws on Drive API error', async () => {
