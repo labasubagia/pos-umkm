@@ -198,9 +198,12 @@ export async function listStores(mainSpreadsheetId: string): Promise<StoreRecord
  * Post-login entry point: finds the owner's main spreadsheet or creates it.
  *
  * On every login (not just first-time) this function:
- *   1. Checks localStorage for a cached mainSpreadsheetId.
- *   2. If found: reads stores from main.Stores and returns the list.
- *   3. If not found: creates apps/pos_umkm/main, saves the ID, returns empty list.
+ *   1. Checks localStorage for a cached mainSpreadsheetId (fast path).
+ *   2. If not cached: calls createMainSpreadsheet() which uses Drive "find or
+ *      create" — searches apps/pos_umkm/ for an existing `main` spreadsheet
+ *      before creating a new one. This means clearing localStorage never causes
+ *      a duplicate main spreadsheet.
+ *   3. Reads and returns the current store list from main.Stores.
  *
  * The caller (StorePickerPage) routes to /setup (0 stores), auto-activates
  * (1 store), or shows the picker (2+ stores).
@@ -210,11 +213,17 @@ export async function findOrCreateMain(
 ): Promise<{ mainSpreadsheetId: string; stores: StoreRecord[] }> {
   try {
     let mainId = getMainSpreadsheetId()
+
     if (!mainId) {
+      // Cache miss — use Drive to find the existing file or create a new one.
+      // createMainSpreadsheet calls createSpreadsheet with a parentFolderId so
+      // the "find or create" search in drive.client.ts is triggered: if
+      // apps/pos_umkm/main already exists, its ID is returned (not a new file).
       mainId = await createMainSpreadsheet(ownerEmail)
       saveMainSpreadsheetId(mainId)
-      return { mainSpreadsheetId: mainId, stores: [] }
     }
+
+    // Always read stores — whether mainId came from cache or from Drive.
     const stores = await listStores(mainId)
     return { mainSpreadsheetId: mainId, stores }
   } catch (err) {

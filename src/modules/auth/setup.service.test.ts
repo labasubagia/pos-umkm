@@ -214,15 +214,37 @@ describe('listStores', () => {
 // ─── findOrCreateMain ────────────────────────────────────────────────────────
 
 describe('findOrCreateMain', () => {
-  it('creates main and returns empty stores when mainSpreadsheetId is not in localStorage', async () => {
+  it('creates main and reads stores when mainSpreadsheetId is not in localStorage', async () => {
     vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('new-main-id')
     vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
+    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([]) // new main → empty stores
 
     const result = await findOrCreateMain('owner@test.com')
 
     expect(result.mainSpreadsheetId).toBe('new-main-id')
     expect(result.stores).toEqual([])
     expect(localStorage.getItem('mainSpreadsheetId')).toBe('new-main-id')
+  })
+
+  it('finds existing main via Drive (cache miss) and returns existing stores', async () => {
+    // localStorage is empty but main spreadsheet already exists in Drive.
+    // createSpreadsheet's "find or create" logic returns the existing ID.
+    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('existing-main-id')
+    vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
+    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+      {
+        store_id: 'sid-1', store_name: 'Toko A',
+        master_spreadsheet_id: 'master-1', drive_folder_id: '',
+        owner_email: '', my_role: 'owner', joined_at: '',
+      },
+    ])
+
+    const result = await findOrCreateMain('owner@test.com')
+
+    expect(result.mainSpreadsheetId).toBe('existing-main-id')
+    expect(result.stores).toHaveLength(1)
+    expect(result.stores[0].store_name).toBe('Toko A')
+    expect(localStorage.getItem('mainSpreadsheetId')).toBe('existing-main-id')
   })
 
   it('reads stores from existing main when mainSpreadsheetId is cached', async () => {
