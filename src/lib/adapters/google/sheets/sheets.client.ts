@@ -16,6 +16,7 @@ import type {
   SheetsAppendResponse,
   SheetsUpdateResponse,
   SheetsBatchGetResponse,
+  SheetsBatchUpdateResponse,
   SheetValues,
 } from './sheets.types'
 import { SheetsApiError } from './sheets.types'
@@ -122,4 +123,26 @@ export async function sheetsBatchGet(
   const url = `${BASE_URL}/${spreadsheetId}/values:batchGet?${params}`
   const res = await fetchWithRetry(url, { headers: authHeader(token) })
   return res.json() as Promise<SheetsBatchGetResponse>
+}
+
+/**
+ * Updates multiple cell ranges in a single API call (batchUpdate).
+ * More efficient than calling sheetsUpdate N times — one HTTP round-trip
+ * regardless of how many cells are being written.
+ */
+export async function sheetsBatchUpdate(
+  spreadsheetId: string,
+  updates: Array<{ range: string; values: SheetValues }>,
+  token: string,
+): Promise<SheetsBatchUpdateResponse> {
+  const url = `${BASE_URL}/${spreadsheetId}/values:batchUpdate`
+  const res = await fetchWithRetry(url, {
+    method: 'POST',
+    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      valueInputOption: 'RAW',
+      data: updates,
+    }),
+  })
+  return res.json() as Promise<SheetsBatchUpdateResponse>
 }

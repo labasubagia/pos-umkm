@@ -7,7 +7,7 @@
  * stateless and independently testable. Error translation from
  * SheetsApiError → AdapterError happens here so GoogleDataAdapter stays thin.
  */
-import { sheetsAppend, sheetsUpdate } from './sheets.client'
+import { sheetsAppend, sheetsUpdate, sheetsBatchUpdate } from './sheets.client'
 import { SheetsApiError } from './sheets.types'
 import { AdapterError } from '../../types'
 import { generateId } from '../../../uuid'
@@ -166,4 +166,53 @@ function columnToLetter(index: number): string {
     n = Math.floor(n / 26) - 1
   }
   return result
+}
+
+/**
+ * Updates multiple cells in a sheet with a single API round-trip.
+ *
+ * Reads the sheet ONCE to resolve row indices and column letters, then
+ * calls values.batchUpdate with all ranges in a single HTTP POST.
+ * Compared to N × updateCell calls this saves (2N − 1) GET requests.
+ *
+ * All updates must target the same sheet tab. Rows are identified by their
+ * first-column value (same convention as updateCell).
+ */
+export async function batchUpdateCells(
+  spreadsheetId: string,
+  sheetName: string,
+  updates: Array<{ rowId: string; column: string; value: unknown }>,
+  token: string,
+): Promise<void> {
+  if (updates.length === 0) return
+  try {
+    const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    if (!res.ok) throw new SheetsApiError(res.status, `Failed to fetch sheet "${sheetName}"`)
+    const data = await res.json()
+    const rows: string[][] = data.values ?? []
+    if (rows.length < 2) throw new AdapterError(`batchUpdateCells: sheet "${sheetName}" has no data rows`)
+
+    const headers = rows[0]
+    const dataRows = rows.slice(1)
+
+    const rangeUpdates: Array<{ range: string; values: (string | number | boolean)[][] }> = []
+    for (const { rowId, column, value } of updates) {
+      const colIndex = headers.indexOf(column)
+      if (colIndex === -1) throw new AdapterError(`batchUpdateCells: column "${column}" not found in "${sheetName}"`)
+      const dataRowIndex = dataRows.findIndex((r) => r[0] === rowId)
+      if (dataRowIndex === -1) throw new AdapterError(`batchUpdateCells: row "${rowId}" not found in "${sheetName}"`)
+      const sheetRowNumber = dataRowIndex + 2 // +1 header, +1 one-based
+      rangeUpdates.push({
+        range: `${sheetName}!${columnToLetter(colIndex)}${sheetRowNumber}`,
+        values: [[value as string]],
+      })
+    }
+
+    await sheetsBatchUpdate(spreadsheetId, rangeUpdates, token)
+  } catch (err) {
+    if (err instanceof AdapterError) throw err
+    if (err instanceof SheetsApiError) throw new AdapterError(`batchUpdateCells failed: ${err.message}`, err)
+    throw err
+  }
 }

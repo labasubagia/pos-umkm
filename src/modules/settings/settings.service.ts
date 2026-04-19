@@ -89,26 +89,41 @@ export async function getQRISImage(): Promise<string> {
   return getQRISImageUrl()
 }
 
-/** Saves multiple settings at once, calling saveSetting for each key-value pair. */
+/**
+ * Saves multiple settings in a single round-trip.
+ *
+ * Reads the Settings sheet ONCE, then sends all cell updates in a single
+ * batchUpdateCells call (1 GET + 1 batchUpdate vs. the old 2N GETs + N PUTs).
+ * New keys that don't yet exist are appended individually (rare — only on
+ * first-time setup before the sheet is fully populated).
+ */
 export async function saveSettings(settings: Partial<BusinessSettings>): Promise<void> {
-  for (const [key, value] of Object.entries(settings)) {
-    if (value !== undefined) {
-      await saveSetting(key, String(value))
+  const entries = Object.entries(settings).filter(([, v]) => v !== undefined) as [string, string | number][]
+  if (entries.length === 0) return
+
+  const rows = await dataAdapter.getSheet('Settings')
+
+  const updates: Array<{ rowId: string; column: string; value: unknown }> = []
+  const appends: Array<{ key: string; value: string }> = []
+
+  for (const [key, value] of entries) {
+    const existing = rows.find((r) => r['key'] === key)
+    if (existing) {
+      updates.push({ rowId: existing['id'] as string, column: 'value', value: String(value) })
+    } else {
+      appends.push({ key, value: String(value) })
     }
+  }
+
+  if (updates.length > 0) {
+    await dataAdapter.batchUpdateCells('Settings', updates)
+  }
+  for (const { key, value } of appends) {
+    await dataAdapter.appendRow('Settings', { key, value, updated_at: nowUTC() })
   }
 }
 
-/** Saves any subset of business settings. */
+/** Saves a single setting key-value pair. */
 export async function saveSetting(key: string, value: string): Promise<void> {
-  const rows = await dataAdapter.getSheet('Settings')
-  const existing = rows.find((r) => r['key'] === key)
-  if (existing) {
-    await dataAdapter.updateCell('Settings', existing['id'] as string, 'value', value)
-  } else {
-    await dataAdapter.appendRow('Settings', {
-      key,
-      value,
-      updated_at: nowUTC(),
-    })
-  }
+  return saveSettings({ [key]: value } as Partial<BusinessSettings>)
 }

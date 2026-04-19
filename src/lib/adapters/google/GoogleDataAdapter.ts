@@ -54,6 +54,13 @@ export class GoogleDataAdapter implements DataAdapter {
     return sheetsOps.updateCell(this.resolveId(sheetName), sheetName, rowId, column, value, this.getToken())
   }
 
+  async batchUpdateCells(
+    sheetName: string,
+    updates: Array<{ rowId: string; column: string; value: unknown }>,
+  ): Promise<void> {
+    return sheetsOps.batchUpdateCells(this.resolveId(sheetName), sheetName, updates, this.getToken())
+  }
+
   async softDelete(sheetName: string, rowId: string): Promise<void> {
     return sheetsOps.softDelete(this.resolveId(sheetName), sheetName, rowId, this.getToken())
   }

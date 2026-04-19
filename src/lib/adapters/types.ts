@@ -35,6 +35,16 @@ export interface DataAdapter {
   updateCell(sheetName: string, rowId: string, column: string, value: unknown): Promise<void>
 
   /**
+   * Updates multiple cells in the same sheet in a single API round-trip.
+   * More efficient than calling updateCell N times when saving multiple fields.
+   * Throws AdapterError if any row or column is not found.
+   */
+  batchUpdateCells(
+    sheetName: string,
+    updates: Array<{ rowId: string; column: string; value: unknown }>,
+  ): Promise<void>
+
+  /**
    * Soft-deletes a row by setting its `deleted_at` timestamp.
    * The row is never physically removed; getSheet filters it out.
    * Throws AdapterError if the row is not found.

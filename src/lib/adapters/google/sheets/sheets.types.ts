@@ -42,6 +42,12 @@ export interface SheetsBatchGetResponse {
   valueRanges: SheetsGetResponse[]
 }
 
+/** Response from values.batchUpdate */
+export interface SheetsBatchUpdateResponse {
+  spreadsheetId: string
+  totalUpdatedCells: number
+}
+
 /** Custom error thrown for any Sheets API HTTP error. */
 export class SheetsApiError extends Error {
   readonly statusCode: number

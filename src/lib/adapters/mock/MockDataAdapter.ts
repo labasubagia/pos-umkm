@@ -60,6 +60,16 @@ export class MockDataAdapter implements DataAdapter {
     writeRows(sheetName, rows)
   }
 
+  /** Updates multiple cells atomically (loops updateCell in mock). */
+  async batchUpdateCells(
+    sheetName: string,
+    updates: Array<{ rowId: string; column: string; value: unknown }>,
+  ): Promise<void> {
+    for (const { rowId, column, value } of updates) {
+      await this.updateCell(sheetName, rowId, column, value)
+    }
+  }
+
   /**
    * Soft-deletes a row by stamping `deleted_at` with the current UTC timestamp.
    * The row remains in localStorage but is excluded by getSheet.
