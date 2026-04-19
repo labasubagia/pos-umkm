@@ -13,7 +13,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from './useAuth'
-import { findOrCreateMain, activateStore, StoreRecord } from './setup.service'
+import { findOrCreateMain, activateStore } from './setup.service'
+import type { StoreRecord } from './setup.service'
 import { Button } from '../../components/ui/button'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 
