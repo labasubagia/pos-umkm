@@ -98,7 +98,7 @@ export default function CashierPage() {
   const cartItemCount = items.reduce((sum, i) => sum + i.quantity, 0)
 
   return (
-    <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
+    <div className="flex flex-1 overflow-hidden flex-col md:flex-row mx-auto max-w-screen-xl w-full">
       {/* Mobile view toggle tabs — only visible on < md */}
       <div className="flex border-b bg-white shrink-0 md:hidden">
         <button
