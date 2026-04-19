@@ -183,12 +183,12 @@ src/
 │   │   │   ├── MockDataAdapter.ts   # localStorage-backed, no API calls
 │   │   │   └── MockAuthAdapter.ts   # Instant sign-in with preset test user
 │   │   └── google/
-│   │       ├── GoogleDataAdapter.ts  # Wraps lib/sheets/sheets.client.ts
-│   │       └── GoogleAuthAdapter.ts  # Wraps @react-oauth/google (GIS)
-│   ├── sheets/          # Low-level Google Sheets API HTTP client (used only by GoogleDataAdapter)
-│   │   ├── sheets.client.ts
-│   │   ├── sheets.types.ts
-│   │   └── sheets.client.test.ts
+│   │       ├── GoogleDataAdapter.ts  # Translates DataAdapter interface → Sheets API calls
+│   │       ├── GoogleAuthAdapter.ts  # Wraps @react-oauth/google (GIS)
+│   │       └── sheets/              # Low-level Google Sheets API HTTP client (used only by GoogleDataAdapter)
+│   │           ├── sheets.client.ts
+│   │           ├── sheets.types.ts
+│   │           └── sheets.client.test.ts
 │   ├── formatters.ts    # IDR, date, number formatting utilities
 │   ├── validators.ts    # Input validation rules
 │   └── uuid.ts          # UUID v4 generator
@@ -208,8 +208,8 @@ src/
 ```
 
 **Key rules:**
-- `lib/adapters/` is the only data and auth abstraction layer. Module service files call the adapter interface — never `lib/sheets/` directly and never Google APIs directly.
-- `lib/sheets/` is used exclusively inside `GoogleDataAdapter` as the low-level HTTP transport.
+- `lib/adapters/` is the only data and auth abstraction layer. Module service files call the adapter interface — never `lib/adapters/google/sheets/` or Google APIs directly from modules. `lib/adapters/google/sheets/` is used only inside `GoogleDataAdapter`.
+- `lib/adapters/google/sheets/` is the low-level HTTP transport for the Google Sheets API, used exclusively by `GoogleDataAdapter`.
 - No module imports from another module's internals. Shared state goes through Zustand stores or React context.
 - Pure functions (formatters, validators, calculations) live in `lib/` and are unit-testable without DOM or API.
 
@@ -318,7 +318,7 @@ export const authAdapter: AuthAdapter =
 
 **`MockAuthAdapter`** — returns a hardcoded owner user on `signIn()`. No OAuth popup. No Google account required. Useful for rapid UI development and CI runs without credentials.
 
-**`GoogleDataAdapter`** — wraps `lib/sheets/sheets.client.ts`. Implements the same `DataAdapter` interface. All Google-specific concerns (spreadsheetId management, tab naming, row parsing) live here.
+**`GoogleDataAdapter`** — wraps `lib/adapters/google/sheets/sheets.client.ts`. Implements the same `DataAdapter` interface. All Google-specific concerns (spreadsheetId management, tab naming, row parsing) live here.
 
 **`GoogleAuthAdapter`** — wraps `@react-oauth/google`. Stores access token in memory. Implements the same `AuthAdapter` interface.
 

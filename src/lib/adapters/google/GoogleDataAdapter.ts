@@ -1,7 +1,7 @@
 /**
  * GoogleDataAdapter — DataAdapter implementation backed by Google Sheets API v4.
  *
- * Wraps `lib/sheets/sheets.client.ts` and translates the generic DataAdapter
+ * Wraps `lib/adapters/google/sheets/sheets.client.ts` and translates the generic DataAdapter
  * interface into concrete Sheets API calls. All Google-specific concerns live
  * here: spreadsheetId management, tab naming, row-to-object mapping, and
  * header row handling.
@@ -15,8 +15,8 @@ import { AdapterError } from '../types'
 import {
   sheetsAppend,
   sheetsUpdate,
-} from '../../sheets/sheets.client'
-import { SheetsApiError } from '../../sheets/sheets.types'
+} from './sheets/sheets.client'
+import { SheetsApiError } from './sheets/sheets.types'
 import { generateId } from '../../uuid'
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3'

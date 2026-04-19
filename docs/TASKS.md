@@ -8,7 +8,7 @@
 - **Status values:** `todo` | `in-progress` | `done` | `blocked`
 - **Parallelism:** Tasks within the same phase that share no `depends_on` overlap can be worked on simultaneously by different agents.
 - **TDD rule:** Write the failing test(s) first, then implement, then refactor. Mark status `in-progress` before starting, `done` after all tests pass.
-- **Architecture rule:** After completing each task, verify no module imports another module's internals. All data reads/writes go through `lib/adapters/` (the `DataAdapter` interface) — never call `lib/sheets/` or Google APIs directly from modules. `lib/sheets/` is used only inside `GoogleDataAdapter`.
+- **Architecture rule:** After completing each task, verify no module imports another module's internals. All data reads/writes go through `lib/adapters/` (the `DataAdapter` interface) — never call `lib/adapters/google/sheets/` or Google APIs directly from modules. `lib/adapters/google/sheets/` is used only inside `GoogleDataAdapter`.
 - **Comments rule:** Every non-trivial function must have a JSDoc comment explaining *why* the approach was chosen, not just what it does.
 - **E2E locator rule:** Every interactive element and key output element that an E2E test touches **must** have a `data-testid` attribute. E2E tests must use `page.getByTestId()` as the primary selector. `getByRole`, `getByText`, `getByPlaceholder`, and `.first()` / `.last()` are not permitted as primary locators in assertions or interactions — only for page-level navigation waits. See TRD §7.4 for the full rule and naming convention.
 
@@ -171,7 +171,7 @@
 
 ---
 
-### T010 — Google Sheets API Client (`lib/sheets/`)
+### T010 — Google Sheets API Client (`lib/adapters/google/sheets/`)
 
 - **Status:** ✅ done
 - **Phase:** 1 – Core Lib
@@ -179,13 +179,13 @@
 - **Test type:** unit (MSW mocks)
 - **Architecture note:** Low-level HTTP transport for Google Sheets API v4. Used exclusively inside `GoogleDataAdapter` (T047). No module or service file calls this directly. Isolated here so: (1) retry/backoff logic lives in one place; (2) MSW mocking surface is minimal; (3) swapping to a different HTTP client later only touches this file.
 - **Deliverables:**
-  - `src/lib/sheets/sheets.client.ts`:
+  - `src/lib/adapters/google/sheets/sheets.client.ts`:
     - `sheetsGet(spreadsheetId, range, token)` → parsed row arrays
     - `sheetsAppend(spreadsheetId, range, rows, token)` → appended range response
     - `sheetsUpdate(spreadsheetId, range, values, token)` → updated range response
     - `sheetsBatchGet(spreadsheetId, ranges, token)` → multiple ranges in one API call
     - Automatic retry with exponential backoff on HTTP 429 (rate limit)
-  - `src/lib/sheets/sheets.types.ts`: TypeScript types for all API shapes
+  - `src/lib/adapters/google/sheets/sheets.types.ts`: TypeScript types for all API shapes
 - **Test cases (`sheets.client.test.ts`):**
   - ✅ `sheetsGet returns parsed 2D array of row values`
   - ✅ `sheetsGet strips header row (row 1) from result`
@@ -206,7 +206,7 @@
 - **Phase:** 1 – Core Lib
 - **Depends on:** T009
 - **Test type:** none (interface definitions only)
-- **Architecture note:** Defining the interface before any implementation enforces the contract that both Mock and Google adapters must satisfy. All module service files import from `lib/adapters/` only — never from `lib/sheets/` directly. This is the single point where the data contract is specified. TypeScript's structural typing will catch any adapter that diverges from the interface at compile time.
+- **Architecture note:** Defining the interface before any implementation enforces the contract that both Mock and Google adapters must satisfy. All module service files import from `lib/adapters/` only — never from `lib/adapters/google/sheets/` directly. This is the single point where the data contract is specified. TypeScript's structural typing will catch any adapter that diverges from the interface at compile time.
 - **Deliverables:**
   - `src/lib/adapters/types.ts`:
     ```ts
@@ -281,7 +281,7 @@
 - **Phase:** 1 – Core Lib
 - **Depends on:** T045, T010
 - **Test type:** unit (MSW mocks)
-- **Architecture note:** `GoogleDataAdapter` wraps `lib/sheets/sheets.client.ts` and translates the generic `DataAdapter` interface into concrete Sheets API calls. All Google-specific concerns live here: spreadsheetId management, tab naming conventions, row-to-object mapping, and header row handling. `GoogleAuthAdapter` wraps `@react-oauth/google`. By keeping all Google-specific code inside these two files, future migration to a different backend only requires replacing these adapters — zero changes to feature modules.
+- **Architecture note:** `GoogleDataAdapter` wraps `lib/adapters/google/sheets/sheets.client.ts` and translates the generic `DataAdapter` interface into concrete Sheets API calls. All Google-specific concerns live here: spreadsheetId management, tab naming conventions, row-to-object mapping, and header row handling. `GoogleAuthAdapter` wraps `@react-oauth/google`. By keeping all Google-specific code inside these two files, future migration to a different backend only requires replacing these adapters — zero changes to feature modules.
 - **Deliverables:**
   - `src/lib/adapters/google/GoogleDataAdapter.ts` — implements `DataAdapter`
     - `getSheet` → calls `sheetsGet`, maps rows to objects using header row as keys
@@ -565,7 +565,7 @@
 - **Phase:** 3 – Catalog
 - **Depends on:** T015, T046, T011, T012
 - **Test type:** unit + e2e
-- **Architecture note:** Categories are stored in the `Categories` tab of the Master Sheet. They are fetched once on app load and cached in a Zustand `catalogStore`. All writes go through `catalog.service.ts` → `lib/sheets/`. Soft deletes are used: setting `deleted_at` instead of removing the row, to preserve referential integrity (Products that reference a deleted category still display correctly).
+- **Architecture note:** Categories are stored in the `Categories` tab of the Master Sheet. They are fetched once on app load and cached in a Zustand `catalogStore`. All writes go through `catalog.service.ts` → `lib/adapters/`. Soft deletes are used: setting `deleted_at` instead of removing the row, to preserve referential integrity (Products that reference a deleted category still display correctly).
 - **Deliverables:**
   - `src/modules/catalog/catalog.service.ts`:
     - `fetchCategories(token, spreadsheetId): Category[]`
