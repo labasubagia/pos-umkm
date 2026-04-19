@@ -137,7 +137,6 @@ export default function CashierPage() {
           mobileView === 'products' ? 'flex' : 'hidden md:flex'
         }`}
       >
-        <h1 className="hidden md:block text-lg font-bold text-gray-900 mb-3 shrink-0">Kasir</h1>
         <ProductSearch products={products} variants={variants} />
       </div>
 
