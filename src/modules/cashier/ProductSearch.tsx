@@ -46,7 +46,7 @@ export function ProductSearch({ products, variants }: Props) {
     addItem({
       productId: product.id,
       variantId: variant.id,
-      name: `${product.name} – ${variant.name}`,
+      name: `${product.name} – ${variant.option_name}: ${variant.option_value}`,
       price: variant.price,
     })
     setVariantProduct(null)
@@ -86,7 +86,7 @@ export function ProductSearch({ products, variants }: Props) {
                   onClick={() => handleVariantClick(v, variantProduct)}
                   className="flex justify-between items-center p-3 border rounded-lg hover:bg-blue-50 text-sm"
                 >
-                  <span>{v.name}</span>
+                  <span>{v.option_name}: {v.option_value}</span>
                   <span className="font-semibold text-blue-700">
                     Rp {v.price.toLocaleString('id-ID')}
                   </span>

@@ -210,9 +210,9 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
     dataAdapter.getSheet('Products'),
   ])
 
-  const orderItems = allItems.filter(
+  const orderItems = (allItems.filter(
     (i) => i['order_id'] === orderId,
-  ) as PurchaseOrderItemRow[]
+  ) as unknown) as PurchaseOrderItemRow[]
 
   // Steps 3 & 4: Increment stock + log for each item
   await Promise.all(

@@ -44,11 +44,11 @@ export interface SheetsBatchGetResponse {
 
 /** Custom error thrown for any Sheets API HTTP error. */
 export class SheetsApiError extends Error {
-  constructor(
-    public readonly statusCode: number,
-    message: string,
-  ) {
+  readonly statusCode: number
+
+  constructor(statusCode: number, message: string) {
     super(message)
     this.name = 'SheetsApiError'
+    this.statusCode = statusCode
   }
 }

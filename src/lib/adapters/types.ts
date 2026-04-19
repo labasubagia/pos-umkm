@@ -81,11 +81,11 @@ export interface AuthAdapter {
 
 /** Thrown by adapters when an operation fails due to data or API issues. */
 export class AdapterError extends Error {
-  constructor(
-    message: string,
-    public readonly cause?: unknown,
-  ) {
+  readonly cause?: unknown
+
+  constructor(message: string, cause?: unknown) {
     super(message)
     this.name = 'AdapterError'
+    this.cause = cause
   }
 }

@@ -30,9 +30,6 @@ export const MASTER_TABS = [
 /** All tab names that must exist in each Monthly Spreadsheet. */
 export const MONTHLY_TABS = ['Transactions', 'Transaction_Items', 'Refunds'] as const
 
-/** localStorage key for the master spreadsheet id. */
-const MASTER_KEY = 'master'
-
 /** localStorage key pattern for monthly sheets. */
 function monthKey(year: number, month: number): string {
   const mm = String(month).padStart(2, '0')
@@ -41,9 +38,12 @@ function monthKey(year: number, month: number): string {
 
 /** Custom error for setup failures. */
 export class SetupError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
+  readonly cause?: unknown
+
+  constructor(message: string, cause?: unknown) {
     super(message)
     this.name = 'SetupError'
+    this.cause = cause
   }
 }
 

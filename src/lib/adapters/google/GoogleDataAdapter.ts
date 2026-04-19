@@ -13,7 +13,6 @@
 import type { DataAdapter } from '../types'
 import { AdapterError } from '../types'
 import {
-  sheetsGet,
   sheetsAppend,
   sheetsUpdate,
 } from '../../sheets/sheets.client'
@@ -23,10 +22,13 @@ import { generateId } from '../../uuid'
 const DRIVE_API = 'https://www.googleapis.com/drive/v3'
 
 export class GoogleDataAdapter implements DataAdapter {
-  constructor(
-    private readonly spreadsheetId: string,
-    private readonly getToken: () => string,
-  ) {}
+  private readonly spreadsheetId: string
+  private readonly getToken: () => string
+
+  constructor(spreadsheetId: string, getToken: () => string) {
+    this.spreadsheetId = spreadsheetId
+    this.getToken = getToken
+  }
 
   /**
    * Fetches all rows from the sheet, maps header columns to object keys,
@@ -75,7 +77,7 @@ export class GoogleDataAdapter implements DataAdapter {
       const rowWithId = row['id'] ? row : { id: generateId(), ...row }
       // Append as a single-row 2D array; column order doesn't matter for append
       const values = [Object.values(rowWithId)]
-      await sheetsAppend(this.spreadsheetId, sheetName, values, token)
+      await sheetsAppend(this.spreadsheetId, sheetName, values as unknown as (string | number | boolean)[][], token)
     } catch (err) {
       if (err instanceof SheetsApiError) {
         throw new AdapterError(`appendRow failed for "${sheetName}": ${err.message}`, err)

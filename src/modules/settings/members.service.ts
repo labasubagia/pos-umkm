@@ -77,7 +77,7 @@ export async function inviteMember(
     deleted_at: null,
   }
 
-  await dataAdapter.appendRow('Users', member)
+  await dataAdapter.appendRow('Users', member as unknown as Record<string, unknown>)
   return member
 }
 

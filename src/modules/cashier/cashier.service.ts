@@ -13,7 +13,7 @@ import { dataAdapter } from '../../lib/adapters'
 import { generateId } from '../../lib/uuid'
 import { nowUTC } from '../../lib/formatters'
 import { createMonthlySheet, initializeMonthlySheets, getCurrentMonthSheetId, shareSheetWithAllMembers } from '../auth/setup.service'
-import type { Product, Variant } from '../catalog/catalog.service'
+import type { Product } from '../catalog/catalog.service'
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
@@ -204,7 +204,7 @@ export function validateSplitPayment(
  * Creates it (and shares with all members) if not yet present.
  * Returns the spreadsheetId.
  */
-export async function ensureMonthlySheetExists(masterSpreadsheetId: string): Promise<string> {
+export async function ensureMonthlySheetExists(_masterSpreadsheetId: string): Promise<string> {
   const existing = getCurrentMonthSheetId()
   if (existing) return existing
 
@@ -241,7 +241,7 @@ export async function commitTransaction(
   payment: PaymentInfo,
   cashierId: string,
   customerId: string | null,
-  masterSpreadsheetId: string,
+  _masterSpreadsheetId: string,
   receiptSequence: number,
 ): Promise<Transaction> {
   if (items.length === 0) {
