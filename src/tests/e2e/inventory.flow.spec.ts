@@ -25,7 +25,7 @@ async function signInToCatalog(page: Parameters<typeof signInAsOwner>[0]) {
   // Use navigateTo (SPA push) instead of page.goto() to preserve in-memory auth state
   await navigateTo(page, `${BASE}/catalog`)
   // Wait for the catalog page heading to confirm the component mounted
-  await page.getByRole('heading', { name: /katalog produk/i }).waitFor()
+  await page.getByTestId('btn-tab-products').waitFor()
 }
 
 // ─── T021 — Categories CRUD ───────────────────────────────────────────────────
@@ -118,7 +118,7 @@ test.describe('Products CRUD (T022)', () => {
 
     // Navigate to cashier and search for the product
     await navigateTo(page, `${BASE}/cashier`)
-    await page.getByRole('heading', { name: /kasir/i }).waitFor()
+    await page.getByTestId('product-search-input').waitFor()
     await page.getByTestId('product-search-input').fill('Mie Goreng')
     // Product ID is a generated UUID — use CSS prefix selector scoped to the product grid
     await expect(page.locator('[data-testid^="product-card-"]').filter({ hasText: 'Mie Goreng' })).toBeVisible()
@@ -148,7 +148,7 @@ test.describe('Products CRUD (T022)', () => {
 
     await signInToCatalog(page)
     await navigateTo(page, `${BASE}/cashier`)
-    await page.getByRole('heading', { name: /kasir/i }).waitFor()
+    await page.getByTestId('product-search-input').waitFor()
 
     // Add product to cart using known testid
     await page.getByTestId('product-search-input').fill('Produk Stok Test')
@@ -207,7 +207,7 @@ test.describe('Stock Opname (T034)', () => {
 
     // Navigate to /inventory
     await navigateTo(page, `${BASE}/inventory`)
-    await page.getByRole('heading', { name: /inventori/i }).waitFor()
+    await page.getByTestId('btn-tab-opname').waitFor()
 
     // Stock Opname tab should be active by default
     await expect(page.getByTestId('stock-opname-container')).toBeVisible()
@@ -285,7 +285,7 @@ test.describe('Purchase Orders (T035)', () => {
 
     // Navigate to /inventory → Purchase Order tab
     await navigateTo(page, `${BASE}/inventory`)
-    await page.getByRole('heading', { name: /inventori/i }).waitFor()
+    await page.getByTestId('btn-tab-opname').waitFor()
     await page.getByTestId('btn-tab-purchase-orders').click()
     await expect(page.getByTestId('purchase-orders-container')).toBeVisible()
 

@@ -8,14 +8,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
 
 export default function InventoryPage() {
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <h1 className="mb-4 text-xl font-bold">Inventori</h1>
-
-      <Tabs defaultValue="opname">
-        <TabsList variant="line" className="mb-6">
-          <TabsTrigger value="opname" data-testid="btn-tab-opname">Stok Opname</TabsTrigger>
-          <TabsTrigger value="purchase-orders" data-testid="btn-tab-purchase-orders">Purchase Order</TabsTrigger>
-        </TabsList>
+    <div className="mx-auto max-w-3xl p-4 md:p-6">
+      <Tabs defaultValue="opname" className="gap-0">
+        <div className="overflow-x-auto mb-4">
+          <TabsList variant="line" className="min-w-full">
+            <TabsTrigger value="opname" data-testid="btn-tab-opname">Stok Opname</TabsTrigger>
+            <TabsTrigger value="purchase-orders" data-testid="btn-tab-purchase-orders">Purchase Order</TabsTrigger>
+          </TabsList>
+        </div>
         <TabsContent value="opname"><StockOpname /></TabsContent>
         <TabsContent value="purchase-orders"><PurchaseOrders /></TabsContent>
       </Tabs>

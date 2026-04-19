@@ -18,23 +18,20 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-gray-800">Pelanggan & Refund</h1>
-
-      <Tabs defaultValue="customers">
-        <TabsList variant="line" className="mb-6">
-          <TabsTrigger value="customers" data-testid="tab-customers">Pelanggan</TabsTrigger>
-          <TabsTrigger value="refund" data-testid="tab-refund">Refund / Retur</TabsTrigger>
-        </TabsList>
+    <div className="mx-auto max-w-3xl p-4 md:p-6">
+      <Tabs defaultValue="customers" className="gap-0">
+        <div className="overflow-x-auto mb-4">
+          <TabsList variant="line" className="min-w-full">
+            <TabsTrigger value="customers" data-testid="tab-customers">Pelanggan</TabsTrigger>
+            <TabsTrigger value="refund" data-testid="tab-refund">Refund / Retur</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="customers">
           <div className="space-y-4" data-testid="customers-tab-content">
-            <div>
-              <h2 className="mb-2 text-sm font-medium text-gray-700">Cari Pelanggan</h2>
-              <CustomerSearch
-                onSelect={(customer) => setSelectedCustomer(customer)}
-              />
-            </div>
+            <CustomerSearch
+              onSelect={(customer) => setSelectedCustomer(customer)}
+            />
             {selectedCustomer && (
               <div
                 className="rounded-lg border border-blue-100 bg-blue-50 p-4"

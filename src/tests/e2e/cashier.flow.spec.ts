@@ -66,7 +66,7 @@ async function signInToCashier(page: Parameters<typeof signInAsOwner>[0]) {
 
   await navigateTo(page, `${BASE}/cashier`)
   // Wait for the cashier page heading
-  await page.getByRole('heading', { name: /kasir/i }).waitFor()
+  await page.getByTestId('product-search-input').waitFor()
 }
 
 // ─── T026 — Product Search ────────────────────────────────────────────────────
@@ -381,7 +381,7 @@ test.describe('Customer Search (T036)', () => {
     }
 
     await navigateTo(page, `${BASE}/cashier`)
-    await page.getByRole('heading', { name: /kasir/i }).waitFor()
+    await page.getByTestId('product-search-input').waitFor()
 
     // Add a product to cart
     await page.getByTestId('product-card-e2e-prod-1').click()
