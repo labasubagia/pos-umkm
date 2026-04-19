@@ -4,9 +4,12 @@ import { RouterProvider } from 'react-router-dom'
 import './index.css'
 import './lib/i18n'
 import { router } from './router'
+import { AuthInitializer } from './components/AuthInitializer'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <AuthInitializer>
+      <RouterProvider router={router} />
+    </AuthInitializer>
   </StrictMode>,
 )
