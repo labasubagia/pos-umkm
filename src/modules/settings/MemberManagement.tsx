@@ -6,6 +6,7 @@
  * member is invited and a Store Link is displayed for sharing.
  */
 import { useState, useEffect, useRef } from 'react'
+import { useAuth } from '../auth/useAuth'
 import {
   inviteMember,
   revokeMember,
