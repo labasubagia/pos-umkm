@@ -220,6 +220,45 @@ export async function listStores(mainSpreadsheetId: string): Promise<StoreRecord
 }
 
 /**
+ * Updates the `store_name` column in the main spreadsheet's `Stores` tab.
+ *
+ * Called when the owner renames their business in Settings > Profil Bisnis.
+ * The main spreadsheet is the registry shared across all stores so the store
+ * picker shows the up-to-date name.
+ *
+ * Steps:
+ *   1. Temporarily routes the adapter to mainSpreadsheetId.
+ *   2. Finds the row for `storeId` in the `Stores` tab.
+ *   3. Updates the `store_name` cell for that row.
+ *   4. Restores adapter routing to the master spreadsheetId so all
+ *      subsequent service calls continue to target the active store.
+ *
+ * @param storeId           The `store_id` of the store being renamed.
+ * @param newName           The new store/business name.
+ * @param masterSpreadsheetId  The master spreadsheetId to restore after the update.
+ */
+export async function updateStoreName(
+  storeId: string,
+  newName: string,
+  masterSpreadsheetId: string,
+): Promise<void> {
+  const mainId = getMainSpreadsheetId()
+  if (!mainId) throw new SetupError('updateStoreName: mainSpreadsheetId not found')
+
+  try {
+    dataAdapter.setSpreadsheetId(mainId)
+    const rows = await dataAdapter.getSheet('Stores')
+    const row = rows.find((r) => String(r['store_id']) === storeId)
+    if (!row) throw new SetupError(`updateStoreName: store ${storeId} not found in main.Stores`)
+    await dataAdapter.updateCell('Stores', row['id'] as string, 'store_name', newName)
+  } finally {
+    // Always restore master as the active spreadsheet so subsequent calls
+    // (e.g. reading Settings) continue to target the correct store sheet.
+    dataAdapter.setSpreadsheetId(masterSpreadsheetId)
+  }
+}
+
+/**
  * Post-login entry point: finds the owner's main spreadsheet or creates it.
  *
  * On every login (not just first-time) this function:

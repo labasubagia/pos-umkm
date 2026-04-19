@@ -13,6 +13,7 @@ import {
   getMainSpreadsheetId,
   monthlySheetKey,
   listStores,
+  updateStoreName,
   findOrCreateMain,
   activateStore,
   runStoreSetup,
@@ -271,6 +272,44 @@ describe('findOrCreateMain', () => {
   it('throws SetupError on failure', async () => {
     vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockRejectedValue(new Error('quota'))
     await expect(findOrCreateMain()).rejects.toThrow('findOrCreateMain failed')
+  })
+})
+
+// ─── updateStoreName ─────────────────────────────────────────────────────────
+
+describe('updateStoreName', () => {
+  beforeEach(() => {
+    // Seed mainSpreadsheetId so updateStoreName can find it.
+    useAuthStore.getState().setMainSpreadsheetId('main-id-000')
+  })
+
+  it('updates store_name cell in main.Stores tab', async () => {
+    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+      {
+        id: 'row-1', store_id: 'sid-1', store_name: 'Toko Lama',
+        master_spreadsheet_id: 'master-1', drive_folder_id: '',
+        owner_email: '', my_role: 'owner', joined_at: '',
+      },
+    ])
+    const updateSpy = vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
+    const setIdSpy = vi.spyOn(adapters.dataAdapter, 'setSpreadsheetId').mockImplementation(() => {})
+
+    await updateStoreName('sid-1', 'Toko Baru', 'master-1')
+
+    expect(updateSpy).toHaveBeenCalledWith('Stores', 'row-1', 'store_name', 'Toko Baru')
+    // Must restore adapter to master spreadsheet after the update.
+    expect(setIdSpy).toHaveBeenLastCalledWith('master-1')
+  })
+
+  it('throws SetupError when mainSpreadsheetId is not set', async () => {
+    useAuthStore.getState().clearAuth()
+    await expect(updateStoreName('sid-1', 'New Name', 'master-1')).rejects.toThrow('mainSpreadsheetId not found')
+  })
+
+  it('throws SetupError when store is not found in Stores tab', async () => {
+    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
+    vi.spyOn(adapters.dataAdapter, 'setSpreadsheetId').mockImplementation(() => {})
+    await expect(updateStoreName('sid-missing', 'New Name', 'master-1')).rejects.toThrow('not found in main.Stores')
   })
 })
 

@@ -20,6 +20,7 @@ interface AuthState {
   setSpreadsheetId: (id: string) => void
   setMainSpreadsheetId: (id: string) => void
   setStores: (stores: StoreRecord[], activeStoreId: string | null) => void
+  updateActiveStoreName: (name: string) => void
   clearAuth: () => void
 }
 
@@ -49,6 +50,12 @@ export const useAuthStore = create<AuthState>()(
       setSpreadsheetId: (id) => set({ spreadsheetId: id }),
       setMainSpreadsheetId: (id) => set({ mainSpreadsheetId: id }),
       setStores: (stores, activeStoreId) => set({ stores, activeStoreId }),
+      updateActiveStoreName: (name) =>
+        set((state) => ({
+          stores: state.stores.map((s) =>
+            s.store_id === state.activeStoreId ? { ...s, store_name: name } : s,
+          ),
+        })),
       clearAuth: () =>
         set({
           user: null,

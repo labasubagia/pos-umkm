@@ -2,9 +2,13 @@
  * BusinessProfile — Form for editing business settings.
  *
  * Loads settings on mount. On save, calls saveSettings with changed fields only.
+ * If business_name changed, also syncs the new name to the main spreadsheet's
+ * Stores tab and to the Zustand stores list so the NavBar reflects it immediately.
  */
 import { useState, useEffect } from 'react'
 import { getSettings, saveSettings, type BusinessSettings } from './settings.service'
+import { updateStoreName } from '../auth/setup.service'
+import { useAuth } from '../auth/useAuth'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
@@ -13,6 +17,8 @@ import { Alert, AlertDescription } from '../../components/ui/alert'
 const TIMEZONES = ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'] as const
 
 export default function BusinessProfile() {
+  const { activeStoreId, spreadsheetId, updateActiveStoreName } = useAuth()
+  const [initialName, setInitialName] = useState('')
   const [form, setForm] = useState<BusinessSettings>({
     business_name: '',
     timezone: 'Asia/Jakarta',
@@ -28,6 +34,7 @@ export default function BusinessProfile() {
   useEffect(() => {
     void getSettings().then((s) => {
       setForm(s)
+      setInitialName(s.business_name)
       setLoading(false)
     })
   }, [])
@@ -47,6 +54,15 @@ export default function BusinessProfile() {
     setError(null)
     try {
       await saveSettings(form)
+
+      // If the business name changed, sync it to main spreadsheet's Stores tab
+      // and to Zustand so the NavBar store picker reflects the new name immediately.
+      if (form.business_name !== initialName && activeStoreId && spreadsheetId) {
+        await updateStoreName(activeStoreId, form.business_name, spreadsheetId)
+        updateActiveStoreName(form.business_name)
+        setInitialName(form.business_name)
+      }
+
       setSuccess(true)
     } catch (err) {
       setError(String(err))
