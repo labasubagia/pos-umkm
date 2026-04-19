@@ -13,14 +13,7 @@ const BASE = ''
 /** Sign in as owner and navigate to /catalog, waiting for the page to load. */
 async function signInToCatalog(page: Parameters<typeof signInAsOwner>[0]) {
   await signInAsOwner(page)
-
-  // Complete setup wizard if redirected there on first visit
-  if (page.url().includes('/setup')) {
-    // SetupPage inputs — testids will be added when SetupPage is fully implemented
-    await page.getByTestId('input-business-name').fill('Toko Katalog Test')
-    await page.getByTestId('btn-setup-submit').click()
-    await page.waitForURL(/\/cashier/)
-  }
+  // signInAsOwner fast-paths to /cashier via masterSpreadsheetId pre-seed.
 
   // Use navigateTo (SPA push) instead of page.goto() to preserve in-memory auth state
   await navigateTo(page, `${BASE}/catalog`)
@@ -197,13 +190,7 @@ test.describe('Stock Opname (T034)', () => {
     }, prodId)
 
     await signInAsOwner(page)
-
-    // Handle setup wizard if redirected
-    if (page.url().includes('/setup')) {
-      await page.getByTestId('input-business-name').fill('Toko Opname Test')
-      await page.getByTestId('btn-setup-submit').click()
-      await page.waitForURL(/\/cashier/)
-    }
+    // signInAsOwner fast-paths to /cashier via masterSpreadsheetId pre-seed.
 
     // Navigate to /inventory
     await navigateTo(page, `${BASE}/inventory`)
@@ -275,13 +262,7 @@ test.describe('Purchase Orders (T035)', () => {
     }, prodId)
 
     await signInAsOwner(page)
-
-    // Handle setup wizard if redirected
-    if (page.url().includes('/setup')) {
-      await page.getByTestId('input-business-name').fill('Toko PO Test')
-      await page.getByTestId('btn-setup-submit').click()
-      await page.waitForURL(/\/cashier/)
-    }
+    // signInAsOwner fast-paths to /cashier via masterSpreadsheetId pre-seed.
 
     // Navigate to /inventory → Purchase Order tab
     await navigateTo(page, `${BASE}/inventory`)

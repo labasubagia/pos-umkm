@@ -56,13 +56,7 @@ async function signInToCashier(page: Parameters<typeof signInAsOwner>[0]) {
   })
 
   await signInAsOwner(page)
-
-  // Handle setup wizard redirect on first visit
-  if (page.url().includes('/setup')) {
-    await page.getByTestId('input-business-name').fill('Toko Kasir Test')
-    await page.getByTestId('btn-setup-submit').click()
-    await page.waitForURL(/\/cashier/)
-  }
+  // signInAsOwner fast-paths to /cashier via masterSpreadsheetId pre-seed.
 
   await navigateTo(page, `${BASE}/cashier`)
   // Wait for the cashier page heading

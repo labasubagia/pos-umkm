@@ -9,15 +9,10 @@ import { signInAsOwner, navigateTo } from './helpers/auth'
 
 const BASE = ''
 
-/** Sign in and complete setup if needed, returning on /cashier. */
-async function signInAndSetup(page: Parameters<typeof signInAsOwner>[0], businessName: string) {
+/** Sign in as owner and complete any setup, returning on /cashier. */
+async function signInAndSetup(page: Parameters<typeof signInAsOwner>[0], _businessName: string) {
+  // signInAsOwner fast-paths to /cashier via masterSpreadsheetId pre-seed.
   await signInAsOwner(page)
-  if (page.url().includes('/setup')) {
-    // SetupPage inputs — testids will be added when SetupPage is fully implemented
-    await page.getByTestId('input-business-name').fill(businessName)
-    await page.getByTestId('btn-setup-submit').click()
-    await page.waitForURL(/\/cashier/)
-  }
 }
 
 test.describe('Member invite and Store Link', () => {
@@ -60,9 +55,9 @@ test.describe('Store Link join flow', () => {
     await page.evaluate(() => {
       window.localStorage.setItem('masterSpreadsheetId', 'test-sheet-id')
       window.localStorage.setItem(
-        'mock_Users',
+        'mock_Members',
         JSON.stringify([
-          { id: 'u1', email: 'owner@test.com', role: 'owner', invited_at: '2026-01-01', deleted_at: null },
+          { id: 'u1', email: 'owner@test.com', name: 'Test Owner', role: 'owner', invited_at: '2026-01-01', deleted_at: null },
         ]),
       )
     })
@@ -70,7 +65,7 @@ test.describe('Store Link join flow', () => {
     await expect(page.getByTestId('join-page-heading')).toBeVisible()
     await page.getByTestId('btn-join-sign-in').click()
     // MockAuthAdapter signs in as owner@test.com which exists in Users with role=owner
-    await page.waitForURL(/\/cashier/)
+    await page.waitForURL(/\/cashier/, { waitUntil: 'commit' })
   })
 
   test('cashier role cannot access /reports (redirected away from /reports)', async ({ page }) => {

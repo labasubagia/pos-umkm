@@ -11,12 +11,8 @@ import { signInAsOwner, navigateTo } from './helpers/auth'
 const BASE = ''
 
 async function signInAndSetup(page: Parameters<typeof signInAsOwner>[0]) {
+  // signInAsOwner fast-paths to /cashier via masterSpreadsheetId pre-seed.
   await signInAsOwner(page)
-  if (page.url().includes('/setup')) {
-    await page.getByTestId('input-business-name').fill('Toko Reports Test')
-    await page.getByTestId('btn-setup-submit').click()
-    await page.waitForURL(/\/cashier/)
-  }
 }
 
 async function seedReportData(page: Parameters<typeof signInAsOwner>[0]) {

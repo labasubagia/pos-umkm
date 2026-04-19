@@ -4,14 +4,21 @@ const BASE = ''
 
 /**
  * Sign in as owner using the mock auth flow.
- * Navigates to /login and clicks "Masuk dengan Google".
+ * Navigates to /login, pre-seeds masterSpreadsheetId so LoginPage takes the
+ * fast path directly to /cashier (bypasses StorePickerPage).
  * MockAuthAdapter returns the preset owner user instantly.
  */
 export async function signInAsOwner(page: Page): Promise<void> {
   await page.goto(`${BASE}/login`)
+  // Seed masterSpreadsheetId AFTER navigating to ensure correct storage origin.
+  // LoginPage reads this key: if present it skips StorePickerPage and goes to /cashier.
+  await page.evaluate(() => {
+    window.localStorage.setItem('masterSpreadsheetId', 'mock-master-id')
+  })
   await page.getByTestId('btn-sign-in').click()
-  // After sign-in, owner is routed to /setup (first time) or /cashier
-  await page.waitForURL(/\/(setup|cashier)/)
+  // waitUntil: 'commit' resolves on URL change without waiting for a 'load' event
+  // (SPA navigation via history.pushState does not emit 'load').
+  await page.waitForURL(/\/cashier/, { waitUntil: 'commit' })
 }
 
 /**
@@ -27,10 +34,11 @@ export async function signInAsCashier(page: Page): Promise<void> {
   await page.goto(`${BASE}/`)
   await page.evaluate(() => {
     window.localStorage.setItem('mock_auth_role', 'cashier')
+    window.localStorage.setItem('masterSpreadsheetId', 'mock-master-id')
   })
   await page.goto(`${BASE}/login`)
   await page.getByTestId('btn-sign-in').click()
-  await page.waitForURL(/\/cashier/)
+  await page.waitForURL(/\/cashier/, { waitUntil: 'commit' })
 }
 
 /**
@@ -45,5 +53,3 @@ export async function navigateTo(page: Page, path: string): Promise<void> {
     window.dispatchEvent(new PopStateEvent('popstate'))
   }, path)
 }
-
-
