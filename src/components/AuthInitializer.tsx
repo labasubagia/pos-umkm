@@ -20,6 +20,13 @@
  *
  * Renders children immediately — ProtectedRoute guards protected pages via
  * isAuthenticated from the persisted store.
+ *
+ * Token restoration race condition fix:
+ * GoogleAuthAdapter.restoreSession() reads localStorage only (no network call,
+ * no await). Calling it synchronously in the render body — before returning
+ * children — ensures getToken() returns a valid token when child useEffects
+ * fire their first API call after page refresh. The useEffect below handles
+ * Zustand sync + expired-session redirect separately.
  */
 import { useEffect, useRef, type ReactNode } from 'react'
 import { authAdapter, dataAdapter } from '../lib/adapters'
@@ -47,7 +54,16 @@ export function AuthInitializer({ children }: Props) {
     if (monthlyId) dataAdapter.setMonthlySpreadsheetId(monthlyId)
   }
 
-  // ── Async token restoration ─────────────────────────────────────────────────
+  // ── Synchronous token restoration ───────────────────────────────────────────
+  // restoreSession() reads localStorage only (no await), so calling it in the
+  // render body is safe. This ensures authAdapter.getAccessToken() returns a
+  // valid token when child useEffects fire their first API call after a page
+  // refresh — avoiding the 403 "unregistered caller" race condition.
+  if (!IS_MOCK && !authAdapter.getAccessToken()) {
+    void authAdapter.restoreSession()
+  }
+
+  // ── Async Zustand sync + expiry check ──────────────────────────────────────
   const sessionRestored = useRef(false)
   useEffect(() => {
     if (sessionRestored.current) return
