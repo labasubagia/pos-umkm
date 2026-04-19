@@ -11,11 +11,13 @@
  */
 
 import { dataAdapter } from '../../lib/adapters'
+import { generateId } from '../../lib/uuid'
+import { nowUTC } from '../../lib/formatters'
 
 /** All tab names that must exist in the Master Spreadsheet. */
 export const MASTER_TABS = [
   'Settings',
-  'Users',
+  'Members',
   'Categories',
   'Products',
   'Variants',
@@ -24,6 +26,7 @@ export const MASTER_TABS = [
   'Purchase_Order_Items',
   'Stock_Log',
   'Audit_Log',
+  'Monthly_Sheets',
 ] as const
 
 /** All tab names that must exist in each Monthly Spreadsheet. */
@@ -36,7 +39,7 @@ export const MONTHLY_TABS = ['Transactions', 'Transaction_Items', 'Refunds'] as 
  */
 export const MASTER_TAB_HEADERS: Record<string, string[]> = {
   Settings: ['id', 'key', 'value', 'updated_at'],
-  Users: ['id', 'email', 'name', 'role', 'invited_at', 'deleted_at'],
+  Members: ['id', 'email', 'name', 'role', 'invited_at', 'deleted_at'],
   Categories: ['id', 'name', 'created_at', 'deleted_at'],
   Products: ['id', 'category_id', 'name', 'sku', 'price', 'stock', 'has_variants', 'created_at', 'deleted_at'],
   Variants: ['id', 'product_id', 'option_name', 'option_value', 'price', 'stock', 'created_at', 'deleted_at'],
@@ -45,6 +48,7 @@ export const MASTER_TAB_HEADERS: Record<string, string[]> = {
   Purchase_Order_Items: ['id', 'order_id', 'product_id', 'product_name', 'qty', 'cost_price', 'created_at'],
   Stock_Log: ['id', 'product_id', 'reason', 'qty_before', 'qty_after', 'created_at'],
   Audit_Log: ['id', 'event', 'data', 'created_at'],
+  Monthly_Sheets: ['id', 'year_month', 'spreadsheetId', 'created_at'],
 }
 
 /**
@@ -67,10 +71,9 @@ export const MONTHLY_TAB_HEADERS: Record<string, string[]> = {
   ],
 }
 
-/** localStorage key pattern for monthly sheets. */
-function monthKey(year: number, month: number): string {
-  const mm = String(month).padStart(2, '0')
-  return `txSheet_${year}-${mm}`
+/** Returns the zero-padded month string, e.g. "04" for April. */
+function mm(month: number): string {
+  return String(month).padStart(2, '0')
 }
 
 /** Custom error for setup failures. */
@@ -147,31 +150,40 @@ export function saveSpreadsheetId(spreadsheetId: string): void {
 // ─── T016 ─────────────────────────────────────────────────────────────────────
 
 /**
- * Returns the spreadsheetId for the current calendar month's transaction sheet.
- * Returns null if the sheet has not been created yet (triggers lazy creation
+ * Returns the spreadsheetId for the current calendar month's transaction sheet
+ * by querying the `Monthly_Sheets` registry tab in the master spreadsheet.
+ * Returns null if no entry exists for the current month (triggers lazy creation
  * on the first transaction of the month).
+ *
+ * Reading from the sheet (rather than localStorage) means any user — including
+ * cashiers who have no Drive API access — can resolve the monthly sheet ID without
+ * a Drive folder listing call.
  */
-export function getCurrentMonthSheetId(): string | null {
+export async function getCurrentMonthSheetId(): Promise<string | null> {
   const now = new Date()
-  const key = monthKey(now.getFullYear(), now.getMonth() + 1)
-  return localStorage.getItem(key)
+  const yearMonth = `${now.getFullYear()}-${mm(now.getMonth() + 1)}`
+  try {
+    const rows = await dataAdapter.getSheet('Monthly_Sheets')
+    const row = rows.find((r) => r['year_month'] === yearMonth)
+    return (row?.['spreadsheetId'] as string) ?? null
+  } catch {
+    // Monthly_Sheets tab may not yet exist (pre-setup); treat as no entry.
+    return null
+  }
 }
 
 /**
  * Creates a new monthly transaction spreadsheet.
- * Named "POS UMKM — Transactions — YYYY-MM".
- * The spreadsheetId is persisted to localStorage keyed by "txSheet_YYYY-MM".
- */
-/**
- * Creates a new monthly transaction spreadsheet.
- * Named "POS UMKM — Transactions — YYYY-MM".
- * Placed in apps/pos_umkm/<Store Name>/transactions/<Year>/<Month>/ in Drive.
- * The spreadsheetId is persisted to localStorage keyed by "txSheet_YYYY-MM".
+ * Named "transaction_<year>-<month>" and placed inside the year folder under
+ * apps/pos_umkm/stores/<store_id>/transactions/<year>/ in Drive.
+ * After creation the entry is registered in the master sheet's `Monthly_Sheets`
+ * tab so that any user (including cashiers without Drive API access) can resolve
+ * the spreadsheetId from a simple Sheets API read.
  */
 export async function createMonthlySheet(year: number, month: number): Promise<string> {
   try {
-    const mm = String(month).padStart(2, '0')
-    const name = `POS UMKM — Transactions — ${year}-${mm}`
+    const yearMonth = `${year}-${mm(month)}`
+    const name = `transaction_${yearMonth}`
 
     let parentFolderId: string | undefined
     if (dataAdapter.ensureFolder) {
@@ -179,7 +191,7 @@ export async function createMonthlySheet(year: number, month: number): Promise<s
       if (storeName) {
         // Place sheet in apps/pos_umkm/<Store Name>/transactions/<Year>/<Month>/
         const folderId = await dataAdapter.ensureFolder([
-          'apps', 'pos_umkm', storeName, 'transactions', String(year), mm,
+          'apps', 'pos_umkm', storeName, 'transactions', String(year), mm(month),
         ])
         if (folderId) parentFolderId = folderId
       } else {
@@ -189,7 +201,15 @@ export async function createMonthlySheet(year: number, month: number): Promise<s
     }
 
     const id = await dataAdapter.createSpreadsheet(name, parentFolderId, [...MONTHLY_TABS])
-    localStorage.setItem(monthKey(year, month), id)
+
+    // Register in the Monthly_Sheets registry tab so all users can resolve the ID.
+    await dataAdapter.appendRow('Monthly_Sheets', {
+      id: generateId(),
+      year_month: yearMonth,
+      spreadsheetId: id,
+      created_at: nowUTC(),
+    })
+
     return id
   } catch (err) {
     throw new SetupError(`createMonthlySheet failed: ${String(err)}`, err)
@@ -214,13 +234,13 @@ export async function initializeMonthlySheets(spreadsheetId: string): Promise<vo
 }
 
 /**
- * Shares the given spreadsheet with all active members listed in the Users tab.
+ * Shares the given spreadsheet with all active members listed in the Members tab.
  * Active members are rows where deleted_at is falsy.
  * Called after creating a new monthly sheet so all members can access it.
  */
 export async function shareSheetWithAllMembers(spreadsheetId: string): Promise<void> {
-  const users = await dataAdapter.getSheet('Users')
-  const activeMembers = users.filter(
+  const members = await dataAdapter.getSheet('Members')
+  const activeMembers = members.filter(
     (u) => !u['deleted_at'] && u['email'] && u['email'] !== '',
   )
   await Promise.all(

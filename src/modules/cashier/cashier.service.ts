@@ -205,7 +205,7 @@ export function validateSplitPayment(
  * Returns the spreadsheetId.
  */
 export async function ensureMonthlySheetExists(_masterSpreadsheetId: string): Promise<string> {
-  const existing = getCurrentMonthSheetId()
+  const existing = await getCurrentMonthSheetId()
   if (existing) {
     // Ensure the adapter routes monthly tab writes to the correct spreadsheet.
     dataAdapter.setMonthlySpreadsheetId(existing)

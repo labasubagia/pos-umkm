@@ -16,14 +16,14 @@ beforeEach(() => {
 })
 
 describe('inviteMember', () => {
-  it('appends correct row to Users tab with role and invited_at', async () => {
+  it('appends correct row to Members tab with role and invited_at', async () => {
     vi.spyOn(adapters.dataAdapter, 'shareSpreadsheet').mockResolvedValue()
     const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
 
     await inviteMember('alice@test.com', 'cashier', 'sid-001')
 
     expect(appendSpy).toHaveBeenCalledWith(
-      'Users',
+      'Members',
       expect.objectContaining({
         email: 'alice@test.com',
         role: 'cashier',
@@ -66,12 +66,12 @@ describe('generateStoreLink', () => {
 })
 
 describe('revokeMember', () => {
-  it('sets deleted_at on correct Users row', async () => {
+  it('sets deleted_at on correct Members row', async () => {
     const deleteSpy = vi.spyOn(adapters.dataAdapter, 'softDelete').mockResolvedValue()
 
     await revokeMember('user-123')
 
-    expect(deleteSpy).toHaveBeenCalledWith('Users', 'user-123')
+    expect(deleteSpy).toHaveBeenCalledWith('Members', 'user-123')
   })
 })
 

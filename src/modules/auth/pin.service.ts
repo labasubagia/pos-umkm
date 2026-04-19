@@ -5,7 +5,7 @@
  * in the browser. PIN validation runs entirely client-side with no network
  * call, which means the lock screen can work even without internet access.
  *
- * The PIN hash is stored in the `Users` sheet (Master Spreadsheet) via
+ * The PIN hash is stored in the `Members` sheet (Master Spreadsheet) via
  * DataAdapter so it persists across sessions and devices.
  */
 
@@ -34,7 +34,7 @@ export async function verifyPIN(pin: string, hash: string): Promise<boolean> {
 }
 
 /**
- * Saves the PIN hash to the `Users` sheet for the given userId.
+ * Saves the PIN hash to the `Members` sheet for the given userId.
  * Stores in the `pin_hash` column via DataAdapter so the call works
  * with both Mock (localStorage) and Google (Sheets API) adapters.
  */
@@ -42,5 +42,5 @@ export async function savePINHash(
   userId: string,
   hash: string,
 ): Promise<void> {
-  await dataAdapter.updateCell('Users', userId, 'pin_hash', hash)
+  await dataAdapter.updateCell('Members', userId, 'pin_hash', hash)
 }

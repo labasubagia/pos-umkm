@@ -3,13 +3,13 @@
  *
  * Invite flow:
  * 1. Owner enters member's email + role in Settings → Manage Members
- * 2. This service shares the Master Sheet via Drive API
- * 3. Appends a row to the `Users` tab in the Master Sheet
+ * 2. This service shares the store folder via Drive API
+ * 3. Appends a row to the `Members` tab in the Master Sheet
  * 4. Returns a Store Link URL the owner can share with the member
  *
  * Revoke flow:
- * - Soft-deletes the Users row (sets deleted_at); does NOT unshare the Drive
- *   file — that must be done manually in Google Drive by the owner.
+ * - Soft-deletes the Members row (sets deleted_at); does NOT unshare the Drive
+ *   folder — that must be done manually in Google Drive by the owner.
  *
  * Note: File lives in `settings` module per TRD module structure,
  * but the invite logic touches the Users sheet (master data).
@@ -47,8 +47,8 @@ export class MemberError extends Error {
 /**
  * Invites a member by:
  * 1. Validating email and role.
- * 2. Sharing the Master Sheet via Drive API.
- * 3. Appending a row to the `Users` tab.
+ * 2. Sharing the store folder via Drive API.
+ * 3. Appending a row to the `Members` tab.
  */
 export async function inviteMember(
   email: string,
@@ -77,7 +77,7 @@ export async function inviteMember(
     deleted_at: null,
   }
 
-  await dataAdapter.appendRow('Users', member as unknown as Record<string, unknown>)
+  await dataAdapter.appendRow('Members', member as unknown as Record<string, unknown>)
   return member
 }
 
@@ -90,19 +90,19 @@ export function generateStoreLink(spreadsheetId: string): string {
 }
 
 /**
- * Soft-deletes a member's Users row, effectively revoking their role.
+ * Soft-deletes a member's Members row, effectively revoking their role.
  * Note: does NOT call Drive API to unshare — the owner must do that manually
- * in Google Drive if they want to fully revoke file access.
+ * in Google Drive if they want to fully revoke folder access.
  */
 export async function revokeMember(userId: string): Promise<void> {
-  await dataAdapter.softDelete('Users', userId)
+  await dataAdapter.softDelete('Members', userId)
 }
 
 /**
- * Returns all active (non-deleted) members from the Users tab.
+ * Returns all active (non-deleted) members from the Members tab.
  */
 export async function listMembers(): Promise<Member[]> {
-  const rows = await dataAdapter.getSheet('Users')
+  const rows = await dataAdapter.getSheet('Members')
   return rows
     .filter((r) => !r['deleted_at'] && typeof r['email'] === 'string' && r['email'] !== '')
     .map((r) => ({

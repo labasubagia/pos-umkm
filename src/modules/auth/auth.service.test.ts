@@ -30,7 +30,7 @@ describe('resolveUserRole', () => {
     expect(role).toBe('owner')
   })
 
-  it('throws UnauthorizedError if email not in Users tab', async () => {
+  it('throws UnauthorizedError if email not in Members tab', async () => {
     vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
 
     await expect(resolveUserRole('stranger@test.com')).rejects.toThrow(UnauthorizedError)
@@ -47,13 +47,13 @@ describe('resolveUserRole', () => {
 })
 
 describe('isFirstTimeOwner', () => {
-  it('returns true when Users tab has no rows', async () => {
+  it('returns true when Members tab has no rows', async () => {
     vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
 
     expect(await isFirstTimeOwner()).toBe(true)
   })
 
-  it('returns false when Users tab has at least one row', async () => {
+  it('returns false when Members tab has at least one row', async () => {
     vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
       { id: 'u1', email: 'owner@test.com', role: 'owner' },
     ])

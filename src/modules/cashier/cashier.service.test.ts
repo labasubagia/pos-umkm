@@ -22,7 +22,7 @@ import type { Product } from '../catalog/catalog.service'
 
 // Mock the auth setup service so ensureMonthlySheetExists doesn't touch localStorage
 vi.mock('../auth/setup.service', () => ({
-  getCurrentMonthSheetId: vi.fn().mockReturnValue('monthly-id'),
+  getCurrentMonthSheetId: vi.fn().mockResolvedValue('monthly-id'),
   createMonthlySheet: vi.fn().mockResolvedValue('monthly-id'),
   initializeMonthlySheets: vi.fn().mockResolvedValue(undefined),
   shareSheetWithAllMembers: vi.fn().mockResolvedValue(undefined),

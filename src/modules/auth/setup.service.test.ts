@@ -72,7 +72,7 @@ describe('createMasterSpreadsheet', () => {
 })
 
 describe('initializeMasterSheets', () => {
-  it('writes header row to all 10 required tabs', async () => {
+  it('writes header row to all 11 required tabs', async () => {
     const spy = vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
 
     await initializeMasterSheets('sid-001')
@@ -86,11 +86,14 @@ describe('initializeMasterSheets', () => {
 
     await initializeMasterSheets('sid-001')
 
-    // One writeHeaders call per tab — 10 tabs
+    // One writeHeaders call per tab — 11 tabs
     expect(spy).toHaveBeenCalledTimes(MASTER_TABS.length)
     // Spot-check: Settings tab should have key-value headers
     const settingsCall = spy.mock.calls.find((c) => c[0] === 'Settings')
     expect(settingsCall?.[1]).toEqual(['id', 'key', 'value', 'updated_at'])
+    // Monthly_Sheets tab should have year_month + spreadsheetId
+    const monthlyCall = spy.mock.calls.find((c) => c[0] === 'Monthly_Sheets')
+    expect(monthlyCall?.[1]).toEqual(['id', 'year_month', 'spreadsheetId', 'created_at'])
   })
 
   it('throws if spreadsheetId is invalid (empty string)', async () => {
@@ -108,29 +111,43 @@ describe('saveSpreadsheetId', () => {
 // ─── T016 ───────────────────────────────────────────────────────────────────
 
 describe('getCurrentMonthSheetId', () => {
-  it('returns null when localStorage is empty', () => {
-    expect(getCurrentMonthSheetId()).toBeNull()
+  it('returns null when Monthly_Sheets tab is empty', async () => {
+    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
+    expect(await getCurrentMonthSheetId()).toBeNull()
   })
 
-  it('returns stored id for current month key', () => {
+  it('returns stored id for current month key', async () => {
     const now = new Date()
     const mm = String(now.getMonth() + 1).padStart(2, '0')
-    const key = `txSheet_${now.getFullYear()}-${mm}`
-    localStorage.setItem(key, 'monthly-id-789')
-    expect(getCurrentMonthSheetId()).toBe('monthly-id-789')
+    const yearMonth = `${now.getFullYear()}-${mm}`
+    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+      { id: 'row-1', year_month: yearMonth, spreadsheetId: 'monthly-id-789', created_at: '2026-04-01T00:00:00Z' },
+    ])
+    expect(await getCurrentMonthSheetId()).toBe('monthly-id-789')
+  })
+
+  it('returns null when Monthly_Sheets tab throws (pre-setup)', async () => {
+    vi.spyOn(adapters.dataAdapter, 'getSheet').mockRejectedValue(new Error('tab not found'))
+    expect(await getCurrentMonthSheetId()).toBeNull()
   })
 })
 
 describe('createMonthlySheet', () => {
-  it('names spreadsheet "POS UMKM — Transactions — YYYY-MM"', async () => {
-    const spy = vi
+  it('names spreadsheet "transaction_<year>-<month>" inside the year folder', async () => {
+    const createSpy = vi
       .spyOn(adapters.dataAdapter, 'createSpreadsheet')
       .mockResolvedValue('monthly-id-001')
+    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
 
     await createMonthlySheet(2026, 4)
 
     // parentFolderId is undefined when storeFolderId is not in localStorage
-    expect(spy).toHaveBeenCalledWith('POS UMKM — Transactions — 2026-04', undefined, expect.arrayContaining([...MONTHLY_TABS]))
+    expect(createSpy).toHaveBeenCalledWith('transaction_2026-04', undefined, expect.arrayContaining([...MONTHLY_TABS]))
+    // Must register the new ID in the Monthly_Sheets registry tab
+    expect(appendSpy).toHaveBeenCalledWith('Monthly_Sheets', expect.objectContaining({
+      year_month: '2026-04',
+      spreadsheetId: 'monthly-id-001',
+    }))
   })
 
   it('throws on Drive API error', async () => {
@@ -151,7 +168,7 @@ describe('initializeMonthlySheets', () => {
 })
 
 describe('shareSheetWithAllMembers', () => {
-  it('reads Users tab and calls Drive API share for each active member', async () => {
+  it('reads Members tab and calls Drive API share for each active member', async () => {
     vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
       { id: 'u1', email: 'alice@test.com', deleted_at: null },
       { id: 'u2', email: 'bob@test.com', deleted_at: null },

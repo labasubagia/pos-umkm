@@ -403,7 +403,7 @@
 
 ### T015 — First-Time Setup: Create Master Spreadsheet
 
-- **Status:** 🔍 need-check
+- **Status:** ✅ done
 - **Phase:** 2 – Auth
 - **Depends on:** T014, T046, T011
 - **Test type:** unit
@@ -427,7 +427,7 @@
 
 ### T016 — Monthly Transaction Spreadsheet Management
 
-- **Status:** 🔍 need-check
+- **Status:** ✅ done
 - **Phase:** 2 – Auth
 - **Depends on:** T015, T046
 - **Test type:** unit
@@ -450,7 +450,7 @@
 
 ### T017 — Member Invite Flow
 
-- **Status:** 🔍 need-check
+- **Status:** ✅ done
 - **Phase:** 2 – Auth
 - **Depends on:** T015, T046, T012
 - **Test type:** unit + e2e
@@ -479,7 +479,7 @@
 
 ### T018 — Store Link Join Flow (Member Onboarding)
 
-- **Status:** 🔍 need-check
+- **Status:** ✅ done
 - **Phase:** 2 – Auth
 - **Depends on:** T017, T014
 - **Test type:** unit + e2e
@@ -526,7 +526,7 @@
 
 ### T020 — POS Terminal PIN Lock
 
-- **Status:** 🔍 need-check
+- **Status:** ✅ done
 - **Phase:** 2 – Auth
 - **Depends on:** T018, T012
 - **Test type:** unit + e2e

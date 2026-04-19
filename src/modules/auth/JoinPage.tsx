@@ -7,7 +7,7 @@
  * 1. Extract `sid` from URL query params.
  * 2. Persist the spreadsheetId to localStorage (so the adapter uses it).
  * 3. Show a "Sign in with Google" button.
- * 4. After sign-in, resolve the user's role from the Users tab.
+ * 4. After sign-in, resolve the user's role from the Members tab.
  * 5. Navigate to /cashier.
  *
  * Members only need the `spreadsheets` scope — they access a sheet shared
