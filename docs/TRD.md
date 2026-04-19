@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.3                               |
+| Version     | 2.4                               |
 | Status      | Draft                             |
 | Date        | April 2026                        |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -193,8 +193,9 @@ src/
 │   ├── validators.ts    # Input validation rules
 │   └── uuid.ts          # UUID v4 generator
 ├── components/          # Shared, reusable UI components
-│   ├── NavBar.tsx       # Role-aware top navigation bar (links filtered by user role)
-│   ├── AppShell.tsx     # Authenticated page layout: NavBar + <Outlet /> (layout route)
+│   ├── NavBar.tsx       # Role-aware top navigation bar (desktop; links hidden on mobile, shown on md+)
+│   ├── BottomNav.tsx    # Role-aware bottom navigation bar (mobile only; md:hidden)
+│   ├── AppShell.tsx     # Authenticated page layout: NavBar + Outlet + BottomNav
 │   └── ui/              # shadcn/ui primitives (Button, Modal, etc.)
 ├── hooks/               # Shared React hooks (useDebounce, usePagination, etc.)
 └── tests/
@@ -212,29 +213,32 @@ src/
 - No module imports from another module's internals. Shared state goes through Zustand stores or React context.
 - Pure functions (formatters, validators, calculations) live in `lib/` and are unit-testable without DOM or API.
 
-### 2.6 Application Layout — AppShell & NavBar
+### 2.6 Application Layout — AppShell, NavBar & BottomNav
 
 Authenticated pages share a common layout provided by `AppShell`, which is mounted as a **React Router v6 layout route** in `src/router.tsx`. This avoids repeating nav markup in every page component.
 
 ```
 router.tsx
 └── <ProtectedRoute>
-    └── <AppShell>            ← layout route (no path of its own)
-        ├── <NavBar />        ← rendered once, persists across route changes
-        └── <Outlet />        ← page-specific content (CashierPage, CatalogPage, …)
+    └── <AppShell>               ← layout route (no path of its own)
+        ├── <NavBar />           ← top bar; rendered on all screen sizes
+        ├── <main pb-16 md:pb-0> ← page-specific content via <Outlet />
+        └── <BottomNav />        ← fixed bottom; only visible below md (md:hidden)
 ```
 
-**AppShell (`src/components/AppShell.tsx`):** A thin wrapper that renders `<NavBar />` above and `<Outlet />` below. The outer element is `min-h-screen flex flex-col` so page content fills remaining viewport height.
+**AppShell (`src/components/AppShell.tsx`):** Renders `<NavBar />` at the top, `<Outlet />` in a `flex-1 flex-col` main area (with `pb-16 md:pb-0` to clear the BottomNav on mobile), and `<BottomNav />` fixed at the bottom.
 
-**NavBar (`src/components/NavBar.tsx`):** A `h-16` (4 rem) top navigation bar.
+**NavBar (`src/components/NavBar.tsx`):** A `h-14 md:h-16` top navigation bar.
 
 | Area | Content |
 |---|---|
 | Left | Logo / app name ("POS UMKM") |
-| Centre | Role-filtered navigation links |
-| Right | Logged-in user's name + Keluar (sign-out) button |
+| Centre | Role-filtered nav links — **hidden on mobile** (`hidden md:flex`), shown on md+ |
+| Right | Sign-out button (always visible); username shown on lg+ |
 
-Navigation links are filtered at render time using the same `ROLE_RANK` hierarchy as `RoleRoute`. If a user's role is insufficient for a link, that link is simply not rendered (in addition to the route itself being protected by `RoleRoute`).
+**BottomNav (`src/components/BottomNav.tsx`):** A fixed `h-16` bottom bar, `md:hidden`. Renders the same role-filtered nav items as NavBar (icon + label), with active-route highlight. Uses `data-testid="bottom-nav-{route}"` (distinct from NavBar's `nav-{route}`) to avoid duplicate testids in the DOM at desktop viewport where both exist but BottomNav is `display:none`.
+
+Navigation links are filtered at render time using the same `ROLE_RANK` hierarchy as `RoleRoute`.
 
 | Route | Label | Min role | Icon |
 |---|---|---|---|
@@ -245,9 +249,15 @@ Navigation links are filtered at render time using the same `ROLE_RANK` hierarch
 | `/reports` | Laporan | manager | BarChart2 |
 | `/settings` | Pengaturan | owner | Settings |
 
-Public routes (`/`, `/login`, `/join`) and the setup wizard (`/setup`) are **outside** the `AppShell` layout route and do not show the NavBar.
+Public routes (`/`, `/login`, `/join`) and the setup wizard (`/setup`) are **outside** the `AppShell` layout route and do not show any navigation.
 
-Responsive behaviour: labels are hidden below `sm` (640 px) — icons only. On `md`+ (768 px) the username is also displayed.
+**Mobile-first CashierPage layout:**
+
+On mobile (< md) the cashier screen is a single full-height column. Two toggle tabs at the top switch between the **Produk** view (ProductSearch grid) and the **Keranjang** view (cart, totals, pay button). A live item count badge on the Keranjang tab shows how many items are in the cart.
+
+On md+ the two panels are shown side-by-side: product search on the left (flex-1) and the cart panel fixed at `w-80` on the right.
+
+The `CashierPage` outer container uses `flex flex-1 overflow-hidden flex-col md:flex-row` so it fills the remaining viewport height without a hard-coded `h-[calc(100vh-4rem)]`. `ProductSearch` uses `flex-1 min-h-0 overflow-y-auto` on the product grid to enable proper scrolling in a flex column — without `min-h-0` the flex child defaults to `min-height: auto` which prevents overflow.
 
 **`data-testid` attributes** (E2E locators):
 
@@ -256,11 +266,15 @@ Responsive behaviour: labels are hidden below `sm` (640 px) — icons only. On `
 | `<header>` wrapper | `navbar` |
 | App logo span | `navbar-logo` |
 | `<nav>` element | `navbar-nav` |
-| Each nav link | `nav-{route}` e.g. `nav-cashier` |
+| Each NavBar link | `nav-{route}` e.g. `nav-cashier` |
 | Username display | `navbar-username` |
 | Sign-out button | `btn-logout` |
 | `<AppShell>` root | `app-shell` |
 | `<main>` content area | `main-content` |
+| BottomNav container | `bottom-nav` |
+| Each BottomNav link | `bottom-nav-{route}` e.g. `bottom-nav-cashier` |
+| Mobile Produk tab | `btn-tab-products` |
+| Mobile Keranjang tab | `btn-tab-cart` |
 
 ### 2.7 Adapter Pattern
 

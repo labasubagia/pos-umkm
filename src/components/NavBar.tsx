@@ -1,15 +1,10 @@
 /**
  * NavBar — role-aware top navigation bar.
  *
- * Filters nav links based on the authenticated user's role using the same
- * ROLE_RANK hierarchy as RoleRoute. This prevents cluttering the nav with
- * links the user cannot access. The actual route protection is enforced by
- * RoleRoute — this is purely a UX affordance.
+ * Mobile (< md): shows only the logo and sign-out button.
+ * md+: shows logo, role-filtered nav links, username, sign-out.
  *
- * Layout:
- *   [Logo] [nav links…]                    [username] [Keluar]
- *
- * Responsive: labels hidden on small screens (icon-only), shown on sm+.
+ * Navigation on mobile is handled by BottomNav (see AppShell).
  */
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
@@ -32,13 +27,13 @@ const ROLE_RANK: Record<Role, number> = {
   owner: 3,
 }
 
-const NAV_ITEMS = [
-  { to: '/cashier',   label: 'Kasir',       icon: ShoppingCart, minRole: 'cashier' as Role },
-  { to: '/catalog',   label: 'Katalog',     icon: Package,      minRole: 'manager' as Role },
-  { to: '/inventory', label: 'Inventori',   icon: Archive,      minRole: 'manager' as Role },
-  { to: '/customers', label: 'Pelanggan',   icon: Users,        minRole: 'manager' as Role },
-  { to: '/reports',   label: 'Laporan',     icon: BarChart2,    minRole: 'manager' as Role },
-  { to: '/settings',  label: 'Pengaturan',  icon: Settings,     minRole: 'owner'   as Role },
+export const NAV_ITEMS = [
+  { to: '/cashier',   label: 'Kasir',      icon: ShoppingCart, minRole: 'cashier' as Role },
+  { to: '/catalog',   label: 'Katalog',    icon: Package,      minRole: 'manager' as Role },
+  { to: '/inventory', label: 'Inventori',  icon: Archive,      minRole: 'manager' as Role },
+  { to: '/customers', label: 'Pelanggan',  icon: Users,        minRole: 'manager' as Role },
+  { to: '/reports',   label: 'Laporan',    icon: BarChart2,    minRole: 'manager' as Role },
+  { to: '/settings',  label: 'Pengaturan', icon: Settings,     minRole: 'owner'   as Role },
 ]
 
 export function NavBar() {
@@ -57,19 +52,19 @@ export function NavBar() {
 
   return (
     <header
-      className="h-16 bg-white border-b flex items-center px-4 gap-2 shrink-0"
+      className="h-14 md:h-16 bg-white border-b flex items-center px-4 gap-2 shrink-0"
       data-testid="navbar"
     >
       {/* Logo / app name */}
       <span
-        className="font-bold text-blue-600 text-lg mr-2 shrink-0"
+        className="font-bold text-blue-600 text-lg shrink-0"
         data-testid="navbar-logo"
       >
         POS UMKM
       </span>
 
-      {/* Role-filtered navigation links */}
-      <nav className="flex gap-1 flex-1 overflow-x-auto" data-testid="navbar-nav">
+      {/* Nav links — hidden on mobile, shown on md+ */}
+      <nav className="hidden md:flex gap-1 flex-1 ml-2" data-testid="navbar-nav">
         {visibleItems.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
@@ -79,18 +74,21 @@ export function NavBar() {
             {({ isActive }) => (
               <Button variant={isActive ? 'secondary' : 'ghost'} size="sm">
                 <Icon className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">{label}</span>
+                <span className="hidden lg:inline">{label}</span>
               </Button>
             )}
           </NavLink>
         ))}
       </nav>
 
+      {/* Spacer so logout stays right-aligned on mobile */}
+      <div className="flex-1 md:hidden" />
+
       {/* User info + sign-out */}
       {user && (
-        <div className="flex items-center gap-2 ml-auto shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <span
-            className="text-sm text-gray-600 hidden md:inline"
+            className="text-sm text-gray-600 hidden lg:inline"
             data-testid="navbar-username"
           >
             {user.name}
@@ -103,7 +101,7 @@ export function NavBar() {
             aria-label="Keluar"
           >
             <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Keluar</span>
+            <span className="hidden md:inline">Keluar</span>
           </Button>
         </div>
       )}

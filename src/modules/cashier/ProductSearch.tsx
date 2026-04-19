@@ -57,9 +57,9 @@ export function ProductSearch({ products, variants }: Props) {
     : []
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 h-full min-h-0">
       {/* Search input */}
-      <div className="relative">
+      <div className="relative shrink-0">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <Input
           type="search"
@@ -104,9 +104,9 @@ export function ProductSearch({ products, variants }: Props) {
         </Dialog>
       )}
 
-      {/* Product grid */}
+      {/* Product grid — fills remaining height and scrolls */}
       <div
-        className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[60vh] overflow-y-auto"
+        className="grid grid-cols-2 md:grid-cols-3 gap-2 flex-1 min-h-0 overflow-y-auto content-start"
         role="list"
         aria-label="Daftar produk"
       >

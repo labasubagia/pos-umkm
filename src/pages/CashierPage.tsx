@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ShoppingBag } from 'lucide-react'
+import { ShoppingBag, ShoppingCart } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { useCatalogStore } from '../modules/catalog/useCatalog'
 import { useCartStore } from '../modules/cashier/useCart'
@@ -26,6 +26,8 @@ import { Alert, AlertDescription } from '../components/ui/alert'
 
 const TAX_RATE = 0 // PPN disabled by default; owner can enable in Settings (post-MVP)
 
+type MobileView = 'products' | 'cart'
+
 export default function CashierPage() {
   const { user, spreadsheetId } = useAuthStore()
   const { products, variants, loadCatalog } = useCatalogStore()
@@ -37,6 +39,7 @@ export default function CashierPage() {
   const [completedTransaction, setCompletedTransaction] = useState<{ tx: Transaction; txItems: TransactionItem[] } | null>(null)
   const [txError, setTxError] = useState('')
   const [receiptSeq, setReceiptSeq] = useState(1)
+  const [mobileView, setMobileView] = useState<MobileView>('products')
 
   useEffect(() => {
     loadCatalog()
@@ -82,6 +85,7 @@ export default function CashierPage() {
       setCompletedTransaction({ tx, txItems })
       setShowPayment(false)
       resetCart()
+      setMobileView('products')
     } catch (err) {
       if (err instanceof CashierError) {
         setTxError(err.message)
@@ -91,17 +95,59 @@ export default function CashierPage() {
     }
   }
 
+  const cartItemCount = items.reduce((sum, i) => sum + i.quantity, 0)
+
   return (
-    <div className="flex h-[calc(100vh-4rem)] gap-0 bg-gray-50">
+    <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
+      {/* Mobile view toggle tabs — only visible on < md */}
+      <div className="flex border-b bg-white shrink-0 md:hidden">
+        <button
+          className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${
+            mobileView === 'products'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500'
+          }`}
+          onClick={() => setMobileView('products')}
+          data-testid="btn-tab-products"
+        >
+          Produk
+        </button>
+        <button
+          className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${
+            mobileView === 'cart'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500'
+          }`}
+          onClick={() => setMobileView('cart')}
+          data-testid="btn-tab-cart"
+        >
+          <ShoppingCart className="h-4 w-4" />
+          Keranjang
+          {cartItemCount > 0 && (
+            <span className="bg-blue-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center leading-none">
+              {cartItemCount}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Left — product search */}
-      <div className="flex-1 overflow-hidden flex flex-col p-4">
-        <h1 className="text-lg font-bold mb-3">Kasir</h1>
+      <div
+        className={`flex-1 overflow-hidden flex flex-col p-3 md:p-4 ${
+          mobileView === 'products' ? 'flex' : 'hidden md:flex'
+        }`}
+      >
+        <h1 className="text-lg font-bold mb-3 shrink-0">Kasir</h1>
         <ProductSearch products={products} variants={variants} />
       </div>
 
       {/* Right — cart + actions */}
-      <div className="w-80 bg-white border-l flex flex-col shadow-lg">
-        <div className="flex items-center justify-between p-3 border-b">
+      <div
+        className={`md:w-80 bg-white md:border-l flex flex-col md:shadow-lg ${
+          mobileView === 'cart' ? 'flex flex-1' : 'hidden md:flex'
+        }`}
+      >
+        <div className="flex items-center justify-between p-3 border-b shrink-0">
           <h2 className="font-semibold text-sm">Keranjang</h2>
           <Button
             variant="ghost"
@@ -115,7 +161,7 @@ export default function CashierPage() {
         </div>
 
         {/* Customer search */}
-        <div className="px-3 py-2 border-b">
+        <div className="px-3 py-2 border-b shrink-0">
           <CustomerSearch onSelect={setSelectedCustomer} />
           {selectedCustomer && (
             <p
@@ -129,23 +175,23 @@ export default function CashierPage() {
 
         {/* Held carts panel (toggleable) */}
         {showHeld && (
-          <div className="p-3 border-b bg-gray-50">
+          <div className="p-3 border-b bg-gray-50 shrink-0">
             <HeldCartsPanel />
           </div>
         )}
 
         {/* Cart items */}
-        <div className="flex-1 overflow-y-auto p-3 flex flex-col">
+        <div className="flex-1 overflow-y-auto p-3 min-h-0 flex flex-col">
           <CartPanel />
         </div>
 
         {/* Discount */}
-        <div className="px-3 pb-2 border-t pt-2">
+        <div className="px-3 pb-2 border-t pt-2 shrink-0">
           <DiscountInput />
         </div>
 
         {/* Total + action buttons */}
-        <div className="p-3 border-t bg-gray-50">
+        <div className="p-3 border-t bg-gray-50 shrink-0">
           <div className="flex justify-between text-sm mb-1">
             <span className="text-gray-500">Subtotal</span>
             <span>Rp {subtotal.toLocaleString('id-ID')}</span>

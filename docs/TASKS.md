@@ -1187,6 +1187,21 @@
     - LandingPage `asChild` type error fixed
   - **TRD.md §2.1** updated to list all 14 shadcn components; version bumped to 2.3
 
+### T050 — Mobile-First UI (NavBar, BottomNav, CashierPage)
+
+- **Status:** ✅ done
+- **Phase:** 0 – Scaffold (retroactive)
+- **Depends on:** T048, T049
+- **Test type:** none (layout; covered by existing 64 E2E tests at desktop viewport; no mobile-specific tests added)
+- **Architecture note:** Mobile-first is enforced via Tailwind breakpoints: styles without a prefix target mobile, `md:` (768px+) overrides for tablet/desktop. E2E tests run at `Desktop Chrome` / `Desktop Firefox` (1280×720+) so all `md:hidden` / `hidden md:flex` classes are safe to add without breaking existing tests. `navigateTo()` in E2E helpers uses `history.pushState` (not nav link clicks), so duplicate `data-testid` values between NavBar and BottomNav at desktop viewport are not a concern. `min-h-0` is required on flex children that must scroll — without it, `min-height: auto` prevents overflow from working in a flex column.
+- **Deliverables:**
+  - `src/components/BottomNav.tsx` (new) — fixed `h-16` bottom bar; `md:hidden`; role-filtered nav items; active-route highlight; `data-testid="bottom-nav-{route}"`
+  - `src/components/AppShell.tsx` updated — imports `BottomNav`; adds `pb-16 md:pb-0` to `<main>` for bottom clearance on mobile
+  - `src/components/NavBar.tsx` updated — nav links wrapped in `hidden md:flex`; `flex-1` spacer on mobile; height changed to `h-14 md:h-16`
+  - `src/pages/CashierPage.tsx` updated — adds `mobileView: 'products' | 'cart'` state; mobile toggle tabs (`btn-tab-products`, `btn-tab-cart`) with live item count badge; outer container changed from `h-[calc(100vh-4rem)]` to `flex flex-1 overflow-hidden flex-col md:flex-row`; cart panel adapts width from full-width on mobile to fixed `md:w-80` on desktop
+  - `src/modules/cashier/ProductSearch.tsx` updated — product grid changed from `max-h-[60vh] overflow-y-auto` to `flex-1 min-h-0 overflow-y-auto content-start`; grid breakpoint changed from `sm:grid-cols-3` to `md:grid-cols-3`; wrapper uses `h-full min-h-0 flex flex-col`
+  - `docs/TRD.md` §2.6 updated to document BottomNav, mobile-first CashierPage layout, `min-h-0` pattern; §2.5 updated to list `BottomNav.tsx`; version bumped to 2.4
+
 ---
 
 ## Appendix: Parallelization Map
@@ -1195,7 +1210,7 @@ The following tasks within each phase have no mutual dependencies and can be wor
 
 | Can run in parallel | Tasks |
 |---|---|
-| Phase 0 | T001 first, then T002–T009 + T048 + T049 all in parallel (T048/T049 depend on T003) |
+| Phase 0 | T001 first, then T002–T009 + T048 + T049 + T050 all in parallel (T048/T049/T050 depend on T003) |
 | Phase 1 | T010, T011, T012, T013 in parallel; then T045 (interface); then T046, T047 in parallel |
 | Phase 2 | T014 first; then T015 → T016 → T017 → T018 → T019 → T020 (mostly sequential) |
 | Phase 3–7 | All phases can start once Phase 2 is done; phases are independent of each other |
