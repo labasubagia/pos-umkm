@@ -37,11 +37,12 @@ interface Props {
   taxRate: number
   onConfirm: (payment: PaymentInfo) => void
   onClose: () => void
+  loading?: boolean
 }
 
 type Step = 'method' | 'cash' | 'qris' | 'split'
 
-export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Props) {
+export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose, loading = false }: Props) {
   const items = useCartStore((s) => s.items)
   const discount = useCartStore((s) => s.discount)
 
@@ -187,14 +188,14 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
             )}
 
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep('method')} className="flex-1">Kembali</Button>
+              <Button variant="outline" onClick={() => setStep('method')} className="flex-1" disabled={loading}>Kembali</Button>
               <Button
                 onClick={handleCashConfirm}
-                disabled={cashAmount < total}
+                disabled={cashAmount < total || loading}
                 className="flex-1"
                 data-testid="btn-cash-confirm"
               >
-                Konfirmasi
+                {loading ? 'Memproses…' : 'Konfirmasi'}
               </Button>
             </div>
           </div>
@@ -219,13 +220,14 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
               </Alert>
             )}
             <div className="flex gap-2 w-full">
-              <Button variant="outline" onClick={() => setStep('method')} className="flex-1">Kembali</Button>
+              <Button variant="outline" onClick={() => setStep('method')} className="flex-1" disabled={loading}>Kembali</Button>
               <Button
                 onClick={() => onConfirm({ method: 'QRIS', cashReceived: total, change: 0 })}
                 className="flex-1"
+                disabled={loading}
                 data-testid="btn-qris-confirm"
               >
-                Pembayaran Diterima
+                {loading ? 'Memproses…' : 'Pembayaran Diterima'}
               </Button>
             </div>
           </div>
@@ -271,14 +273,14 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
               </Alert>
             )}
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep('method')} className="flex-1">Kembali</Button>
+              <Button variant="outline" onClick={() => setStep('method')} className="flex-1" disabled={loading}>Kembali</Button>
               <Button
                 onClick={handleSplitConfirm}
-                disabled={splitCashAmount + splitQrisAmount !== total}
+                disabled={splitCashAmount + splitQrisAmount !== total || loading}
                 className="flex-1"
                 data-testid="btn-split-confirm"
               >
-                Konfirmasi
+                {loading ? 'Memproses…' : 'Konfirmasi'}
               </Button>
             </div>
           </div>

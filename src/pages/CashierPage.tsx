@@ -36,6 +36,7 @@ export default function CashierPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [showPayment, setShowPayment] = useState(false)
   const [showHeld, setShowHeld] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [qrisImageUrl, setQrisImageUrl] = useState('')
   const [completedTransaction, setCompletedTransaction] = useState<{ tx: Transaction; txItems: TransactionItem[] } | null>(null)
   const [txError, setTxError] = useState('')
@@ -59,8 +60,9 @@ export default function CashierPage() {
   const total = calculateTotal(subtotal, discountAmount, tax)
 
   async function handlePaymentConfirm(payment: PaymentInfo) {
-    if (!user || !spreadsheetId) return
+    if (!user || !spreadsheetId || submitting) return
     setTxError('')
+    setSubmitting(true)
     try {
       // Ensure the monthly transaction sheet exists before writing to it.
       // Creates it (with headers) on the first transaction of each month.
@@ -74,6 +76,8 @@ export default function CashierPage() {
         selectedCustomer?.id ?? null,
         spreadsheetId,
         receiptSeq,
+        products,
+        variants,
       )
       setReceiptSeq((s) => s + 1)
       setSelectedCustomer(null)
@@ -100,6 +104,8 @@ export default function CashierPage() {
       } else {
         setTxError('Terjadi kesalahan saat memproses transaksi')
       }
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -230,7 +236,7 @@ export default function CashierPage() {
             <Button
               variant="outline"
               onClick={() => { try { holdCart() } catch (e) { setTxError((e as Error).message) } }}
-              disabled={items.length === 0}
+              disabled={items.length === 0 || submitting}
               className="flex-1"
               data-testid="btn-hold-cart"
             >
@@ -238,11 +244,11 @@ export default function CashierPage() {
             </Button>
             <Button
               onClick={() => setShowPayment(true)}
-              disabled={items.length === 0}
+              disabled={items.length === 0 || submitting}
               className="flex-[2]"
               data-testid="btn-pay"
             >
-              Bayar Rp {total.toLocaleString('id-ID')}
+              {submitting ? 'Memproses…' : `Bayar Rp ${total.toLocaleString('id-ID')}`}
             </Button>
           </div>
         </div>
@@ -254,7 +260,8 @@ export default function CashierPage() {
           qrisImageUrl={qrisImageUrl}
           taxRate={TAX_RATE}
           onConfirm={handlePaymentConfirm}
-          onClose={() => setShowPayment(false)}
+          onClose={() => { if (!submitting) setShowPayment(false) }}
+          loading={submitting}
         />
       )}
 

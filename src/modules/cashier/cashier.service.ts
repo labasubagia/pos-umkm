@@ -13,7 +13,7 @@ import { dataAdapter } from '../../lib/adapters'
 import { generateId } from '../../lib/uuid'
 import { nowUTC } from '../../lib/formatters'
 import { createMonthlySheet, initializeMonthlySheets, getCurrentMonthSheetId, shareSheetWithAllMembers } from '../auth/setup.service'
-import type { Product } from '../catalog/catalog.service'
+import type { Product, Variant } from '../catalog/catalog.service'
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
@@ -239,6 +239,11 @@ export interface PaymentInfo {
  * If step 3 partially fails, the transaction header is already written —
  * a CashierError is thrown with a flag to show the cashier a stock-warning
  * alert. This is intentionally not rolled back (safer than complex delete logic).
+ *
+ * `preloadedProducts` and `preloadedVariants` — pass the catalog store's
+ * in-memory lists to skip one `getSheet` read in step 3. Stock values may
+ * be slightly stale (since catalog was last loaded) which is acceptable for
+ * the single-cashier MVP.
  */
 export async function commitTransaction(
   items: CartItem[],
@@ -249,6 +254,8 @@ export async function commitTransaction(
   customerId: string | null,
   _masterSpreadsheetId: string,
   receiptSequence: number,
+  preloadedProducts?: Product[],
+  preloadedVariants?: Variant[],
 ): Promise<Transaction> {
   if (items.length === 0) {
     throw new CashierError('Keranjang kosong — tidak ada transaksi yang dilakukan')
@@ -320,16 +327,26 @@ export async function commitTransaction(
   )
 
   // Step 3: Decrement stock — best-effort; log failures but don't roll back.
-  // Read Products and Variants ONCE each (in parallel), compute all new stocks,
-  // then batch-write each sheet in a single round-trip.
+  // Use preloaded catalog data when available to skip one GET per sheet;
+  // fall back to reading from the adapter if not provided.
+  // batchUpdateCells still does its own GET to resolve row positions — reducing
+  // the total from 2 GETs + 1 batchUpdate to 1 GET + 1 batchUpdate.
   const stockErrors: string[] = []
   try {
     const hasVariantItems = items.some((i) => i.variantId)
     const hasProductItems = items.some((i) => !i.variantId)
 
     const [variantRows, productRows] = await Promise.all([
-      hasVariantItems ? dataAdapter.getSheet('Variants') : Promise.resolve([]),
-      hasProductItems ? dataAdapter.getSheet('Products') : Promise.resolve([]),
+      hasVariantItems
+        ? (preloadedVariants
+            ? Promise.resolve(preloadedVariants as unknown as Record<string, unknown>[])
+            : dataAdapter.getSheet('Variants'))
+        : Promise.resolve([]),
+      hasProductItems
+        ? (preloadedProducts
+            ? Promise.resolve(preloadedProducts as unknown as Record<string, unknown>[])
+            : dataAdapter.getSheet('Products'))
+        : Promise.resolve([]),
     ])
 
     const variantUpdates = items
