@@ -60,6 +60,8 @@ export const useCatalogStore = create<CatalogState>((set) => ({
   error: null,
 
   loadCatalog: async () => {
+    // Guard against concurrent calls (e.g. React StrictMode double-invoke).
+    if (useCatalogStore.getState().loading) return
     set({ loading: true, error: null })
     try {
       const [categories, products, variants] = await Promise.all([
