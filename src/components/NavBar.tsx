@@ -55,7 +55,7 @@ export function NavBar() {
       className="bg-white border-b shrink-0"
       data-testid="navbar"
     >
-      <div className="mx-auto max-w-screen-xl h-14 md:h-16 flex items-center px-4 gap-2">
+      <div className="mx-auto max-w-6xl h-14 md:h-16 flex items-center px-4 gap-2">
         {/* Logo / app name */}
         <span
           className="font-bold text-blue-600 text-lg shrink-0"
