@@ -88,7 +88,7 @@ export function PaymentModal({ qrisImageUrl, taxRate, onConfirm, onClose }: Prop
 
   return (
     <Dialog open={true} onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="max-w-sm" showCloseButton={false}>
+      <DialogContent className="max-w-sm" showCloseButton={false} data-testid="payment-modal">
         <DialogHeader>
           <DialogTitle>Pembayaran</DialogTitle>
         </DialogHeader>

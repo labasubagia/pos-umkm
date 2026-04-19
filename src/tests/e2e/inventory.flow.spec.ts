@@ -313,9 +313,9 @@ test.describe('Purchase Orders (T035)', () => {
 
     // Find the created PO row and verify supplier name
     const poRow = page.locator('[data-testid^="po-row-"]')
-    await expect(poRow.first()).toBeVisible()
+    await expect(poRow).toBeVisible()
 
-    const poId = await poRow.first().getAttribute('data-testid').then((id) => id?.replace('po-row-', '') ?? '')
+    const poId = await poRow.getAttribute('data-testid').then((id) => id?.replace('po-row-', '') ?? '')
     await expect(page.getByTestId(`po-supplier-${poId}`)).toHaveText('Supplier Test ABC')
     await expect(page.getByTestId(`po-status-${poId}`)).toHaveText('Pending')
 

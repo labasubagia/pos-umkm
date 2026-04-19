@@ -100,7 +100,7 @@ test.describe('Cash Payment (T027)', () => {
 
     // Open payment modal
     await page.getByTestId('btn-pay').click()
-    await expect(page.getByRole('dialog')).toBeVisible()
+    await expect(page.getByTestId('payment-modal')).toBeVisible()
 
     // Select CASH method
     await page.getByTestId('btn-method-cash').click()
@@ -375,8 +375,8 @@ test.describe('Customer Search (T036)', () => {
     await signInAsOwner(page)
 
     if (page.url().includes('/setup')) {
-      await page.getByPlaceholder(/nama usaha/i).fill('Toko Kasir Test')
-      await page.getByRole('button', { name: /mulai sekarang/i }).click()
+      await page.getByTestId('input-business-name').fill('Toko Kasir Test')
+      await page.getByTestId('btn-setup-submit').click()
       await page.waitForURL(/\/cashier/)
     }
 
@@ -459,8 +459,8 @@ test.describe('Refund Flow (T037)', () => {
     await signInAsOwner(page)
 
     if (page.url().includes('/setup')) {
-      await page.getByPlaceholder(/nama usaha/i).fill('Toko Kasir Test')
-      await page.getByRole('button', { name: /mulai sekarang/i }).click()
+      await page.getByTestId('input-business-name').fill('Toko Kasir Test')
+      await page.getByTestId('btn-setup-submit').click()
       await page.waitForURL(/\/cashier/)
     }
 
