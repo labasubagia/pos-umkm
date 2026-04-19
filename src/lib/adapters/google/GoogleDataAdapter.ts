@@ -139,31 +139,52 @@ export class GoogleDataAdapter implements DataAdapter {
   }
 
   /**
-   * Creates a new Google Spreadsheet via Drive API and returns its id.
-   * If parentFolderId is supplied the file is placed inside that Drive folder.
+   * Creates a new Google Spreadsheet via the Sheets API (not Drive API) so
+   * that tab names can be specified upfront. The Sheets API returns the real
+   * spreadsheetId directly; the Drive API file-create endpoint does not.
+   *
+   * After creation the file lives in "My Drive" root. If parentFolderId is
+   * supplied the file is moved there via a Drive PATCH call.
    */
-  async createSpreadsheet(name: string, parentFolderId?: string): Promise<string> {
+  async createSpreadsheet(name: string, parentFolderId?: string, tabs?: string[]): Promise<string> {
     const token = this.getToken()
-    const body: Record<string, unknown> = {
-      name,
-      mimeType: 'application/vnd.google-apps.spreadsheet',
-    }
-    if (parentFolderId) body.parents = [parentFolderId]
 
-    const res = await fetch(`${DRIVE_API}/files`, {
+    // Build the Sheets API body — define all tabs upfront so appendRow never
+    // hits a 404 because the tab doesn't exist yet.
+    const sheetsBody: Record<string, unknown> = { properties: { title: name } }
+    if (tabs && tabs.length > 0) {
+      sheetsBody.sheets = tabs.map((title) => ({ properties: { title } }))
+    }
+
+    const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(sheetsBody),
     })
-    if (!res.ok) {
-      const body = await res.text().catch(() => '')
+    if (!createRes.ok) {
+      const body = await createRes.text().catch(() => '')
       throw new AdapterError(`createSpreadsheet failed: ${body}`)
     }
-    const data = await res.json()
-    return data.id as string
+    const data = await createRes.json()
+    const spreadsheetId = data.spreadsheetId as string
+
+    // Move to the desired Drive folder. Sheets API always creates in root, so
+    // we need to PATCH the file's parents via the Drive API.
+    if (parentFolderId) {
+      const metaRes = await fetch(`${DRIVE_API}/files/${spreadsheetId}?fields=parents`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (metaRes.ok) {
+        const meta = await metaRes.json()
+        const currentParents = ((meta.parents as string[]) ?? []).join(',')
+        await fetch(
+          `${DRIVE_API}/files/${spreadsheetId}?addParents=${parentFolderId}&removeParents=${currentParents}&fields=id`,
+          { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } },
+        )
+      }
+    }
+
+    return spreadsheetId
   }
 
   /** Reads the master spreadsheetId from the canonical localStorage key. */

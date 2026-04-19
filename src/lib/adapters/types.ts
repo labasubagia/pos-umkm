@@ -45,9 +45,11 @@ export interface DataAdapter {
    * Creates a new spreadsheet in the owner's Google Drive.
    * For MockDataAdapter this stores a fake UUID in localStorage.
    * @param parentFolderId Optional Drive folder ID to place the file inside.
+   * @param tabs Optional list of sheet tab names to create upfront. If omitted,
+   *             only the default "Sheet1" tab is created by Google Sheets.
    * Returns the spreadsheetId.
    */
-  createSpreadsheet(name: string, parentFolderId?: string): Promise<string>
+  createSpreadsheet(name: string, parentFolderId?: string, tabs?: string[]): Promise<string>
 
   /**
    * Reads the spreadsheetId for a given key from localStorage.

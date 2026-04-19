@@ -72,7 +72,7 @@ export async function createMasterSpreadsheet(businessName: string): Promise<str
       }
     }
 
-    const id = await dataAdapter.createSpreadsheet(name, parentFolderId)
+    const id = await dataAdapter.createSpreadsheet(name, parentFolderId, [...MASTER_TABS])
     // Update the live adapter instance — it was constructed with an empty ID.
     dataAdapter.setSpreadsheetId(id)
     return id
@@ -97,8 +97,9 @@ export async function initializeMasterSheets(spreadsheetId: string): Promise<voi
   // Critical for GoogleDataAdapter which may still hold an empty ID if this is
   // called independently of createMasterSpreadsheet.
   dataAdapter.setSpreadsheetId(spreadsheetId)
-  // Append a sentinel header record to each tab to mark it as initialized.
-  // Real sheet tab creation (frozen headers) is handled by GoogleDataAdapter.createSpreadsheet.
+  // Append a sentinel record to each tab to mark it as initialized.
+  // Tabs already exist (created by createSpreadsheet with the tabs param);
+  // this write just confirms they are writable and records the setup timestamp.
   await Promise.all(
     MASTER_TABS.map((tab) =>
       dataAdapter.appendRow(tab, { _initialized: true, created_at: nowUTC() }),
@@ -140,7 +141,7 @@ export async function createMonthlySheet(year: number, month: number): Promise<s
     // Reuse the store folder created during master-sheet setup so monthly sheets
     // sit alongside the master in apps/pos_umkm/<Store Name>/.
     const parentFolderId = localStorage.getItem('storeFolderId') ?? undefined
-    const id = await dataAdapter.createSpreadsheet(name, parentFolderId)
+    const id = await dataAdapter.createSpreadsheet(name, parentFolderId, [...MONTHLY_TABS])
     localStorage.setItem(monthKey(year, month), id)
     return id
   } catch (err) {

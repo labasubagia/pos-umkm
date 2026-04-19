@@ -75,18 +75,19 @@ export class MockDataAdapter implements DataAdapter {
   }
 
   /**
-   * Creates a fake spreadsheet by generating a UUID and storing it in
-   * localStorage under the canonical master key.
+   * Creates a fake spreadsheet by generating a UUID and storing it under
+   * a mock-specific localStorage key. Uses a separate key from the Google
+   * adapter so mock and google sessions never contaminate each other.
    */
-  async createSpreadsheet(_name: string, _parentFolderId?: string): Promise<string> {
+  async createSpreadsheet(_name: string, _parentFolderId?: string, _tabs?: string[]): Promise<string> {
     const id = generateId()
-    localStorage.setItem('masterSpreadsheetId', id)
+    localStorage.setItem('mock_masterSpreadsheetId', id)
     return id
   }
 
-  /** Reads the master spreadsheetId from the canonical localStorage key. */
+  /** Reads the mock master spreadsheetId from the mock-specific localStorage key. */
   getSpreadsheetId(_key: string): string | null {
-    return localStorage.getItem('masterSpreadsheetId')
+    return localStorage.getItem('mock_masterSpreadsheetId')
   }
 
   /** No-op — MockDataAdapter has no real spreadsheetId to update. */

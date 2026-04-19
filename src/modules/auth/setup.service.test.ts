@@ -53,7 +53,7 @@ describe('createMasterSpreadsheet', () => {
 
     const id = await createMasterSpreadsheet('Toko Santoso')
 
-    expect(spy).toHaveBeenCalledWith('POS UMKM — Master — Toko Santoso', 'folder-id-abc')
+    expect(spy).toHaveBeenCalledWith('POS UMKM — Master — Toko Santoso', 'folder-id-abc', expect.arrayContaining([...MASTER_TABS]))
     expect(id).toBe('sheet-id-123')
   })
 
@@ -127,7 +127,7 @@ describe('createMonthlySheet', () => {
     await createMonthlySheet(2026, 4)
 
     // parentFolderId is undefined when storeFolderId is not in localStorage
-    expect(spy).toHaveBeenCalledWith('POS UMKM — Transactions — 2026-04', undefined)
+    expect(spy).toHaveBeenCalledWith('POS UMKM — Transactions — 2026-04', undefined, expect.arrayContaining([...MONTHLY_TABS]))
   })
 
   it('throws on Drive API error', async () => {
