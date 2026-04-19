@@ -50,14 +50,32 @@ export class SetupError extends Error {
 // ─── T015 ─────────────────────────────────────────────────────────────────────
 
 /**
- * Creates the Master Spreadsheet in the owner's Google Drive.
- * Uses `drive.file` scope — only called once on owner first login.
+ * Creates the Master Spreadsheet inside `apps/pos_umkm/<businessName>/` in the
+ * owner's Google Drive. Uses `drive.file` scope — called once on first login.
+ * Updates the adapter's active spreadsheetId immediately so subsequent calls work.
  * Returns the new spreadsheetId.
  */
 export async function createMasterSpreadsheet(businessName: string): Promise<string> {
   try {
     const name = `POS UMKM — Master — ${businessName}`
-    return await dataAdapter.createSpreadsheet(name)
+
+    // Create (or find) the folder hierarchy apps/pos_umkm/<businessName>/
+    // and place the spreadsheet inside it. GoogleDataAdapter implements ensureFolder;
+    // MockDataAdapter skips folder creation (returns null, file goes to root).
+    let parentFolderId: string | undefined
+    if (dataAdapter.ensureFolder) {
+      const folderId = await dataAdapter.ensureFolder(['apps', 'pos_umkm', businessName])
+      if (folderId) {
+        parentFolderId = folderId
+        // Persist folder ID so monthly sheets land in the same folder.
+        localStorage.setItem('storeFolderId', folderId)
+      }
+    }
+
+    const id = await dataAdapter.createSpreadsheet(name, parentFolderId)
+    // Update the live adapter instance — it was constructed with an empty ID.
+    dataAdapter.setSpreadsheetId(id)
+    return id
   } catch (err) {
     throw new SetupError(`createMasterSpreadsheet failed: ${String(err)}`, err)
   }
@@ -75,6 +93,10 @@ export async function initializeMasterSheets(spreadsheetId: string): Promise<voi
   if (!spreadsheetId) {
     throw new SetupError('initializeMasterSheets: spreadsheetId is required')
   }
+  // Ensure the adapter targets the correct spreadsheet before writing.
+  // Critical for GoogleDataAdapter which may still hold an empty ID if this is
+  // called independently of createMasterSpreadsheet.
+  dataAdapter.setSpreadsheetId(spreadsheetId)
   // Append a sentinel header record to each tab to mark it as initialized.
   // Real sheet tab creation (frozen headers) is handled by GoogleDataAdapter.createSpreadsheet.
   await Promise.all(
@@ -115,7 +137,10 @@ export async function createMonthlySheet(year: number, month: number): Promise<s
   try {
     const mm = String(month).padStart(2, '0')
     const name = `POS UMKM — Transactions — ${year}-${mm}`
-    const id = await dataAdapter.createSpreadsheet(name)
+    // Reuse the store folder created during master-sheet setup so monthly sheets
+    // sit alongside the master in apps/pos_umkm/<Store Name>/.
+    const parentFolderId = localStorage.getItem('storeFolderId') ?? undefined
+    const id = await dataAdapter.createSpreadsheet(name, parentFolderId)
     localStorage.setItem(monthKey(year, month), id)
     return id
   } catch (err) {

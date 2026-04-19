@@ -20,9 +20,10 @@ import { SheetsApiError } from '../../sheets/sheets.types'
 import { generateId } from '../../uuid'
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3'
+const MASTER_LS_KEY = 'masterSpreadsheetId'
 
 export class GoogleDataAdapter implements DataAdapter {
-  private readonly spreadsheetId: string
+  private spreadsheetId: string
   private readonly getToken: () => string
 
   constructor(spreadsheetId: string, getToken: () => string) {
@@ -132,32 +133,56 @@ export class GoogleDataAdapter implements DataAdapter {
     await this.updateCell(sheetName, rowId, 'deleted_at', new Date().toISOString())
   }
 
-  /** Creates a new Google Spreadsheet via Drive API and returns its id. */
-  async createSpreadsheet(name: string): Promise<string> {
+  /** Updates the active spreadsheetId so subsequent calls target the right sheet. */
+  setSpreadsheetId(id: string): void {
+    this.spreadsheetId = id
+  }
+
+  /**
+   * Creates a new Google Spreadsheet via Drive API and returns its id.
+   * If parentFolderId is supplied the file is placed inside that Drive folder.
+   */
+  async createSpreadsheet(name: string, parentFolderId?: string): Promise<string> {
     const token = this.getToken()
+    const body: Record<string, unknown> = {
+      name,
+      mimeType: 'application/vnd.google-apps.spreadsheet',
+    }
+    if (parentFolderId) body.parents = [parentFolderId]
+
     const res = await fetch(`${DRIVE_API}/files`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        name,
-        mimeType: 'application/vnd.google-apps.spreadsheet',
-      }),
+      body: JSON.stringify(body),
     })
     if (!res.ok) {
       const body = await res.text().catch(() => '')
       throw new AdapterError(`createSpreadsheet failed: ${body}`)
     }
     const data = await res.json()
-    localStorage.setItem(`spreadsheet_${name}`, data.id as string)
     return data.id as string
   }
 
-  /** Reads the spreadsheetId from localStorage by key. */
-  getSpreadsheetId(key: string): string | null {
-    return localStorage.getItem(`spreadsheet_${key}`)
+  /** Reads the master spreadsheetId from the canonical localStorage key. */
+  getSpreadsheetId(_key: string): string | null {
+    return localStorage.getItem(MASTER_LS_KEY)
+  }
+
+  /**
+   * Ensures each folder in `path` exists under the previous one (starting at Drive root).
+   * Creates any missing folders. Returns the leaf folder ID.
+   * Used to create `apps/pos_umkm/<Store Name>/` before placing spreadsheets there.
+   */
+  async ensureFolder(path: string[]): Promise<string | null> {
+    const token = this.getToken()
+    let parentId = 'root'
+    for (const name of path) {
+      parentId = await ensureDriveFolderUnder(parentId, name, token)
+    }
+    return parentId
   }
 
   /** Shares the spreadsheet by creating a Drive permission. */
@@ -192,4 +217,36 @@ function columnToLetter(index: number): string {
     n = Math.floor(n / 26) - 1
   }
   return result
+}
+
+/**
+ * Finds or creates a Drive folder named `name` directly under `parentId`.
+ * Uses the Drive Files list API to avoid creating duplicate folders.
+ */
+async function ensureDriveFolderUnder(parentId: string, name: string, token: string): Promise<string> {
+  const q = `name=${JSON.stringify(name)} and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`
+  const searchUrl = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`
+  const searchRes = await fetch(searchUrl, { headers: { Authorization: `Bearer ${token}` } })
+  if (!searchRes.ok) {
+    throw new AdapterError(`ensureFolder: search failed for "${name}" (HTTP ${searchRes.status})`)
+  }
+  const searchData = await searchRes.json()
+  const files = searchData.files as Array<{ id: string }>
+  if (files.length > 0) return files[0].id
+
+  const createRes = await fetch(`${DRIVE_API}/files`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [parentId],
+    }),
+  })
+  if (!createRes.ok) {
+    const body = await createRes.text().catch(() => '')
+    throw new AdapterError(`ensureFolder: failed to create "${name}": ${body}`)
+  }
+  const createData = await createRes.json()
+  return createData.id as string
 }

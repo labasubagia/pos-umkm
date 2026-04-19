@@ -46,23 +46,26 @@ beforeEach(() => {
 
 describe('createMasterSpreadsheet', () => {
   it('calls Drive API with correct body (via dataAdapter.createSpreadsheet)', async () => {
+    vi.spyOn(adapters.dataAdapter, 'ensureFolder' as keyof typeof adapters.dataAdapter).mockResolvedValue('folder-id-abc')
     const spy = vi
       .spyOn(adapters.dataAdapter, 'createSpreadsheet')
       .mockResolvedValue('sheet-id-123')
 
     const id = await createMasterSpreadsheet('Toko Santoso')
 
-    expect(spy).toHaveBeenCalledWith('POS UMKM — Master — Toko Santoso')
+    expect(spy).toHaveBeenCalledWith('POS UMKM — Master — Toko Santoso', 'folder-id-abc')
     expect(id).toBe('sheet-id-123')
   })
 
   it('returns spreadsheetId from response', async () => {
+    vi.spyOn(adapters.dataAdapter, 'ensureFolder' as keyof typeof adapters.dataAdapter).mockResolvedValue('folder-id-xyz')
     vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('abc-456')
     const id = await createMasterSpreadsheet('Warung Ibu')
     expect(id).toBe('abc-456')
   })
 
   it('throws SetupError on Drive API failure', async () => {
+    vi.spyOn(adapters.dataAdapter, 'ensureFolder' as keyof typeof adapters.dataAdapter).mockResolvedValue('folder-id-xyz')
     vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockRejectedValue(new Error('Drive down'))
     await expect(createMasterSpreadsheet('Toko X')).rejects.toThrow('createMasterSpreadsheet failed')
   })
@@ -123,7 +126,8 @@ describe('createMonthlySheet', () => {
 
     await createMonthlySheet(2026, 4)
 
-    expect(spy).toHaveBeenCalledWith('POS UMKM — Transactions — 2026-04')
+    // parentFolderId is undefined when storeFolderId is not in localStorage
+    expect(spy).toHaveBeenCalledWith('POS UMKM — Transactions — 2026-04', undefined)
   })
 
   it('throws on Drive API error', async () => {

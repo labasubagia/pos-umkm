@@ -25,6 +25,7 @@ export default function LoginPage() {
     // Check whether this user already has a master spreadsheet stored locally.
     const existingId = dataAdapter.getSpreadsheetId('master')
     if (existingId) {
+      dataAdapter.setSpreadsheetId(existingId)
       setSpreadsheetId(existingId)
       navigate('/cashier')
     } else {

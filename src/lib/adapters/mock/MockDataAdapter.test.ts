@@ -83,7 +83,7 @@ describe('MockDataAdapter', () => {
   it('createSpreadsheet stores and returns a UUID', async () => {
     const id = await adapter.createSpreadsheet('Test Store')
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
-    expect(localStorage.getItem('mock_spreadsheet_Test Store')).toBe(id)
+    expect(localStorage.getItem('masterSpreadsheetId')).toBe(id)
   })
 
   it('updateCell throws if rowId not found', async () => {

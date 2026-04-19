@@ -42,17 +42,33 @@ export interface DataAdapter {
   softDelete(sheetName: string, rowId: string): Promise<void>
 
   /**
-   * Creates a new spreadsheet (Master Sheet) in the owner's Google Drive.
+   * Creates a new spreadsheet in the owner's Google Drive.
    * For MockDataAdapter this stores a fake UUID in localStorage.
+   * @param parentFolderId Optional Drive folder ID to place the file inside.
    * Returns the spreadsheetId.
    */
-  createSpreadsheet(name: string): Promise<string>
+  createSpreadsheet(name: string, parentFolderId?: string): Promise<string>
 
   /**
    * Reads the spreadsheetId for a given key from localStorage.
    * Returns null if not found (triggers setup flow).
    */
   getSpreadsheetId(key: string): string | null
+
+  /**
+   * Updates the active spreadsheetId on the adapter instance.
+   * Must be called after setup or sign-in so that getSheet/appendRow/etc.
+   * target the correct spreadsheet. No-op in MockDataAdapter.
+   */
+  setSpreadsheetId(id: string): void
+
+  /**
+   * Ensures a Drive folder hierarchy exists and returns the leaf folder ID.
+   * Path is an ordered list of folder names from root: ['apps', 'pos_umkm', 'Toko LB'].
+   * Returns null in MockDataAdapter (mock never touches Drive).
+   * Optional — only GoogleDataAdapter implements this.
+   */
+  ensureFolder?(path: string[]): Promise<string | null>
 
   /**
    * Shares a spreadsheet with another Google account.

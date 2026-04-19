@@ -25,9 +25,9 @@ function createAdapters(): { dataAdapter: DataAdapter; authAdapter: AuthAdapter 
     // The auth module calls dataAdapter.createSpreadsheet() on first run.
     const authAdapter = new GoogleAuthAdapter()
     const dataAdapter = new GoogleDataAdapter(
-      authAdapter.getAccessToken() !== null
-        ? (localStorage.getItem('spreadsheet_master') ?? '')
-        : '',
+      // Start with empty string — setSpreadsheetId() is called during the auth
+      // flow (LoginPage, SetupWizard, JoinPage) before any data operations run.
+      '',
       () => authAdapter.getAccessToken() ?? '',
     )
     return { dataAdapter, authAdapter }
