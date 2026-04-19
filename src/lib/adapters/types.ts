@@ -90,6 +90,13 @@ export interface AuthAdapter {
   /** Signs out the current user and clears the session. */
   signOut(): Promise<void>
 
+  /**
+   * Tries to restore a previous session from localStorage without an OAuth popup.
+   * Returns the cached User if the stored token is still valid, null if the user
+   * must sign in again. No-op (returns null) in MockAuthAdapter.
+   */
+  restoreSession(): Promise<User | null>
+
   /** Returns the current user from memory, or null if not signed in. */
   getCurrentUser(): User | null
 

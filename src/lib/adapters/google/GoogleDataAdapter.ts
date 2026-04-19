@@ -143,12 +143,34 @@ export class GoogleDataAdapter implements DataAdapter {
    * that tab names can be specified upfront. The Sheets API returns the real
    * spreadsheetId directly; the Drive API file-create endpoint does not.
    *
+   * Follows the "find or create" pattern from the reference implementation:
+   * if a spreadsheet with the same name already exists in the target folder
+   * (e.g., from a failed previous setup attempt), its ID is returned instead
+   * of creating a duplicate.
+   *
    * After creation the file lives in "My Drive" root. If parentFolderId is
    * supplied the file is moved there via a Drive PATCH call.
    */
   async createSpreadsheet(name: string, parentFolderId?: string, tabs?: string[]): Promise<string> {
     const token = this.getToken()
 
+    // ── "Find or create" ────────────────────────────────────────────────────
+    // If a spreadsheet with the same name already exists in the target folder,
+    // return its ID — prevents duplicates when setup is retried after a failure.
+    if (parentFolderId) {
+      const q = `name=${JSON.stringify(name)} and mimeType='application/vnd.google-apps.spreadsheet' and '${parentFolderId}' in parents and trashed=false`
+      const searchRes = await fetch(
+        `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      if (searchRes.ok) {
+        const searchData = await searchRes.json()
+        const files = searchData.files as Array<{ id: string }>
+        if (files.length > 0) return files[0].id
+      }
+    }
+
+    // ── Create via Sheets API ────────────────────────────────────────────────
     // Build the Sheets API body — define all tabs upfront so appendRow never
     // hits a 404 because the tab doesn't exist yet.
     const sheetsBody: Record<string, unknown> = { properties: { title: name } }
@@ -168,8 +190,8 @@ export class GoogleDataAdapter implements DataAdapter {
     const data = await createRes.json()
     const spreadsheetId = data.spreadsheetId as string
 
-    // Move to the desired Drive folder. Sheets API always creates in root, so
-    // we need to PATCH the file's parents via the Drive API.
+    // ── Move to target folder ────────────────────────────────────────────────
+    // Sheets API always creates in "My Drive" root, so move via Drive PATCH.
     if (parentFolderId) {
       const metaRes = await fetch(`${DRIVE_API}/files/${spreadsheetId}?fields=parents`, {
         headers: { Authorization: `Bearer ${token}` },

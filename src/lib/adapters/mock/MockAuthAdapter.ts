@@ -20,6 +20,11 @@ const MOCK_TOKEN = 'mock-token'
 export class MockAuthAdapter implements AuthAdapter {
   private currentUser: User | null = null
 
+  /** No persistent session in mock mode — always returns null. */
+  async restoreSession(): Promise<User | null> {
+    return null
+  }
+
   /** Signs in with the preset owner user — no OAuth involved. */
   async signIn(): Promise<User> {
     this.currentUser = PRESET_USER
