@@ -6,6 +6,7 @@
  * Stores tab and to the Zustand stores list so the NavBar reflects it immediately.
  */
 import { useState, useEffect, useRef } from 'react'
+import { getSettings, saveSettings, type BusinessSettings } from './settings.service'
 import { updateStoreName } from '../auth/setup.service'
 import { useAuth } from '../auth/useAuth'
 import { Button } from '../../components/ui/button'
