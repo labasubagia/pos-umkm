@@ -168,13 +168,14 @@ describe('addProduct', () => {
 
 describe('updateProduct', () => {
   it('updates only changed fields', async () => {
-    const updateSpy = vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
+    const batchSpy = vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
 
     await updateProduct('prod-1', { name: 'Nasi Goreng Spesial', price: 18000 })
 
-    expect(updateSpy).toHaveBeenCalledTimes(2)
-    expect(updateSpy).toHaveBeenCalledWith('Products', 'prod-1', 'name', 'Nasi Goreng Spesial')
-    expect(updateSpy).toHaveBeenCalledWith('Products', 'prod-1', 'price', 18000)
+    expect(batchSpy).toHaveBeenCalledWith('Products', [
+      { rowId: 'prod-1', column: 'name', value: 'Nasi Goreng Spesial' },
+      { rowId: 'prod-1', column: 'price', value: 18000 },
+    ])
   })
 })
 

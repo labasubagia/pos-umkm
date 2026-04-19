@@ -126,16 +126,16 @@ export async function createRefund(
   )
 
   // Step 3: Re-increment stock for each returned product
+  // Read Products once, compute all new stocks, batch-write in one round-trip.
   const products = await dataAdapter.getSheet('Products')
-  await Promise.all(
-    items.map(async (item) => {
-      const product = products.find((p) => p['id'] === item.product_id)
-      if (product) {
-        const newStock = Number(product['stock']) + item.qty
-        await dataAdapter.updateCell('Products', item.product_id, 'stock', newStock)
-      }
-    }),
-  )
+  const stockUpdates = items.flatMap((item) => {
+    const product = products.find((p) => p['id'] === item.product_id)
+    if (!product) return []
+    return [{ rowId: item.product_id, column: 'stock', value: Number(product['stock']) + item.qty }]
+  })
+  if (stockUpdates.length > 0) {
+    await dataAdapter.batchUpdateCells('Products', stockUpdates)
+  }
 
   // Step 4: Append Audit_Log entry
   await dataAdapter.appendRow('Audit_Log', {

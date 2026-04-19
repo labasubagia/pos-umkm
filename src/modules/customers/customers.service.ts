@@ -94,13 +94,18 @@ export async function addCustomer(
 
 /**
  * Updates only the provided fields on a customer row.
- * Each changed field is sent as a separate updateCell call so unchanged
- * fields are never overwritten.
+ * Uses batchUpdateCells so all fields are written in a single API round-trip
+ * (1 GET + 1 batchUpdate) instead of N × (GET + PUT).
  */
 export async function updateCustomer(
   id: string,
   changes: Partial<Pick<Customer, 'name' | 'phone' | 'email'>>,
 ): Promise<void> {
-  const updates = Object.entries(changes) as [string, unknown][]
-  await Promise.all(updates.map(([col, val]) => dataAdapter.updateCell('Customers', id, col, val)))
+  const updates = (Object.entries(changes) as [string, unknown][]).map(([col, val]) => ({
+    rowId: id,
+    column: col,
+    value: val,
+  }))
+  if (updates.length === 0) return
+  await dataAdapter.batchUpdateCells('Customers', updates)
 }

@@ -319,28 +319,41 @@ export async function commitTransaction(
     ),
   )
 
-  // Step 3: Decrement stock — best-effort; log failures but don't roll back
+  // Step 3: Decrement stock — best-effort; log failures but don't roll back.
+  // Read Products and Variants ONCE each (in parallel), compute all new stocks,
+  // then batch-write each sheet in a single round-trip.
   const stockErrors: string[] = []
-  for (const item of items) {
-    try {
-      if (item.variantId) {
-        const variants = await dataAdapter.getSheet('Variants')
-        const v = variants.find((r) => r['id'] === item.variantId)
-        if (v) {
-          const newStock = Number(v['stock']) - item.quantity
-          await dataAdapter.updateCell('Variants', item.variantId, 'stock', Math.max(0, newStock))
-        }
-      } else {
-        const products = await dataAdapter.getSheet('Products')
-        const p = products.find((r) => r['id'] === item.productId)
-        if (p) {
-          const newStock = Number(p['stock']) - item.quantity
-          await dataAdapter.updateCell('Products', item.productId, 'stock', Math.max(0, newStock))
-        }
-      }
-    } catch (err) {
-      stockErrors.push(`${item.name}: ${String(err)}`)
-    }
+  try {
+    const hasVariantItems = items.some((i) => i.variantId)
+    const hasProductItems = items.some((i) => !i.variantId)
+
+    const [variantRows, productRows] = await Promise.all([
+      hasVariantItems ? dataAdapter.getSheet('Variants') : Promise.resolve([]),
+      hasProductItems ? dataAdapter.getSheet('Products') : Promise.resolve([]),
+    ])
+
+    const variantUpdates = items
+      .filter((i) => i.variantId)
+      .flatMap((item) => {
+        const v = variantRows.find((r) => r['id'] === item.variantId)
+        if (!v) return []
+        return [{ rowId: item.variantId!, column: 'stock', value: Math.max(0, Number(v['stock']) - item.quantity) }]
+      })
+
+    const productUpdates = items
+      .filter((i) => !i.variantId)
+      .flatMap((item) => {
+        const p = productRows.find((r) => r['id'] === item.productId)
+        if (!p) return []
+        return [{ rowId: item.productId, column: 'stock', value: Math.max(0, Number(p['stock']) - item.quantity) }]
+      })
+
+    await Promise.all([
+      variantUpdates.length > 0 ? dataAdapter.batchUpdateCells('Variants', variantUpdates) : Promise.resolve(),
+      productUpdates.length > 0 ? dataAdapter.batchUpdateCells('Products', productUpdates) : Promise.resolve(),
+    ])
+  } catch (err) {
+    stockErrors.push(String(err))
   }
 
   if (stockErrors.length > 0) {

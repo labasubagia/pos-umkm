@@ -67,7 +67,7 @@ describe('fetchStockOpnameData', () => {
 
 describe('saveOpnameResults', () => {
   it('updates stock for each product where physical count differs from system stock', async () => {
-    const updateCellSpy = vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
+    const batchUpdateSpy = vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
     vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
 
     await saveOpnameResults([
@@ -76,16 +76,13 @@ describe('saveOpnameResults', () => {
     ])
 
     // Only p1 changed (30 → 28); p2 is unchanged
-    const stockUpdates = updateCellSpy.mock.calls.filter(
-      ([sheet, , col]) => sheet === 'Products' && col === 'stock',
-    )
-    expect(stockUpdates).toHaveLength(1)
-    expect(stockUpdates[0][1]).toBe('p1')
-    expect(stockUpdates[0][3]).toBe(28)
+    expect(batchUpdateSpy).toHaveBeenCalledWith('Products', [
+      { rowId: 'p1', column: 'stock', value: 28 },
+    ])
   })
 
   it('appends Stock_Log entry with reason "opname" and correct before/after values', async () => {
-    vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
+    vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
     const appendRowSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
 
     await saveOpnameResults([
@@ -102,7 +99,7 @@ describe('saveOpnameResults', () => {
   })
 
   it('skips products where physical count matches system count', async () => {
-    const updateCellSpy = vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
+    const batchUpdateSpy = vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
     const appendRowSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
 
     await saveOpnameResults([
@@ -110,7 +107,7 @@ describe('saveOpnameResults', () => {
       { product_id: 'p2', product_name: 'Es Teh', sku: 'ESTEH', system_stock: 5, physical_count: 5 },
     ])
 
-    expect(updateCellSpy).not.toHaveBeenCalled()
+    expect(batchUpdateSpy).not.toHaveBeenCalled()
     expect(appendRowSpy).not.toHaveBeenCalled()
   })
 
@@ -175,19 +172,20 @@ describe('receivePurchaseOrder', () => {
       if (sheet === 'Products') return mockProducts
       return []
     })
-    const updateCellSpy = vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
+    const batchSpy = vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
+    vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
     vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
 
     await receivePurchaseOrder(orderId)
 
-    const stockUpdates = updateCellSpy.mock.calls.filter(
-      ([sheet, , col]) => sheet === 'Products' && col === 'stock',
-    )
-    expect(stockUpdates).toHaveLength(2)
+    const batchCalls = batchSpy.mock.calls.find(([sheet]) => sheet === 'Products')
+    expect(batchCalls).toBeTruthy()
+    const updates = batchCalls![1]
+    expect(updates).toHaveLength(2)
     // prod-1: 20 + 50 = 70
-    expect(stockUpdates.find(([, id]) => id === 'prod-1')?.[3]).toBe(70)
+    expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-1')?.value).toBe(70)
     // prod-2: 10 + 100 = 110
-    expect(stockUpdates.find(([, id]) => id === 'prod-2')?.[3]).toBe(110)
+    expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-2')?.value).toBe(110)
   })
 
   it('appends Stock_Log entry with reason "purchase_order" for each item', async () => {
@@ -197,6 +195,7 @@ describe('receivePurchaseOrder', () => {
       if (sheet === 'Products') return mockProducts
       return []
     })
+    vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
     vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
     const appendRowSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
 

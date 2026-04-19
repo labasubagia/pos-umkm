@@ -112,22 +112,24 @@ export async function saveOpnameResults(results: OpnameRow[]): Promise<void> {
   const changed = results.filter((r) => r.physical_count !== r.system_stock)
   if (changed.length === 0) return
 
-  await Promise.all(
-    changed.map(async (row) => {
-      // Update the stock cell on the Products tab
-      await dataAdapter.updateCell('Products', row.product_id, 'stock', row.physical_count)
-
-      // Append a log entry so the owner can audit the correction
-      await dataAdapter.appendRow('Stock_Log', {
+  // Batch all stock writes in one round-trip, then append log entries in parallel.
+  const created_at = nowUTC()
+  await Promise.all([
+    dataAdapter.batchUpdateCells(
+      'Products',
+      changed.map((row) => ({ rowId: row.product_id, column: 'stock', value: row.physical_count })),
+    ),
+    ...changed.map((row) =>
+      dataAdapter.appendRow('Stock_Log', {
         id: generateId(),
         product_id: row.product_id,
         reason: 'opname',
         qty_before: row.system_stock,
         qty_after: row.physical_count,
-        created_at: nowUTC(),
-      })
-    }),
-  )
+        created_at,
+      }),
+    ),
+  ])
 }
 
 // ─── T035 — Purchase Orders ───────────────────────────────────────────────────
@@ -214,30 +216,41 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
     (i) => i['order_id'] === orderId,
   ) as unknown) as PurchaseOrderItemRow[]
 
-  // Steps 3 & 4: Increment stock + log for each item
-  await Promise.all(
-    orderItems.map(async (item) => {
-      const product = products.find((p) => p['id'] === item['product_id'])
-      if (!product) {
-        throw new InventoryError(
-          `Produk dengan id "${item['product_id']}" tidak ditemukan saat menerima purchase order`,
-        )
-      }
-      const qtyBefore = Number(product['stock'])
-      const qtyAfter = qtyBefore + Number(item['qty'])
+  // Compute all new stock values and validate products exist
+  const created_at = nowUTC()
+  const stockData = orderItems.map((item) => {
+    const product = products.find((p) => p['id'] === item['product_id'])
+    if (!product) {
+      throw new InventoryError(
+        `Produk dengan id "${item['product_id']}" tidak ditemukan saat menerima purchase order`,
+      )
+    }
+    const qtyBefore = Number(product['stock'])
+    const qtyAfter = qtyBefore + Number(item['qty'])
+    return { item, qtyBefore, qtyAfter }
+  })
 
-      await dataAdapter.updateCell('Products', item['product_id'] as string, 'stock', qtyAfter)
-
-      await dataAdapter.appendRow('Stock_Log', {
+  // Steps 3 & 4: Batch all stock updates in one round-trip + append logs in parallel
+  await Promise.all([
+    dataAdapter.batchUpdateCells(
+      'Products',
+      stockData.map(({ item, qtyAfter }) => ({
+        rowId: item['product_id'] as string,
+        column: 'stock',
+        value: qtyAfter,
+      })),
+    ),
+    ...stockData.map(({ item, qtyBefore, qtyAfter }) =>
+      dataAdapter.appendRow('Stock_Log', {
         id: generateId(),
         product_id: item['product_id'],
         reason: 'purchase_order',
         qty_before: qtyBefore,
         qty_after: qtyAfter,
-        created_at: nowUTC(),
-      })
-    }),
-  )
+        created_at,
+      }),
+    ),
+  ])
 
   // Step 5: Mark order as received only after all stock updates succeed
   await dataAdapter.updateCell('Purchase_Orders', orderId, 'status', 'received')

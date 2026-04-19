@@ -220,7 +220,7 @@ describe('commitTransaction', () => {
       { id: 'prod-1', name: 'Nasi Goreng', stock: '10' },
       { id: 'prod-2', name: 'Es Teh', stock: '20' },
     ])
-    vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
+    vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
   })
 
   it('appends 1 row to Transactions tab', async () => {
@@ -255,12 +255,15 @@ describe('commitTransaction', () => {
       { id: 'prod-1', stock: '10' },
       { id: 'prod-2', stock: '20' },
     ])
-    const updateSpy = vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
+    const batchSpy = vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
 
     await commitTransaction(items, null, 0, payment, 'user-1', null, masterSpreadsheetId, 1)
 
-    expect(updateSpy).toHaveBeenCalledWith('Products', 'prod-1', 'stock', 8) // 10 - 2
-    expect(updateSpy).toHaveBeenCalledWith('Products', 'prod-2', 'stock', 19) // 20 - 1
+    const batchCalls = batchSpy.mock.calls.find(([sheet]) => sheet === 'Products')
+    expect(batchCalls).toBeTruthy()
+    const updates = batchCalls![1]
+    expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-1')?.value).toBe(8) // 10 - 2
+    expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-2')?.value).toBe(19) // 20 - 1
   })
 
   it('returns the completed transaction object with generated ID', async () => {

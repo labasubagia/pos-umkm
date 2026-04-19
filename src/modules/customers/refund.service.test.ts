@@ -75,7 +75,7 @@ describe('createRefund', () => {
       return Promise.resolve([])
     })
     const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
+    vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
 
     await createRefund('tx-001', [REFUND_ITEM], 'Produk rusak')
 
@@ -99,12 +99,14 @@ describe('createRefund', () => {
       return Promise.resolve([])
     })
     vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    const updateSpy = vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
+    const batchSpy = vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
 
     await createRefund('tx-001', [REFUND_ITEM], 'Produk rusak')
 
     // Stock was 18, returning 2 → should be updated to 20
-    expect(updateSpy).toHaveBeenCalledWith('Products', 'prod-1', 'stock', 20)
+    const batchCalls = batchSpy.mock.calls.find(([sheet]) => sheet === 'Products')
+    expect(batchCalls).toBeTruthy()
+    expect(batchCalls![1]).toContainEqual({ rowId: 'prod-1', column: 'stock', value: 20 })
   })
 
   it('appends Audit_Log entry with event=REFUND', async () => {
@@ -114,7 +116,7 @@ describe('createRefund', () => {
       return Promise.resolve([])
     })
     const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
+    vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
 
     await createRefund('tx-001', [REFUND_ITEM], 'Produk rusak')
 

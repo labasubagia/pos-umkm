@@ -94,13 +94,14 @@ describe('addCustomer', () => {
 // ─── updateCustomer ───────────────────────────────────────────────────────────
 
 describe('updateCustomer', () => {
-  it('calls updateCell for each changed field', async () => {
-    const updateSpy = vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
+  it('calls batchUpdateCells for each changed field', async () => {
+    const batchSpy = vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
 
     await updateCustomer('cus-1', { name: 'Budi Baru', email: 'baru@mail.com' })
 
-    expect(updateSpy).toHaveBeenCalledTimes(2)
-    expect(updateSpy).toHaveBeenCalledWith('Customers', 'cus-1', 'name', 'Budi Baru')
-    expect(updateSpy).toHaveBeenCalledWith('Customers', 'cus-1', 'email', 'baru@mail.com')
+    expect(batchSpy).toHaveBeenCalledWith('Customers', [
+      { rowId: 'cus-1', column: 'name', value: 'Budi Baru' },
+      { rowId: 'cus-1', column: 'email', value: 'baru@mail.com' },
+    ])
   })
 })
