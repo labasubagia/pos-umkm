@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { fetchDailySummary, type DailySummary as DailySummaryType, ReportError } from './reports.service'
 import { formatIDR } from '../../lib/formatters'
 import { Button } from '../../components/ui/button'
@@ -21,6 +21,7 @@ export function DailySummary() {
   const [summary, setSummary] = useState<DailySummaryType | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const initialized = useRef(false)
 
   async function load(d: string) {
     setLoading(true)
@@ -40,6 +41,8 @@ export function DailySummary() {
   }
 
   useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
     load(today)
   }, [])
 

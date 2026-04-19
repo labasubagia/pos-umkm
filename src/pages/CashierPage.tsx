@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ShoppingBag, ShoppingCart } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { useCatalogStore } from '../modules/catalog/useCatalog'
@@ -42,7 +42,11 @@ export default function CashierPage() {
   const [receiptSeq, setReceiptSeq] = useState(1)
   const [mobileView, setMobileView] = useState<MobileView>('products')
 
+  const initialized = useRef(false)
+
   useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
     loadCatalog()
     getQRISImageUrl().then(setQrisImageUrl).catch(() => {})
   }, [loadCatalog])

@@ -5,8 +5,7 @@
  * If business_name changed, also syncs the new name to the main spreadsheet's
  * Stores tab and to the Zustand stores list so the NavBar reflects it immediately.
  */
-import { useState, useEffect } from 'react'
-import { getSettings, saveSettings, type BusinessSettings } from './settings.service'
+import { useState, useEffect, useRef } from 'react'
 import { updateStoreName } from '../auth/setup.service'
 import { useAuth } from '../auth/useAuth'
 import { Button } from '../../components/ui/button'
@@ -30,8 +29,11 @@ export default function BusinessProfile() {
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const initialized = useRef(false)
 
   useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
     void getSettings().then((s) => {
       setForm(s)
       setInitialName(s.business_name)

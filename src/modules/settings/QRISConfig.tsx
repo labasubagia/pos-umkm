@@ -18,8 +18,11 @@ export default function QRISConfig() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const initialized = useRef(false)
 
   useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
     void getQRISImage().then((stored) => {
       if (stored) {
         setUrl(stored)

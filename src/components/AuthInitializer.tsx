@@ -21,7 +21,7 @@
  * Renders children immediately — ProtectedRoute guards protected pages via
  * isAuthenticated from the persisted store.
  */
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { authAdapter, dataAdapter } from '../lib/adapters'
 import { useAuth } from '../modules/auth/useAuth'
 
@@ -48,7 +48,10 @@ export function AuthInitializer({ children }: Props) {
   }
 
   // ── Async token restoration ─────────────────────────────────────────────────
+  const sessionRestored = useRef(false)
   useEffect(() => {
+    if (sessionRestored.current) return
+    sessionRestored.current = true
     void authAdapter.restoreSession().then((user) => {
       if (user) {
         // Session is valid — inject token so Google API calls are authorised.

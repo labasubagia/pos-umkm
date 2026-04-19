@@ -10,7 +10,7 @@
  * Requires authentication (wrapped in ProtectedRoute in router.tsx).
  * No AppShell / NavBar — this is part of the auth/onboarding flow.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from './useAuth'
 import { findOrCreateMain, activateStore } from './setup.service'
@@ -26,8 +26,11 @@ export default function StorePickerPage() {
   const [localStores, setLocalStores] = useState<StoreRecord[]>([])
   const [error, setError] = useState<string | null>(null)
   const [activating, setActivating] = useState(false)
+  const initialized = useRef(false)
 
   useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
     void resolveStores()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

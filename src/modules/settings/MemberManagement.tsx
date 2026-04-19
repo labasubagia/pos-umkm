@@ -5,8 +5,7 @@
  * The owner enters a member's email and selects a role; on submit the
  * member is invited and a Store Link is displayed for sharing.
  */
-import { useState, useEffect } from 'react'
-import { useAuth } from '../auth/useAuth'
+import { useState, useEffect, useRef } from 'react'
 import {
   inviteMember,
   revokeMember,
@@ -27,8 +26,11 @@ export default function MemberManagement() {
   const [storeLink, setStoreLink] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const initialized = useRef(false)
 
   useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
     void listMembers().then(setMembers)
   }, [])
 

@@ -6,7 +6,7 @@
  * Shows a "Tambah Pelanggan Baru" button when no results match the query.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { fetchCustomers, type Customer } from './customers.service'
 import { Input } from '../../components/ui/input'
 import { Button } from '../../components/ui/button'
@@ -21,8 +21,11 @@ export function CustomerSearch({ onSelect }: CustomerSearchProps) {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Customer | null>(null)
   const [loading, setLoading] = useState(true)
+  const initialized = useRef(false)
 
   useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
     fetchCustomers()
       .then(setCustomers)
       .finally(() => setLoading(false))

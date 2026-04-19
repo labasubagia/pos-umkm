@@ -6,7 +6,7 @@
  *
  * T034 deliverable.
  */
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { fetchStockOpnameData, saveOpnameResults, InventoryError, type OpnameRow } from './inventory.service'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -40,7 +40,11 @@ export function StockOpname() {
     }
   }, [])
 
+  const initialized = useRef(false)
+
   useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
     load()
   }, [load])
 

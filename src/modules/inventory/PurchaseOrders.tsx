@@ -6,7 +6,7 @@
  *
  * T035 deliverable.
  */
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { formatIDR } from '../../lib/formatIDR'
 import {
   fetchPurchaseOrders,
@@ -73,7 +73,11 @@ export function PurchaseOrders() {
     }
   }, [])
 
+  const initialized = useRef(false)
+
   useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
     loadOrders()
   }, [loadOrders])
 
