@@ -1361,6 +1361,64 @@
 
 ---
 
+### T057 — Multi-Store Dexie Partitioning
+
+- **Status:** ⬜ todo
+- **Phase:** 9 – Offline-First
+- **Depends on:** T056
+- **Test type:** unit
+- **Architecture note:** The current `db.ts` opens a single IndexedDB database named `pos_umkm`. All entity tables (`Products`, `Transactions`, etc.) hold rows from whatever store was last hydrated. When a user owns multiple stores (or is a member of several), switching the active store in `authStore` leaves stale rows from the previous store in every Dexie table — module reads immediately return wrong data without any network call.
+
+  **Root cause:** `PosUmkmDatabase` is a singleton constructed with a fixed DB name. There is no `store_id` partition in any entity table.
+
+  **Fix — one Dexie database per store:**
+  Replace the singleton `db` export with a `getDb(storeId: string): PosUmkmDatabase` factory. The factory opens an IndexedDB database named `pos_umkm_<storeId>` and caches the instance by `storeId`. On store switch, the factory returns the correct DB for the new active store. `DexieSheetRepository`, `SyncManager`, and `HydrationService` all receive the `db` instance via constructor injection so they automatically operate on the correct store-scoped database.
+
+  Why per-DB instead of adding a `store_id` column to every entity table:
+  - No schema migration needed — each new DB is created with the current version schema
+  - No compound indexes required — all existing queries continue to work without a `store_id` filter clause
+  - `_outbox` and `_syncMeta` are naturally scoped — entries in one store's DB cannot interfere with another store's sync
+  - Clean isolation — Dexie's ACID transactions cannot span two stores even if a bug causes a mixed write
+
+  **Store switch flow:**
+  1. `authStore.setActiveStore(storeId, spreadsheetIds)` is called (already exists)
+  2. `adapters/index.ts` calls `createDexieRepos(storeId)` which calls `getDb(storeId)` and re-creates all `DexieSheetRepository` instances for the new store
+  3. `SyncManager` and `HydrationService` are re-created with the new `db` instance
+  4. `AppShell`'s `useEffect` that watches `activeStoreId` re-triggers `hydrateAll()` for the new store
+
+  **Old store databases are never deleted** — they remain in the browser as stale IndexedDB databases until the user clears browser storage or a future pruning task removes inactive stores (deferred post-MVP).
+
+- **Deliverables:**
+  - `src/lib/adapters/dexie/db.ts` updated:
+    - Remove singleton `export const db = new PosUmkmDatabase()`
+    - `PosUmkmDatabase` constructor accepts `storeId: string` and opens `pos_umkm_<storeId>`
+    - `getDb(storeId: string): PosUmkmDatabase` factory with `Map<string, PosUmkmDatabase>` cache; creates a new instance if not cached
+    - `clearDbCache()` helper exported for tests (resets the factory cache)
+  - `src/lib/adapters/dexie/DexieSheetRepository.ts` updated:
+    - Constructor signature: `constructor(db: PosUmkmDatabase, spreadsheetId: string, sheetName: string, getToken: () => string)`
+    - Remove internal `import { db }` — use injected instance
+  - `src/lib/adapters/dexie/SyncManager.ts` updated:
+    - Constructor accepts `db: PosUmkmDatabase` instead of importing singleton
+  - `src/lib/adapters/dexie/HydrationService.ts` updated:
+    - Constructor accepts `db: PosUmkmDatabase` instead of importing singleton
+  - `src/lib/adapters/index.ts` updated:
+    - `createDexieRepos(storeId, spreadsheetIds)` calls `getDb(storeId)` and passes the instance to all Dexie constructors
+    - `syncManager` and `hydrationService` singletons are re-created when `storeId` changes
+  - `src/components/AppShell.tsx` updated:
+    - `useEffect` watching `activeStoreId` re-initialises `syncManager` and calls `hydrateAll()` whenever the active store changes
+
+- **Test cases (using `fake-indexeddb`):**
+  - ✅ `getDb returns the same instance for the same storeId`
+  - ✅ `getDb returns different instances for different storeIds`
+  - ✅ `DexieSheetRepository reads only rows for the active store DB (no cross-store contamination)`
+  - ✅ `switching storeId causes subsequent reads to return the new store's data`
+  - ✅ `_outbox entries in store A are not drained when store B is active`
+  - ✅ `_syncMeta hydration timestamps are per-store (fresh hydration for a new store)`
+  - ❌ `getDb throws if storeId is empty string`
+  - ❌ `DexieSheetRepository.getAll returns empty array when new store has never been hydrated`
+
+---
+
 ## Appendix: Parallelization Map
 
 The following tasks within each phase have no mutual dependencies and can be worked on by different agents simultaneously:
@@ -1377,7 +1435,7 @@ The following tasks within each phase have no mutual dependencies and can be wor
 | Within Phase 6 | T036 first, then T037 |
 | Within Phase 7 | T038 first; T039 depends on T038; T040 depends on T039; T041, T042 depend on T039 |
 | Within Phase 8 | T043 first; T044 depends on T043 |
-| Within Phase 9 | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055 |
+| Within Phase 9 | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055; T057 depends on T056 |
 
 ---
 
