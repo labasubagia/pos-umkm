@@ -1559,6 +1559,27 @@
 
 ---
 
+### T062 — Fix NavBar Store Picker After Add/Edit + Switch Button
+
+- **Status:** ✅ done
+- **Section:** Store Management
+- **Depends on:** T061
+- **Test type:** unit
+- **Architecture note:** `useAuthStore.stores` is the source of truth for the NavBar store picker (`showStorePicker = stores.length >= 2`). `StoreManagementPage` maintained its own local `stores` state and only synced `authStore.stores` on delete — not on add or edit. This caused two bugs: (1) the NavBar store picker did not appear after a second store was added; (2) editing a store name did not update the NavBar's `<option>` labels. Fix: after every successful mutation (`createStore`, `updateStore`) call `useAuthStore.getState().setStores(updatedList, currentActiveStoreId)` so the NavBar re-renders with the correct list. Add an **Aktifkan** button per row (shown only for non-active owned stores) that calls `activateStore(store)` + `setStores(currentList, store.store_id)` so the owner can switch the active store directly from the management page without returning to the store picker.
+- **Deliverables:**
+  - `src/pages/StoreManagementPage.tsx` updated:
+    - `handleAdd`: after successful `createStore`, call `useAuthStore.getState().setStores(updatedList, activeStoreId)` before clearing dialog
+    - `handleEdit`: after successful `updateStore`, call `setStores(updatedList, activeStoreId)` with refreshed list
+    - **Aktifkan** button per row: shown when `store.store_id !== activeStoreId`; calls `activateStore(store)` + `setStores(stores, store.store_id)`; `data-testid="btn-activate-store-{storeId}"`; not shown for the currently active store
+- **Test cases:**
+  - ✅ `authStore.stores is updated after createStore succeeds`
+  - ✅ `authStore.stores is updated with new name after updateStore succeeds`
+  - ✅ `Aktifkan button is shown for non-active stores`
+  - ❌ `Aktifkan button is not shown for the currently active store`
+  - ✅ `clicking Aktifkan calls activateStore and setStores with the selected store`
+
+---
+
 ## Appendix: Parallelization Map
 
 The following tasks within each section have no mutual dependencies and can be worked on by different agents simultaneously:
@@ -1576,7 +1597,7 @@ The following tasks within each section have no mutual dependencies and can be w
 | Reports | T038 first; T039 depends on T038; T040 depends on T039; T041, T042 depend on T039 |
 | Settings | T043 first; T044 depends on T043 |
 | Offline-First | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055; T057 depends on T056; T058 and T059 depend on T056 (can run in parallel with each other and with T057) |
-| Store Management | T060 first (service), then T061 (UI) |
+| Store Management | T060 first (service), then T061 (UI), then T062 (NavBar sync + switch button) |
 
 ---
 

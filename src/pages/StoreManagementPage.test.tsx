@@ -4,6 +4,7 @@
  * store-management.service is fully mocked so no real adapter I/O occurs.
  * useAuthStore is pre-seeded with an owner user.
  * react-router-dom navigate is mocked so redirect assertions are safe.
+ * activateStore (setup.service) is mocked to avoid real API calls.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
@@ -27,6 +28,11 @@ vi.mock('../modules/settings/store-management.service', () => ({
     constructor(message: string) { super(message); this.name = 'StoreManagementError' }
   },
 }))
+
+vi.mock('../modules/auth/setup.service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../modules/auth/setup.service')>()
+  return { ...actual, activateStore: vi.fn().mockResolvedValue(undefined) }
+})
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -236,5 +242,95 @@ describe('StoreManagementPage', () => {
 
     await waitFor(() => screen.getByTestId('alert-store-error'))
     expect(screen.getByTestId('alert-store-error')).toHaveTextContent('Network error')
+  })
+
+  // ── T062: authStore sync + Aktifkan button ──────────────────────────────────
+
+  it('syncs authStore after createStore so NavBar store picker shows new store', async () => {
+    const user = userEvent.setup()
+    const newStore: StoreRecord = {
+      store_id: 'store-new',
+      store_name: 'Toko Baru',
+      master_spreadsheet_id: 'master-new',
+      drive_folder_id: 'folder-new',
+      owner_email: OWNER_EMAIL,
+      my_role: 'owner',
+      joined_at: '2026-03-01T00:00:00Z',
+    }
+    vi.mocked(svc.listStores)
+      .mockResolvedValueOnce([ownedStore])
+      .mockResolvedValueOnce([ownedStore, newStore])
+    vi.mocked(svc.createStore).mockResolvedValue(undefined)
+    seedOwner()
+    renderPage()
+
+    await waitFor(() => screen.getByTestId('btn-add-store'))
+    await user.click(screen.getByTestId('btn-add-store'))
+    await user.type(screen.getByTestId('input-store-name'), 'Toko Baru')
+    await user.click(screen.getByTestId('btn-save-store'))
+
+    await waitFor(() =>
+      expect(useAuthStore.getState().stores).toHaveLength(2),
+    )
+  })
+
+  it('syncs authStore after updateStore so NavBar reflects renamed store', async () => {
+    const user = userEvent.setup()
+    const renamedStore = { ...ownedStore, store_name: 'Toko Ganti Nama' }
+    vi.mocked(svc.listStores)
+      .mockResolvedValueOnce([ownedStore, joinedStore])
+      .mockResolvedValueOnce([renamedStore, joinedStore])
+    vi.mocked(svc.updateStore).mockResolvedValue(undefined)
+    seedOwner()
+    renderPage()
+
+    await waitFor(() => screen.getByTestId(`btn-edit-store-${ownedStore.store_id}`))
+    await user.click(screen.getByTestId(`btn-edit-store-${ownedStore.store_id}`))
+    const input = screen.getByTestId('input-store-name-edit')
+    await user.clear(input)
+    await user.type(input, 'Toko Ganti Nama')
+    await user.click(screen.getByTestId('btn-save-store-edit'))
+
+    await waitFor(() =>
+      expect(useAuthStore.getState().stores[0].store_name).toBe('Toko Ganti Nama'),
+    )
+  })
+
+  it('shows Aktifkan button only for inactive stores', async () => {
+    vi.mocked(svc.listStores).mockResolvedValue([ownedStore, joinedStore])
+    seedOwner()  // activeStoreId = ownedStore.store_id
+    renderPage()
+
+    await waitFor(() => screen.getByTestId(`btn-activate-store-${joinedStore.store_id}`))
+    expect(screen.queryByTestId(`btn-activate-store-${ownedStore.store_id}`)).toBeNull()
+  })
+
+  it('calls activateStore and syncs activeStoreId when Aktifkan is clicked', async () => {
+    const { activateStore } = await import('../modules/auth/setup.service')
+    const user = userEvent.setup()
+    vi.mocked(svc.listStores).mockResolvedValue([ownedStore, joinedStore])
+    seedOwner()
+    renderPage()
+
+    await waitFor(() => screen.getByTestId(`btn-activate-store-${joinedStore.store_id}`))
+    await user.click(screen.getByTestId(`btn-activate-store-${joinedStore.store_id}`))
+
+    await waitFor(() => expect(activateStore).toHaveBeenCalledWith(joinedStore))
+    expect(useAuthStore.getState().activeStoreId).toBe(joinedStore.store_id)
+  })
+
+  it('shows error Alert when activateStore fails', async () => {
+    const setupModule = await import('../modules/auth/setup.service')
+    vi.mocked(setupModule.activateStore).mockRejectedValueOnce(new Error('Activate failed'))
+    const user = userEvent.setup()
+    vi.mocked(svc.listStores).mockResolvedValue([ownedStore, joinedStore])
+    seedOwner()
+    renderPage()
+
+    await waitFor(() => screen.getByTestId(`btn-activate-store-${joinedStore.store_id}`))
+    await user.click(screen.getByTestId(`btn-activate-store-${joinedStore.store_id}`))
+
+    await waitFor(() => screen.getByTestId('alert-store-error'))
+    expect(screen.getByTestId('alert-store-error')).toHaveTextContent('Activate failed')
   })
 })

@@ -45,7 +45,7 @@ import { useSyncStore } from '../store/syncStore'
 
 export default function StoreManagementPage() {
   const navigate = useNavigate()
-  const { user, activeStoreId } = useAuthStore()
+  const { user, activeStoreId, stores: authStores } = useAuthStore()
   const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
 
   const [stores, setStores] = useState<StoreRecord[]>([])
@@ -69,6 +69,9 @@ export default function StoreManagementPage() {
   // ── Leave confirmation dialog ───────────────────────────────────────────────
   const [leaveStore, setLeaveStore] = useState<StoreRecord | null>(null)
   const [leaveLoading, setLeaveLoading] = useState(false)
+
+  // ── Activate store ──────────────────────────────────────────────────────────
+  const [activateLoading, setActivateLoading] = useState<string | null>(null)
 
   // ─── Data loading ─────────────────────────────────────────────────────────
 
@@ -104,7 +107,10 @@ export default function StoreManagementPage() {
       await createStore(newName)
       setNewName('')
       setShowAdd(false)
-      await loadStores()
+      const updated = await listStores()
+      setStores(updated)
+      // Sync authStore so NavBar store picker re-evaluates stores.length >= 2.
+      useAuthStore.getState().setStores(updated, activeStoreId)
     } catch (err) {
       setError(String(err instanceof Error ? err.message : err))
     } finally {
@@ -120,7 +126,10 @@ export default function StoreManagementPage() {
     try {
       await updateStore(editStore.store_id, { store_name: editName })
       setEditStore(null)
-      await loadStores()
+      const updated = await listStores()
+      setStores(updated)
+      // Sync authStore so NavBar option labels reflect the renamed store.
+      useAuthStore.getState().setStores(updated, activeStoreId)
     } catch (err) {
       setError(String(err instanceof Error ? err.message : err))
     } finally {
@@ -172,6 +181,19 @@ export default function StoreManagementPage() {
     }
   }
 
+  async function handleActivate(store: StoreRecord) {
+    setError(null)
+    setActivateLoading(store.store_id)
+    try {
+      await activateStore(store)
+      useAuthStore.getState().setStores(authStores, store.store_id)
+    } catch (err) {
+      setError(String(err instanceof Error ? err.message : err))
+    } finally {
+      setActivateLoading(null)
+    }
+  }
+
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -210,6 +232,17 @@ export default function StoreManagementPage() {
                 <TableCell className="text-muted-foreground text-sm">{store.owner_email}</TableCell>
                 <TableCell className="text-sm capitalize">{store.my_role}</TableCell>
                 <TableCell className="text-right space-x-2">
+                  {store.store_id !== activeStoreId && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      data-testid={`btn-activate-store-${store.store_id}`}
+                      disabled={activateLoading === store.store_id}
+                      onClick={() => void handleActivate(store)}
+                    >
+                      {activateLoading === store.store_id ? 'Memproses…' : 'Aktifkan'}
+                    </Button>
+                  )}
                   {isOwner && (
                     <>
                       <Button
