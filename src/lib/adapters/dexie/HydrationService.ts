@@ -21,8 +21,9 @@
  * writeHeaders is never called during hydration — headers are Sheets-side only.
  */
 import { SheetRepository } from '../SheetRepository'
-import { db } from './db'
+import type { PosUmkmDatabase } from './db'
 import { ALL_TAB_HEADERS } from '../../schema'
+import { useSyncStore } from '../../../store/syncStore'
 
 /** How old a hydration timestamp must be before we re-fetch (5 minutes). */
 const STALE_MS = 5 * 60 * 1000
@@ -34,9 +35,11 @@ interface HydrationTarget {
 
 export class HydrationService {
   private readonly getToken: () => string
+  private readonly db: PosUmkmDatabase
 
-  constructor(getToken: () => string) {
+  constructor(getToken: () => string, db: PosUmkmDatabase) {
     this.getToken = getToken
+    this.db = db
   }
 
   /**
@@ -74,6 +77,9 @@ export class HydrationService {
     const validTargets = targets.filter((t) => Boolean(t.spreadsheetId))
 
     await Promise.allSettled(validTargets.map((t) => this.hydrateTable(t)))
+
+    // Signal page-level useEffects to re-fetch data from the now-populated Dexie cache.
+    useSyncStore.getState().setLastHydratedAt(Date.now())
   }
 
   /**
@@ -90,11 +96,13 @@ export class HydrationService {
     { sheetName, spreadsheetId }: HydrationTarget,
     force = false,
   ): Promise<void> {
-    const metaKey = `${sheetName}_hydrated`
+    // Key is scoped to spreadsheetId so different stores (and monthly sheet
+    // rollovers with new spreadsheetIds) get independent freshness tracking.
+    const metaKey = `${spreadsheetId}_${sheetName}`
 
     // Skip if recently hydrated and no force flag
     if (!force) {
-      const meta = await db._syncMeta.get(metaKey)
+      const meta = await this.db._syncMeta.get(metaKey)
       if (meta) {
         const age = Date.now() - new Date(meta.value).getTime()
         if (age < STALE_MS) return
@@ -103,7 +111,7 @@ export class HydrationService {
 
     // Skip if there are pending outbox entries for this table —
     // applying remote data would overwrite unsynced local writes.
-    const pendingForTable = await db._outbox
+    const pendingForTable = await this.db._outbox
       .where('sheetName').equals(sheetName)
       .and((e) => e.status !== 'failed' || e.retries < 5)
       .count()
@@ -121,10 +129,10 @@ export class HydrationService {
       // DexieSheetRepository.getAll() can filter them too.
       const rawRows = await this.getRawRows(spreadsheetId, sheetName)
       if (rawRows.length > 0) {
-        await db.table(sheetName).bulkPut(rawRows)
+        await this.db.table(sheetName).bulkPut(rawRows)
       }
       void repo // suppress unused warning — used above for type inference context
-      await db._syncMeta.put({ key: metaKey, value: new Date().toISOString() })
+      await this.db._syncMeta.put({ key: metaKey, value: new Date().toISOString() })
     } catch (err) {
       // Log but don't throw — partial hydration is better than none
       console.warn(`[HydrationService] Failed to hydrate "${sheetName}":`, err)
