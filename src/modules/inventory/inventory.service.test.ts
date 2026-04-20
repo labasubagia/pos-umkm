@@ -1,7 +1,7 @@
 /**
  * inventory.service.test.ts — Unit tests for Phase 5 (T034 Stock Opname, T035 Purchase Orders).
  *
- * TDD: tests written first. All use vi.spyOn on dataAdapter so no localStorage
+ * TDD: tests written first. All use vi.spyOn on getRepos() so no localStorage
  * or Sheets API is touched. The adapter is stubbed per test case.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -14,15 +14,50 @@ import {
   InventoryError,
 } from './inventory.service'
 
+function mockRepo(overrides = {}) {
+  return {
+    spreadsheetId: 'test-id',
+    sheetName: 'mock',
+    getAll: vi.fn().mockResolvedValue([]),
+    append: vi.fn().mockResolvedValue(undefined),
+    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
+    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    softDelete: vi.fn().mockResolvedValue(undefined),
+    writeHeaders: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }
+}
+
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+
 beforeEach(() => {
   vi.restoreAllMocks()
+  mockRepos = {
+    categories: mockRepo(),
+    products: mockRepo(),
+    variants: mockRepo(),
+    members: mockRepo(),
+    customers: mockRepo(),
+    settings: mockRepo(),
+    stockLog: mockRepo(),
+    purchaseOrders: mockRepo(),
+    purchaseOrderItems: mockRepo(),
+    transactions: mockRepo(),
+    transactionItems: mockRepo(),
+    refunds: mockRepo(),
+    stores: mockRepo(),
+    monthlySheets: mockRepo(),
+    auditLog: mockRepo(),
+  }
+  vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
 })
 
 // ─── T034 — Stock Opname ──────────────────────────────────────────────────────
 
 describe('fetchStockOpnameData', () => {
   it('returns non-deleted products mapped to OpnameRow with system_stock = physical_count', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.products.getAll.mockResolvedValue([
       {
         id: 'prod-1',
         name: 'Nasi Goreng',
@@ -67,31 +102,24 @@ describe('fetchStockOpnameData', () => {
 
 describe('saveOpnameResults', () => {
   it('updates stock for each product where physical count differs from system stock', async () => {
-    const batchUpdateSpy = vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-
     await saveOpnameResults([
       { product_id: 'p1', product_name: 'Nasi Goreng', sku: 'NASGOR', system_stock: 30, physical_count: 28 },
       { product_id: 'p2', product_name: 'Es Teh', sku: 'ESTEH', system_stock: 10, physical_count: 10 },
     ])
 
     // Only p1 changed (30 → 28); p2 is unchanged
-    expect(batchUpdateSpy).toHaveBeenCalledWith('Products', [
+    expect(mockRepos.products.batchUpdateCells).toHaveBeenCalledWith([
       { rowId: 'p1', column: 'stock', value: 28 },
     ])
   })
 
   it('appends Stock_Log entry with reason "opname" and correct before/after values', async () => {
-    vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
-    const appendRowSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-
     await saveOpnameResults([
       { product_id: 'p1', product_name: 'Nasi Goreng', sku: 'NASGOR', system_stock: 30, physical_count: 28 },
     ])
 
-    const logCalls = appendRowSpy.mock.calls.filter(([sheet]) => sheet === 'Stock_Log')
-    expect(logCalls).toHaveLength(1)
-    const logRow = logCalls[0][1]
+    expect(mockRepos.stockLog.append).toHaveBeenCalledTimes(1)
+    const logRow = mockRepos.stockLog.append.mock.calls[0][0]
     expect(logRow['product_id']).toBe('p1')
     expect(logRow['reason']).toBe('opname')
     expect(logRow['qty_before']).toBe(30)
@@ -99,16 +127,13 @@ describe('saveOpnameResults', () => {
   })
 
   it('skips products where physical count matches system count', async () => {
-    const batchUpdateSpy = vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
-    const appendRowSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-
     await saveOpnameResults([
       { product_id: 'p1', product_name: 'Nasi Goreng', sku: 'NASGOR', system_stock: 10, physical_count: 10 },
       { product_id: 'p2', product_name: 'Es Teh', sku: 'ESTEH', system_stock: 5, physical_count: 5 },
     ])
 
-    expect(batchUpdateSpy).not.toHaveBeenCalled()
-    expect(appendRowSpy).not.toHaveBeenCalled()
+    expect(mockRepos.products.batchUpdateCells).not.toHaveBeenCalled()
+    expect(mockRepos.stockLog.append).not.toHaveBeenCalled()
   })
 
   it('throws InventoryError if physical count is negative', async () => {
@@ -124,24 +149,20 @@ describe('saveOpnameResults', () => {
 
 describe('createPurchaseOrder', () => {
   it('appends to Purchase_Orders and Purchase_Order_Items tabs', async () => {
-    const appendRowSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-
     await createPurchaseOrder('Supplier ABC', [
       { product_id: 'p1', product_name: 'Nasi Goreng', qty: 50, cost_price: 8000 },
       { product_id: 'p2', product_name: 'Es Teh', qty: 100, cost_price: 3000 },
     ])
 
-    const orderCalls = appendRowSpy.mock.calls.filter(([sheet]) => sheet === 'Purchase_Orders')
-    const itemCalls = appendRowSpy.mock.calls.filter(([sheet]) => sheet === 'Purchase_Order_Items')
+    expect(mockRepos.purchaseOrders.append).toHaveBeenCalledTimes(1)
+    const orderRow = mockRepos.purchaseOrders.append.mock.calls[0][0]
+    expect(orderRow['supplier']).toBe('Supplier ABC')
+    expect(orderRow['status']).toBe('pending')
 
-    expect(orderCalls).toHaveLength(1)
-    expect(orderCalls[0][1]['supplier']).toBe('Supplier ABC')
-    expect(orderCalls[0][1]['status']).toBe('pending')
-
-    expect(itemCalls).toHaveLength(2)
-    expect(itemCalls[0][1]['product_id']).toBe('p1')
-    expect(itemCalls[0][1]['qty']).toBe(50)
-    expect(itemCalls[1][1]['product_id']).toBe('p2')
+    expect(mockRepos.purchaseOrderItems.append).toHaveBeenCalledTimes(2)
+    expect(mockRepos.purchaseOrderItems.append.mock.calls[0][0]['product_id']).toBe('p1')
+    expect(mockRepos.purchaseOrderItems.append.mock.calls[0][0]['qty']).toBe(50)
+    expect(mockRepos.purchaseOrderItems.append.mock.calls[1][0]['product_id']).toBe('p2')
   })
 })
 
@@ -166,21 +187,13 @@ describe('receivePurchaseOrder', () => {
   ]
 
   it('increments stock for each item in the purchase order', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockImplementation(async (sheet) => {
-      if (sheet === 'Purchase_Orders') return [mockOrder]
-      if (sheet === 'Purchase_Order_Items') return mockItems
-      if (sheet === 'Products') return mockProducts
-      return []
-    })
-    const batchSpy = vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+    mockRepos.purchaseOrders.getAll.mockResolvedValue([mockOrder])
+    mockRepos.purchaseOrderItems.getAll.mockResolvedValue(mockItems)
+    mockRepos.products.getAll.mockResolvedValue(mockProducts)
 
     await receivePurchaseOrder(orderId)
 
-    const batchCalls = batchSpy.mock.calls.find(([sheet]) => sheet === 'Products')
-    expect(batchCalls).toBeTruthy()
-    const updates = batchCalls![1]
+    const updates = mockRepos.products.batchUpdateCells.mock.calls[0][0]
     expect(updates).toHaveLength(2)
     // prod-1: 20 + 50 = 70
     expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-1')?.value).toBe(70)
@@ -189,31 +202,20 @@ describe('receivePurchaseOrder', () => {
   })
 
   it('appends Stock_Log entry with reason "purchase_order" for each item', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockImplementation(async (sheet) => {
-      if (sheet === 'Purchase_Orders') return [mockOrder]
-      if (sheet === 'Purchase_Order_Items') return mockItems
-      if (sheet === 'Products') return mockProducts
-      return []
-    })
-    vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
-    const appendRowSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+    mockRepos.purchaseOrders.getAll.mockResolvedValue([mockOrder])
+    mockRepos.purchaseOrderItems.getAll.mockResolvedValue(mockItems)
+    mockRepos.products.getAll.mockResolvedValue(mockProducts)
 
     await receivePurchaseOrder(orderId)
 
-    const logCalls = appendRowSpy.mock.calls.filter(([sheet]) => sheet === 'Stock_Log')
-    expect(logCalls).toHaveLength(2)
-    expect(logCalls[0][1]['reason']).toBe('purchase_order')
-    expect(logCalls[0][1]['qty_before']).toBe(20)
-    expect(logCalls[0][1]['qty_after']).toBe(70)
+    expect(mockRepos.stockLog.append).toHaveBeenCalledTimes(2)
+    expect(mockRepos.stockLog.append.mock.calls[0][0]['reason']).toBe('purchase_order')
+    expect(mockRepos.stockLog.append.mock.calls[0][0]['qty_before']).toBe(20)
+    expect(mockRepos.stockLog.append.mock.calls[0][0]['qty_after']).toBe(70)
   })
 
   it('throws InventoryError if order status is already "received"', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockImplementation(async (sheet) => {
-      if (sheet === 'Purchase_Orders') return [{ ...mockOrder, status: 'received' }]
-      if (sheet === 'Purchase_Order_Items') return mockItems
-      return []
-    })
+    mockRepos.purchaseOrders.getAll.mockResolvedValue([{ ...mockOrder, status: 'received' }])
 
     await expect(receivePurchaseOrder(orderId)).rejects.toThrow(InventoryError)
   })

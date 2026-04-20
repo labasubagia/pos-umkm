@@ -20,16 +20,50 @@ import {
   CatalogError,
 } from './catalog.service'
 
+function mockRepo(overrides = {}) {
+  return {
+    spreadsheetId: 'test-id',
+    sheetName: 'mock',
+    getAll: vi.fn().mockResolvedValue([]),
+    append: vi.fn().mockResolvedValue(undefined),
+    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
+    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    softDelete: vi.fn().mockResolvedValue(undefined),
+    writeHeaders: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }
+}
+
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+
 beforeEach(() => {
   vi.restoreAllMocks()
+  mockRepos = {
+    categories: mockRepo(),
+    products: mockRepo(),
+    variants: mockRepo(),
+    members: mockRepo(),
+    customers: mockRepo(),
+    settings: mockRepo(),
+    stockLog: mockRepo(),
+    purchaseOrders: mockRepo(),
+    purchaseOrderItems: mockRepo(),
+    transactions: mockRepo(),
+    transactionItems: mockRepo(),
+    refunds: mockRepo(),
+    stores: mockRepo(),
+    monthlySheets: mockRepo(),
+    auditLog: mockRepo(),
+  }
+  vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
 })
 
 // ─── T021 — Categories ───────────────────────────────────────────────────────
 
 describe('fetchCategories', () => {
   it('returns parsed list excluding soft-deleted rows', async () => {
-    // getSheet already filters deleted rows; only non-deleted rows are returned
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.categories.getAll.mockResolvedValue([
       { id: 'cat-1', name: 'Makanan', created_at: '2026-01-01T00:00:00.000Z', deleted_at: null },
       { id: 'cat-2', name: 'Minuman', created_at: '2026-01-01T00:00:00.000Z', deleted_at: null },
     ])
@@ -42,7 +76,7 @@ describe('fetchCategories', () => {
   })
 
   it('excludes sentinel rows without a name', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.categories.getAll.mockResolvedValue([
       { id: 'init', _initialized: true, created_at: '2026-01-01T00:00:00.000Z' },
       { id: 'cat-1', name: 'Makanan', created_at: '2026-01-01T00:00:00.000Z' },
     ])
@@ -56,13 +90,10 @@ describe('fetchCategories', () => {
 
 describe('addCategory', () => {
   it('appends correct row with generated UUID', async () => {
-    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-
     const result = await addCategory('Snack')
 
-    expect(appendSpy).toHaveBeenCalledOnce()
-    const [sheetName, row] = appendSpy.mock.calls[0]
-    expect(sheetName).toBe('Categories')
+    expect(mockRepos.categories.append).toHaveBeenCalledOnce()
+    const row = mockRepos.categories.append.mock.calls[0][0]
     expect(row['name']).toBe('Snack')
     expect(typeof row['id']).toBe('string')
     expect(row['id']).toBeTruthy()
@@ -82,26 +113,23 @@ describe('addCategory', () => {
 
 describe('updateCategory', () => {
   it('updates name cell of correct row', async () => {
-    const updateSpy = vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
-
     await updateCategory('cat-1', 'Makanan Berat')
 
-    expect(updateSpy).toHaveBeenCalledWith('Categories', 'cat-1', 'name', 'Makanan Berat')
+    expect(mockRepos.categories.updateCell).toHaveBeenCalledWith('cat-1', 'name', 'Makanan Berat')
   })
 })
 
 describe('deleteCategory', () => {
   it('sets deleted_at on correct row when no products reference it', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
-    const softDeleteSpy = vi.spyOn(adapters.dataAdapter, 'softDelete').mockResolvedValue()
+    mockRepos.products.getAll.mockResolvedValue([])
 
     await deleteCategory('cat-1')
 
-    expect(softDeleteSpy).toHaveBeenCalledWith('Categories', 'cat-1')
+    expect(mockRepos.categories.softDelete).toHaveBeenCalledWith('cat-1')
   })
 
   it('throws if category has associated products', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.products.getAll.mockResolvedValue([
       { id: 'prod-1', category_id: 'cat-1', name: 'Nasi Goreng' },
     ])
 
@@ -113,7 +141,7 @@ describe('deleteCategory', () => {
 
 describe('fetchProducts', () => {
   it('returns all non-deleted products', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.products.getAll.mockResolvedValue([
       {
         id: 'p-1',
         category_id: 'cat-1',
@@ -137,8 +165,6 @@ describe('fetchProducts', () => {
 
 describe('addProduct', () => {
   it('appends row with all required fields', async () => {
-    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-
     const result = await addProduct({
       category_id: 'cat-1',
       name: 'Nasi Goreng',
@@ -147,9 +173,8 @@ describe('addProduct', () => {
       sku: 'NASGOR',
     })
 
-    expect(appendSpy).toHaveBeenCalledOnce()
-    const [sheetName, row] = appendSpy.mock.calls[0]
-    expect(sheetName).toBe('Products')
+    expect(mockRepos.products.append).toHaveBeenCalledOnce()
+    const row = mockRepos.products.append.mock.calls[0][0]
     expect(row['name']).toBe('Nasi Goreng')
     expect(row['price']).toBe(15000)
     expect(result.id).toBeTruthy()
@@ -168,11 +193,9 @@ describe('addProduct', () => {
 
 describe('updateProduct', () => {
   it('updates only changed fields', async () => {
-    const batchSpy = vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
-
     await updateProduct('prod-1', { name: 'Nasi Goreng Spesial', price: 18000 })
 
-    expect(batchSpy).toHaveBeenCalledWith('Products', [
+    expect(mockRepos.products.batchUpdateCells).toHaveBeenCalledWith([
       { rowId: 'prod-1', column: 'name', value: 'Nasi Goreng Spesial' },
       { rowId: 'prod-1', column: 'price', value: 18000 },
     ])
@@ -181,28 +204,25 @@ describe('updateProduct', () => {
 
 describe('deleteProduct', () => {
   it('sets deleted_at', async () => {
-    const softDeleteSpy = vi.spyOn(adapters.dataAdapter, 'softDelete').mockResolvedValue()
-
     await deleteProduct('prod-1')
 
-    expect(softDeleteSpy).toHaveBeenCalledWith('Products', 'prod-1')
+    expect(mockRepos.products.softDelete).toHaveBeenCalledWith('prod-1')
   })
 })
 
 describe('decrementStock', () => {
   it('reads current stock, computes new value, writes updated cell', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.products.getAll.mockResolvedValue([
       { id: 'prod-1', name: 'Nasi Goreng', stock: '10' },
     ])
-    const updateSpy = vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
 
     await decrementStock('prod-1', 3)
 
-    expect(updateSpy).toHaveBeenCalledWith('Products', 'prod-1', 'stock', 7)
+    expect(mockRepos.products.updateCell).toHaveBeenCalledWith('prod-1', 'stock', 7)
   })
 
   it('throws if resulting stock would go below 0', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.products.getAll.mockResolvedValue([
       { id: 'prod-1', name: 'Nasi Goreng', stock: '2' },
     ])
 
@@ -214,7 +234,7 @@ describe('decrementStock', () => {
 
 describe('fetchVariants', () => {
   it('returns all variants for a given product_id', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.variants.getAll.mockResolvedValue([
       {
         id: 'v-1',
         product_id: 'prod-1',
@@ -246,13 +266,10 @@ describe('fetchVariants', () => {
 
 describe('addVariant', () => {
   it('appends row linked to correct product_id', async () => {
-    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-
     const result = await addVariant('prod-1', 'Ukuran', 'L', 30000, 10)
 
-    expect(appendSpy).toHaveBeenCalledOnce()
-    const [sheetName, row] = appendSpy.mock.calls[0]
-    expect(sheetName).toBe('Variants')
+    expect(mockRepos.variants.append).toHaveBeenCalledOnce()
+    const row = mockRepos.variants.append.mock.calls[0][0]
     expect(row['product_id']).toBe('prod-1')
     expect(row['option_value']).toBe('L')
     expect(result.price).toBe(30000)
@@ -271,28 +288,25 @@ describe('addVariant', () => {
 
 describe('deleteVariant', () => {
   it('soft-deletes the variant', async () => {
-    const softDeleteSpy = vi.spyOn(adapters.dataAdapter, 'softDelete').mockResolvedValue()
-
     await deleteVariant('v-1')
 
-    expect(softDeleteSpy).toHaveBeenCalledWith('Variants', 'v-1')
+    expect(mockRepos.variants.softDelete).toHaveBeenCalledWith('v-1')
   })
 })
 
 describe('decrementVariantStock', () => {
   it('updates stock on correct variant row', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.variants.getAll.mockResolvedValue([
       { id: 'v-1', product_id: 'prod-1', option_value: 'M', stock: '8' },
     ])
-    const updateSpy = vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
 
     await decrementVariantStock('v-1', 3)
 
-    expect(updateSpy).toHaveBeenCalledWith('Variants', 'v-1', 'stock', 5)
+    expect(mockRepos.variants.updateCell).toHaveBeenCalledWith('v-1', 'stock', 5)
   })
 
   it('throws if resulting stock would go below 0', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.variants.getAll.mockResolvedValue([
       { id: 'v-1', product_id: 'prod-1', option_value: 'M', stock: '2' },
     ])
 

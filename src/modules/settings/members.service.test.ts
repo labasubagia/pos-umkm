@@ -11,19 +11,51 @@ import {
 } from './members.service'
 import * as adapters from '../../lib/adapters'
 
+function mockRepo(overrides = {}) {
+  return {
+    spreadsheetId: 'test-id',
+    sheetName: 'mock',
+    getAll: vi.fn().mockResolvedValue([]),
+    append: vi.fn().mockResolvedValue(undefined),
+    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
+    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    softDelete: vi.fn().mockResolvedValue(undefined),
+    writeHeaders: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }
+}
+
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+
 beforeEach(() => {
   vi.restoreAllMocks()
+  mockRepos = {
+    categories: mockRepo(),
+    products: mockRepo(),
+    variants: mockRepo(),
+    members: mockRepo(),
+    customers: mockRepo(),
+    settings: mockRepo(),
+    stockLog: mockRepo(),
+    purchaseOrders: mockRepo(),
+    purchaseOrderItems: mockRepo(),
+    transactions: mockRepo(),
+    transactionItems: mockRepo(),
+    refunds: mockRepo(),
+    stores: mockRepo(),
+    monthlySheets: mockRepo(),
+    auditLog: mockRepo(),
+  }
+  vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
+  vi.spyOn(adapters.driveClient, 'shareSpreadsheet').mockResolvedValue(undefined)
 })
 
 describe('inviteMember', () => {
   it('appends correct row to Members tab with role and invited_at', async () => {
-    vi.spyOn(adapters.dataAdapter, 'shareSpreadsheet').mockResolvedValue()
-    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-
     await inviteMember('alice@test.com', 'cashier', 'sid-001')
 
-    expect(appendSpy).toHaveBeenCalledWith(
-      'Members',
+    expect(mockRepos.members.append).toHaveBeenCalledWith(
       expect.objectContaining({
         email: 'alice@test.com',
         role: 'cashier',
@@ -33,14 +65,9 @@ describe('inviteMember', () => {
   })
 
   it('calls Drive API share with editor permission', async () => {
-    const shareSpy = vi
-      .spyOn(adapters.dataAdapter, 'shareSpreadsheet')
-      .mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-
     await inviteMember('bob@test.com', 'manager', 'sid-001')
 
-    expect(shareSpy).toHaveBeenCalledWith('sid-001', 'bob@test.com', 'editor')
+    expect(adapters.driveClient.shareSpreadsheet).toHaveBeenCalledWith('sid-001', 'bob@test.com', 'editor')
   })
 
   it('throws if email is invalid', async () => {
@@ -53,7 +80,7 @@ describe('inviteMember', () => {
   })
 
   it('throws on Drive API error', async () => {
-    vi.spyOn(adapters.dataAdapter, 'shareSpreadsheet').mockRejectedValue(new Error('quota'))
+    vi.spyOn(adapters.driveClient, 'shareSpreadsheet').mockRejectedValue(new Error('quota'))
     await expect(inviteMember('alice@test.com', 'cashier', 'sid-001')).rejects.toThrow(MemberError)
   })
 })
@@ -67,17 +94,15 @@ describe('generateStoreLink', () => {
 
 describe('revokeMember', () => {
   it('sets deleted_at on correct Members row', async () => {
-    const deleteSpy = vi.spyOn(adapters.dataAdapter, 'softDelete').mockResolvedValue()
-
     await revokeMember('user-123')
 
-    expect(deleteSpy).toHaveBeenCalledWith('Members', 'user-123')
+    expect(mockRepos.members.softDelete).toHaveBeenCalledWith('user-123')
   })
 })
 
 describe('listMembers', () => {
   it('filters out rows where deleted_at is non-empty', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.members.getAll.mockResolvedValue([
       { id: 'u1', email: 'a@test.com', name: 'A', role: 'cashier', invited_at: '2026-01-01', deleted_at: null },
       { id: 'u2', email: 'b@test.com', name: 'B', role: 'manager', invited_at: '2026-01-02', deleted_at: '2026-02-01' },
     ])

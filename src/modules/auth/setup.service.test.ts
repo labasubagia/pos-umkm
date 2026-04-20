@@ -1,7 +1,8 @@
 /**
  * T015 + T016 — setup.service unit tests
  *
- * Uses MockDataAdapter (via localStorage) so no Drive/Sheets API calls are made.
+ * Uses spies on adapters (getRepos, makeRepo, driveClient) so no Drive/Sheets
+ * API calls are made.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
@@ -50,38 +51,79 @@ Object.defineProperty(globalThis, 'localStorage', {
   writable: true,
 })
 
+function mockRepo(overrides = {}) {
+  return {
+    spreadsheetId: 'test-id',
+    sheetName: 'mock',
+    getAll: vi.fn().mockResolvedValue([]),
+    append: vi.fn().mockResolvedValue(undefined),
+    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
+    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    softDelete: vi.fn().mockResolvedValue(undefined),
+    writeHeaders: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }
+}
+
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+let sharedMakeRepo: ReturnType<typeof mockRepo>
+
 beforeEach(() => {
   localStorageMock.clear()
   // Reset Zustand auth store so mainSpreadsheetId/spreadsheetId don't leak between tests.
   useAuthStore.getState().clearAuth()
   vi.restoreAllMocks()
+
+  mockRepos = {
+    categories: mockRepo(),
+    products: mockRepo(),
+    variants: mockRepo(),
+    members: mockRepo(),
+    customers: mockRepo(),
+    settings: mockRepo(),
+    stockLog: mockRepo(),
+    purchaseOrders: mockRepo(),
+    purchaseOrderItems: mockRepo(),
+    transactions: mockRepo(),
+    transactionItems: mockRepo(),
+    refunds: mockRepo(),
+    stores: mockRepo(),
+    monthlySheets: mockRepo(),
+    auditLog: mockRepo(),
+  }
+  vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
+
+  sharedMakeRepo = mockRepo()
+  vi.spyOn(adapters, 'makeRepo').mockReturnValue(sharedMakeRepo as ReturnType<typeof adapters.makeRepo>)
+
+  vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('new-sheet-id')
+  vi.spyOn(adapters.driveClient, 'ensureFolder').mockResolvedValue('folder-id')
+  vi.spyOn(adapters.driveClient, 'shareSpreadsheet').mockResolvedValue(undefined)
 })
 
 // ─── createMainSpreadsheet ───────────────────────────────────────────────────
 
 describe('createMainSpreadsheet', () => {
   it('creates main spreadsheet at apps/pos_umkm/ with Stores tab', async () => {
-    const createSpy = vi.spyOn(adapters.dataAdapter, 'createSpreadsheet')
-      .mockResolvedValue('main-id-001')
-    vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('main-id-001')
 
     const id = await createMainSpreadsheet('owner@example.com')
 
-    expect(createSpy).toHaveBeenCalledWith('main', undefined, ['Stores'])
+    expect(adapters.driveClient.createSpreadsheet).toHaveBeenCalledWith('main', expect.anything(), ['Stores'])
     expect(id).toBe('main-id-001')
   })
 
   it('writes Stores tab headers', async () => {
-    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('main-id-002')
-    const headersSpy = vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('main-id-002')
 
     await createMainSpreadsheet()
 
-    expect(headersSpy).toHaveBeenCalledWith('Stores', MAIN_TAB_HEADERS['Stores'])
+    expect(sharedMakeRepo.writeHeaders).toHaveBeenCalledWith(MAIN_TAB_HEADERS['Stores'])
   })
 
   it('throws SetupError on failure', async () => {
-    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockRejectedValue(new Error('Drive error'))
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockRejectedValue(new Error('Drive error'))
     await expect(createMainSpreadsheet()).rejects.toThrow('createMainSpreadsheet failed')
   })
 })
@@ -90,24 +132,21 @@ describe('createMainSpreadsheet', () => {
 
 describe('createMasterSpreadsheet', () => {
   it('creates only master spreadsheet (not main)', async () => {
-    const createSpy = vi.spyOn(adapters.dataAdapter, 'createSpreadsheet')
-      .mockResolvedValue('master-id-123')
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('master-id-123')
 
     const id = await createMasterSpreadsheet('Toko Santoso', 'owner@example.com', 'main-id-000')
 
-    expect(createSpy).toHaveBeenCalledTimes(1)
-    expect(createSpy).toHaveBeenCalledWith('master', undefined, expect.arrayContaining([...MASTER_TABS]))
+    expect(adapters.driveClient.createSpreadsheet).toHaveBeenCalledTimes(1)
+    expect(adapters.driveClient.createSpreadsheet).toHaveBeenCalledWith('master', expect.anything(), expect.arrayContaining([...MASTER_TABS]))
     expect(id).toBe('master-id-123')
   })
 
   it('registers store in main.Stores tab', async () => {
-    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('master-id-456')
-    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('master-id-456')
 
     await createMasterSpreadsheet('Toko X', 'owner@example.com', 'main-id-000')
 
-    expect(appendSpy).toHaveBeenCalledWith('Stores', expect.objectContaining({
+    expect(sharedMakeRepo.append).toHaveBeenCalledWith(expect.objectContaining({
       store_name: 'Toko X',
       master_spreadsheet_id: 'master-id-456',
       owner_email: 'owner@example.com',
@@ -116,8 +155,7 @@ describe('createMasterSpreadsheet', () => {
   })
 
   it('saves activeStoreId to localStorage', async () => {
-    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('master-id-789')
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('master-id-789')
 
     await createMasterSpreadsheet('Toko Y', '', 'main-id-000')
 
@@ -125,7 +163,7 @@ describe('createMasterSpreadsheet', () => {
   })
 
   it('throws SetupError on Drive API failure', async () => {
-    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockRejectedValue(new Error('Drive down'))
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockRejectedValue(new Error('Drive down'))
     await expect(createMasterSpreadsheet('Toko Z', '', 'main-id-000')).rejects.toThrow('createMasterSpreadsheet failed')
   })
 })
@@ -134,20 +172,20 @@ describe('createMasterSpreadsheet', () => {
 
 describe('initializeMasterSheets', () => {
   it('writes header row to all 11 required tabs', async () => {
-    const spy = vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
+    const makeRepoSpy = vi.spyOn(adapters, 'makeRepo').mockReturnValue(sharedMakeRepo as ReturnType<typeof adapters.makeRepo>)
     await initializeMasterSheets('sid-001')
-    const calledTabs = spy.mock.calls.map((c) => c[0])
+    const calledTabs = makeRepoSpy.mock.calls.map(([, sheetName]) => sheetName)
     expect(calledTabs.sort()).toEqual([...MASTER_TABS].sort())
   })
 
   it('writes correct headers for each tab', async () => {
-    const spy = vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
+    const makeRepoSpy = vi.spyOn(adapters, 'makeRepo').mockReturnValue(sharedMakeRepo as ReturnType<typeof adapters.makeRepo>)
     await initializeMasterSheets('sid-001')
-    expect(spy).toHaveBeenCalledTimes(MASTER_TABS.length)
-    const settingsCall = spy.mock.calls.find((c) => c[0] === 'Settings')
-    expect(settingsCall?.[1]).toEqual(['id', 'key', 'value', 'updated_at'])
-    const monthlyCall = spy.mock.calls.find((c) => c[0] === 'Monthly_Sheets')
-    expect(monthlyCall?.[1]).toEqual(['id', 'year_month', 'spreadsheetId', 'created_at'])
+    expect(sharedMakeRepo.writeHeaders).toHaveBeenCalledTimes(MASTER_TABS.length)
+    const settingsIdx = makeRepoSpy.mock.calls.findIndex(([, tab]) => tab === 'Settings')
+    expect(sharedMakeRepo.writeHeaders.mock.calls[settingsIdx]).toEqual([['id', 'key', 'value', 'updated_at']])
+    const monthlyIdx = makeRepoSpy.mock.calls.findIndex(([, tab]) => tab === 'Monthly_Sheets')
+    expect(sharedMakeRepo.writeHeaders.mock.calls[monthlyIdx]).toEqual([['id', 'year_month', 'spreadsheetId', 'created_at']])
   })
 
   it('throws if spreadsheetId is invalid (empty string)', async () => {
@@ -179,7 +217,7 @@ describe('saveMainSpreadsheetId / getMainSpreadsheetId', () => {
 
 describe('listStores', () => {
   it('returns typed StoreRecord array from Stores tab', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    sharedMakeRepo.getAll.mockResolvedValue([
       {
         store_id: 'sid-1', store_name: 'Toko A',
         master_spreadsheet_id: 'master-1', drive_folder_id: 'folder-1',
@@ -200,7 +238,7 @@ describe('listStores', () => {
   })
 
   it('filters out rows with missing store_id or master_spreadsheet_id', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    sharedMakeRepo.getAll.mockResolvedValue([
       { store_id: 'sid-1', store_name: 'Toko A', master_spreadsheet_id: 'master-1' },
       { store_id: '', store_name: 'Bad Row', master_spreadsheet_id: '' },
     ])
@@ -209,7 +247,7 @@ describe('listStores', () => {
   })
 
   it('returns empty array when Stores tab is empty', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
+    sharedMakeRepo.getAll.mockResolvedValue([])
     const stores = await listStores('main-id-000')
     expect(stores).toEqual([])
   })
@@ -219,9 +257,8 @@ describe('listStores', () => {
 
 describe('findOrCreateMain', () => {
   it('creates main and reads stores when mainSpreadsheetId is not in localStorage', async () => {
-    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('new-main-id')
-    vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([]) // new main → empty stores
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('new-main-id')
+    sharedMakeRepo.getAll.mockResolvedValue([]) // new main → empty stores
 
     const result = await findOrCreateMain('owner@test.com')
 
@@ -231,11 +268,8 @@ describe('findOrCreateMain', () => {
   })
 
   it('finds existing main via Drive (cache miss) and returns existing stores', async () => {
-    // localStorage is empty but main spreadsheet already exists in Drive.
-    // createSpreadsheet's "find or create" logic returns the existing ID.
-    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('existing-main-id')
-    vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('existing-main-id')
+    sharedMakeRepo.getAll.mockResolvedValue([
       {
         store_id: 'sid-1', store_name: 'Toko A',
         master_spreadsheet_id: 'master-1', drive_folder_id: '',
@@ -252,9 +286,8 @@ describe('findOrCreateMain', () => {
   })
 
   it('reads stores from existing main when mainSpreadsheetId is cached', async () => {
-    // Seed via Zustand (primary source of truth) rather than direct localStorage key.
     useAuthStore.getState().setMainSpreadsheetId('existing-main-id')
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    sharedMakeRepo.getAll.mockResolvedValue([
       {
         store_id: 'sid-1', store_name: 'Toko A',
         master_spreadsheet_id: 'master-1', drive_folder_id: '',
@@ -270,7 +303,7 @@ describe('findOrCreateMain', () => {
   })
 
   it('throws SetupError on failure', async () => {
-    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockRejectedValue(new Error('quota'))
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockRejectedValue(new Error('quota'))
     await expect(findOrCreateMain()).rejects.toThrow('findOrCreateMain failed')
   })
 })
@@ -284,21 +317,9 @@ describe('updateStoreName', () => {
   })
 
   it('updates store_name cell in main.Stores tab', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
-      {
-        id: 'row-1', store_id: 'sid-1', store_name: 'Toko Lama',
-        master_spreadsheet_id: 'master-1', drive_folder_id: '',
-        owner_email: '', my_role: 'owner', joined_at: '',
-      },
-    ])
-    const updateSpy = vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
-    const setIdSpy = vi.spyOn(adapters.dataAdapter, 'setSpreadsheetId').mockImplementation(() => {})
-
     await updateStoreName('sid-1', 'Toko Baru', 'master-1')
 
-    expect(updateSpy).toHaveBeenCalledWith('Stores', 'sid-1', 'store_name', 'Toko Baru')
-    // Must restore adapter to master spreadsheet after the update.
-    expect(setIdSpy).toHaveBeenLastCalledWith('master-1')
+    expect(sharedMakeRepo.updateCell).toHaveBeenCalledWith('sid-1', 'store_name', 'Toko Baru')
   })
 
   it('throws SetupError when mainSpreadsheetId is not set', async () => {
@@ -307,8 +328,9 @@ describe('updateStoreName', () => {
   })
 
   it('throws SetupError when store is not found in Stores tab', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
-    vi.spyOn(adapters.dataAdapter, 'setSpreadsheetId').mockImplementation(() => {})
+    const adapterError = new Error('row not found')
+    adapterError.name = 'AdapterError'
+    sharedMakeRepo.updateCell.mockRejectedValue(adapterError)
     await expect(updateStoreName('sid-missing', 'New Name', 'master-1')).rejects.toThrow('not found in main.Stores')
   })
 })
@@ -327,46 +349,35 @@ describe('activateStore', () => {
   }
 
   it('saves activeStoreId to localStorage and routes adapter to master sheet', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([]) // no monthly sheet yet
-    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('monthly-id')
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'setMonthlySpreadsheetId').mockImplementation(() => {})
-    const setSpreadsheetIdSpy = vi.spyOn(adapters.dataAdapter, 'setSpreadsheetId').mockImplementation(() => {})
+    mockRepos.monthlySheets.getAll.mockResolvedValue([]) // no monthly sheet yet
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('monthly-id')
 
     await activateStore(store)
 
-    // masterSpreadsheetId is now set via the in-memory adapter, not direct localStorage.
-    expect(setSpreadsheetIdSpy).toHaveBeenCalledWith('master-100')
-    // activeStoreId must still be in localStorage — createMonthlySheet() reads it synchronously.
+    expect(useAuthStore.getState().spreadsheetId).toBe('master-100')
     expect(localStorage.getItem('activeStoreId')).toBe('sid-100')
   })
 
-  it('sets adapter to monthly sheet when monthly sheet exists', async () => {
+  it('sets monthly sheet in auth store when monthly sheet exists', async () => {
     const now = new Date()
     const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.monthlySheets.getAll.mockResolvedValue([
       { year_month: yearMonth, spreadsheetId: 'existing-monthly-id', id: 'r1', created_at: '' },
     ])
-    const monthlySpy = vi.spyOn(adapters.dataAdapter, 'setMonthlySpreadsheetId')
-      .mockImplementation(() => {})
 
     await activateStore(store)
 
-    expect(monthlySpy).toHaveBeenCalledWith('existing-monthly-id')
+    expect(useAuthStore.getState().monthlySpreadsheetId).toBe('existing-monthly-id')
   })
 
   it('creates monthly sheet when none exists for current month', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([]) // no monthly entry
-    const createSpy = vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('new-monthly-id')
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'setMonthlySpreadsheetId').mockImplementation(() => {})
+    mockRepos.monthlySheets.getAll.mockResolvedValue([]) // no monthly entry
+    const createSpy = vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('new-monthly-id')
 
     await activateStore(store)
 
     expect(createSpy).toHaveBeenCalledWith(
-      expect.stringMatching(/^transaction_/), undefined, expect.anything(),
+      expect.stringMatching(/^transaction_/), expect.anything(), expect.anything(),
     )
   })
 })
@@ -375,7 +386,7 @@ describe('activateStore', () => {
 
 describe('getCurrentMonthSheetId', () => {
   it('returns null when Monthly_Sheets tab is empty', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
+    mockRepos.monthlySheets.getAll.mockResolvedValue([])
     expect(await getCurrentMonthSheetId()).toBeNull()
   })
 
@@ -383,14 +394,14 @@ describe('getCurrentMonthSheetId', () => {
     const now = new Date()
     const mmStr = String(now.getMonth() + 1).padStart(2, '0')
     const yearMonth = `${now.getFullYear()}-${mmStr}`
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.monthlySheets.getAll.mockResolvedValue([
       { id: 'row-1', year_month: yearMonth, spreadsheetId: 'monthly-id-789', created_at: '2026-04-01T00:00:00Z' },
     ])
     expect(await getCurrentMonthSheetId()).toBe('monthly-id-789')
   })
 
   it('returns null when Monthly_Sheets tab throws (pre-setup)', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockRejectedValue(new Error('tab not found'))
+    mockRepos.monthlySheets.getAll.mockRejectedValue(new Error('tab not found'))
     expect(await getCurrentMonthSheetId()).toBeNull()
   })
 })
@@ -399,15 +410,12 @@ describe('getCurrentMonthSheetId', () => {
 
 describe('createMonthlySheet', () => {
   it('names spreadsheet "transaction_<year>-<month>" inside the year folder', async () => {
-    const createSpy = vi
-      .spyOn(adapters.dataAdapter, 'createSpreadsheet')
-      .mockResolvedValue('monthly-id-001')
-    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('monthly-id-001')
 
     await createMonthlySheet(2026, 4)
 
-    expect(createSpy).toHaveBeenCalledWith('transaction_2026-04', undefined, expect.arrayContaining([...MONTHLY_TABS]))
-    expect(appendSpy).toHaveBeenCalledWith('Monthly_Sheets', expect.objectContaining({
+    expect(adapters.driveClient.createSpreadsheet).toHaveBeenCalledWith('transaction_2026-04', undefined, expect.arrayContaining([...MONTHLY_TABS]))
+    expect(mockRepos.monthlySheets.append).toHaveBeenCalledWith(expect.objectContaining({
       year_month: '2026-04',
       spreadsheetId: 'monthly-id-001',
     }))
@@ -415,16 +423,15 @@ describe('createMonthlySheet', () => {
 
   it('creates monthly sheet with correct name regardless of activeStoreId', async () => {
     localStorage.setItem('activeStoreId', 'store-uuid-999')
-    const createSpy = vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockResolvedValue('monthly-id-002')
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('monthly-id-002')
 
     await createMonthlySheet(2026, 4)
 
-    expect(createSpy).toHaveBeenCalledWith('transaction_2026-04', undefined, expect.arrayContaining([...MONTHLY_TABS]))
+    expect(adapters.driveClient.createSpreadsheet).toHaveBeenCalledWith('transaction_2026-04', 'folder-id', expect.arrayContaining([...MONTHLY_TABS]))
   })
 
   it('throws on Drive API error', async () => {
-    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet').mockRejectedValue(new Error('quota'))
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockRejectedValue(new Error('quota'))
     await expect(createMonthlySheet(2026, 4)).rejects.toThrow('createMonthlySheet failed')
   })
 })
@@ -433,9 +440,9 @@ describe('createMonthlySheet', () => {
 
 describe('initializeMonthlySheets', () => {
   it('writes headers to Transactions, Transaction_Items, Refunds tabs', async () => {
-    const spy = vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
+    const makeRepoSpy = vi.spyOn(adapters, 'makeRepo').mockReturnValue(sharedMakeRepo as ReturnType<typeof adapters.makeRepo>)
     await initializeMonthlySheets('monthly-sid-001')
-    const calledTabs = spy.mock.calls.map((c) => c[0])
+    const calledTabs = makeRepoSpy.mock.calls.map(([, sheetName]) => sheetName)
     expect(calledTabs.sort()).toEqual([...MONTHLY_TABS].sort())
   })
 })
@@ -444,18 +451,17 @@ describe('initializeMonthlySheets', () => {
 
 describe('shareSheetWithAllMembers', () => {
   it('reads Members tab and calls Drive API share for each active member', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.members.getAll.mockResolvedValue([
       { id: 'u1', email: 'alice@test.com', deleted_at: null },
       { id: 'u2', email: 'bob@test.com', deleted_at: null },
       { id: 'u3', email: 'charlie@test.com', deleted_at: '2026-01-01T00:00:00Z' },
     ])
-    const shareSpy = vi.spyOn(adapters.dataAdapter, 'shareSpreadsheet').mockResolvedValue()
 
     await shareSheetWithAllMembers('monthly-sid-002')
 
-    expect(shareSpy).toHaveBeenCalledTimes(2)
-    expect(shareSpy).toHaveBeenCalledWith('monthly-sid-002', 'alice@test.com', 'editor')
-    expect(shareSpy).toHaveBeenCalledWith('monthly-sid-002', 'bob@test.com', 'editor')
+    expect(adapters.driveClient.shareSpreadsheet).toHaveBeenCalledTimes(2)
+    expect(adapters.driveClient.shareSpreadsheet).toHaveBeenCalledWith('monthly-sid-002', 'alice@test.com', 'editor')
+    expect(adapters.driveClient.shareSpreadsheet).toHaveBeenCalledWith('monthly-sid-002', 'bob@test.com', 'editor')
   })
 })
 
@@ -475,12 +481,9 @@ describe('monthlySheetKey', () => {
 
 describe('runStoreSetup', () => {
   function mockAll() {
-    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet')
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet')
       .mockResolvedValueOnce('master-id')
       .mockResolvedValueOnce('monthly-id')
-    vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'setMonthlySpreadsheetId').mockImplementation(() => {})
   }
 
   it('throws SetupError when mainSpreadsheetId is not in localStorage', async () => {
@@ -510,29 +513,23 @@ describe('runStoreSetup', () => {
 
 describe('runFirstTimeSetup', () => {
   function mockAll() {
-    vi.spyOn(adapters.dataAdapter, 'createSpreadsheet')
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet')
       .mockResolvedValueOnce('main-id')    // createMainSpreadsheet
       .mockResolvedValueOnce('master-id')  // createMasterSpreadsheet
       .mockResolvedValueOnce('monthly-id') // createMonthlySheet
-    vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'setMonthlySpreadsheetId').mockImplementation(() => {})
   }
 
   it('creates main, master, and monthly spreadsheets in that order', async () => {
-    const createSpy = vi.spyOn(adapters.dataAdapter, 'createSpreadsheet')
+    const createSpy = vi.spyOn(adapters.driveClient, 'createSpreadsheet')
       .mockResolvedValueOnce('main-id')
       .mockResolvedValueOnce('master-id')
       .mockResolvedValueOnce('monthly-id')
-    vi.spyOn(adapters.dataAdapter, 'writeHeaders').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'setMonthlySpreadsheetId').mockImplementation(() => {})
 
     await runFirstTimeSetup('Toko Santoso')
 
-    expect(createSpy).toHaveBeenNthCalledWith(1, 'main', undefined, expect.anything())
-    expect(createSpy).toHaveBeenNthCalledWith(2, 'master', undefined, expect.anything())
-    expect(createSpy).toHaveBeenNthCalledWith(3, expect.stringMatching(/^transaction_/), undefined, expect.anything())
+    expect(createSpy).toHaveBeenNthCalledWith(1, 'main', expect.anything(), expect.anything())
+    expect(createSpy).toHaveBeenNthCalledWith(2, 'master', expect.anything(), expect.anything())
+    expect(createSpy).toHaveBeenNthCalledWith(3, expect.stringMatching(/^transaction_/), expect.anything(), expect.anything())
   })
 
   it('returns masterSpreadsheetId and monthlySpreadsheetId', async () => {
@@ -549,10 +546,9 @@ describe('runFirstTimeSetup', () => {
     expect(localStorage.getItem('masterSpreadsheetId')).toBe('master-id')
   })
 
-  it('calls setMonthlySpreadsheetId so the adapter routes tx writes correctly', async () => {
+  it('sets monthlySpreadsheetId in auth store so adapter routes tx writes correctly', async () => {
     mockAll()
-    const monthlySpy = vi.spyOn(adapters.dataAdapter, 'setMonthlySpreadsheetId')
     await runFirstTimeSetup('Toko Santoso')
-    expect(monthlySpy).toHaveBeenCalledWith('monthly-id')
+    expect(useAuthStore.getState().monthlySpreadsheetId).toBe('monthly-id')
   })
 })

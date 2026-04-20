@@ -5,8 +5,43 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import * as adapters from '../../lib/adapters'
 import { createRefund, fetchTransaction, RefundError } from './refund.service'
 
+function mockRepo(overrides = {}) {
+  return {
+    spreadsheetId: 'test-id',
+    sheetName: 'mock',
+    getAll: vi.fn().mockResolvedValue([]),
+    append: vi.fn().mockResolvedValue(undefined),
+    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
+    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    softDelete: vi.fn().mockResolvedValue(undefined),
+    writeHeaders: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }
+}
+
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+
 beforeEach(() => {
   vi.restoreAllMocks()
+  mockRepos = {
+    categories: mockRepo(),
+    products: mockRepo(),
+    variants: mockRepo(),
+    members: mockRepo(),
+    customers: mockRepo(),
+    settings: mockRepo(),
+    stockLog: mockRepo(),
+    purchaseOrders: mockRepo(),
+    purchaseOrderItems: mockRepo(),
+    transactions: mockRepo(),
+    transactionItems: mockRepo(),
+    refunds: mockRepo(),
+    stores: mockRepo(),
+    monthlySheets: mockRepo(),
+    auditLog: mockRepo(),
+  }
+  vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
 })
 
 const TRANSACTION_ROW = {
@@ -50,7 +85,7 @@ const REFUND_ITEM = {
 
 describe('fetchTransaction', () => {
   it('returns the transaction when found', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([TRANSACTION_ROW])
+    mockRepos.transactions.getAll.mockResolvedValue([TRANSACTION_ROW])
 
     const tx = await fetchTransaction('tx-001')
 
@@ -59,7 +94,7 @@ describe('fetchTransaction', () => {
   })
 
   it('throws RefundError when transaction not found', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
+    mockRepos.transactions.getAll.mockResolvedValue([])
 
     await expect(fetchTransaction('tx-999')).rejects.toThrow(RefundError)
   })
@@ -69,77 +104,59 @@ describe('fetchTransaction', () => {
 
 describe('createRefund', () => {
   it('appends row to Refunds tab', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockImplementation((sheet) => {
-      if (sheet === 'Transactions') return Promise.resolve([TRANSACTION_ROW])
-      if (sheet === 'Products') return Promise.resolve([PRODUCT_ROW])
-      return Promise.resolve([])
-    })
-    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
+    mockRepos.transactions.getAll.mockResolvedValue([TRANSACTION_ROW])
+    mockRepos.products.getAll.mockResolvedValue([PRODUCT_ROW])
 
     await createRefund('tx-001', [REFUND_ITEM], 'Produk rusak')
 
-    // Should have appended to Refunds once and Audit_Log once
-    const refundCall = appendSpy.mock.calls.find((c) => c[0] === 'Refunds')
-    expect(refundCall).toBeTruthy()
-    expect(refundCall![1]).toMatchObject({
-      transaction_id: 'tx-001',
-      product_id: 'prod-1',
-      product_name: 'Nasi Goreng',
-      qty: 2,
-      unit_price: 15000,
-      reason: 'Produk rusak',
-    })
+    expect(mockRepos.refunds.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transaction_id: 'tx-001',
+        product_id: 'prod-1',
+        product_name: 'Nasi Goreng',
+        qty: 2,
+        unit_price: 15000,
+        reason: 'Produk rusak',
+      }),
+    )
   })
 
   it('re-increments stock for each returned product', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockImplementation((sheet) => {
-      if (sheet === 'Transactions') return Promise.resolve([TRANSACTION_ROW])
-      if (sheet === 'Products') return Promise.resolve([PRODUCT_ROW])
-      return Promise.resolve([])
-    })
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    const batchSpy = vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
+    mockRepos.transactions.getAll.mockResolvedValue([TRANSACTION_ROW])
+    mockRepos.products.getAll.mockResolvedValue([PRODUCT_ROW])
 
     await createRefund('tx-001', [REFUND_ITEM], 'Produk rusak')
 
     // Stock was 18, returning 2 → should be updated to 20
-    const batchCalls = batchSpy.mock.calls.find(([sheet]) => sheet === 'Products')
-    expect(batchCalls).toBeTruthy()
-    expect(batchCalls![1]).toContainEqual({ rowId: 'prod-1', column: 'stock', value: 20 })
+    expect(mockRepos.products.batchUpdateCells).toHaveBeenCalledWith(
+      expect.arrayContaining([{ rowId: 'prod-1', column: 'stock', value: 20 }]),
+    )
   })
 
   it('appends Audit_Log entry with event=REFUND', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockImplementation((sheet) => {
-      if (sheet === 'Transactions') return Promise.resolve([TRANSACTION_ROW])
-      if (sheet === 'Products') return Promise.resolve([PRODUCT_ROW])
-      return Promise.resolve([])
-    })
-    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
+    mockRepos.transactions.getAll.mockResolvedValue([TRANSACTION_ROW])
+    mockRepos.products.getAll.mockResolvedValue([PRODUCT_ROW])
 
     await createRefund('tx-001', [REFUND_ITEM], 'Produk rusak')
 
-    const auditCall = appendSpy.mock.calls.find((c) => c[0] === 'Audit_Log')
-    expect(auditCall).toBeTruthy()
-    expect(auditCall![1]).toMatchObject({ event: 'REFUND' })
-    const data = JSON.parse(auditCall![1]['data'] as string)
+    expect(mockRepos.auditLog.append).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'REFUND' }),
+    )
+    const auditRow = mockRepos.auditLog.append.mock.calls[0][0]
+    const data = JSON.parse(auditRow['data'] as string)
     expect(data.transactionId).toBe('tx-001')
     expect(data.reason).toBe('Produk rusak')
   })
 
   it('throws RefundError if transaction not found', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
+    mockRepos.transactions.getAll.mockResolvedValue([])
 
     await expect(createRefund('tx-999', [REFUND_ITEM], 'test')).rejects.toThrow(RefundError)
   })
 
   it('throws RefundError if refund amount exceeds original transaction total', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockImplementation((sheet) => {
-      if (sheet === 'Transactions') return Promise.resolve([TRANSACTION_ROW])
-      if (sheet === 'Products') return Promise.resolve([PRODUCT_ROW])
-      return Promise.resolve([])
-    })
+    mockRepos.transactions.getAll.mockResolvedValue([TRANSACTION_ROW])
+    mockRepos.products.getAll.mockResolvedValue([PRODUCT_ROW])
 
     // 3 items × 15000 = 45000 > 30000 (original total)
     const bigRefund = [{ ...REFUND_ITEM, qty: 3 }]

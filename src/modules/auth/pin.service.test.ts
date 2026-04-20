@@ -7,6 +7,23 @@ import { hashPIN, verifyPIN } from './pin.service'
 import { usePinLock } from './usePinLock'
 import * as adapters from '../../lib/adapters'
 
+function mockRepo(overrides = {}) {
+  return {
+    spreadsheetId: 'test-id',
+    sheetName: 'mock',
+    getAll: vi.fn().mockResolvedValue([]),
+    append: vi.fn().mockResolvedValue(undefined),
+    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
+    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    softDelete: vi.fn().mockResolvedValue(undefined),
+    writeHeaders: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }
+}
+
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+
 // ─── pin.service ─────────────────────────────────────────────────────────────
 
 describe('hashPIN', () => {
@@ -42,7 +59,24 @@ describe('usePinLock', () => {
     vi.useFakeTimers()
     pinHash = await hashPIN('1234')
     vi.restoreAllMocks()
-    vi.spyOn(adapters.dataAdapter, 'updateCell').mockResolvedValue()
+    mockRepos = {
+      categories: mockRepo(),
+      products: mockRepo(),
+      variants: mockRepo(),
+      members: mockRepo(),
+      customers: mockRepo(),
+      settings: mockRepo(),
+      stockLog: mockRepo(),
+      purchaseOrders: mockRepo(),
+      purchaseOrderItems: mockRepo(),
+      transactions: mockRepo(),
+      transactionItems: mockRepo(),
+      refunds: mockRepo(),
+      stores: mockRepo(),
+      monthlySheets: mockRepo(),
+      auditLog: mockRepo(),
+    }
+    vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
   })
 
   afterEach(() => {

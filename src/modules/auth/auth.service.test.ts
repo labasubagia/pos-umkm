@@ -5,13 +5,48 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { resolveUserRole, isFirstTimeOwner, UnauthorizedError } from './auth.service'
 import * as adapters from '../../lib/adapters'
 
+function mockRepo(overrides = {}) {
+  return {
+    spreadsheetId: 'test-id',
+    sheetName: 'mock',
+    getAll: vi.fn().mockResolvedValue([]),
+    append: vi.fn().mockResolvedValue(undefined),
+    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
+    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    softDelete: vi.fn().mockResolvedValue(undefined),
+    writeHeaders: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }
+}
+
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+
 beforeEach(() => {
   vi.restoreAllMocks()
+  mockRepos = {
+    categories: mockRepo(),
+    products: mockRepo(),
+    variants: mockRepo(),
+    members: mockRepo(),
+    customers: mockRepo(),
+    settings: mockRepo(),
+    stockLog: mockRepo(),
+    purchaseOrders: mockRepo(),
+    purchaseOrderItems: mockRepo(),
+    transactions: mockRepo(),
+    transactionItems: mockRepo(),
+    refunds: mockRepo(),
+    stores: mockRepo(),
+    monthlySheets: mockRepo(),
+    auditLog: mockRepo(),
+  }
+  vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
 })
 
 describe('resolveUserRole', () => {
   it('returns "cashier" for a known member email', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.members.getAll.mockResolvedValue([
       { id: 'u1', email: 'cashier@test.com', role: 'cashier', deleted_at: null },
     ])
 
@@ -21,7 +56,7 @@ describe('resolveUserRole', () => {
   })
 
   it('returns "owner" for the store owner email', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.members.getAll.mockResolvedValue([
       { id: 'u1', email: 'owner@test.com', role: 'owner', deleted_at: null },
     ])
 
@@ -31,14 +66,14 @@ describe('resolveUserRole', () => {
   })
 
   it('throws UnauthorizedError if email not in Members tab', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
+    mockRepos.members.getAll.mockResolvedValue([])
 
     await expect(resolveUserRole('stranger@test.com')).rejects.toThrow(UnauthorizedError)
   })
 
   it('throws if member has been revoked (deleted_at set)', async () => {
-    // getSheet already filters soft-deleted rows, so revoked members are absent
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    // getAll already filters soft-deleted rows, so revoked members are absent
+    mockRepos.members.getAll.mockResolvedValue([
       // only non-deleted rows returned by adapter
     ])
 
@@ -48,13 +83,13 @@ describe('resolveUserRole', () => {
 
 describe('isFirstTimeOwner', () => {
   it('returns true when Members tab has no rows', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
+    mockRepos.members.getAll.mockResolvedValue([])
 
     expect(await isFirstTimeOwner()).toBe(true)
   })
 
   it('returns false when Members tab has at least one row', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.members.getAll.mockResolvedValue([
       { id: 'u1', email: 'owner@test.com', role: 'owner' },
     ])
 

@@ -10,8 +10,43 @@ import {
 } from './csv.service'
 import type { ParsedProduct } from './csv.service'
 
+function mockRepo(overrides = {}) {
+  return {
+    spreadsheetId: 'test-id',
+    sheetName: 'mock',
+    getAll: vi.fn().mockResolvedValue([]),
+    append: vi.fn().mockResolvedValue(undefined),
+    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
+    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    softDelete: vi.fn().mockResolvedValue(undefined),
+    writeHeaders: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }
+}
+
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+
 beforeEach(() => {
   vi.restoreAllMocks()
+  mockRepos = {
+    categories: mockRepo(),
+    products: mockRepo(),
+    variants: mockRepo(),
+    members: mockRepo(),
+    customers: mockRepo(),
+    settings: mockRepo(),
+    stockLog: mockRepo(),
+    purchaseOrders: mockRepo(),
+    purchaseOrderItems: mockRepo(),
+    transactions: mockRepo(),
+    transactionItems: mockRepo(),
+    refunds: mockRepo(),
+    stores: mockRepo(),
+    monthlySheets: mockRepo(),
+    auditLog: mockRepo(),
+  }
+  vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
 })
 
 // Helper: build a fake File from CSV content
@@ -121,8 +156,7 @@ describe('validateImportRows', () => {
 // ─── bulkImportProducts ───────────────────────────────────────────────────────
 
 describe('bulkImportProducts', () => {
-  it('appends all rows in a single API call (one appendRow per product)', async () => {
-    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
+  it('appends all rows in a single API call (one append per product)', async () => {
     const rows: ParsedProduct[] = [
       { name: 'A', category_id: 'cat-1', price: 1000, stock: 5, sku: '', has_variants: false },
       { name: 'B', category_id: 'cat-1', price: 2000, stock: 10, sku: '', has_variants: false },
@@ -130,13 +164,10 @@ describe('bulkImportProducts', () => {
 
     await bulkImportProducts(rows)
 
-    expect(appendSpy).toHaveBeenCalledTimes(2)
-    expect(appendSpy.mock.calls[0][0]).toBe('Products')
-    expect(appendSpy.mock.calls[1][0]).toBe('Products')
+    expect(mockRepos.products.append).toHaveBeenCalledTimes(2)
   })
 
   it('throws and does not write if any row is invalid', async () => {
-    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
     const rows: ParsedProduct[] = [
       { name: 'Valid', category_id: 'cat-1', price: 1000, stock: 5, sku: '', has_variants: false },
       { name: '', category_id: 'cat-1', price: 0, stock: 0, sku: '', has_variants: false }, // invalid
@@ -144,6 +175,6 @@ describe('bulkImportProducts', () => {
 
     await expect(bulkImportProducts(rows)).rejects.toThrow()
 
-    expect(appendSpy).not.toHaveBeenCalled()
+    expect(mockRepos.products.append).not.toHaveBeenCalled()
   })
 })

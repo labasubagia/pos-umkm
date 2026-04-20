@@ -13,8 +13,43 @@ import {
   TransactionItemRow,
 } from './reports.service'
 
+function mockRepo(overrides = {}) {
+  return {
+    spreadsheetId: 'test-id',
+    sheetName: 'mock',
+    getAll: vi.fn().mockResolvedValue([]),
+    append: vi.fn().mockResolvedValue(undefined),
+    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
+    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    softDelete: vi.fn().mockResolvedValue(undefined),
+    writeHeaders: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }
+}
+
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+
 beforeEach(() => {
   vi.restoreAllMocks()
+  mockRepos = {
+    categories: mockRepo(),
+    products: mockRepo(),
+    variants: mockRepo(),
+    members: mockRepo(),
+    customers: mockRepo(),
+    settings: mockRepo(),
+    stockLog: mockRepo(),
+    purchaseOrders: mockRepo(),
+    purchaseOrderItems: mockRepo(),
+    transactions: mockRepo(),
+    transactionItems: mockRepo(),
+    refunds: mockRepo(),
+    stores: mockRepo(),
+    monthlySheets: mockRepo(),
+    auditLog: mockRepo(),
+  }
+  vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
 })
 
 // ─── T038 — aggregateTransactions ────────────────────────────────────────────
@@ -92,7 +127,8 @@ describe('aggregateTransactions', () => {
 
 describe('fetchDailySummary', () => {
   it('throws ReportError if monthly sheet does not exist yet', async () => {
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([])
+    mockRepos.transactions.getAll.mockResolvedValue([])
+    mockRepos.transactionItems.getAll.mockResolvedValue([])
     await expect(fetchDailySummary('2026-06-01')).rejects.toBeInstanceOf(ReportError)
   })
 })
@@ -101,16 +137,16 @@ describe('fetchDailySummary', () => {
 
 describe('fetchTransactionsForRange', () => {
   it('fetches single monthly sheet for same-month range', async () => {
-    const spy = vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.transactions.getAll.mockResolvedValue([
       { id: 'tx-1', created_at: '2026-06-15T10:00:00.000Z', cashier_id: 'a@b.com', payment_method: 'CASH', total: 10000, cash_received: 10000 },
     ])
     const result = await fetchTransactionsForRange('2026-06-01', '2026-06-30')
-    expect(spy).toHaveBeenCalledTimes(1)
+    expect(mockRepos.transactions.getAll).toHaveBeenCalledTimes(1)
     expect(result).toHaveLength(1)
   })
 
   it('fetches and merges two monthly sheets for cross-month range', async () => {
-    const spy = vi.spyOn(adapters.dataAdapter, 'getSheet')
+    mockRepos.transactions.getAll
       .mockResolvedValueOnce([
         { id: 'tx-1', created_at: '2026-06-20T10:00:00.000Z', cashier_id: 'a@b.com', payment_method: 'CASH', total: 10000, cash_received: 10000 },
       ])
@@ -118,7 +154,7 @@ describe('fetchTransactionsForRange', () => {
         { id: 'tx-2', created_at: '2026-07-05T10:00:00.000Z', cashier_id: 'a@b.com', payment_method: 'QRIS', total: 20000, cash_received: 0 },
       ])
     const result = await fetchTransactionsForRange('2026-06-15', '2026-07-10')
-    expect(spy).toHaveBeenCalledTimes(2)
+    expect(mockRepos.transactions.getAll).toHaveBeenCalledTimes(2)
     expect(result).toHaveLength(2)
   })
 
@@ -223,11 +259,9 @@ describe('calculateExpectedCash', () => {
 
 describe('saveReconciliation', () => {
   it('appends Audit_Log entry with surplus/deficit', async () => {
-    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
     await saveReconciliation(100000, 105000, '2026-06-01')
-    expect(appendSpy).toHaveBeenCalledOnce()
-    const [sheet, row] = appendSpy.mock.calls[0]
-    expect(sheet).toBe('Audit_Log')
+    expect(mockRepos.auditLog.append).toHaveBeenCalledOnce()
+    const row = mockRepos.auditLog.append.mock.calls[0][0]
     expect(row['event']).toBe('CASH_RECONCILIATION')
     const data = JSON.parse(row['data'] as string)
     expect(data.expected).toBe(100000)

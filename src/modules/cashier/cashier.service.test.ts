@@ -28,8 +28,43 @@ vi.mock('../auth/setup.service', () => ({
   shareSheetWithAllMembers: vi.fn().mockResolvedValue(undefined),
 }))
 
+function mockRepo(overrides = {}) {
+  return {
+    spreadsheetId: 'test-id',
+    sheetName: 'mock',
+    getAll: vi.fn().mockResolvedValue([]),
+    append: vi.fn().mockResolvedValue(undefined),
+    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
+    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    softDelete: vi.fn().mockResolvedValue(undefined),
+    writeHeaders: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }
+}
+
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+
 beforeEach(() => {
   vi.restoreAllMocks()
+  mockRepos = {
+    categories: mockRepo(),
+    products: mockRepo(),
+    variants: mockRepo(),
+    members: mockRepo(),
+    customers: mockRepo(),
+    settings: mockRepo(),
+    stockLog: mockRepo(),
+    purchaseOrders: mockRepo(),
+    purchaseOrderItems: mockRepo(),
+    transactions: mockRepo(),
+    transactionItems: mockRepo(),
+    refunds: mockRepo(),
+    stores: mockRepo(),
+    monthlySheets: mockRepo(),
+    auditLog: mockRepo(),
+  }
+  vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
 })
 
 // ─── T025 — calculateSubtotal ─────────────────────────────────────────────────
@@ -215,53 +250,28 @@ describe('commitTransaction', () => {
   const masterSpreadsheetId = 'master-id'
 
   beforeEach(async () => {
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
+    mockRepos.products.getAll.mockResolvedValue([
       { id: 'prod-1', name: 'Nasi Goreng', stock: '10' },
       { id: 'prod-2', name: 'Es Teh', stock: '20' },
     ])
-    vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
   })
 
   it('appends 1 row to Transactions tab', async () => {
-    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
-      { id: 'prod-1', stock: '10' },
-      { id: 'prod-2', stock: '20' },
-    ])
-
     await commitTransaction(items, null, 0, payment, 'user-1', null, masterSpreadsheetId, 1)
 
-    const txCalls = appendSpy.mock.calls.filter(([sheet]) => sheet === 'Transactions')
-    expect(txCalls).toHaveLength(1)
+    expect(mockRepos.transactions.append).toHaveBeenCalledTimes(1)
   })
 
   it('appends all cart items to Transaction_Items tab', async () => {
-    const appendSpy = vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
-      { id: 'prod-1', stock: '10' },
-      { id: 'prod-2', stock: '20' },
-    ])
-
     await commitTransaction(items, null, 0, payment, 'user-1', null, masterSpreadsheetId, 1)
 
-    const itemCalls = appendSpy.mock.calls.filter(([sheet]) => sheet === 'Transaction_Items')
-    expect(itemCalls).toHaveLength(2)
+    expect(mockRepos.transactionItems.append).toHaveBeenCalledTimes(2)
   })
 
   it('decrements stock for each distinct product', async () => {
-    vi.spyOn(adapters.dataAdapter, 'appendRow').mockResolvedValue()
-    vi.spyOn(adapters.dataAdapter, 'getSheet').mockResolvedValue([
-      { id: 'prod-1', stock: '10' },
-      { id: 'prod-2', stock: '20' },
-    ])
-    const batchSpy = vi.spyOn(adapters.dataAdapter, 'batchUpdateCells').mockResolvedValue()
-
     await commitTransaction(items, null, 0, payment, 'user-1', null, masterSpreadsheetId, 1)
 
-    const batchCalls = batchSpy.mock.calls.find(([sheet]) => sheet === 'Products')
-    expect(batchCalls).toBeTruthy()
-    const updates = batchCalls![1]
+    const updates = mockRepos.products.batchUpdateCells.mock.calls[0][0]
     expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-1')?.value).toBe(8) // 10 - 2
     expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-2')?.value).toBe(19) // 20 - 1
   })
