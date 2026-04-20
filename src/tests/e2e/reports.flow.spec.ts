@@ -8,7 +8,7 @@
 import { test, expect } from '@playwright/test'
 import { signInAsOwner, navigateTo } from './helpers/auth'
 
-const BASE = ''
+const BASE = '/pos-umkm'
 
 async function signInAndSetup(page: Parameters<typeof signInAsOwner>[0]) {
   // signInAsOwner fast-paths to /cashier via masterSpreadsheetId pre-seed.

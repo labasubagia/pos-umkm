@@ -8,7 +8,7 @@
 import { test, expect } from '@playwright/test'
 import { signInAsOwner, navigateTo } from './helpers/auth'
 
-const BASE = ''
+const BASE = '/pos-umkm'
 
 /** Sign in as owner and navigate to /catalog, waiting for the page to load. */
 async function signInToCatalog(page: Parameters<typeof signInAsOwner>[0]) {

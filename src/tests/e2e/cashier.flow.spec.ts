@@ -11,7 +11,7 @@
 import { test, expect } from '@playwright/test'
 import { signInAsOwner, navigateTo } from './helpers/auth'
 
-const BASE = ''
+const BASE = '/pos-umkm'
 
 /** Signs in and navigates to /cashier, waiting for the page to be ready. */
 async function signInToCashier(page: Parameters<typeof signInAsOwner>[0]) {
