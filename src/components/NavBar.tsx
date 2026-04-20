@@ -5,7 +5,11 @@
  * md+: shows logo, role-filtered nav links, store picker (owner, 2+ stores), username, sign-out.
  *
  * Navigation on mobile is handled by BottomNav (see AppShell).
+ *
+ * syncStatusSlot: optional ReactNode rendered between the store picker and the user info.
+ * AppShell passes <SyncStatus /> here so the offline badge appears in the navbar.
  */
+import { type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { LogOut, Store } from 'lucide-react'
 import { useAuth } from '../modules/auth/useAuth'
@@ -22,7 +26,11 @@ const ROLE_RANK: Record<Role, number> = {
   owner: 3,
 }
 
-export function NavBar() {
+interface NavBarProps {
+  syncStatusSlot?: ReactNode
+}
+
+export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
   const { user, role, stores, activeStoreId, clearAuth, setSpreadsheetId, setStores } = useAuth()
   const navigate = useNavigate()
 
@@ -107,6 +115,9 @@ export function NavBar() {
             </select>
           </div>
         )}
+
+        {/* Sync status indicator (google adapter only) */}
+        {syncStatusSlot}
 
         {/* User info + sign-out */}
         {user && (
