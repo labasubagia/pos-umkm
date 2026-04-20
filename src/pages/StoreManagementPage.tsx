@@ -79,6 +79,10 @@ export default function StoreManagementPage() {
     try {
       const result = await listStores()
       setStores(result)
+      // Sync authStore so NavBar store picker reflects the current stores from
+      // Sheets — this is necessary after refresh when localStorage is stale
+      // (e.g. a store was added before the active session was persisted).
+      useAuthStore.getState().setStores(result, activeStoreId)
     } catch (err) {
       setError(String(err instanceof Error ? err.message : err))
     }

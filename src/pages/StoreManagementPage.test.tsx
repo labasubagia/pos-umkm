@@ -246,6 +246,21 @@ describe('StoreManagementPage', () => {
 
   // ── T062: authStore sync + Aktifkan button ──────────────────────────────────
 
+  it('syncs authStore on mount so NavBar picker shows correct stores after refresh', async () => {
+    // Simulate refresh: authStore only knows 1 store (stale localStorage),
+    // but listStores() (Google Sheets) returns 2 stores.
+    act(() => {
+      useAuthStore.getState().setStores([ownedStore], ownedStore.store_id)
+    })
+    vi.mocked(svc.listStores).mockResolvedValue([ownedStore, joinedStore])
+    seedOwner()
+    renderPage()
+
+    await waitFor(() =>
+      expect(useAuthStore.getState().stores).toHaveLength(2),
+    )
+  })
+
   it('syncs authStore after createStore so NavBar store picker shows new store', async () => {
     const user = userEvent.setup()
     const newStore: StoreRecord = {
