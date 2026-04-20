@@ -132,9 +132,16 @@ export class HydrationService {
       // return trailing empty rows that parse to { id: null, ... } which IDB
       // rejects with a DataError when the key path yields no value.
       const validRows = rawRows.filter((r) => r['id'] != null && r['id'] !== '')
-      if (validRows.length > 0) {
-        await this.db.table(sheetName).bulkPut(validRows)
-      }
+      // Clear the local table then re-populate from Sheets (full replace).
+      // This removes rows that were deleted in Sheets and ensures the local cache
+      // is an exact replica of the remote sheet — not an accumulation of upserts.
+      // Wrapping in a transaction makes the clear + put atomic.
+      await this.db.transaction('rw', this.db.table(sheetName), async () => {
+        await this.db.table(sheetName).clear()
+        if (validRows.length > 0) {
+          await this.db.table(sheetName).bulkPut(validRows)
+        }
+      })
       void repo // suppress unused warning — used above for type inference context
       await this.db._syncMeta.put({ key: metaKey, value: new Date().toISOString() })
     } catch (err) {
