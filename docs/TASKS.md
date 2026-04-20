@@ -1628,6 +1628,68 @@
 
 ---
 
+## State Management
+
+### T065 — Install and Configure React Query
+
+- **Status:** ⬜ todo
+- **Section:** State Management
+- **Depends on:** T001
+- **Test type:** none
+
+**Goal**: Add `@tanstack/react-query` as the data-fetching and caching layer. All server/Dexie data reads (stores list, catalog, transactions, etc.) will move to React Query hooks. Zustand (`authStore`) retains session state only (`user`, `role`, `isAuthenticated`, `activeStoreId`, spreadsheet IDs).
+
+**Steps**:
+1. `npm install @tanstack/react-query`
+2. Create `QueryClient` in `src/lib/queryClient.ts` with sensible defaults (`staleTime: 30_000`, `retry: 1`).
+3. Wrap `<App />` with `<QueryClientProvider client={queryClient}>` in `main.tsx`.
+4. Add `queryClient.clear()` call in `NavBar.handleSignOut` (after `clearAuth()`) so cache is wiped on logout.
+
+**Architecture note**: React Query is the UI cache sitting above the service layer. Services call `getRepos()` (Dexie offline, Google Sheets online). React Query caches results and revalidates on demand. This decouples pages from manual cache-sync and eliminates the class of bugs caused by pages forgetting to call `setStores` / `setProducts` after mutations.
+
+---
+
+### T066 — Migrate Stores State to React Query
+
+- **Status:** ⬜ todo
+- **Section:** State Management
+- **Depends on:** T065, T064
+- **Test type:** unit
+
+**Goal**: Remove `stores: StoreRecord[]` from `authStore`. All components that need the stores list read from React Query instead of Zustand. This eliminates the manual `setStores` sync that caused the NavBar refresh bugs (T062, T063).
+
+**Changes**:
+
+1. **`authStore`**: remove `stores`, `setStores`; rename to `setActiveStoreId(id)` (was part of `setStores`). Keep `activeStoreId`. Update `clearAuth` to clear `activeStoreId`.
+
+2. **`src/hooks/useStores.ts`** (new):
+   ```ts
+   export function useStores() {
+     return useQuery({ queryKey: ['stores'], queryFn: listStores, staleTime: 30_000 })
+   }
+   ```
+
+3. **`NavBar`**: replace `stores` from `useAuthStore()` with `useStores().data ?? []`.
+
+4. **`StorePickerPage`**: replace `localStores` + `resolveStores` with `useStores()`; after `findOrCreateMain()` succeeds, call `queryClient.setQueryData(['stores'], list)` to seed the cache; remove `setStores(list, null)` calls.
+
+5. **`StoreManagementPage`**: replace `loadStores()` + local `stores` state with `useStores()`; replace all `useAuthStore.getState().setStores(...)` with `queryClient.invalidateQueries({ queryKey: ['stores'] })`; replace `handleActivate` mutation with `useMutation`.
+
+6. **`AppShell`** / anywhere that reads `stores` from authStore: update to `useStores()`.
+
+**Architecture note**: `activeStoreId` stays in `authStore` (it's session state, not fetched data). `stores` is fetched data — it belongs in React Query. After a mutation (add/rename/remove/leave store), `invalidateQueries(['stores'])` causes every subscriber (NavBar, StoreManagementPage, StorePickerPage) to automatically refetch and re-render. No manual sync required.
+
+**Test cases**:
+- ✅ `useStores returns store list from listStores service`
+- ✅ `NavBar store picker shows when useStores returns 2+ stores`
+- ✅ `addStore mutation invalidates ['stores'] query causing refetch`
+- ✅ `updateStore mutation invalidates ['stores'] query`
+- ✅ `removeStore mutation invalidates ['stores'] query`
+- ✅ `logout clears React Query cache (stores not visible after re-login as different user)`
+- ❌ `stores from previous user session not shown after cache clear`
+
+---
+
 ## Appendix: Parallelization Map
 
 The following tasks within each section have no mutual dependencies and can be worked on by different agents simultaneously:
@@ -1646,6 +1708,7 @@ The following tasks within each section have no mutual dependencies and can be w
 | Settings | T043 first; T044 depends on T043 |
 | Offline-First | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055; T057 depends on T056; T058 and T059 depend on T056 (can run in parallel with each other and with T057) |
 | Store Management | T060 first (service), then T061 (UI), then T062 (NavBar sync + switch button), then T063 (remove stale spreadsheet IDs from persistence); T064 (no /cashier redirect) can run in parallel with T063 |
+| State Management | T065 first (install React Query), then T066 (migrate stores) |
 
 ---
 

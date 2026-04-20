@@ -1,20 +1,20 @@
 /**
  * StoreManagementPage — lets an owner add, edit, and remove stores.
  *
- * Ownership is determined by comparing store.owner_email against the
- * signed-in user's email. Owned stores show Edit + Hapus (soft-delete).
- * Non-owned stores show Keluar (leave — removes caller's Members row only).
+ * All data reads come from useStores() (React Query → service → Dexie/Sheets).
+ * All mutations call useMutation + invalidateQueries(['stores']) so every
+ * subscriber (NavBar, this page) auto-refetches without manual sync.
  *
  * Post-action redirects:
  *   - removeOwnedStore of active store → first remaining store, or /setup if empty
  *   - removeAccessToStore               → /stores (store picker)
  */
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
 import { activateStore } from '../modules/auth/setup.service'
 import {
-  listStores,
   createStore,
   updateStore,
   removeOwnedStore,
@@ -41,162 +41,89 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table'
-import { useSyncStore } from '../store/syncStore'
+import { useStores, STORES_QUERY_KEY } from '../hooks/useStores'
 
 export default function StoreManagementPage() {
   const navigate = useNavigate()
-  const { user, activeStoreId, stores: authStores } = useAuthStore()
-  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
+  const queryClient = useQueryClient()
+  const { user, activeStoreId, setActiveStoreId, setSpreadsheetId } = useAuthStore()
 
-  const [stores, setStores] = useState<StoreRecord[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const initialized = useRef(false)
+  const { data: stores = [], error: storesError } = useStores()
+  const [mutationError, setMutationError] = useState<string | null>(null)
+  const error = mutationError ?? (storesError ? String(storesError) : null)
 
-  // ── Add store dialog ────────────────────────────────────────────────────────
+  // ── Add store dialog ──────────────────────────────────────────────────────
   const [showAdd, setShowAdd] = useState(false)
   const [newName, setNewName] = useState('')
-  const [addLoading, setAddLoading] = useState(false)
 
-  // ── Edit store dialog ───────────────────────────────────────────────────────
+  // ── Edit store dialog ─────────────────────────────────────────────────────
   const [editStore, setEditStore] = useState<StoreRecord | null>(null)
   const [editName, setEditName] = useState('')
-  const [editLoading, setEditLoading] = useState(false)
 
-  // ── Delete confirmation dialog ──────────────────────────────────────────────
+  // ── Delete confirmation dialog ────────────────────────────────────────────
   const [deleteStoreId, setDeleteStoreId] = useState<string | null>(null)
-  const [deleteLoading, setDeleteLoading] = useState(false)
 
-  // ── Leave confirmation dialog ───────────────────────────────────────────────
+  // ── Leave confirmation dialog ─────────────────────────────────────────────
   const [leaveStore, setLeaveStore] = useState<StoreRecord | null>(null)
-  const [leaveLoading, setLeaveLoading] = useState(false)
 
-  // ── Activate store ──────────────────────────────────────────────────────────
-  const [activateLoading, setActivateLoading] = useState<string | null>(null)
+  const invalidateStores = () =>
+    queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY })
 
-  // ─── Data loading ─────────────────────────────────────────────────────────
+  // ── Mutations ─────────────────────────────────────────────────────────────
 
-  async function loadStores() {
-    try {
-      const result = await listStores()
-      setStores(result)
-      // Sync authStore so NavBar store picker reflects the current stores from
-      // Sheets — this is necessary after refresh when localStorage is stale
-      // (e.g. a store was added before the active session was persisted).
-      useAuthStore.getState().setStores(result, activeStoreId)
-    } catch (err) {
-      setError(String(err instanceof Error ? err.message : err))
-    }
-  }
+  const addMutation = useMutation({
+    mutationFn: (name: string) => createStore(name),
+    onSuccess: () => { setNewName(''); setShowAdd(false); void invalidateStores() },
+    onError: (err) => setMutationError(String(err instanceof Error ? err.message : err)),
+  })
 
-  useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    void loadStores()
-  }, [])
+  const editMutation = useMutation({
+    mutationFn: ({ storeId, name }: { storeId: string; name: string }) =>
+      updateStore(storeId, { store_name: name }),
+    onSuccess: () => { setEditStore(null); void invalidateStores() },
+    onError: (err) => setMutationError(String(err instanceof Error ? err.message : err)),
+  })
 
-  useEffect(() => {
-    if (lastHydratedAt === null) return
-    initialized.current = false
-    void loadStores()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastHydratedAt])
-
-  // ─── Actions ──────────────────────────────────────────────────────────────
-
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setAddLoading(true)
-    try {
-      await createStore(newName)
-      setNewName('')
-      setShowAdd(false)
-      const updated = await listStores()
-      setStores(updated)
-      // Sync authStore so NavBar store picker re-evaluates stores.length >= 2.
-      useAuthStore.getState().setStores(updated, activeStoreId)
-    } catch (err) {
-      setError(String(err instanceof Error ? err.message : err))
-    } finally {
-      setAddLoading(false)
-    }
-  }
-
-  async function handleEdit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!editStore) return
-    setError(null)
-    setEditLoading(true)
-    try {
-      await updateStore(editStore.store_id, { store_name: editName })
-      setEditStore(null)
-      const updated = await listStores()
-      setStores(updated)
-      // Sync authStore so NavBar option labels reflect the renamed store.
-      useAuthStore.getState().setStores(updated, activeStoreId)
-    } catch (err) {
-      setError(String(err instanceof Error ? err.message : err))
-    } finally {
-      setEditLoading(false)
-    }
-  }
-
-  async function handleDelete() {
-    if (!deleteStoreId) return
-    setError(null)
-    setDeleteLoading(true)
-    try {
-      await removeOwnedStore(deleteStoreId)
-      setDeleteStoreId(null)
-      const remaining = await listStores()
-      setStores(remaining)
-      // If we just deleted the active store, switch to the first remaining one.
-      if (deleteStoreId === activeStoreId) {
+  const deleteMutation = useMutation({
+    mutationFn: async (storeId: string) => {
+      await removeOwnedStore(storeId)
+      await invalidateStores()
+      if (storeId === activeStoreId) {
+        const remaining = queryClient.getQueryData<StoreRecord[]>(STORES_QUERY_KEY) ?? []
         if (remaining.length > 0) {
           await activateStore(remaining[0])
-          useAuthStore.getState().setStores(remaining, remaining[0].store_id)
+          setSpreadsheetId(remaining[0].master_spreadsheet_id)
+          setActiveStoreId(remaining[0].store_id)
         } else {
           useAuthStore.getState().clearAuth()
           navigate('/setup')
         }
       }
-    } catch (err) {
+    },
+    onSuccess: () => setDeleteStoreId(null),
+    onError: (err) => {
       setDeleteStoreId(null)
-      setError(String(err instanceof Error ? err.message : err))
-    } finally {
-      setDeleteLoading(false)
-    }
-  }
+      setMutationError(String(err instanceof Error ? err.message : err))
+    },
+  })
 
-  async function handleLeave() {
-    if (!leaveStore) return
-    setError(null)
-    setLeaveLoading(true)
-    try {
-      await removeAccessToStore(leaveStore.master_spreadsheet_id)
+  const leaveMutation = useMutation({
+    mutationFn: (masterId: string) => removeAccessToStore(masterId),
+    onSuccess: () => { setLeaveStore(null); navigate('/stores') },
+    onError: (err) => {
       setLeaveStore(null)
-      // User no longer has access to any store — send to store picker.
-      navigate('/stores')
-    } catch (err) {
-      setLeaveStore(null)
-      setError(String(err instanceof StoreManagementError ? err.message : err))
-    } finally {
-      setLeaveLoading(false)
-    }
-  }
+      setMutationError(String(err instanceof StoreManagementError ? err.message : err))
+    },
+  })
 
-  async function handleActivate(store: StoreRecord) {
-    setError(null)
-    setActivateLoading(store.store_id)
-    try {
+  const activateMutation = useMutation({
+    mutationFn: async (store: StoreRecord) => {
       await activateStore(store)
-      useAuthStore.getState().setStores(authStores, store.store_id)
-    } catch (err) {
-      setError(String(err instanceof Error ? err.message : err))
-    } finally {
-      setActivateLoading(null)
-    }
-  }
+      setSpreadsheetId(store.master_spreadsheet_id)
+      setActiveStoreId(store.store_id)
+    },
+    onError: (err) => setMutationError(String(err instanceof Error ? err.message : err)),
+  })
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -241,10 +168,11 @@ export default function StoreManagementPage() {
                       variant="secondary"
                       size="sm"
                       data-testid={`btn-activate-store-${store.store_id}`}
-                      disabled={activateLoading === store.store_id}
-                      onClick={() => void handleActivate(store)}
+                      disabled={activateMutation.isPending && activateMutation.variables?.store_id === store.store_id}
+                      onClick={() => { setMutationError(null); activateMutation.mutate(store) }}
                     >
-                      {activateLoading === store.store_id ? 'Memproses…' : 'Aktifkan'}
+                      {activateMutation.isPending && activateMutation.variables?.store_id === store.store_id
+                        ? 'Memproses…' : 'Aktifkan'}
                     </Button>
                   )}
                   {isOwner && (
@@ -256,7 +184,7 @@ export default function StoreManagementPage() {
                         onClick={() => {
                           setEditStore(store)
                           setEditName(store.store_name)
-                          setError(null)
+                          setMutationError(null)
                         }}
                       >
                         Edit
@@ -265,7 +193,7 @@ export default function StoreManagementPage() {
                         variant="destructive"
                         size="sm"
                         data-testid={`btn-delete-store-${store.store_id}`}
-                        onClick={() => { setDeleteStoreId(store.store_id); setError(null) }}
+                        onClick={() => { setDeleteStoreId(store.store_id); setMutationError(null) }}
                       >
                         Hapus
                       </Button>
@@ -276,7 +204,7 @@ export default function StoreManagementPage() {
                       variant="outline"
                       size="sm"
                       data-testid={`btn-leave-store-${store.store_id}`}
-                      onClick={() => { setLeaveStore(store); setError(null) }}
+                      onClick={() => { setLeaveStore(store); setMutationError(null) }}
                     >
                       Keluar
                     </Button>
@@ -301,7 +229,7 @@ export default function StoreManagementPage() {
           <DialogHeader>
             <DialogTitle>Tambah Toko Baru</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleAdd} className="flex flex-col gap-4">
+          <form onSubmit={(e) => { e.preventDefault(); setMutationError(null); addMutation.mutate(newName) }} className="flex flex-col gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="new-store-name">Nama Toko</Label>
               <Input
@@ -320,9 +248,9 @@ export default function StoreManagementPage() {
               <Button
                 type="submit"
                 data-testid="btn-save-store"
-                disabled={addLoading || !newName.trim()}
+                disabled={addMutation.isPending || !newName.trim()}
               >
-                {addLoading ? 'Menyimpan…' : 'Simpan'}
+                {addMutation.isPending ? 'Menyimpan…' : 'Simpan'}
               </Button>
             </DialogFooter>
           </form>
@@ -335,7 +263,15 @@ export default function StoreManagementPage() {
           <DialogHeader>
             <DialogTitle>Edit Toko</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleEdit} className="flex flex-col gap-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!editStore) return
+              setMutationError(null)
+              editMutation.mutate({ storeId: editStore.store_id, name: editName })
+            }}
+            className="flex flex-col gap-4"
+          >
             <div className="space-y-1.5">
               <Label htmlFor="edit-store-name">Nama Toko</Label>
               <Input
@@ -353,9 +289,9 @@ export default function StoreManagementPage() {
               <Button
                 type="submit"
                 data-testid="btn-save-store-edit"
-                disabled={editLoading || !editName.trim()}
+                disabled={editMutation.isPending || !editName.trim()}
               >
-                {editLoading ? 'Menyimpan…' : 'Simpan'}
+                {editMutation.isPending ? 'Menyimpan…' : 'Simpan'}
               </Button>
             </DialogFooter>
           </form>
@@ -381,10 +317,10 @@ export default function StoreManagementPage() {
             <Button
               variant="destructive"
               data-testid="btn-confirm-delete-store"
-              disabled={deleteLoading}
-              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteStoreId && deleteMutation.mutate(deleteStoreId)}
             >
-              {deleteLoading ? 'Menghapus…' : 'Hapus'}
+              {deleteMutation.isPending ? 'Menghapus…' : 'Hapus'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -410,10 +346,10 @@ export default function StoreManagementPage() {
             <Button
               variant="destructive"
               data-testid="btn-confirm-leave-store"
-              disabled={leaveLoading}
-              onClick={handleLeave}
+              disabled={leaveMutation.isPending}
+              onClick={() => leaveStore && leaveMutation.mutate(leaveStore.master_spreadsheet_id)}
             >
-              {leaveLoading ? 'Memproses…' : 'Keluar'}
+              {leaveMutation.isPending ? 'Memproses…' : 'Keluar'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -421,3 +357,4 @@ export default function StoreManagementPage() {
     </div>
   )
 }
+

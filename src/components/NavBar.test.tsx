@@ -13,11 +13,13 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
 import { NavBar } from './NavBar'
 import * as adapters from '../lib/adapters'
 import type { Role } from '../lib/adapters/types'
 import type { StoreRecord } from '../modules/auth/setup.service'
+import * as useStoresModule from '../hooks/useStores'
 
 vi.mock('../lib/adapters', () => ({
   authAdapter: {
@@ -40,6 +42,11 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
+vi.mock('../hooks/useStores', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../hooks/useStores')>()
+  return { ...actual, useStores: vi.fn().mockReturnValue({ data: [], isLoading: false }) }
+})
+
 const store1: StoreRecord = {
   store_id: 'store-1', store_name: 'Toko 1', master_spreadsheet_id: 'master-1',
   drive_folder_id: 'folder-1', owner_email: 'test@test.com', my_role: 'owner',
@@ -59,17 +66,24 @@ function setRole(role: Role, name = 'Test User') {
   })
 }
 
+let testQueryClient: QueryClient
+
 function renderNavBar(initialPath = '/cashier') {
   return render(
-    <MemoryRouter initialEntries={[initialPath]}>
-      <NavBar />
-    </MemoryRouter>,
+    <QueryClientProvider client={testQueryClient}>
+      <MemoryRouter initialEntries={[initialPath]}>
+        <NavBar />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 
 beforeEach(() => {
+  testQueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   useAuthStore.getState().clearAuth()
   vi.clearAllMocks()
+  // Reset useStores mock to empty list by default
+  vi.mocked(useStoresModule.useStores).mockReturnValue({ data: [], isLoading: false })
 })
 
 describe('NavBar', () => {
@@ -133,13 +147,14 @@ describe('NavBar', () => {
 
   // ── T064: no /cashier redirect on store switch ────────────────────────────
 
-  it('switching store calls activateStore and setStores without navigating', async () => {
+  it('switching store calls activateStore and setActiveStoreId without navigating', async () => {
     const { activateStore } = await import('../modules/auth/setup.service')
     const user = userEvent.setup()
     setRole('owner')
     act(() => {
-      useAuthStore.getState().setStores([store1, store2], store1.store_id)
+      useAuthStore.getState().setActiveStoreId(store1.store_id)
     })
+    vi.mocked(useStoresModule.useStores).mockReturnValue({ data: [store1, store2], isLoading: false })
     renderNavBar('/reports')
 
     await user.selectOptions(screen.getByRole('combobox'), store2.store_id)
@@ -154,8 +169,9 @@ describe('NavBar', () => {
     const user = userEvent.setup()
     setRole('owner')
     act(() => {
-      useAuthStore.getState().setStores([store1, store2], store1.store_id)
+      useAuthStore.getState().setActiveStoreId(store1.store_id)
     })
+    vi.mocked(useStoresModule.useStores).mockReturnValue({ data: [store1, store2], isLoading: false })
     renderNavBar()
 
     await user.selectOptions(screen.getByRole('combobox'), store1.store_id)

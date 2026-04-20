@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Role, User } from '../lib/adapters/types'
-import type { StoreRecord } from '../modules/auth/setup.service'
 
 interface AuthState {
   user: User | null
@@ -15,15 +14,13 @@ interface AuthState {
   /** Current month's transaction spreadsheet ID (persisted). */
   monthlySpreadsheetId: string | null
   isAuthenticated: boolean
-  stores: StoreRecord[]
   activeStoreId: string | null
   setUser: (user: User, role: Role, accessToken: string) => void
   setAccessToken: (token: string) => void
   setSpreadsheetId: (id: string) => void
   setMainSpreadsheetId: (id: string) => void
   setMonthlySpreadsheetId: (id: string) => void
-  setStores: (stores: StoreRecord[], activeStoreId: string | null) => void
-  updateActiveStoreName: (name: string) => void
+  setActiveStoreId: (id: string | null) => void
   clearAuth: () => void
 }
 
@@ -35,6 +32,9 @@ interface AuthState {
  * persistence — it is an OAuth bearer token and must never be written to
  * localStorage (XSS risk). The token is restored on startup by
  * AuthInitializer which calls authAdapter.restoreSession().
+ *
+ * The stores list is NOT kept here — it lives in React Query (useStores hook)
+ * so mutations auto-invalidate all subscribers without manual setStores() calls.
  */
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -46,7 +46,6 @@ export const useAuthStore = create<AuthState>()(
       mainSpreadsheetId: null,
       monthlySpreadsheetId: null,
       isAuthenticated: false,
-      stores: [],
       activeStoreId: null,
       setUser: (user, role, accessToken) =>
         set({ user, role, accessToken, isAuthenticated: true }),
@@ -54,13 +53,7 @@ export const useAuthStore = create<AuthState>()(
       setSpreadsheetId: (id) => set({ spreadsheetId: id }),
       setMainSpreadsheetId: (id) => set({ mainSpreadsheetId: id }),
       setMonthlySpreadsheetId: (id) => set({ monthlySpreadsheetId: id }),
-      setStores: (stores, activeStoreId) => set({ stores, activeStoreId }),
-      updateActiveStoreName: (name) =>
-        set((state) => ({
-          stores: state.stores.map((s) =>
-            s.store_id === state.activeStoreId ? { ...s, store_name: name } : s,
-          ),
-        })),
+      setActiveStoreId: (id) => set({ activeStoreId: id }),
       clearAuth: () =>
         set({
           user: null,
@@ -70,7 +63,6 @@ export const useAuthStore = create<AuthState>()(
           spreadsheetId: null,
           mainSpreadsheetId: null,
           monthlySpreadsheetId: null,
-          stores: [],
           activeStoreId: null,
         }),
     }),
@@ -85,7 +77,6 @@ export const useAuthStore = create<AuthState>()(
         mainSpreadsheetId: state.mainSpreadsheetId,
         monthlySpreadsheetId: state.monthlySpreadsheetId,
         isAuthenticated: state.isAuthenticated,
-        stores: state.stores,
         activeStoreId: state.activeStoreId,
       }),
     },

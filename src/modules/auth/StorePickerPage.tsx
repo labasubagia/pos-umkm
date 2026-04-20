@@ -3,24 +3,28 @@
  *
  * On mount:
  *   1. Calls findOrCreateMain() to get (or create) the owner's main spreadsheet.
- *   2. If 0 stores → redirects to /setup (first-time owner).
- *   3. If 1 store  → auto-activates and redirects to /cashier.
- *   4. If 2+ stores → shows a picker so the user can choose a branch.
+ *   2. Seeds the React Query stores cache with the result.
+ *   3. If 0 stores → redirects to /setup (first-time owner).
+ *   4. If 1 store  → auto-activates and redirects to /cashier.
+ *   5. If 2+ stores → shows a picker so the user can choose a branch.
  *
  * Requires authentication (wrapped in ProtectedRoute in router.tsx).
  * No AppShell / NavBar — this is part of the auth/onboarding flow.
  */
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from './useAuth'
 import { findOrCreateMain, activateStore } from './setup.service'
 import type { StoreRecord } from './setup.service'
 import { Button } from '../../components/ui/button'
 import { Alert, AlertDescription } from '../../components/ui/alert'
+import { STORES_QUERY_KEY } from '../../hooks/useStores'
 
 export default function StorePickerPage() {
   const navigate = useNavigate()
-  const { user, setSpreadsheetId, setStores } = useAuth()
+  const { user, setSpreadsheetId, setActiveStoreId } = useAuth()
+  const queryClient = useQueryClient()
 
   const [loading, setLoading] = useState(true)
   const [localStores, setLocalStores] = useState<StoreRecord[]>([])
@@ -31,8 +35,8 @@ export default function StorePickerPage() {
   async function resolveStores() {
     try {
       const { stores: list } = await findOrCreateMain(user?.email ?? '')
-      // Always persist the full store list in Zustand for NavBar access.
-      setStores(list, null)
+      // Seed React Query cache — NavBar and other consumers get the list immediately.
+      queryClient.setQueryData(STORES_QUERY_KEY, list)
       if (list.length === 0) {
         navigate('/setup', { replace: true })
         return
@@ -60,7 +64,7 @@ export default function StorePickerPage() {
     try {
       await activateStore(store)
       setSpreadsheetId(store.master_spreadsheet_id)
-      setStores(localStores.length > 0 ? localStores : [store], store.store_id)
+      setActiveStoreId(store.store_id)
       navigate('/cashier', { replace: true })
     } catch (err) {
       setError(`Gagal mengaktifkan toko: ${String(err)}`)

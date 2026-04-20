@@ -3,9 +3,10 @@
  *
  * Loads settings on mount. On save, calls saveSettings with changed fields only.
  * If business_name changed, also syncs the new name to the main spreadsheet's
- * Stores tab and to the Zustand stores list so the NavBar reflects it immediately.
+ * Stores tab and invalidates the React Query stores cache so NavBar reflects it.
  */
 import { useState, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { getSettings, saveSettings, type BusinessSettings } from './settings.service'
 import { updateStoreName } from '../auth/setup.service'
 import { useAuth } from '../auth/useAuth'
@@ -14,11 +15,13 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useSyncStore } from '../../store/syncStore'
+import { STORES_QUERY_KEY } from '../../hooks/useStores'
 
 const TIMEZONES = ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'] as const
 
 export default function BusinessProfile() {
-  const { activeStoreId, spreadsheetId, updateActiveStoreName } = useAuth()
+  const { activeStoreId, spreadsheetId } = useAuth()
+  const queryClient = useQueryClient()
   const [initialName, setInitialName] = useState('')
   const [form, setForm] = useState<BusinessSettings>({
     business_name: '',
@@ -76,7 +79,7 @@ export default function BusinessProfile() {
       // and to Zustand so the NavBar store picker reflects the new name immediately.
       if (form.business_name !== initialName && activeStoreId && spreadsheetId) {
         await updateStoreName(activeStoreId, form.business_name)
-        updateActiveStoreName(form.business_name)
+        void queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY })
         setInitialName(form.business_name)
       }
 

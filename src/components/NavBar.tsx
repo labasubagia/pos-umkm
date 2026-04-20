@@ -19,6 +19,8 @@ import { activateStore } from '../modules/auth/setup.service'
 import type { Role } from '../lib/adapters/types'
 import { Button } from './ui/button'
 import { NAV_ITEMS } from './nav.constants'
+import { useStores } from '../hooks/useStores'
+import { queryClient } from '../lib/queryClient'
 
 const ROLE_RANK: Record<Role, number> = {
   cashier: 1,
@@ -31,7 +33,8 @@ interface NavBarProps {
 }
 
 export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
-  const { user, role, stores, activeStoreId, clearAuth, setSpreadsheetId, setStores } = useAuth()
+  const { user, role, activeStoreId, clearAuth, setSpreadsheetId, setActiveStoreId } = useAuth()
+  const { data: stores = [] } = useStores()
   const navigate = useNavigate()
 
   const visibleItems = NAV_ITEMS.filter(
@@ -44,6 +47,7 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
     await authAdapter.signOut()
     clearAuth()
     clearSetupStorage()
+    queryClient.clear()
     navigate('/', { replace: true })
   }
 
@@ -54,7 +58,7 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
     try {
       await activateStore(store)
       setSpreadsheetId(store.master_spreadsheet_id)
-      setStores(stores, storeId)
+      setActiveStoreId(storeId)
       // Stay on the current page — AppShell re-hydrates Dexie for the new store.
     } catch {
       // Silent — store picker reverts visually on next render

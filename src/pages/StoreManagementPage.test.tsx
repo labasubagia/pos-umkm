@@ -5,12 +5,14 @@
  * useAuthStore is pre-seeded with an owner user.
  * react-router-dom navigate is mocked so redirect assertions are safe.
  * activateStore (setup.service) is mocked to avoid real API calls.
+ * QueryClientProvider is provided so useStores() / useMutation() work.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
 import StoreManagementPage from './StoreManagementPage'
 import * as svc from '../modules/settings/store-management.service'
@@ -72,16 +74,20 @@ function seedOwner() {
     useAuthStore
       .getState()
       .setUser({ id: 'u1', email: OWNER_EMAIL, name: 'Test Owner', role: 'owner' }, 'owner', 'tok')
-    useAuthStore.getState().setStores([ownedStore, joinedStore], ownedStore.store_id)
+    useAuthStore.getState().setActiveStoreId(ownedStore.store_id)
     useAuthStore.getState().setMainSpreadsheetId('main-id')
   })
 }
 
 function renderPage() {
+  // Fresh QueryClient per test so cache doesn't bleed between tests.
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter>
-      <StoreManagementPage />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <StoreManagementPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 
@@ -244,24 +250,23 @@ describe('StoreManagementPage', () => {
     expect(screen.getByTestId('alert-store-error')).toHaveTextContent('Network error')
   })
 
-  // ── T062: authStore sync + Aktifkan button ──────────────────────────────────
+  // ── T062: React Query auto-fetch + Aktifkan button ─────────────────────────
 
-  it('syncs authStore on mount so NavBar picker shows correct stores after refresh', async () => {
-    // Simulate refresh: authStore only knows 1 store (stale localStorage),
-    // but listStores() (Google Sheets) returns 2 stores.
-    act(() => {
-      useAuthStore.getState().setStores([ownedStore], ownedStore.store_id)
-    })
+  it('fetches fresh store list on mount (simulates stale localStorage refresh scenario)', async () => {
+    // With React Query, stores are never in localStorage — listStores() is always called.
+    // This test ensures both stores from the server are shown regardless of prior state.
     vi.mocked(svc.listStores).mockResolvedValue([ownedStore, joinedStore])
     seedOwner()
     renderPage()
 
-    await waitFor(() =>
-      expect(useAuthStore.getState().stores).toHaveLength(2),
-    )
+    await waitFor(() => {
+      expect(screen.getByText('Toko Sendiri')).toBeInTheDocument()
+      expect(screen.getByText('Toko Orang Lain')).toBeInTheDocument()
+    })
+    expect(svc.listStores).toHaveBeenCalledTimes(1)
   })
 
-  it('syncs authStore after createStore so NavBar store picker shows new store', async () => {
+  it('refetches store list after createStore so NavBar cache is invalidated', async () => {
     const user = userEvent.setup()
     const newStore: StoreRecord = {
       store_id: 'store-new',
@@ -284,12 +289,12 @@ describe('StoreManagementPage', () => {
     await user.type(screen.getByTestId('input-store-name'), 'Toko Baru')
     await user.click(screen.getByTestId('btn-save-store'))
 
-    await waitFor(() =>
-      expect(useAuthStore.getState().stores).toHaveLength(2),
-    )
+    // After mutation, invalidateQueries triggers a refetch → listStores called twice
+    await waitFor(() => expect(svc.listStores).toHaveBeenCalledTimes(2))
+    await waitFor(() => screen.getByText('Toko Baru'))
   })
 
-  it('syncs authStore after updateStore so NavBar reflects renamed store', async () => {
+  it('refetches store list after updateStore so renamed store is visible', async () => {
     const user = userEvent.setup()
     const renamedStore = { ...ownedStore, store_name: 'Toko Ganti Nama' }
     vi.mocked(svc.listStores)
@@ -306,9 +311,9 @@ describe('StoreManagementPage', () => {
     await user.type(input, 'Toko Ganti Nama')
     await user.click(screen.getByTestId('btn-save-store-edit'))
 
-    await waitFor(() =>
-      expect(useAuthStore.getState().stores[0].store_name).toBe('Toko Ganti Nama'),
-    )
+    // After mutation, invalidateQueries triggers a refetch
+    await waitFor(() => expect(svc.listStores).toHaveBeenCalledTimes(2))
+    await waitFor(() => screen.getByText('Toko Ganti Nama'))
   })
 
   it('shows Aktifkan button only for inactive stores', async () => {
