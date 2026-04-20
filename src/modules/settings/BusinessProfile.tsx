@@ -13,6 +13,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Alert, AlertDescription } from '../../components/ui/alert'
+import { useSyncStore } from '../../store/syncStore'
 
 const TIMEZONES = ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'] as const
 
@@ -31,6 +32,7 @@ export default function BusinessProfile() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const initialized = useRef(false)
+  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
 
   useEffect(() => {
     if (initialized.current) return
@@ -41,6 +43,18 @@ export default function BusinessProfile() {
       setLoading(false)
     })
   }, [])
+
+  // Re-load after HydrationService populates IndexedDB on login.
+  useEffect(() => {
+    if (lastHydratedAt === null) return
+    initialized.current = false
+    void getSettings().then((s) => {
+      setForm(s)
+      setInitialName(s.business_name)
+      setLoading(false)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastHydratedAt])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target

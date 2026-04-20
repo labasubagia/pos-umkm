@@ -39,6 +39,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
+import { useSyncStore } from '../../store/syncStore'
 
 export function PurchaseOrders() {
   const [orders, setOrders] = useState<PurchaseOrder[]>([])
@@ -59,6 +60,7 @@ export function PurchaseOrders() {
   const [detailOrder, setDetailOrder] = useState<PurchaseOrder | null>(null)
   const [detailItems, setDetailItems] = useState<PurchaseOrderItemRow[]>([])
   const [receivingId, setReceivingId] = useState<string | null>(null)
+  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
 
   const loadOrders = useCallback(async () => {
     setLoading(true)
@@ -80,6 +82,14 @@ export function PurchaseOrders() {
     initialized.current = true
     loadOrders()
   }, [loadOrders])
+
+  // Re-load after HydrationService populates IndexedDB on login.
+  useEffect(() => {
+    if (lastHydratedAt === null) return
+    initialized.current = false
+    loadOrders()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastHydratedAt])
 
   async function openForm() {
     try {

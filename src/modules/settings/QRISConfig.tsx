@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Alert, AlertDescription } from '../../components/ui/alert'
+import { useSyncStore } from '../../store/syncStore'
 
 export default function QRISConfig() {
   const [url, setUrl] = useState('')
@@ -19,6 +20,7 @@ export default function QRISConfig() {
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const initialized = useRef(false)
+  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
 
   useEffect(() => {
     if (initialized.current) return
@@ -30,6 +32,19 @@ export default function QRISConfig() {
       }
     })
   }, [])
+
+  // Re-load after HydrationService populates IndexedDB on login.
+  useEffect(() => {
+    if (lastHydratedAt === null) return
+    initialized.current = false
+    void getQRISImage().then((stored) => {
+      if (stored) {
+        setUrl(stored)
+        setPreview(stored)
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastHydratedAt])
 
   function handleUrlChange(e: React.ChangeEvent<HTMLInputElement>) {
     setUrl(e.target.value)

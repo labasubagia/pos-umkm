@@ -10,6 +10,7 @@ import { useState, useEffect, useRef } from 'react'
 import { fetchCustomers, type Customer } from './customers.service'
 import { Input } from '../../components/ui/input'
 import { Button } from '../../components/ui/button'
+import { useSyncStore } from '../../store/syncStore'
 
 interface CustomerSearchProps {
   /** Called when the user selects a customer, or null to clear the selection. */
@@ -22,6 +23,7 @@ export function CustomerSearch({ onSelect }: CustomerSearchProps) {
   const [selected, setSelected] = useState<Customer | null>(null)
   const [loading, setLoading] = useState(true)
   const initialized = useRef(false)
+  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
 
   useEffect(() => {
     if (initialized.current) return
@@ -30,6 +32,16 @@ export function CustomerSearch({ onSelect }: CustomerSearchProps) {
       .then(setCustomers)
       .finally(() => setLoading(false))
   }, [])
+
+  // Re-load after HydrationService populates IndexedDB on login.
+  useEffect(() => {
+    if (lastHydratedAt === null) return
+    initialized.current = false
+    fetchCustomers()
+      .then(setCustomers)
+      .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastHydratedAt])
 
   const filtered = query.trim()
     ? customers.filter(

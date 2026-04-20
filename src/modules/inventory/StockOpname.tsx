@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
+import { useSyncStore } from '../../store/syncStore'
 
 export function StockOpname() {
   const [rows, setRows] = useState<OpnameRow[]>([])
@@ -26,6 +27,7 @@ export function StockOpname() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -47,6 +49,14 @@ export function StockOpname() {
     initialized.current = true
     load()
   }, [load])
+
+  // Re-load after HydrationService populates IndexedDB on login.
+  useEffect(() => {
+    if (lastHydratedAt === null) return
+    initialized.current = false
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastHydratedAt])
 
   function handlePhysicalCountChange(productId: string, value: string) {
     const count = parseInt(value, 10)

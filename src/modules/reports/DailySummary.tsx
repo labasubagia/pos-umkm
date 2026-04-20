@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
+import { useSyncStore } from '../../store/syncStore'
 
 export function DailySummary() {
   const today = new Date().toISOString().slice(0, 10)
@@ -22,6 +23,7 @@ export function DailySummary() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const initialized = useRef(false)
+  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
 
   async function load(d: string) {
     setLoading(true)
@@ -45,6 +47,14 @@ export function DailySummary() {
     initialized.current = true
     load(today)
   }, [])
+
+  // Re-load after HydrationService populates IndexedDB on login.
+  useEffect(() => {
+    if (lastHydratedAt === null) return
+    initialized.current = false
+    load(date)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastHydratedAt])
 
   return (
     <div data-testid="daily-summary-container" className="p-4 space-y-4">

@@ -8,13 +8,15 @@ import { ProductList } from '../modules/catalog/ProductList'
 import { CSVImport } from '../modules/catalog/CSVImport'
 import { useCatalogStore } from '../modules/catalog/useCatalog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
+import { useSyncStore } from '../store/syncStore'
 
 export default function CatalogPage() {
   const { loadCatalog, loading } = useCatalogStore()
+  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
 
   useEffect(() => {
     loadCatalog()
-  }, [loadCatalog])
+  }, [loadCatalog, lastHydratedAt])
 
   return (
     <>

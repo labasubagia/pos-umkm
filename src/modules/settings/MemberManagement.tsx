@@ -18,6 +18,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Alert, AlertDescription } from '../../components/ui/alert'
+import { useSyncStore } from '../../store/syncStore'
 
 export default function MemberManagement() {
   const { spreadsheetId } = useAuth()
@@ -28,12 +29,21 @@ export default function MemberManagement() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const initialized = useRef(false)
+  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
 
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
     void listMembers().then(setMembers)
   }, [])
+
+  // Re-load after HydrationService populates IndexedDB on login.
+  useEffect(() => {
+    if (lastHydratedAt === null) return
+    initialized.current = false
+    void listMembers().then(setMembers)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastHydratedAt])
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()

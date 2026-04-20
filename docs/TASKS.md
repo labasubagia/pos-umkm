@@ -1363,11 +1363,7 @@
 
 ### T057 — Multi-Store Dexie Partitioning
 
-- **Status:** ⬜ todo
-- **Phase:** 9 – Offline-First
-- **Depends on:** T056
-- **Test type:** unit
-- **Architecture note:** The current `db.ts` opens a single IndexedDB database named `pos_umkm`. All entity tables (`Products`, `Transactions`, etc.) hold rows from whatever store was last hydrated. When a user owns multiple stores (or is a member of several), switching the active store in `authStore` leaves stale rows from the previous store in every Dexie table — module reads immediately return wrong data without any network call.
+- **Status:** ✅ done All entity tables (`Products`, `Transactions`, etc.) hold rows from whatever store was last hydrated. When a user owns multiple stores (or is a member of several), switching the active store in `authStore` leaves stale rows from the previous store in every Dexie table — module reads immediately return wrong data without any network call.
 
   **Root cause:** `PosUmkmDatabase` is a singleton constructed with a fixed DB name. There is no `store_id` partition in any entity table.
 
@@ -1421,7 +1417,7 @@
 
 ### T058 — Fix Post-Hydration Stale Module State
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 9 – Offline-First
 - **Depends on:** T056
 - **Test type:** unit
@@ -1463,7 +1459,7 @@
 
 ### T059 — Fix `_syncMeta` Key Not Scoped by SpreadsheetId
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Phase:** 9 – Offline-First
 - **Depends on:** T056
 - **Test type:** unit

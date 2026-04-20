@@ -24,6 +24,7 @@ import { getQRISImageUrl } from '../modules/settings/settings.service'
 import type { Transaction, TransactionItem, PaymentInfo } from '../modules/cashier/cashier.service'
 import { Button } from '../components/ui/button'
 import { Alert, AlertDescription } from '../components/ui/alert'
+import { useSyncStore } from '../store/syncStore'
 
 const TAX_RATE = 0 // PPN disabled by default; owner can enable in Settings (post-MVP)
 
@@ -32,6 +33,7 @@ type MobileView = 'products' | 'cart'
 export default function CashierPage() {
   const { user, spreadsheetId } = useAuthStore()
   const { products, variants, loadCatalog } = useCatalogStore()
+  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
   const { items, discount, resetCart, holdCart } = useCartStore()
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [showPayment, setShowPayment] = useState(false)
@@ -51,6 +53,15 @@ export default function CashierPage() {
     loadCatalog()
     getQRISImageUrl().then(setQrisImageUrl).catch(() => {})
   }, [loadCatalog])
+
+  // Re-fetch catalog data after HydrationService populates IndexedDB on login.
+  useEffect(() => {
+    if (lastHydratedAt === null) return
+    initialized.current = false
+    loadCatalog()
+    getQRISImageUrl().then(setQrisImageUrl).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastHydratedAt])
 
   const subtotal = calculateSubtotal(items)
   const discountAmount = discount
