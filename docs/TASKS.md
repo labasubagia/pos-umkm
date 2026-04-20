@@ -1419,6 +1419,80 @@
 
 ---
 
+### T058 — Fix Post-Hydration Stale Module State
+
+- **Status:** ⬜ todo
+- **Phase:** 9 – Offline-First
+- **Depends on:** T056
+- **Test type:** unit
+- **Architecture note:** Module pages (`CashierPage`, `CatalogPage`, etc.) call `loadCatalog()` / `loadInventory()` etc. in a `useEffect` on mount. These calls read from Dexie via `DexieSheetRepository.getAll()`. At mount time, hydration has not yet completed — Dexie tables are either empty (first load) or contain data from a previous session. `HydrationService.hydrateAll()` runs concurrently in a separate `AppShell` `useEffect`, completes asynchronously, and populates Dexie with fresh Sheets data. But because module effects already ran and set Zustand state, there is no signal to trigger a re-fetch. The UI shows empty/stale data until the user navigates away and back, which remounts the page and calls `loadCatalog()` again.
+
+  **Root cause summary:**
+  1. `loadCatalog()` is a one-shot pull (reads Dexie once, sets Zustand) — there is no push notification when Dexie changes
+  2. `hydrateAll()` is fire-and-forget from `AppShell` — its completion is invisible to page components
+
+  **Fix — hydration signal via Zustand:**
+  Extend `syncStore` with a `lastHydratedAt: number | null` field. `HydrationService.hydrateAll()` calls `setSyncState({ lastHydratedAt: Date.now() })` when all tables have been processed. Page-level `useEffect`s that call `loadCatalog()` etc. add `lastHydratedAt` from `syncStore` to their dependency array. When hydration completes, `lastHydratedAt` changes → effects re-run → modules re-read from (now-populated) Dexie.
+
+  Why this over `dexie-react-hooks` / `useLiveQuery`: the `useLiveQuery` approach requires replacing every Zustand-based module store with a reactive hook pattern — a large-scope refactor touching every page and module service. The signal approach achieves the same result for the login use case (one re-fetch per hydration cycle) with changes limited to `syncStore`, `HydrationService`, and the affected page components. `useLiveQuery` remains a future improvement (T060).
+
+  **Scope of affected pages** (all pages that load data in a `useEffect` on mount):
+  - `CashierPage` — `loadCatalog()`
+  - `CatalogPage` — `loadCatalog()`
+  - `InventoryPage` / `StockOpname` / `PurchaseOrders` — `loadInventory()`
+  - `CustomersPage` — `loadCustomers()`
+  - `ReportsPage` — `loadReports()`
+  - `SettingsPage` — `loadSettings()`
+
+- **Deliverables:**
+  - `src/store/syncStore.ts` updated:
+    - Add `lastHydratedAt: number | null` field (initial value `null`)
+    - `setSyncState` already accepts a partial update — no signature change needed
+  - `src/lib/adapters/dexie/HydrationService.ts` updated:
+    - After `Promise.allSettled` resolves in `hydrateAll()`, call `useSyncStore.getState().setSyncState({ lastHydratedAt: Date.now() })`
+  - All page components listed above updated:
+    - Import `useSyncStore` and destructure `lastHydratedAt`
+    - Add `lastHydratedAt` to the `useEffect` dependency array for the data-load effect
+- **Test cases:**
+  - ✅ `hydrateAll calls setSyncState with lastHydratedAt after completion`
+  - ✅ `hydrateAll updates lastHydratedAt even when some tables fail (allSettled)`
+  - ✅ `page re-calls loadCatalog when lastHydratedAt changes`
+  - ❌ `page does not call loadCatalog twice on initial mount when lastHydratedAt is null`
+
+---
+
+### T059 — Fix `_syncMeta` Key Not Scoped by SpreadsheetId
+
+- **Status:** ⬜ todo
+- **Phase:** 9 – Offline-First
+- **Depends on:** T056
+- **Test type:** unit
+- **Architecture note:** `HydrationService.hydrateTable()` reads and writes `_syncMeta` using the key `${sheetName}_hydrated` (e.g. `Products_hydrated`). This key is not scoped to any particular spreadsheet. In a single-DB Dexie setup (current state before T057), a user who manages two stores (e.g. Store A with `masterSid=sid_A` and Store B with `masterSid=sid_B`) will see this sequence:
+
+  1. Login → Store A activated → `hydrateAll(mainId, sid_A, monthId_A)` → `Products` hydrated → `_syncMeta` key `Products_hydrated` written with timestamp T1
+  2. Switch to Store B → `hydrateAll(mainId, sid_B, monthId_B)` → hydration checks `_syncMeta.get('Products_hydrated')` → T1 is less than 5 minutes ago → **skip** → Store B's Products are never fetched → Dexie still has Store A's products
+
+  The fix: include `spreadsheetId` in the `_syncMeta` key: `${spreadsheetId}_${sheetName}` (e.g. `sid_A_Products`, `sid_B_Products`). This allows independent freshness tracking per store per table.
+
+  This is a stopgap fix that works within the single-DB design. T057 (per-store Dexie DB) will fully isolate `_syncMeta` once implemented; at that point, the key can revert to `${sheetName}` because each DB is already store-scoped. For now, this fix prevents data from the wrong store being silently served after a store switch.
+
+  **Monthly sheet tables** (`Transactions`, `Transaction_Items`, `Refunds`) use `monthlySpreadsheetId` which changes every calendar month. A month-rollover also creates a new spreadsheetId, so scoping by `spreadsheetId` naturally forces a re-hydration for the new monthly sheet without any extra logic.
+
+  **Side effect — stale `_syncMeta` entries accumulate:** old keys like `old_sid_Products` are never cleaned up. This is acceptable until T057 replaces the single DB with per-store DBs (at which point the entire `_syncMeta` table is per-store and stale entries are impossible).
+
+- **Deliverables:**
+  - `src/lib/adapters/dexie/HydrationService.ts` updated:
+    - `hydrateTable()`: change `const metaKey = \`${sheetName}_hydrated\`` to `const metaKey = \`${spreadsheetId}_${sheetName}\``
+    - `forceHydrate()`: pass `spreadsheetId` into the internal call so the correct key is cleared
+- **Test cases:**
+  - ✅ `hydrateTable writes _syncMeta key scoped to spreadsheetId`
+  - ✅ `switching to a different spreadsheetId for the same sheetName triggers a fresh hydration`
+  - ✅ `same spreadsheetId + sheetName within staleness window is still skipped`
+  - ✅ `month rollover (new monthlySpreadsheetId) triggers re-hydration of Transactions`
+  - ❌ `stale key from previous spreadsheetId does not block hydration for new spreadsheetId`
+
+---
+
 ## Appendix: Parallelization Map
 
 The following tasks within each phase have no mutual dependencies and can be worked on by different agents simultaneously:
@@ -1435,7 +1509,7 @@ The following tasks within each phase have no mutual dependencies and can be wor
 | Within Phase 6 | T036 first, then T037 |
 | Within Phase 7 | T038 first; T039 depends on T038; T040 depends on T039; T041, T042 depend on T039 |
 | Within Phase 8 | T043 first; T044 depends on T043 |
-| Within Phase 9 | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055; T057 depends on T056 |
+| Within Phase 9 | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055; T057 depends on T056; T058 and T059 depend on T056 (can run in parallel with each other and with T057) |
 
 ---
 
