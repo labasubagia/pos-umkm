@@ -54,10 +54,8 @@ export default function SetupWizard() {
         { key: 'receipt_footer', value: '' },
       ]
       const ts = nowUTC()
-      await Promise.all(
-        settingsRows.map((s) =>
-          getRepos().settings.batchAppend([{ ...s, updated_at: ts }]),
-        ),
+      await getRepos().settings.batchAppend(
+        settingsRows.map((s) => ({ ...s, updated_at: ts })),
       )
 
       setSpreadsheetId(masterSpreadsheetId)
