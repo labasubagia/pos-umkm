@@ -56,7 +56,7 @@ export default function SetupWizard() {
       const ts = nowUTC()
       await Promise.all(
         settingsRows.map((s) =>
-          getRepos().settings.append( { ...s, updated_at: ts }),
+          getRepos().settings.batchAppend([{ ...s, updated_at: ts }]),
         ),
       )
 
