@@ -128,8 +128,12 @@ export class HydrationService {
       // We store all rows including soft-deleted ones in Dexie so that
       // DexieSheetRepository.getAll() can filter them too.
       const rawRows = await this.getRawRows(spreadsheetId, sheetName)
-      if (rawRows.length > 0) {
-        await this.db.table(sheetName).bulkPut(rawRows)
+      // Filter rows where the primary key (id) is missing — Google Sheets can
+      // return trailing empty rows that parse to { id: null, ... } which IDB
+      // rejects with a DataError when the key path yields no value.
+      const validRows = rawRows.filter((r) => r['id'] != null && r['id'] !== '')
+      if (validRows.length > 0) {
+        await this.db.table(sheetName).bulkPut(validRows)
       }
       void repo // suppress unused warning — used above for type inference context
       await this.db._syncMeta.put({ key: metaKey, value: new Date().toISOString() })
