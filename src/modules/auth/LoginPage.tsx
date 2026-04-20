@@ -59,7 +59,8 @@ export default function LoginPage() {
     try {
       const user = await authAdapter.signIn()
       onAuthenticated(user, authAdapter.getAccessToken() ?? '')
-    } catch {
+    } catch (err) {
+      console.error('[LoginPage] sign-in failed:', err)
       setSigningIn(false)
     }
   }
