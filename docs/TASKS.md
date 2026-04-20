@@ -1610,6 +1610,24 @@
 
 ---
 
+### T064 — Remove /cashier Redirect on NavBar Store Switch
+
+- **Status:** ⬜ todo
+- **Section:** Store Management
+- **Depends on:** T062
+- **Test type:** unit
+
+**Problem**: `NavBar.handleStoreChange()` calls `navigate('/cashier', { replace: true })` after switching stores. This forces the user away from whatever page they were on (e.g., reports, catalog, settings) every time they switch stores.
+
+**Proposed fix**: Remove the `navigate('/cashier')` call from `handleStoreChange`. After `activateStore()` and `setStores()` complete, the current route stays active. AppShell's `useEffect` will detect the store change and re-hydrate Dexie automatically, so the current page re-renders with the new store's data.
+
+**Test cases**:
+- ✅ `switching store via NavBar calls activateStore and setStores`
+- ✅ `switching store via NavBar does NOT navigate to /cashier`
+- ❌ `selecting the already-active store does nothing`
+
+---
+
 ## Appendix: Parallelization Map
 
 The following tasks within each section have no mutual dependencies and can be worked on by different agents simultaneously:
@@ -1627,7 +1645,7 @@ The following tasks within each section have no mutual dependencies and can be w
 | Reports | T038 first; T039 depends on T038; T040 depends on T039; T041, T042 depend on T039 |
 | Settings | T043 first; T044 depends on T043 |
 | Offline-First | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055; T057 depends on T056; T058 and T059 depend on T056 (can run in parallel with each other and with T057) |
-| Store Management | T060 first (service), then T061 (UI), then T062 (NavBar sync + switch button), then T063 (remove stale spreadsheet IDs from persistence) |
+| Store Management | T060 first (service), then T061 (UI), then T062 (NavBar sync + switch button), then T063 (remove stale spreadsheet IDs from persistence); T064 (no /cashier redirect) can run in parallel with T063 |
 
 ---
 

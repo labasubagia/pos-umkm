@@ -55,7 +55,7 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
       await activateStore(store)
       setSpreadsheetId(store.master_spreadsheet_id)
       setStores(stores, storeId)
-      navigate('/cashier', { replace: true })
+      // Stay on the current page — AppShell re-hydrates Dexie for the new store.
     } catch {
       // Silent — store picker reverts visually on next render
     }

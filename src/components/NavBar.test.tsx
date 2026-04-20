@@ -2,13 +2,14 @@
  * T048 — NavBar unit tests
  *
  * Verifies role-filtered nav links, logo, username display,
- * sign-out behaviour, and unauthenticated state.
+ * sign-out behaviour, unauthenticated state, and store-switch behaviour.
  *
  * authAdapter.signOut is mocked so no real OAuth calls are made.
  * useNavigate is mocked because NavBar calls navigate('/') on sign-out.
+ * activateStore (setup.service) is mocked for store-switch tests.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { MemoryRouter } from 'react-router-dom'
@@ -16,6 +17,7 @@ import { useAuthStore } from '../store/authStore'
 import { NavBar } from './NavBar'
 import * as adapters from '../lib/adapters'
 import type { Role } from '../lib/adapters/types'
+import type { StoreRecord } from '../modules/auth/setup.service'
 
 vi.mock('../lib/adapters', () => ({
   authAdapter: {
@@ -27,11 +29,27 @@ vi.mock('../lib/adapters', () => ({
   dataAdapter: {},
 }))
 
+vi.mock('../modules/auth/setup.service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../modules/auth/setup.service')>()
+  return { ...actual, activateStore: vi.fn().mockResolvedValue(undefined) }
+})
+
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: () => mockNavigate }
 })
+
+const store1: StoreRecord = {
+  store_id: 'store-1', store_name: 'Toko 1', master_spreadsheet_id: 'master-1',
+  drive_folder_id: 'folder-1', owner_email: 'test@test.com', my_role: 'owner',
+  joined_at: '2026-01-01T00:00:00Z',
+}
+const store2: StoreRecord = {
+  store_id: 'store-2', store_name: 'Toko 2', master_spreadsheet_id: 'master-2',
+  drive_folder_id: 'folder-2', owner_email: 'test@test.com', my_role: 'owner',
+  joined_at: '2026-02-01T00:00:00Z',
+}
 
 function setRole(role: Role, name = 'Test User') {
   act(() => {
@@ -111,5 +129,37 @@ describe('NavBar', () => {
     renderNavBar()
     expect(screen.getByTestId('navbar-nav').querySelectorAll('a')).toHaveLength(0)
     expect(screen.queryByTestId('navbar-username')).toBeNull()
+  })
+
+  // ── T064: no /cashier redirect on store switch ────────────────────────────
+
+  it('switching store calls activateStore and setStores without navigating', async () => {
+    const { activateStore } = await import('../modules/auth/setup.service')
+    const user = userEvent.setup()
+    setRole('owner')
+    act(() => {
+      useAuthStore.getState().setStores([store1, store2], store1.store_id)
+    })
+    renderNavBar('/reports')
+
+    await user.selectOptions(screen.getByRole('combobox'), store2.store_id)
+
+    await waitFor(() => expect(activateStore).toHaveBeenCalledWith(store2))
+    expect(useAuthStore.getState().activeStoreId).toBe(store2.store_id)
+    expect(mockNavigate).not.toHaveBeenCalledWith('/cashier', expect.anything())
+  })
+
+  it('selecting the already-active store does nothing', async () => {
+    const { activateStore } = await import('../modules/auth/setup.service')
+    const user = userEvent.setup()
+    setRole('owner')
+    act(() => {
+      useAuthStore.getState().setStores([store1, store2], store1.store_id)
+    })
+    renderNavBar()
+
+    await user.selectOptions(screen.getByRole('combobox'), store1.store_id)
+
+    expect(activateStore).not.toHaveBeenCalled()
   })
 })
