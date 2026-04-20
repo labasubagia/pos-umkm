@@ -311,20 +311,18 @@ export async function commitTransaction(
     notes: '',
   })
 
-  // Step 2: Append all items at once
-  await Promise.all(
-    items.map((item) =>
-      getRepos().transactionItems.append( {
-        id: generateId(),
-        transaction_id: transactionId,
-        product_id: item.productId,
-        variant_id: item.variantId ?? '',
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        subtotal: item.price * item.quantity,
-      }),
-    ),
+  // Step 2: Append all items in a single API call
+  await getRepos().transactionItems.batchAppend(
+    items.map((item) => ({
+      id: generateId(),
+      transaction_id: transactionId,
+      product_id: item.productId,
+      variant_id: item.variantId ?? '',
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      subtotal: item.price * item.quantity,
+    })),
   )
 
   // Step 3: Decrement stock — best-effort; log failures but don't roll back.

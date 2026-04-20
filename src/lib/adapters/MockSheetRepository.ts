@@ -45,6 +45,14 @@ export class MockSheetRepository<T extends Record<string, unknown>> implements I
     writeRows(this.sheetName, rows)
   }
 
+  async batchAppend(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void> {
+    const existing = readRows(this.sheetName)
+    for (const row of rows) {
+      existing.push({ id: generateId(), ...row })
+    }
+    writeRows(this.sheetName, existing)
+  }
+
   async updateCell(rowId: string, column: string, value: unknown): Promise<void> {
     const rows = readRows(this.sheetName)
     const idx = rows.findIndex((r) => r['id'] === rowId)

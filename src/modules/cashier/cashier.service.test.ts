@@ -34,6 +34,7 @@ function mockRepo(overrides = {}) {
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
     append: vi.fn().mockResolvedValue(undefined),
+    batchAppend: vi.fn().mockResolvedValue(undefined),
     updateCell: vi.fn().mockResolvedValue(undefined),
     batchUpdateCells: vi.fn().mockResolvedValue(undefined),
     batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
@@ -262,10 +263,12 @@ describe('commitTransaction', () => {
     expect(mockRepos.transactions.append).toHaveBeenCalledTimes(1)
   })
 
-  it('appends all cart items to Transaction_Items tab', async () => {
+  it('appends all cart items to Transaction_Items tab in a single call', async () => {
     await commitTransaction(items, null, 0, payment, 'user-1', null, masterSpreadsheetId, 1)
 
-    expect(mockRepos.transactionItems.append).toHaveBeenCalledTimes(2)
+    expect(mockRepos.transactionItems.batchAppend).toHaveBeenCalledTimes(1)
+    const appended = mockRepos.transactionItems.batchAppend.mock.calls[0][0]
+    expect(appended).toHaveLength(2)
   })
 
   it('decrements stock for each distinct product', async () => {

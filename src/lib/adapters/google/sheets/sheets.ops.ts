@@ -109,6 +109,46 @@ export async function appendRow(
 }
 
 /**
+ * Appends multiple rows to the sheet in a single API round-trip.
+ *
+ * Fetches the header row ONCE, maps every row object to column order, then
+ * calls sheetsAppend with all rows at once. Compared to N × appendRow calls
+ * this saves (N − 1) GET requests and (N − 1) POST requests.
+ */
+export async function batchAppendRows(
+  spreadsheetId: string,
+  sheetName: string,
+  rows: Record<string, unknown>[],
+  token: string,
+): Promise<void> {
+  if (rows.length === 0) return
+  try {
+    const headerUrl = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`
+    const headerRes = await fetch(headerUrl, { headers: { Authorization: `Bearer ${token}` } })
+    let headers: string[] = []
+    if (headerRes.ok) {
+      const headerData = await headerRes.json()
+      headers = (headerData.values?.[0] ?? []) as string[]
+    }
+
+    const valueRows = rows.map((row) => {
+      const rowWithId = row['id'] ? row : { id: generateId(), ...row }
+      if (headers.length > 0) {
+        return headers.map((h) => rowWithId[h] ?? null)
+      }
+      return Object.values(rowWithId)
+    })
+
+    await sheetsAppend(spreadsheetId, sheetName, valueRows as (string | number | boolean)[][], token)
+  } catch (err) {
+    if (err instanceof SheetsApiError) {
+      throw new AdapterError(`batchAppendRows failed for "${sheetName}": ${err.message}`, err)
+    }
+    throw err
+  }
+}
+
+/**
  * Finds the row number by id, then updates the specific column cell.
  * Fetches the full sheet to locate the row index and resolve the column letter.
  */
