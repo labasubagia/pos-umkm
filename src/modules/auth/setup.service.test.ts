@@ -19,7 +19,6 @@ import {
   activateStore,
   runStoreSetup,
   runFirstTimeSetup,
-  MAIN_TABS,
   MAIN_TAB_HEADERS,
   MASTER_TABS,
   MONTHLY_TABS,

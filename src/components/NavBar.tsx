@@ -7,37 +7,20 @@
  * Navigation on mobile is handled by BottomNav (see AppShell).
  */
 import { NavLink, useNavigate } from 'react-router-dom'
-import {
-  ShoppingCart,
-  Package,
-  Archive,
-  Users,
-  BarChart2,
-  Settings,
-  LogOut,
-  Store,
-} from 'lucide-react'
+import { LogOut, Store } from 'lucide-react'
 import { useAuth } from '../modules/auth/useAuth'
 import { clearSetupStorage } from '../modules/auth/setup.service'
 import { authAdapter } from '../lib/adapters'
 import { activateStore } from '../modules/auth/setup.service'
 import type { Role } from '../lib/adapters/types'
 import { Button } from './ui/button'
+import { NAV_ITEMS } from './nav.constants'
 
 const ROLE_RANK: Record<Role, number> = {
   cashier: 1,
   manager: 2,
   owner: 3,
 }
-
-export const NAV_ITEMS = [
-  { to: '/cashier', label: 'Kasir', icon: ShoppingCart, minRole: 'cashier' as Role },
-  { to: '/catalog', label: 'Katalog', icon: Package, minRole: 'manager' as Role },
-  { to: '/inventory', label: 'Inventori', icon: Archive, minRole: 'manager' as Role },
-  { to: '/customers', label: 'Pelanggan', icon: Users, minRole: 'manager' as Role },
-  { to: '/reports', label: 'Laporan', icon: BarChart2, minRole: 'manager' as Role },
-  { to: '/settings', label: 'Pengaturan', icon: Settings, minRole: 'owner' as Role },
-]
 
 export function NavBar() {
   const { user, role, stores, activeStoreId, clearAuth, setSpreadsheetId, setStores } = useAuth()

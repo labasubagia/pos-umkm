@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { setupServer } from 'msw/node'
-import { http, HttpResponse, delay } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { sheetsGet, sheetsAppend, sheetsUpdate, sheetsBatchGet } from './sheets.client'
 import { SheetsApiError } from './sheets.types'
 
@@ -19,7 +19,6 @@ const FAKE_VALUES = [
   ['row-2', 'Es Teh', '5000'],
 ]
 
-let retryCount = 0
 
 const server = setupServer(
   // sheetsGet — normal
@@ -77,7 +76,6 @@ const server = setupServer(
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => {
   server.resetHandlers()
-  retryCount = 0
 })
 afterAll(() => server.close())
 

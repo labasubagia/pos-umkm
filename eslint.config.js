@@ -24,6 +24,11 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
+      // Allow _-prefixed identifiers to be intentionally unused (interface impl params, etc.)
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
       // Warn when code imports from another module's internals instead of its barrel (index.ts).
       // Forces cross-module consumers to go through the public API, not internal files.
       'no-restricted-imports': [

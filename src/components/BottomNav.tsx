@@ -14,7 +14,7 @@
  */
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../modules/auth/useAuth'
-import { NAV_ITEMS } from './NavBar'
+import { NAV_ITEMS } from './nav.constants'
 
 const ROLE_RANK = { cashier: 1, manager: 2, owner: 3 } as const
 

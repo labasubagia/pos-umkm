@@ -28,12 +28,6 @@ export default function StorePickerPage() {
   const [activating, setActivating] = useState(false)
   const initialized = useRef(false)
 
-  useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    void resolveStores()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
   async function resolveStores() {
     try {
       const { stores: list } = await findOrCreateMain(user?.email ?? '')
@@ -54,6 +48,12 @@ export default function StorePickerPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
+    void resolveStores()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function activate(store: StoreRecord) {
     setActivating(true)
