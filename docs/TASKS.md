@@ -1489,6 +1489,76 @@
 
 ---
 
+## Phase 10 — Store Management
+
+> Allows an owner to add new stores, edit existing ones, and remove stores. Removing a store the user **owns** soft-deletes it from the `Stores` sheet (data preserved, store becomes invisible to all members). Removing a store the user **does not own** removes only the user's own row from that store's `Members` sheet (peer-revoke access).
+
+---
+
+### T060 — Store Management Service
+
+- **Status:** ⬜ todo
+- **Phase:** 10 – Store Management
+- **Depends on:** T019, T056
+- **Test type:** unit
+- **Architecture note:** All store-management mutations go through the existing `ISheetRepository<T>` / Dexie adapter stack — no raw Sheets API calls from the service. `createStore` reuses the existing `SetupService.initMasterSheet()` helper to provision a new master spreadsheet (categories, products, members sheets) and then appends the resulting store row to the user's `Stores` tab on their main spreadsheet. `removeOwnedStore` performs a soft-delete (`deleted_at` timestamp) on the store's row in the `Stores` tab rather than a hard delete, so transaction history is preserved. `removeAccessToStore` locates the caller's own row in the target store's `Members` sheet (matched by Google user `email` from `useAuthStore`) and soft-deletes it; it never touches the `Stores` tab of a sheet the caller does not own. The service never alters another user's main spreadsheet.
+- **Deliverables:**
+  - `src/modules/settings/store-management.service.ts` (new)
+    - `listStores()` → `IStore[]` — reads `Stores` tab from `mainSpreadsheetId`; excludes rows with `deleted_at` set
+    - `createStore(name: string)` → `IStore` — provisions a new master spreadsheet via `SetupService.initMasterSheet()`; appends the new store row to the `Stores` tab; returns the created store
+    - `updateStore(storeId: string, patch: Partial<Pick<IStore, 'store_name'>>)` → `void` — `batchUpdateCells` on the matching row in `Stores`
+    - `removeOwnedStore(storeId: string)` → `void` — soft-deletes the store row in the user's `Stores` tab (`deleted_at = now`)
+    - `removeAccessToStore(storeId: string)` → `void` — locates the caller's row in `${masterSpreadsheetId}/Members` by `email`; soft-deletes it
+- **Test cases:**
+  - ✅ `listStores returns all non-deleted stores`
+  - ✅ `listStores excludes stores with deleted_at set`
+  - ✅ `createStore appends a new row and returns the store with a uuid`
+  - ✅ `updateStore calls batchUpdateCells with the patched fields`
+  - ✅ `removeOwnedStore soft-deletes the matching row in Stores tab`
+  - ✅ `removeAccessToStore soft-deletes caller's row in target store's Members tab`
+  - ❌ `removeOwnedStore throws if storeId does not exist`
+  - ❌ `removeAccessToStore throws if caller is not a member of the store`
+  - ❌ `createStore propagates error when initMasterSheet fails`
+
+---
+
+### T061 — Store Management Page
+
+- **Status:** ⬜ todo
+- **Phase:** 10 – Store Management
+- **Depends on:** T060
+- **Test type:** unit + e2e
+- **Architecture note:** The page is mounted at `/settings/stores` and accessible from the Settings tabs. Ownership is determined by comparing `store.owner_email` (a field in the `Stores` tab) against the signed-in user's email from `useAuthStore`. Owned stores show an **Edit** action and a **Hapus** (delete) action; non-owned stores show only a **Keluar** (leave) action. Both destructive actions open a confirmation `Dialog` before proceeding to prevent accidental data loss. After a successful `createStore` or `removeOwnedStore`, the active store is re-selected to the first remaining store (if the deleted store was the active one); if no stores remain, the user is redirected to the setup wizard. `removeAccessToStore` always redirects to the setup wizard because the user no longer has access to any store in the list.
+- **Deliverables:**
+  - `src/pages/StoreManagementPage.tsx` (new)
+    - Store list rendered as a `Table` (shadcn); each row shows store name, owner, and action buttons
+    - **Tambah Toko** button (top-right) opens a `Dialog` with a store-name `Input` and a **Simpan** button; `data-testid="btn-add-store"`, `data-testid="input-store-name"`, `data-testid="btn-save-store"`
+    - **Edit** action opens an edit `Dialog` pre-filled with current store name; `data-testid="btn-edit-store-{storeId}"`, `data-testid="btn-save-store-edit"`
+    - **Hapus** action (owned stores) opens a confirmation `Dialog`; `data-testid="btn-delete-store-{storeId}"`, `data-testid="btn-confirm-delete-store"`
+    - **Keluar** action (non-owned stores) opens a confirmation `Dialog`; `data-testid="btn-leave-store-{storeId}"`, `data-testid="btn-confirm-leave-store"`
+    - Inline `Alert` for errors; `data-testid="alert-store-error"`
+    - Loading state while async calls are in flight
+  - `src/modules/settings/SettingsPage.tsx` updated — add **Toko** tab linking to `StoreManagementPage`; or integrate as a new `TabsTrigger` if Settings uses a tab layout
+  - Route added to `src/router/index.tsx` at `/settings/stores`
+- **Test cases (unit):**
+  - ✅ `renders store list with names and correct action buttons per ownership`
+  - ✅ `Add dialog submits createStore and refreshes list`
+  - ✅ `Edit dialog pre-fills store name and submits updateStore`
+  - ✅ `Delete confirmation calls removeOwnedStore and removes row from list`
+  - ✅ `Leave confirmation calls removeAccessToStore`
+  - ❌ `shows error Alert when createStore fails`
+  - ❌ `shows error Alert when removeOwnedStore fails`
+  - ❌ `does not show Delete button for non-owned stores`
+  - ❌ `does not show Leave button for owned stores`
+- **E2E spec:** `e2e/store-management.spec.ts`
+  - `owner can add a new store`
+  - `owner can edit store name`
+  - `owner can delete owned store`
+  - `member can leave a non-owned store`
+  - `error is shown when store name is empty`
+
+---
+
 ## Appendix: Parallelization Map
 
 The following tasks within each phase have no mutual dependencies and can be worked on by different agents simultaneously:
@@ -1506,6 +1576,7 @@ The following tasks within each phase have no mutual dependencies and can be wor
 | Within Phase 7 | T038 first; T039 depends on T038; T040 depends on T039; T041, T042 depend on T039 |
 | Within Phase 8 | T043 first; T044 depends on T043 |
 | Within Phase 9 | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055; T057 depends on T056; T058 and T059 depend on T056 (can run in parallel with each other and with T057) |
+| Within Phase 10 | T060 first (service), then T061 (UI) |
 
 ---
 
