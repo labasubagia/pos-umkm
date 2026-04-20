@@ -6,6 +6,7 @@ import CustomersPage from './pages/CustomersPage'
 import InventoryPage from './pages/InventoryPage'
 import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/SettingsPage'
+import StoreManagementPage from './pages/StoreManagementPage'
 import NotFoundPage from './pages/NotFoundPage'
 import LoginPage from './modules/auth/LoginPage'
 import SetupWizard from './modules/auth/SetupWizard'
@@ -95,6 +96,14 @@ export const router = createBrowserRouter(
               element: (
                 <RoleRoute minRole="owner">
                   <SettingsPage />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: '/settings/stores',
+              element: (
+                <RoleRoute minRole="owner">
+                  <StoreManagementPage />
                 </RoleRoute>
               ),
             },

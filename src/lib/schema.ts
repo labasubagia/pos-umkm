@@ -37,7 +37,7 @@ export const MONTHLY_TABS = ['Transactions', 'Transaction_Items', 'Refunds'] as 
 export const MAIN_TAB_HEADERS: Record<string, string[]> = {
   Stores: [
     'store_id', 'store_name', 'master_spreadsheet_id',
-    'drive_folder_id', 'owner_email', 'my_role', 'joined_at',
+    'drive_folder_id', 'owner_email', 'my_role', 'joined_at', 'deleted_at',
   ],
 }
 

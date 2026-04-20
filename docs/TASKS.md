@@ -1497,7 +1497,7 @@
 
 ### T060 — Store Management Service
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Section:** Store Management
 - **Depends on:** T019, T056
 - **Test type:** unit
@@ -1524,7 +1524,7 @@
 
 ### T061 — Store Management Page
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Section:** Store Management
 - **Depends on:** T060
 - **Test type:** unit + e2e
