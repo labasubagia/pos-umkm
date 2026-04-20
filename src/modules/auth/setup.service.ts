@@ -255,8 +255,23 @@ export async function activateStore(store: StoreRecord): Promise<void> {
   const now = new Date()
   const year = now.getFullYear()
   const month = now.getMonth() + 1
+  const yearMonth = `${year}-${mm(month)}`
 
-  let monthlyId = await getCurrentMonthSheetId()
+  // Read Monthly_Sheets directly from the master spreadsheet via a raw
+  // SheetRepository (makeRepo), bypassing the Dexie cache. At this point
+  // reinitDexieLayer() has not yet run for the new store (it fires in
+  // AppShell's useEffect after the Zustand state update), so getRepos()
+  // would read from the *previous* store's IndexedDB and return the wrong
+  // monthly spreadsheet ID, causing cross-store data contamination.
+  let monthlyId: string | null = null
+  try {
+    const rows = await makeRepo(masterId, 'Monthly_Sheets').getAll()
+    const row = rows.find((r) => (r as Record<string, unknown>)['year_month'] === yearMonth)
+    monthlyId = ((row as Record<string, unknown>)?.['spreadsheetId'] as string) ?? null
+  } catch {
+    // Monthly_Sheets tab may not yet exist (pre-setup); treat as no entry.
+  }
+
   if (!monthlyId) {
     try {
       monthlyId = await createMonthlySheet(year, month)

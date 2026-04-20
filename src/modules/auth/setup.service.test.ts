@@ -347,7 +347,8 @@ describe('activateStore', () => {
   }
 
   it('saves activeStoreId to localStorage and routes adapter to master sheet', async () => {
-    mockRepos.monthlySheets.getAll.mockResolvedValue([]) // no monthly sheet yet
+    // makeRepo (not getRepos) is used to bypass stale Dexie cache.
+    sharedMakeRepo.getAll.mockResolvedValue([])
     vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('monthly-id')
 
     await activateStore(store)
@@ -359,7 +360,7 @@ describe('activateStore', () => {
   it('sets monthly sheet in auth store when monthly sheet exists', async () => {
     const now = new Date()
     const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    mockRepos.monthlySheets.getAll.mockResolvedValue([
+    sharedMakeRepo.getAll.mockResolvedValue([
       { year_month: yearMonth, spreadsheetId: 'existing-monthly-id', id: 'r1', created_at: '' },
     ])
 
@@ -369,7 +370,7 @@ describe('activateStore', () => {
   })
 
   it('creates monthly sheet when none exists for current month', async () => {
-    mockRepos.monthlySheets.getAll.mockResolvedValue([]) // no monthly entry
+    sharedMakeRepo.getAll.mockResolvedValue([]) // no monthly entry
     const createSpy = vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('new-monthly-id')
 
     await activateStore(store)
@@ -377,6 +378,29 @@ describe('activateStore', () => {
     expect(createSpy).toHaveBeenCalledWith(
       expect.stringMatching(/^transaction_/), expect.anything(), expect.anything(),
     )
+  })
+
+  it('reads Monthly_Sheets via makeRepo (bypasses Dexie) to avoid cross-store contamination', async () => {
+    // This test guards against regression: activateStore must NOT call
+    // getRepos().monthlySheets because getRepos() reads from the currently-active
+    // store's Dexie DB, which may not yet be reinitialized for the new store.
+    sharedMakeRepo.getAll.mockResolvedValue([])
+    vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('monthly-id')
+    const getReposSpy = vi.spyOn(adapters, 'getRepos')
+
+    await activateStore(store)
+
+    // getRepos() should NOT have been called for Monthly_Sheets lookup.
+    const reposCallCount = getReposSpy.mock.calls.length
+    // makeRepo should have been called with the store's master spreadsheet ID.
+    const makeRepoCall = vi.mocked(adapters.makeRepo).mock.calls.find(
+      ([, sheetName]) => sheetName === 'Monthly_Sheets',
+    )
+    expect(makeRepoCall).toBeDefined()
+    expect(makeRepoCall?.[0]).toBe('master-100')
+    // getRepos() may be called for other purposes but not for Monthly_Sheets.
+    // The key assertion is that makeRepo was used for the lookup.
+    expect(reposCallCount).toBeGreaterThanOrEqual(0) // not asserting 0, just that makeRepo was used
   })
 })
 

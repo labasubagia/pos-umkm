@@ -1580,6 +1580,36 @@
 
 ---
 
+### T063 — Remove spreadsheetId & monthlySpreadsheetId from Zustand Persistence
+
+- **Status:** ⬜ todo
+- **Section:** Store Management
+- **Depends on:** T062
+- **Test type:** unit
+
+**Problem**: `spreadsheetId` (master sheet ID) and `monthlySpreadsheetId` are persisted in Zustand / localStorage alongside `stores` and `activeStoreId`. This causes two classes of bugs:
+1. On page refresh, the persisted `spreadsheetId` / `monthlySpreadsheetId` may belong to a different store than `activeStoreId` if a store switch was interrupted.
+2. The `txSheet_YYYY-MM` localStorage cache key is not scoped per store, so switching stores can write the wrong monthly ID into the cache.
+
+**Proposed approach**:
+- Remove `spreadsheetId` and `monthlySpreadsheetId` from `partialize` in `authStore.ts` (stop persisting them).
+- Add a derived getter `getActiveSpreadsheetId()` that computes `stores.find(s => s.store_id === activeStoreId)?.master_spreadsheet_id ?? null` instead of reading from Zustand state.
+- Keep `monthlySpreadsheetId` in Zustand in-memory state (not persisted); on refresh, call `activateStore(activeStore)` in `AppShell` (or `AuthInitializer`) to re-derive it.
+- Scope `txSheet_YYYY-MM` per store: key becomes `txSheet_<storeId>_YYYY-MM` so switching stores never overwrites another store's cached ID.
+- Audit all callers of `spreadsheetId` and `monthlySpreadsheetId` from Zustand and replace with the derived getter or re-activate on refresh.
+
+**Architecture note**: This is a correctness improvement. The root cause of T063 was exposed by a race condition fix in `activateStore` (T062 + cross-store contamination fix). Deriving `spreadsheetId` from `stores[activeStoreId]` is the single-source-of-truth pattern; it cannot go stale.
+
+**Test cases**:
+- ✅ `getActiveSpreadsheetId() returns master_spreadsheet_id of the active store`
+- ✅ `getActiveSpreadsheetId() returns null when activeStoreId is null`
+- ✅ `spreadsheetId is not written to localStorage after store switch`
+- ✅ `monthlySpreadsheetId is not read from localStorage on refresh (re-derived via activateStore)`
+- ✅ `txSheet key is scoped per store (txSheet_<storeId>_YYYY-MM)`
+- ❌ `stale spreadsheetId in localStorage does not bleed into new store session`
+
+---
+
 ## Appendix: Parallelization Map
 
 The following tasks within each section have no mutual dependencies and can be worked on by different agents simultaneously:
@@ -1597,7 +1627,7 @@ The following tasks within each section have no mutual dependencies and can be w
 | Reports | T038 first; T039 depends on T038; T040 depends on T039; T041, T042 depend on T039 |
 | Settings | T043 first; T044 depends on T043 |
 | Offline-First | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055; T057 depends on T056; T058 and T059 depend on T056 (can run in parallel with each other and with T057) |
-| Store Management | T060 first (service), then T061 (UI), then T062 (NavBar sync + switch button) |
+| Store Management | T060 first (service), then T061 (UI), then T062 (NavBar sync + switch button), then T063 (remove stale spreadsheet IDs from persistence) |
 
 ---
 
