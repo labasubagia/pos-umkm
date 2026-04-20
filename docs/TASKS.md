@@ -6,7 +6,7 @@
 ## How to Use This Document
 
 - **Status values:** `todo` | `in-progress` | `done` | `blocked` | `need-check`
-- **Parallelism:** Tasks within the same phase that share no `depends_on` overlap can be worked on simultaneously by different agents.
+- **Parallelism:** Tasks within the same section that share no `depends_on` overlap can be worked on simultaneously by different agents.
 - **TDD rule:** Write the failing test(s) first, then implement, then refactor. Mark status `in-progress` before starting, `done` after all tests pass.
 - **Architecture rule:** After completing each task, verify no module imports another module's internals. All data reads/writes go through `lib/adapters/` (the `DataAdapter` interface) — never call `lib/adapters/google/sheets/` or Google APIs directly from modules. `lib/adapters/google/sheets/` is used only inside `GoogleDataAdapter`.
 - **Comments rule:** Every non-trivial function must have a JSDoc comment explaining *why* the approach was chosen, not just what it does.
@@ -24,7 +24,7 @@
 
 ---
 
-## Phase 0 — Project Scaffold
+## Scaffold
 
 > No test cases required for scaffold tasks. Goal: a running, correctly configured dev environment.
 
@@ -33,7 +33,7 @@
 ### T001 — Initialize Vite + React + TypeScript Project
 
 - **Status:** ✅ done
-- **Phase:** 0 – Scaffold
+- **Section:** Scaffold
 - **Depends on:** (none)
 - **Test type:** none
 - **Architecture note:** Vite chosen over CRA because it is significantly faster (native ESM, no bundling in dev) and has first-class TypeScript support without ejection. The static output (`dist/`) is what gets deployed to GitHub Pages.
@@ -49,7 +49,7 @@
 ### T002 — Configure Tailwind CSS + shadcn/ui
 
 - **Status:** ✅ done
-- **Phase:** 0 – Scaffold
+- **Section:** Scaffold
 - **Depends on:** T001
 - **Test type:** none
 - **Architecture note:** Tailwind is used for utility-first styling (eliminates CSS naming conflicts in a component-heavy app). shadcn/ui provides accessible, unstyled-by-default components that are copy-pasted into the repo (not a runtime dependency), keeping bundle size controllable.
@@ -64,7 +64,7 @@
 ### T003 — Set Up React Router v6
 
 - **Status:** ✅ done
-- **Phase:** 0 – Scaffold
+- **Section:** Scaffold
 - **Depends on:** T001
 - **Test type:** none
 - **Architecture note:** React Router v6 with `createBrowserRouter` is preferred over the older `<BrowserRouter>` API because it enables data loaders and route-level error boundaries, which will be useful for async Sheets API fetches. Hash routing is avoided since GitHub Pages supports path rewrites via `404.html` redirect trick.
@@ -79,7 +79,7 @@
 ### T004 — Set Up Zustand for State Management
 
 - **Status:** ✅ done
-- **Phase:** 0 – Scaffold
+- **Section:** Scaffold
 - **Depends on:** T001
 - **Test type:** none
 - **Architecture note:** Zustand chosen over Redux Toolkit because it has no boilerplate, no Provider wrapping needed, and stores are independently importable — which aligns with the modular architecture (each module owns its Zustand slice). Redux was considered but rejected for MVP due to verbosity.
@@ -92,7 +92,7 @@
 ### T005 — Set Up Vitest + Testing Library
 
 - **Status:** ✅ done
-- **Phase:** 0 – Scaffold
+- **Section:** Scaffold
 - **Depends on:** T001
 - **Test type:** none
 - **Architecture note:** Vitest is chosen over Jest because it shares Vite's config (no separate babel transform), runs faster in watch mode, and supports ESM natively. `@testing-library/react` is used over Enzyme because it tests behavior from the user's perspective (no implementation detail coupling).
@@ -108,7 +108,7 @@
 ### T006 — Set Up Playwright for E2E Tests
 
 - **Status:** ✅ done
-- **Phase:** 0 – Scaffold
+- **Section:** Scaffold
 - **Depends on:** T001
 - **Test type:** none
 - **Architecture note:** Playwright chosen over Cypress because it supports multiple browsers (Chromium, Firefox, WebKit) from a single runner, has a more reliable auto-waiting model, and its API is more composable for page object patterns. E2E tests run against the local Vite dev server in CI.
@@ -123,7 +123,7 @@
 ### T007 — Set Up i18n (react-i18next)
 
 - **Status:** ✅ done
-- **Phase:** 0 – Scaffold
+- **Section:** Scaffold
 - **Depends on:** T001
 - **Test type:** none
 - **Architecture note:** `react-i18next` chosen because it integrates with React's rendering model (hook-based, suspense-compatible). Translation keys are namespaced by module (e.g., `cashier:paymentModal.title`) to allow lazy loading per route. `id-ID` (Bahasa Indonesia) is the default; `en-US` is the fallback.
@@ -138,7 +138,7 @@
 ### T008 — Set Up GitHub Actions CI Pipeline
 
 - **Status:** ✅ done
-- **Phase:** 0 – Scaffold
+- **Section:** Scaffold
 - **Depends on:** T005, T006
 - **Test type:** none
 - **Architecture note:** Two separate jobs: `unit` (fast, no browser) and `e2e` (slow, browser). Separating them allows unit tests to give fast feedback on PRs while e2e can run in parallel. Secrets for test Google account are stored as GitHub Actions secrets, never in code.
@@ -152,7 +152,7 @@
 ### T009 — Create Module Folder Structure
 
 - **Status:** ✅ done
-- **Phase:** 0 – Scaffold
+- **Section:** Scaffold
 - **Depends on:** T001
 - **Test type:** none
 - **Architecture note:** The folder structure enforces the modular boundary at the filesystem level. Each module folder is self-contained. An ESLint rule (`import/no-internal-modules`) should be configured to prevent cross-module internal imports at lint time, catching violations before code review.
@@ -166,7 +166,7 @@
 
 ---
 
-## Phase 1 — Core Library
+## Core Library
 
 > Pure utility functions and the Sheets API client. No UI. All must have unit tests.
 
@@ -175,7 +175,7 @@
 ### T010 — Google Sheets API Client (`lib/adapters/google/sheets/`)
 
 - **Status:** ✅ done
-- **Phase:** 1 – Core Lib
+- **Section:** Core Library
 - **Depends on:** T009
 - **Test type:** unit (MSW mocks)
 - **Architecture note:** Low-level HTTP transport for Google Sheets API v4. Used exclusively inside `GoogleDataAdapter` (T047). No module or service file calls this directly. Isolated here so: (1) retry/backoff logic lives in one place; (2) MSW mocking surface is minimal; (3) swapping to a different HTTP client later only touches this file.
@@ -204,7 +204,7 @@
 ### T045 — DataAdapter & AuthAdapter Interfaces (`lib/adapters/types.ts`)
 
 - **Status:** ✅ done
-- **Phase:** 1 – Core Lib
+- **Section:** Core Library
 - **Depends on:** T009
 - **Test type:** none (interface definitions only)
 - **Architecture note:** Defining the interface before any implementation enforces the contract that both Mock and Google adapters must satisfy. All module service files import from `lib/adapters/` only — never from `lib/adapters/google/sheets/` directly. This is the single point where the data contract is specified. TypeScript's structural typing will catch any adapter that diverges from the interface at compile time.
@@ -241,7 +241,7 @@
 ### T046 — MockDataAdapter & MockAuthAdapter
 
 - **Status:** ✅ done
-- **Phase:** 1 – Core Lib
+- **Section:** Core Library
 - **Depends on:** T045, T011
 - **Test type:** unit
 - **Architecture note:** The mock adapter stores data in `localStorage` using the same entity/tab naming convention as Google Sheets (e.g., `mock_Products`, `mock_Transactions_2026-04`). This means mock data structure is identical to production — switching adapters never requires data migration logic in the feature modules. `MockAuthAdapter` returns a hardcoded preset user so no OAuth flow is needed during development or CI.
@@ -279,7 +279,7 @@
 ### T047 — GoogleDataAdapter & GoogleAuthAdapter
 
 - **Status:** ✅ done
-- **Phase:** 1 – Core Lib
+- **Section:** Core Library
 - **Depends on:** T045, T010
 - **Test type:** unit (MSW mocks)
 - **Architecture note:** `GoogleDataAdapter` wraps `lib/adapters/google/sheets/sheets.client.ts` and translates the generic `DataAdapter` interface into concrete Sheets API calls. All Google-specific concerns live here: spreadsheetId management, tab naming conventions, row-to-object mapping, and header row handling. `GoogleAuthAdapter` wraps `@react-oauth/google`. By keeping all Google-specific code inside these two files, future migration to a different backend only requires replacing these adapters — zero changes to feature modules.
@@ -306,7 +306,7 @@
 ### T011 — UUID v4 Generator (`lib/uuid.ts`)
 
 - **Status:** ✅ done
-- **Phase:** 1 – Core Lib
+- **Section:** Core Library
 - **Depends on:** T009
 - **Test type:** unit
 - **Architecture note:** `crypto.randomUUID()` is used because it is natively available in all supported browsers (Chrome 92+, Firefox 95+, Safari 15.4+). A thin wrapper is created so tests can mock it.
@@ -319,7 +319,7 @@
 ### T012 — IDR Formatter & Date Utilities (`lib/formatters.ts`)
 
 - **Status:** ✅ done
-- **Phase:** 1 – Core Lib
+- **Section:** Core Library
 - **Depends on:** T009
 - **Test type:** unit
 - **Architecture note:** `Intl.NumberFormat` is used for currency formatting (native, no bundle cost) rather than a library like `numeral.js`. All monetary storage is in plain integers (no decimals). `date-fns` with the `id` locale is used for date formatting — chosen over `moment.js` (deprecated, large) and `dayjs` (smaller but less type-safe with locales).
@@ -346,7 +346,7 @@
 ### T013 — Input Validators (`lib/validators.ts`)
 
 - **Status:** ✅ done
-- **Phase:** 1 – Core Lib
+- **Section:** Core Library
 - **Depends on:** T009
 - **Test type:** unit
 - **Architecture note:** Validators are pure functions returning `{ valid: boolean, error?: string }`. They are intentionally not tied to any form library so they can be used in both UI form validation and service-layer data validation without coupling.
@@ -375,14 +375,14 @@
 
 ---
 
-## Phase 2 — Authentication
+## Authentication
 
 ---
 
 ### T014 — Google Identity Services (GIS) Integration
 
 - **Status:** ✅ done
-- **Phase:** 2 – Auth
+- **Section:** Authentication
 - **Depends on:** T045, T046
 - **Test type:** unit
 - **Architecture note:** `@react-oauth/google` is used as a thin React wrapper around GIS. The access token is stored in the Zustand `authStore` in memory only — never in `localStorage` or cookies. This prevents XSS token theft. Token refresh is triggered silently by GIS when the token nears expiry; the store is updated via the `onSuccess` callback. After sign-in, `LoginPage` checks for a cached `masterSpreadsheetId`; if found, routes to `/cashier` (fast path); otherwise routes to `/stores` (StorePickerPage) for store resolution.
@@ -405,7 +405,7 @@
 ### T015 — First-Time Setup: Create Master Spreadsheet
 
 - **Status:** ✅ done
-- **Phase:** 2 – Auth
+- **Section:** Authentication
 - **Depends on:** T014, T046, T011
 - **Test type:** unit
 - **Architecture note:** The Drive API calls use the `drive` scope, which is requested only for the owner at first-time setup (and when inviting members or creating branches). Subsequent cashier/member logins only need the `spreadsheets` scope. On setup the owner session creates the full folder hierarchy (`apps/pos_umkm/stores/<store_id>/`), the `main` spreadsheet (via `findOrCreateMain`), and the `master` spreadsheet. The `mainSpreadsheetId`, `masterSpreadsheetId`, and `activeStoreId` are saved to `localStorage`. `SetupWizard` calls `runStoreSetup()` (not `runFirstTimeSetup`) — `findOrCreateMain()` is called earlier by `StorePickerPage` before navigating to `/setup`.
@@ -439,7 +439,7 @@
 ### T016 — Monthly Transaction Spreadsheet Management
 
 - **Status:** ✅ done
-- **Phase:** 2 – Auth
+- **Section:** Authentication
 - **Depends on:** T015, T046
 - **Test type:** unit
 - **Architecture note:** A new monthly spreadsheet is created on the first transaction of each new calendar month (lazy creation) — by an owner or manager session only (cashiers lack the `drive` scope to create files). The recommended pattern is to pre-create next month's sheet during the last week of the current month when an owner/manager session is active. The `spreadsheetId` for each month is registered in the master sheet's `Monthly_Sheets` tab (`year_month → spreadsheetId`). On app load, the auth flow reads `Monthly_Sheets` to resolve the current month's sheet — no Drive folder listing needed.
@@ -462,7 +462,7 @@
 ### T017 — Member Invite Flow
 
 - **Status:** ✅ done
-- **Phase:** 2 – Auth
+- **Section:** Authentication
 - **Depends on:** T015, T046, T012
 - **Test type:** unit + e2e
 - **Architecture note:** Inviting a member requires two actions: (1) share the `stores/<store_id>/` folder via Drive API (granting access to all current and future files inside), (2) append a row to the `Members` tab. The Store Link is a URL containing the `masterSpreadsheetId` encoded in a query param (`/join?sid=<id>`). The owner never needs to share a password — the link is the invite mechanism. The invited user must still authenticate with Google.
@@ -491,7 +491,7 @@
 ### T018 — Store Link Join Flow (Member Onboarding)
 
 - **Status:** ✅ done
-- **Phase:** 2 – Auth
+- **Section:** Authentication
 - **Depends on:** T017, T014
 - **Test type:** unit + e2e
 - **Architecture note:** When a member opens a Store Link (`/join?sid=<masterSpreadsheetId>`), the app stores the `masterSpreadsheetId` in `localStorage` before prompting Google Login. Members only request the `spreadsheets` scope (not `drive`) because they access spreadsheets shared via the store folder — they don't need Drive API access. Their role is resolved by reading the `Members` tab and matching by email. After joining, the app reads `Settings` to get `store_id` and `drive_folder_id`, then creates/updates the member's own `main` spreadsheet with a `Stores` row for this store.
@@ -515,7 +515,7 @@
 ### T019 — Role-Based Route Protection
 
 - **Status:** ✅ done
-- **Phase:** 2 – Auth
+- **Section:** Authentication
 - **Depends on:** T018, T003
 - **Test type:** unit + e2e
 - **Architecture note:** Route-level access control is implemented as a `<RoleRoute>` wrapper component (similar to `<ProtectedRoute>`). This is UI-level enforcement only — there is no backend to enforce it server-side. This is acceptable for the family-trust model. Each route declares its minimum required role; any user with insufficient role is redirected to `/cashier`.
@@ -538,7 +538,7 @@
 ### T020 — POS Terminal PIN Lock
 
 - **Status:** ✅ done
-- **Phase:** 2 – Auth
+- **Section:** Authentication
 - **Depends on:** T018, T012
 - **Test type:** unit + e2e
 - **Architecture note:** The PIN is hashed with bcrypt (via `bcryptjs`, a pure JS implementation — no native dependency required in browser) before being stored in the `Members` sheet. PIN validation happens entirely in the browser using `bcryptjs.compare()`. No network call is needed for unlock. The idle timer uses `setTimeout` reset on any user interaction event (`mousemove`, `keydown`, `touchstart`).
@@ -565,16 +565,16 @@
 
 ---
 
-## Phase 3 — Product Catalog
+## Catalog
 
-> Phases 3–7 can be parallelized once Phase 2 is done. Each module is independent.
+> Sections Catalog through Settings can be parallelized once Authentication is done. Each module is independent.
 
 ---
 
 ### T021 — Categories CRUD
 
 - **Status:** ✅ done
-- **Phase:** 3 – Catalog
+- **Section:** Catalog
 - **Depends on:** T015, T046, T011, T012
 - **Test type:** unit + e2e
 - **Architecture note:** Categories are stored in the `Categories` tab of the Master Sheet. They are fetched once on app load and cached in a Zustand `catalogStore`. All writes go through `catalog.service.ts` → `lib/adapters/`. Soft deletes are used: setting `deleted_at` instead of removing the row, to preserve referential integrity (Products that reference a deleted category still display correctly).
@@ -602,7 +602,7 @@
 ### T022 — Products CRUD
 
 - **Status:** ✅ done
-- **Phase:** 3 – Catalog
+- **Section:** Catalog
 - **Depends on:** T021
 - **Test type:** unit + e2e
 - **Architecture note:** Products are the most frequently read entity. The full Products tab is loaded into React state on app open and searched client-side — avoiding an API call per search keystroke. Stock is stored as an integer column on the product row; it is decremented via `values.update` targeting the specific cell (row, column G). This is read-then-write and not atomic, which is documented and acceptable for single-cashier MVP.
@@ -633,7 +633,7 @@
 ### T023 — Product Variants
 
 - **Status:** ✅ done
-- **Phase:** 3 – Catalog
+- **Section:** Catalog
 - **Depends on:** T022
 - **Test type:** unit
 - **Architecture note:** Variants (e.g., Kaos — Size S / M / L, each with own price and stock) are stored in the `Variants` tab, linked to their parent product by `product_id`. When a product has `has_variants: TRUE`, the cashier screen shows a variant selector instead of adding the base product directly. Stock is tracked per variant, not on the parent product row.
@@ -656,7 +656,7 @@
 ### T024 — CSV Bulk Product Import
 
 - **Status:** ✅ done
-- **Phase:** 3 – Catalog
+- **Section:** Catalog
 - **Depends on:** T022
 - **Test type:** unit
 - **Architecture note:** CSV parsing is done with `papaparse` (robust, handles edge cases like quoted commas). A downloadable CSV template is provided so users know the column format. Import validates each row before any write; if any row is invalid, the entire import is rejected with a per-row error report. This all-or-nothing approach prevents partial imports that leave data in an inconsistent state.
@@ -677,14 +677,14 @@
 
 ---
 
-## Phase 4 — Cashier
+## Cashier
 
 ---
 
 ### T025 — Cart State Management
 
 - **Status:** ✅ done
-- **Phase:** 4 – Cashier
+- **Section:** Cashier
 - **Depends on:** T004, T012, T013
 - **Test type:** unit
 - **Architecture note:** Cart state lives in a Zustand `cartStore` (not React local state) so it persists across route changes and survives a page re-render. The cart is reset on transaction completion. All price calculations (subtotal, discount, tax, total, change) are pure functions in `cashier.service.ts` so they are independently testable without any React component.
@@ -715,7 +715,7 @@
 ### T026 — Product Search (Cashier Screen)
 
 - **Status:** ✅ done
-- **Phase:** 4 – Cashier
+- **Section:** Cashier
 - **Depends on:** T025, T022
 - **Test type:** unit + e2e
 - **Architecture note:** Search runs against the in-memory product list from `catalogStore` using a simple case-insensitive `includes()` match on name and SKU. No Sheets API call per keystroke. Debounced at 150ms to avoid excessive renders on fast typing. Search by barcode is deferred to post-MVP (see §9 TRD).
@@ -738,7 +738,7 @@
 ### T027 — Cash Payment + Change Calculation
 
 - **Status:** ✅ done
-- **Phase:** 4 – Cashier
+- **Section:** Cashier
 - **Depends on:** T025
 - **Test type:** unit + e2e
 - **Architecture note:** The change amount is computed in real-time as the cashier types the received amount, using the pure `calculateChange()` from T025. Quick-amount buttons (Rp 5.000 / Rp 10.000 / Rp 20.000 / Rp 50.000 / Rp 100.000) are rendered dynamically based on the transaction total, rounding up to the nearest denomination. This reduces input time for the most common case (paying with a banknote).
@@ -766,7 +766,7 @@
 ### T028 — QRIS Payment (Manual Confirmation)
 
 - **Status:** ✅ done
-- **Phase:** 4 – Cashier
+- **Section:** Cashier
 - **Depends on:** T025
 - **Test type:** unit + e2e
 - **Architecture note:** Real-time QRIS webhook confirmation requires Bank Indonesia PJSP licensing (post-MVP). MVP uses a static merchant QRIS QR code displayed as an image. The cashier manually confirms receipt of payment by pressing "Payment Received". The QR image is stored as a URL in the `Settings` tab (owner uploads it during setup). This approach requires zero additional infrastructure.
@@ -787,7 +787,7 @@
 ### T029 — Discount Application
 
 - **Status:** ✅ done
-- **Phase:** 4 – Cashier
+- **Section:** Cashier
 - **Depends on:** T025
 - **Test type:** unit
 - **Architecture note:** Discounts are applied at the transaction level (not item level) in MVP, as this covers the majority of UMKM use cases (e.g., "10% off today"). Item-level discounts are a post-MVP feature. Discounts can be a flat IDR amount or a percentage. Both are stored as structured data on the transaction row: `discount_type` ("flat" | "percent") and `discount_value` (integer).
@@ -806,7 +806,7 @@
 ### T030 — Split Payment (Cash + QRIS)
 
 - **Status:** ✅ done
-- **Phase:** 4 – Cashier
+- **Section:** Cashier
 - **Depends on:** T027, T028
 - **Test type:** unit + e2e
 - **Architecture note:** Split payment allows part of the transaction to be paid in cash and the remainder via QRIS. The cart store holds a `splitPayment` object: `{ cashAmount, qrisAmount }`. `cashAmount + qrisAmount` must equal the transaction total. This is validated before the transaction is committed. The `payment_method` column on the Transactions tab stores "SPLIT" for these transactions, and `cash_received` stores only the cash portion.
@@ -827,7 +827,7 @@
 ### T031 — Hold Transaction
 
 - **Status:** ✅ done
-- **Phase:** 4 – Cashier
+- **Section:** Cashier
 - **Depends on:** T025
 - **Test type:** unit + e2e
 - **Architecture note:** Held carts are stored in the Zustand `cartStore` as an array of `heldCarts`. They are NOT persisted to Sheets (they are temporary, in-progress states). If the browser is refreshed, held carts are lost. This is acceptable for MVP — holding a cart is a short-term operation during a single session.
@@ -848,7 +848,7 @@
 ### T032 — Transaction Commit + Stock Decrement
 
 - **Status:** ✅ done
-- **Phase:** 4 – Cashier
+- **Section:** Cashier
 - **Depends on:** T027, T022, T016
 - **Test type:** unit + e2e
 - **Architecture note:** Transaction commit is a multi-step write sequence: (1) append to `Transactions` tab, (2) append to `Transaction_Items` tab (all items in one `values.append` call), (3) decrement stock for each distinct product. Steps are attempted sequentially. If step 3 partially fails (e.g., rate limit on product N), the transaction header is already written — the cashier is shown an alert to manually verify stock. This is safer than rolling back (which would require deleting the appended row, which is complex with Sheets API).
@@ -873,7 +873,7 @@
 ### T033 — WhatsApp Receipt Generation
 
 - **Status:** ✅ done
-- **Phase:** 4 – Cashier
+- **Section:** Cashier
 - **Depends on:** T032, T012
 - **Test type:** unit + e2e
 - **Architecture note:** Receipts are shared via a pre-filled `wa.me` link (e.g., `https://wa.me/?text=...`). The receipt text is URL-encoded and includes: business name, date/time, itemized list, subtotal, discount, tax, total, payment method, and receipt number. This requires zero infrastructure — it opens WhatsApp on the customer's device with the receipt pre-typed. Thermal printing is post-MVP.
@@ -895,14 +895,14 @@
 
 ---
 
-## Phase 5 — Inventory
+## Inventory
 
 ---
 
 ### T034 — Stock Opname
 
 - **Status:** ✅ done
-- **Phase:** 5 – Inventory
+- **Section:** Inventory
 - **Depends on:** T022, T046
 - **Test type:** unit + e2e
 - **Architecture note:** Stock opname (physical stock count) shows the current system stock for each product alongside an input field. The owner enters the actual physical count. On save, the system calculates the discrepancy (system - physical) and: (1) updates the stock cell on the Products tab, (2) appends a row to the `Stock_Log` tab with `reason: "opname"` and the before/after values. All products are updated in a `batchUpdate` call to minimize API calls.
@@ -924,7 +924,7 @@
 ### T035 — Purchase Orders (Incoming Stock)
 
 - **Status:** ✅ done
-- **Phase:** 5 – Inventory
+- **Section:** Inventory
 - **Depends on:** T022, T046
 - **Test type:** unit + e2e
 - **Architecture note:** Purchase orders (recording incoming stock from a supplier) increase product stock. On "Receive" action, the stock cell is incremented (read + write, same pattern as decrement). A `Stock_Log` entry is also appended with `reason: "purchase_order"`. Purchase orders are stored in `Purchase_Orders` and `Purchase_Order_Items` tabs of the Master Sheet.
@@ -943,14 +943,14 @@
 
 ---
 
-## Phase 6 — Customers
+## Customers
 
 ---
 
 ### T036 — Customer Management
 
 - **Status:** ✅ done
-- **Phase:** 6 – Customers
+- **Section:** Customers
 - **Depends on:** T015, T046, T011
 - **Test type:** unit + e2e
 - **Architecture note:** Customers are stored in the `Customers` tab of the Master Sheet. Customer lookup in the cashier screen is done client-side (against cached list) — no API call per keystroke. Phone number is the natural identifier (most UMKM customers are identified by phone, not email).
@@ -973,7 +973,7 @@
 ### T037 — Refund / Return Flow
 
 - **Status:** ✅ done
-- **Phase:** 6 – Customers
+- **Section:** Customers
 - **Depends on:** T032, T022
 - **Test type:** unit + e2e
 - **Architecture note:** Refunds do not delete or modify the original transaction row (transactions are immutable). Instead, a new row is appended to the `Refunds` tab in the Monthly Sheet. Stock is re-incremented for returned items (read + write on Products tab). An `Audit_Log` entry is also written. The refund amount is manually confirmed by the owner — no automatic cash drawer integration.
@@ -993,14 +993,14 @@
 
 ---
 
-## Phase 7 — Reports
+## Reports
 
 ---
 
 ### T038 — Daily Sales Summary
 
 - **Status:** ✅ done
-- **Phase:** 7 – Reports
+- **Section:** Reports
 - **Depends on:** T016, T046, T012
 - **Test type:** unit + e2e
 - **Architecture note:** The daily summary aggregates data from the current month's `Transactions` and `Transaction_Items` tabs. All aggregation (sum, count, average, top products) is done in JavaScript after fetching the full tabs. This is efficient because a single month's transaction data fits comfortably in memory for typical UMKM volumes (<5,000 transactions/month).
@@ -1024,7 +1024,7 @@
 ### T039 — Date-Range Sales Report
 
 - **Status:** ✅ done
-- **Phase:** 7 – Reports
+- **Section:** Reports
 - **Depends on:** T038
 - **Test type:** unit + e2e
 - **Architecture note:** For date ranges spanning multiple months, the service fetches each relevant Monthly Sheet sequentially (not in parallel, to stay within API rate limits). Results are merged and aggregated client-side. The UI allows filtering by cashier (user email), category, and payment method.
@@ -1047,7 +1047,7 @@
 ### T040 — Gross Profit Report
 
 - **Status:** ✅ done
-- **Phase:** 7 – Reports
+- **Section:** Reports
 - **Depends on:** T039, T022
 - **Test type:** unit
 - **Architecture note:** Gross profit = (selling price - cost price) × qty, summed across all items in the period. Cost price is read from the `Products` tab (master data). A cross-join between `Transaction_Items` (which stores `unit_price` at time of sale) and the current `Products` list (which stores `cost_price`) is done in JavaScript. Note: if the cost price changes after a sale, the report reflects the *current* cost, not the cost at time of sale. This is a known MVP simplification.
@@ -1066,7 +1066,7 @@
 ### T041 — Cash Reconciliation
 
 - **Status:** ✅ done
-- **Phase:** 7 – Reports
+- **Section:** Reports
 - **Depends on:** T038
 - **Test type:** unit + e2e
 - **Architecture note:** End-of-day cash reconciliation compares expected cash (opening balance + all cash sales - all cash refunds) against the actual closing balance entered by the cashier. The result (surplus or deficit) is appended to the `Audit_Log` tab as a `CASH_RECONCILIATION` event. This creates a paper trail without requiring any additional spreadsheet tab.
@@ -1088,7 +1088,7 @@
 ### T042 — PDF / Excel Export
 
 - **Status:** ✅ done
-- **Phase:** 7 – Reports
+- **Section:** Reports
 - **Depends on:** T039
 - **Test type:** unit
 - **Architecture note:** PDF export uses `window.print()` with a print-optimized CSS stylesheet — no additional library needed. Excel export uses `SheetJS` (`xlsx` npm package) to generate an `.xlsx` file client-side and trigger a download. Both approaches run entirely in the browser with no server involvement.
@@ -1104,14 +1104,14 @@
 
 ---
 
-## Phase 8 — Settings
+## Settings
 
 ---
 
 ### T048 — App Shell & Navigation Bar
 
 - **Status:** ✅ done
-- **Phase:** 0 – Scaffold (retroactive)
+- **Section:** Scaffold (retroactive)
 - **Depends on:** T003, T014, T019
 - **Test type:** unit
 - **Architecture note:** The `AppShell` component is used as a **React Router v6 layout route** — a route with no `path` that renders `<NavBar>` + `<Outlet>`. This ensures the nav bar appears on every authenticated page without each page component having to import it. Public routes (`/`, `/login`, `/join`, `/setup`) sit outside the layout route and render without a nav bar. Nav links are filtered at render time by `ROLE_RANK` (same logic as `RoleRoute`) so cashiers never see manager-only links — the actual route protection is still enforced by `RoleRoute`. See TRD §2.6 for the full layout diagram.
@@ -1143,7 +1143,7 @@
 ### T043 — Business Profile & Tax Configuration
 
 - **Status:** ✅ done
-- **Phase:** 8 – Settings
+- **Section:** Settings
 - **Depends on:** T015, T046
 - **Test type:** unit
 - **Architecture note:** Settings are stored in the `Settings` tab of the Master Sheet as key-value rows (column A: key, column B: value). This is simpler than a fixed-column schema for settings because the number of settings fields may grow. The `settings.service.ts` provides a typed `getSettings()` that reads all rows and maps them to a typed object.
@@ -1162,7 +1162,7 @@
 ### T044 — QRIS Configuration
 
 - **Status:** ✅ done
-- **Phase:** 8 – Settings
+- **Section:** Settings
 - **Depends on:** T043
 - **Test type:** unit
 - **Architecture note:** The QRIS QR code is a static merchant QR image. The owner uploads it to the app by pasting a public image URL (hosted on Google Drive, Imgur, etc.) or using a file input that converts the image to a data URL (stored directly in the Settings tab cell). Data URL approach avoids needing a separate file hosting service.
@@ -1179,7 +1179,7 @@
 ### T049 — Migrate All UI Components to shadcn/ui
 
 - **Status:** ✅ done
-- **Phase:** 0 – Scaffold (retroactive)
+- **Section:** Scaffold (retroactive)
 - **Depends on:** T002, T048
 - **Test type:** none (visual/UX; functional behaviour tested by existing unit + E2E tests)
 - **Architecture note:** shadcn/ui components are copied into `src/components/ui/` (not a runtime dependency) so the bundle only includes what is actually used. Tailwind CSS continues to handle all layout and spacing. The migration keeps all `data-testid` attributes intact so E2E tests require no changes. Native `<select>` is preserved for elements that Playwright's `.selectOption()` interacts with (`select-product-category`, `select-po-product-*`) — replacing those with a custom Radix-based Select would silently break E2E tests.
@@ -1202,7 +1202,7 @@
 ### T050 — Mobile-First UI (NavBar, BottomNav, CashierPage)
 
 - **Status:** ✅ done
-- **Phase:** 0 – Scaffold (retroactive)
+- **Section:** Scaffold (retroactive)
 - **Depends on:** T048, T049
 - **Test type:** none (layout; covered by existing 64 E2E tests at desktop viewport; no mobile-specific tests added)
 - **Architecture note:** Mobile-first is enforced via Tailwind breakpoints: styles without a prefix target mobile, `md:` (768px+) overrides for tablet/desktop. E2E tests run at `Desktop Chrome` / `Desktop Firefox` (1280×720+) so all `md:hidden` / `hidden md:flex` classes are safe to add without breaking existing tests. `navigateTo()` in E2E helpers uses `history.pushState` (not nav link clicks), so duplicate `data-testid` values between NavBar and BottomNav at desktop viewport are not a concern. `min-h-0` is required on flex children that must scroll — without it, `min-height: auto` prevents overflow from working in a flex column.
@@ -1216,7 +1216,7 @@
 
 ---
 
-## Phase 9 — Offline-First (Dexie.js)
+## Offline-First
 
 > All reads served from IndexedDB; writes queued in `_outbox` and replayed to Google Sheets in the background. Transparent to all module service code via the existing `ISheetRepository<T>` interface. See TRD §12.
 
@@ -1225,7 +1225,7 @@
 ### T051 — Dexie DB Schema
 
 - **Status:** ✅ done
-- **Phase:** 9 – Offline-First
+- **Section:** Offline-First
 - **Depends on:** T045
 - **Test type:** unit
 - **Architecture note:** All 15 entity tables plus `_outbox` and `_syncMeta` are defined in a single `PosUmkmDatabase` Dexie class (`src/lib/adapters/dexie/db.ts`). Table names match the Google Sheets tab names exactly so `db.table(sheetName)` works at runtime via string lookup — no mapping table needed. `_outbox` is keyed on auto-increment `id` to preserve FIFO ordering. `_syncMeta` is keyed on `tableName` for O(1) staleness checks.
@@ -1245,7 +1245,7 @@
 ### T052 — DexieSheetRepository
 
 - **Status:** ✅ done
-- **Phase:** 9 – Offline-First
+- **Section:** Offline-First
 - **Depends on:** T051
 - **Test type:** unit
 - **Architecture note:** `DexieSheetRepository<T>` implements `ISheetRepository<T>` backed by IndexedDB. Every write method runs a Dexie ACID transaction that atomically writes to the entity table **and** appends to `_outbox`. This guarantees no write is lost even if the app is closed between the local write and the Sheets sync. `batchUpsertByKey` (used only by Settings service) is decomposed at write time — it queries Dexie locally to distinguish updates vs inserts, then creates separate `batchUpdateCells` and `batchAppend` outbox entries — avoiding the need to serialize the unserializable `makeNewRow` callback. `writeHeaders` bypasses IndexedDB and calls `SheetRepository` directly because it is only called during `SetupWizard` (always online, spreadsheet just created).
@@ -1273,7 +1273,7 @@
 ### T053 — SyncManager
 
 - **Status:** ✅ done
-- **Phase:** 9 – Offline-First
+- **Section:** Offline-First
 - **Depends on:** T051, T052
 - **Test type:** unit
 - **Architecture note:** `SyncManager` drains `_outbox` to Google Sheets in FIFO order. Each entry creates a fresh `SheetRepository` from the stored `spreadsheetId` and `sheetName` — this handles monthly sheet rollovers correctly (no stale spreadsheetId from a prior month cached in a long-lived object). HTTP 429 (rate limit) stops the drain loop and sets a 60-second backoff before resuming; the `SyncManager` listens for the browser `online` event to also trigger an immediate drain. `MAX_RETRIES = 5`; entries exceeding this are permanently skipped (logged to console, not surfaced to the user as they are stale). Sync state is written to `syncStore` for the `SyncStatus` UI component.
@@ -1298,7 +1298,7 @@
 ### T054 — HydrationService
 
 - **Status:** ✅ done
-- **Phase:** 9 – Offline-First
+- **Section:** Offline-First
 - **Depends on:** T051, T052
 - **Test type:** unit
 - **Architecture note:** `HydrationService.hydrateAll()` fetches all entity tables from Google Sheets in parallel (`Promise.allSettled`) and writes them into IndexedDB via `bulkPut`. Two skip conditions prevent unnecessary fetches and data loss: (a) table hydrated within the last 5 minutes (`_syncMeta.lastHydratedAt`) — avoids redundant Sheets API reads on rapid app restarts; (b) table has pending/unretried outbox entries — avoids overwriting local writes that have not yet been synced to Sheets. `getRawRows()` fetches including soft-deleted rows (unlike `ISheetRepository.getAll()`) to preserve the full dataset.
@@ -1319,7 +1319,7 @@
 ### T055 — Sync Status UI & syncStore
 
 - **Status:** ✅ done
-- **Phase:** 9 – Offline-First
+- **Section:** Offline-First
 - **Depends on:** T053, T048
 - **Test type:** unit
 - **Architecture note:** `syncStore` is a Zustand store (not persisted) that `SyncManager` updates during sync. It is the single source of truth for the `SyncStatus` UI component. The `SyncStatus` component is passed to `NavBar` via a `syncStatusSlot?: ReactNode` prop (slot/composition pattern) so NavBar has no knowledge of the sync system. This keeps NavBar testable without requiring a `SyncManager` mock. All labels are in Bahasa Indonesia per TRD §2.4. Click-to-retry on error/pending states calls `syncManager.triggerSync()`.
@@ -1341,7 +1341,7 @@
 ### T056 — Wire Offline-First into AppShell & Adapter Index
 
 - **Status:** ✅ done
-- **Phase:** 9 – Offline-First
+- **Section:** Offline-First
 - **Depends on:** T052, T053, T054, T055
 - **Test type:** none (integration wiring; covered by module unit tests + existing E2E)
 - **Architecture note:** `lib/adapters/index.ts` is the single switching point — it exports `syncManager` and `hydrationService` as singletons. When `VITE_ADAPTER=mock`, both are no-op stubs so `AppShell` can call `.start()` / `.hydrateAll()` unconditionally without branching. When `VITE_ADAPTER=google`, `getRepos()` returns `DexieSheetRepository` instances via `createDexieRepos()`. `makeRepo()` continues to return a raw `SheetRepository` for setup code (SetupWizard), which is always online. `AppShell` triggers hydration inside a `useEffect` that runs only when all three spreadsheet IDs are present in `authStore`, preventing premature Sheets API calls.
@@ -1418,7 +1418,7 @@
 ### T058 — Fix Post-Hydration Stale Module State
 
 - **Status:** ✅ done
-- **Phase:** 9 – Offline-First
+- **Section:** Offline-First
 - **Depends on:** T056
 - **Test type:** unit
 - **Architecture note:** Module pages (`CashierPage`, `CatalogPage`, etc.) call `loadCatalog()` / `loadInventory()` etc. in a `useEffect` on mount. These calls read from Dexie via `DexieSheetRepository.getAll()`. At mount time, hydration has not yet completed — Dexie tables are either empty (first load) or contain data from a previous session. `HydrationService.hydrateAll()` runs concurrently in a separate `AppShell` `useEffect`, completes asynchronously, and populates Dexie with fresh Sheets data. But because module effects already ran and set Zustand state, there is no signal to trigger a re-fetch. The UI shows empty/stale data until the user navigates away and back, which remounts the page and calls `loadCatalog()` again.
@@ -1460,7 +1460,7 @@
 ### T059 — Fix `_syncMeta` Key Not Scoped by SpreadsheetId
 
 - **Status:** ✅ done
-- **Phase:** 9 – Offline-First
+- **Section:** Offline-First
 - **Depends on:** T056
 - **Test type:** unit
 - **Architecture note:** `HydrationService.hydrateTable()` reads and writes `_syncMeta` using the key `${sheetName}_hydrated` (e.g. `Products_hydrated`). This key is not scoped to any particular spreadsheet. In a single-DB Dexie setup (current state before T057), a user who manages two stores (e.g. Store A with `masterSid=sid_A` and Store B with `masterSid=sid_B`) will see this sequence:
@@ -1489,7 +1489,7 @@
 
 ---
 
-## Phase 10 — Store Management
+## Store Management
 
 > Allows an owner to add new stores, edit existing ones, and remove stores. Removing a store the user **owns** soft-deletes it from the `Stores` sheet (data preserved, store becomes invisible to all members). Removing a store the user **does not own** removes only the user's own row from that store's `Members` sheet (peer-revoke access).
 
@@ -1498,7 +1498,7 @@
 ### T060 — Store Management Service
 
 - **Status:** ⬜ todo
-- **Phase:** 10 – Store Management
+- **Section:** Store Management
 - **Depends on:** T019, T056
 - **Test type:** unit
 - **Architecture note:** All store-management mutations go through the existing `ISheetRepository<T>` / Dexie adapter stack — no raw Sheets API calls from the service. `createStore` reuses the existing `SetupService.initMasterSheet()` helper to provision a new master spreadsheet (categories, products, members sheets) and then appends the resulting store row to the user's `Stores` tab on their main spreadsheet. `removeOwnedStore` performs a soft-delete (`deleted_at` timestamp) on the store's row in the `Stores` tab rather than a hard delete, so transaction history is preserved. `removeAccessToStore` locates the caller's own row in the target store's `Members` sheet (matched by Google user `email` from `useAuthStore`) and soft-deletes it; it never touches the `Stores` tab of a sheet the caller does not own. The service never alters another user's main spreadsheet.
@@ -1525,7 +1525,7 @@
 ### T061 — Store Management Page
 
 - **Status:** ⬜ todo
-- **Phase:** 10 – Store Management
+- **Section:** Store Management
 - **Depends on:** T060
 - **Test type:** unit + e2e
 - **Architecture note:** The page is mounted at `/settings/stores` and accessible from the Settings tabs. Ownership is determined by comparing `store.owner_email` (a field in the `Stores` tab) against the signed-in user's email from `useAuthStore`. Owned stores show an **Edit** action and a **Hapus** (delete) action; non-owned stores show only a **Keluar** (leave) action. Both destructive actions open a confirmation `Dialog` before proceeding to prevent accidental data loss. After a successful `createStore` or `removeOwnedStore`, the active store is re-selected to the first remaining store (if the deleted store was the active one); if no stores remain, the user is redirected to the setup wizard. `removeAccessToStore` always redirects to the setup wizard because the user no longer has access to any store in the list.
@@ -1561,22 +1561,22 @@
 
 ## Appendix: Parallelization Map
 
-The following tasks within each phase have no mutual dependencies and can be worked on by different agents simultaneously:
+The following tasks within each section have no mutual dependencies and can be worked on by different agents simultaneously:
 
-| Can run in parallel | Tasks |
+| Section | Can run in parallel |
 |---|---|
-| Phase 0 | T001 first, then T002–T009 + T048 + T049 + T050 all in parallel (T048/T049/T050 depend on T003) |
-| Phase 1 | T010, T011, T012, T013 in parallel; then T045 (interface); then T046, T047 in parallel |
-| Phase 2 | T014 first; then T015 → T016 → T017 → T018 → T019 → T020 (mostly sequential) |
-| Phase 3–7 | All phases can start once Phase 2 is done; phases are independent of each other |
-| Within Phase 3 | T021 first, then T022–T024 in parallel; T023 and T024 depend on T022 |
-| Within Phase 4 | T025 first; then T026, T027, T028, T029, T031 in parallel; T030 depends on T027+T028; T032 depends on T027+T022+T016; T033 depends on T032 |
-| Within Phase 5 | T034, T035 in parallel |
-| Within Phase 6 | T036 first, then T037 |
-| Within Phase 7 | T038 first; T039 depends on T038; T040 depends on T039; T041, T042 depend on T039 |
-| Within Phase 8 | T043 first; T044 depends on T043 |
-| Within Phase 9 | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055; T057 depends on T056; T058 and T059 depend on T056 (can run in parallel with each other and with T057) |
-| Within Phase 10 | T060 first (service), then T061 (UI) |
+| Scaffold | T001 first, then T002–T009 + T048 + T049 + T050 all in parallel (T048/T049/T050 depend on T003) |
+| Core Library | T010, T011, T012, T013 in parallel; then T045 (interface); then T046, T047 in parallel |
+| Authentication | T014 first; then T015 → T016 → T017 → T018 → T019 → T020 (mostly sequential) |
+| Catalog–Settings | All five sections can start once Authentication is done; they are independent of each other |
+| Catalog | T021 first, then T022–T024 in parallel; T023 and T024 depend on T022 |
+| Cashier | T025 first; then T026, T027, T028, T029, T031 in parallel; T030 depends on T027+T028; T032 depends on T027+T022+T016; T033 depends on T032 |
+| Inventory | T034, T035 in parallel |
+| Customers | T036 first, then T037 |
+| Reports | T038 first; T039 depends on T038; T040 depends on T039; T041, T042 depend on T039 |
+| Settings | T043 first; T044 depends on T043 |
+| Offline-First | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055; T057 depends on T056; T058 and T059 depend on T056 (can run in parallel with each other and with T057) |
+| Store Management | T060 first (service), then T061 (UI) |
 
 ---
 
