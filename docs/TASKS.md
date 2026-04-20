@@ -1632,7 +1632,7 @@
 
 ### T065 — Install and Configure React Query
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Section:** State Management
 - **Depends on:** T001
 - **Test type:** none
@@ -1651,7 +1651,7 @@
 
 ### T066 — Migrate Stores State to React Query
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Section:** State Management
 - **Depends on:** T065, T064
 - **Test type:** unit
