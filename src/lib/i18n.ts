@@ -6,8 +6,12 @@ import LanguageDetector from 'i18next-browser-languagedetector'
 /**
  * i18next configuration.
  * Default language: id-ID (Bahasa Indonesia)
- * Fallback language: en-US
+ * Fallback language: en
  * Translations loaded from /public/locales/{lng}/{ns}.json
+ *
+ * `load: 'languageOnly'` strips region codes (e.g. en-US → en, id-ID → id)
+ * so the HTTP backend requests /locales/en/common.json instead of
+ * /locales/en-US/common.json, matching the folder structure in public/.
  */
 i18next
   .use(HttpBackend)
@@ -15,6 +19,7 @@ i18next
   .use(initReactI18next)
   .init({
     fallbackLng: 'en',
+    load: 'languageOnly',
     defaultNS: 'common',
     ns: ['common'],
     backend: {
