@@ -15,8 +15,7 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    append: vi.fn().mockResolvedValue(undefined),
-    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchAppend: vi.fn().mockResolvedValue(undefined),
     batchUpdateCells: vi.fn().mockResolvedValue(undefined),
     batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
@@ -86,11 +85,11 @@ describe('addCustomer', () => {
 
     const result = await addCustomer('Budi Santoso', '08111234567')
 
-    expect(mockRepos.customers.append).toHaveBeenCalledOnce()
-    expect(mockRepos.customers.append).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockRepos.customers.batchAppend).toHaveBeenCalledOnce()
+    expect(mockRepos.customers.batchAppend).toHaveBeenCalledWith([expect.objectContaining({
       name: 'Budi Santoso',
       phone: '08111234567',
-    }))
+    })])
     expect(result.name).toBe('Budi Santoso')
     expect(result.phone).toBe('08111234567')
     expect(result.id).toBeTruthy()
@@ -102,9 +101,9 @@ describe('addCustomer', () => {
 
     const result = await addCustomer('Budi Santoso', '08111234567', 'budi@mail.com')
 
-    expect(mockRepos.customers.append).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockRepos.customers.batchAppend).toHaveBeenCalledWith([expect.objectContaining({
       email: 'budi@mail.com',
-    }))
+    })])
     expect(result.email).toBe('budi@mail.com')
   })
 

@@ -15,8 +15,7 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    append: vi.fn().mockResolvedValue(undefined),
-    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchAppend: vi.fn().mockResolvedValue(undefined),
     batchUpdateCells: vi.fn().mockResolvedValue(undefined),
     batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
@@ -164,7 +163,8 @@ describe('bulkImportProducts', () => {
 
     await bulkImportProducts(rows)
 
-    expect(mockRepos.products.append).toHaveBeenCalledTimes(2)
+    expect(mockRepos.products.batchAppend).toHaveBeenCalledTimes(1)
+    expect(mockRepos.products.batchAppend.mock.calls[0][0]).toHaveLength(2)
   })
 
   it('throws and does not write if any row is invalid', async () => {
@@ -175,6 +175,6 @@ describe('bulkImportProducts', () => {
 
     await expect(bulkImportProducts(rows)).rejects.toThrow()
 
-    expect(mockRepos.products.append).not.toHaveBeenCalled()
+    expect(mockRepos.products.batchAppend).not.toHaveBeenCalled()
   })
 })

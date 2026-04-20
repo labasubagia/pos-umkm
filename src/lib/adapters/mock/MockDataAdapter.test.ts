@@ -37,8 +37,8 @@ describe('MockSheetRepository', () => {
     expect(repo.spreadsheetId).toBe('mock')
   })
 
-  it('append stores row in localStorage under correct key', async () => {
-    await repo.append({ name: 'Nasi Goreng', price: 15000 })
+  it('batchAppend stores rows in localStorage under correct key', async () => {
+    await repo.batchAppend([{ name: 'Nasi Goreng', price: 15000 }])
     const raw = localStorage.getItem('mock_Products')
     expect(raw).not.toBeNull()
     const rows = JSON.parse(raw!)
@@ -47,8 +47,10 @@ describe('MockSheetRepository', () => {
   })
 
   it('getAll returns all non-deleted rows', async () => {
-    await repo.append({ name: 'Row 1' })
-    await repo.append({ name: 'Row 2', deleted_at: '2026-01-01T00:00:00.000Z' })
+    await repo.batchAppend([
+      { name: 'Row 1' },
+      { name: 'Row 2', deleted_at: '2026-01-01T00:00:00.000Z' },
+    ])
     const rows = await repo.getAll()
     expect(rows).toHaveLength(1)
     expect(rows[0].name).toBe('Row 1')
@@ -59,22 +61,22 @@ describe('MockSheetRepository', () => {
     expect(rows).toEqual([])
   })
 
-  it('updateCell modifies correct field on correct row', async () => {
-    await repo.append({ id: 'prod-1', name: 'Old Name', price: 10000 })
-    await repo.updateCell('prod-1', 'name', 'New Name')
+  it('batchUpdateCells modifies correct field on correct row', async () => {
+    await repo.batchAppend([{ id: 'prod-1', name: 'Old Name', price: 10000 }])
+    await repo.batchUpdateCells([{ rowId: 'prod-1', column: 'name', value: 'New Name' }])
     const rows = await repo.getAll()
     expect(rows[0].name).toBe('New Name')
     expect(rows[0].price).toBe(10000)
   })
 
-  it('updateCell throws AdapterError if rowId not found', async () => {
-    await repo.append({ id: 'prod-1', name: 'Test' })
-    await expect(repo.updateCell('non-existent', 'name', 'X')).rejects.toThrow(AdapterError)
-    await expect(repo.updateCell('non-existent', 'name', 'X')).rejects.toThrow('not found')
+  it('batchUpdateCells throws AdapterError if rowId not found', async () => {
+    await repo.batchAppend([{ id: 'prod-1', name: 'Test' }])
+    await expect(repo.batchUpdateCells([{ rowId: 'non-existent', column: 'name', value: 'X' }])).rejects.toThrow(AdapterError)
+    await expect(repo.batchUpdateCells([{ rowId: 'non-existent', column: 'name', value: 'X' }])).rejects.toThrow('not found')
   })
 
   it('softDelete sets deleted_at on correct row', async () => {
-    await repo.append({ id: 'prod-1', name: 'Test' })
+    await repo.batchAppend([{ id: 'prod-1', name: 'Test' }])
     await repo.softDelete('prod-1')
     const raw = localStorage.getItem('mock_Products')
     const rows = JSON.parse(raw!) as Record<string, unknown>[]
@@ -83,7 +85,7 @@ describe('MockSheetRepository', () => {
   })
 
   it('softDelete does not physically remove the row', async () => {
-    await repo.append({ id: 'prod-1', name: 'Test' })
+    await repo.batchAppend([{ id: 'prod-1', name: 'Test' }])
     await repo.softDelete('prod-1')
     const raw = localStorage.getItem('mock_Products')
     const rows = JSON.parse(raw!)
@@ -91,13 +93,13 @@ describe('MockSheetRepository', () => {
   })
 
   it('softDelete throws AdapterError if rowId not found', async () => {
-    await repo.append({ id: 'prod-1', name: 'Test' })
+    await repo.batchAppend([{ id: 'prod-1', name: 'Test' }])
     await expect(repo.softDelete('non-existent')).rejects.toThrow(AdapterError)
     await expect(repo.softDelete('non-existent')).rejects.toThrow('not found')
   })
 
   it('batchUpdateCells applies all updates in order', async () => {
-    await repo.append({ id: 'prod-1', name: 'Original', price: 10000 })
+    await repo.batchAppend([{ id: 'prod-1', name: 'Original', price: 10000 }])
     await repo.batchUpdateCells([
       { rowId: 'prod-1', column: 'name', value: 'Updated' },
       { rowId: 'prod-1', column: 'price', value: 20000 },
@@ -108,7 +110,7 @@ describe('MockSheetRepository', () => {
   })
 
   it('batchUpsertByKey updates existing and inserts new entries', async () => {
-    await repo.append({ id: 'prod-1', name: 'Existing', price: 10000 })
+    await repo.batchAppend([{ id: 'prod-1', name: 'Existing', price: 10000 }])
     const makeNewRow = (lookupValue: string, value: unknown) => ({
       name: lookupValue,
       price: value,

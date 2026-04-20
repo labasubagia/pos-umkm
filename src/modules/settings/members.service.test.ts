@@ -16,8 +16,7 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    append: vi.fn().mockResolvedValue(undefined),
-    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchAppend: vi.fn().mockResolvedValue(undefined),
     batchUpdateCells: vi.fn().mockResolvedValue(undefined),
     batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
@@ -55,12 +54,12 @@ describe('inviteMember', () => {
   it('appends correct row to Members tab with role and invited_at', async () => {
     await inviteMember('alice@test.com', 'cashier', 'sid-001')
 
-    expect(mockRepos.members.append).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(mockRepos.members.batchAppend).toHaveBeenCalledWith(
+      [expect.objectContaining({
         email: 'alice@test.com',
         role: 'cashier',
         invited_at: expect.any(String),
-      }),
+      })],
     )
   })
 

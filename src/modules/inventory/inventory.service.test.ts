@@ -19,8 +19,7 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    append: vi.fn().mockResolvedValue(undefined),
-    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchAppend: vi.fn().mockResolvedValue(undefined),
     batchUpdateCells: vi.fn().mockResolvedValue(undefined),
     batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
@@ -118,8 +117,8 @@ describe('saveOpnameResults', () => {
       { product_id: 'p1', product_name: 'Nasi Goreng', sku: 'NASGOR', system_stock: 30, physical_count: 28 },
     ])
 
-    expect(mockRepos.stockLog.append).toHaveBeenCalledTimes(1)
-    const logRow = mockRepos.stockLog.append.mock.calls[0][0]
+    expect(mockRepos.stockLog.batchAppend).toHaveBeenCalledTimes(1)
+    const logRow = mockRepos.stockLog.batchAppend.mock.calls[0][0][0]
     expect(logRow['product_id']).toBe('p1')
     expect(logRow['reason']).toBe('opname')
     expect(logRow['qty_before']).toBe(30)
@@ -133,7 +132,7 @@ describe('saveOpnameResults', () => {
     ])
 
     expect(mockRepos.products.batchUpdateCells).not.toHaveBeenCalled()
-    expect(mockRepos.stockLog.append).not.toHaveBeenCalled()
+    expect(mockRepos.stockLog.batchAppend).not.toHaveBeenCalled()
   })
 
   it('throws InventoryError if physical count is negative', async () => {
@@ -154,15 +153,17 @@ describe('createPurchaseOrder', () => {
       { product_id: 'p2', product_name: 'Es Teh', qty: 100, cost_price: 3000 },
     ])
 
-    expect(mockRepos.purchaseOrders.append).toHaveBeenCalledTimes(1)
-    const orderRow = mockRepos.purchaseOrders.append.mock.calls[0][0]
+    expect(mockRepos.purchaseOrders.batchAppend).toHaveBeenCalledTimes(1)
+    const orderRow = mockRepos.purchaseOrders.batchAppend.mock.calls[0][0][0]
     expect(orderRow['supplier']).toBe('Supplier ABC')
     expect(orderRow['status']).toBe('pending')
 
-    expect(mockRepos.purchaseOrderItems.append).toHaveBeenCalledTimes(2)
-    expect(mockRepos.purchaseOrderItems.append.mock.calls[0][0]['product_id']).toBe('p1')
-    expect(mockRepos.purchaseOrderItems.append.mock.calls[0][0]['qty']).toBe(50)
-    expect(mockRepos.purchaseOrderItems.append.mock.calls[1][0]['product_id']).toBe('p2')
+    expect(mockRepos.purchaseOrderItems.batchAppend).toHaveBeenCalledTimes(1)
+    const poItems = mockRepos.purchaseOrderItems.batchAppend.mock.calls[0][0]
+    expect(poItems).toHaveLength(2)
+    expect(poItems[0]['product_id']).toBe('p1')
+    expect(poItems[0]['qty']).toBe(50)
+    expect(poItems[1]['product_id']).toBe('p2')
   })
 })
 
@@ -208,10 +209,12 @@ describe('receivePurchaseOrder', () => {
 
     await receivePurchaseOrder(orderId)
 
-    expect(mockRepos.stockLog.append).toHaveBeenCalledTimes(2)
-    expect(mockRepos.stockLog.append.mock.calls[0][0]['reason']).toBe('purchase_order')
-    expect(mockRepos.stockLog.append.mock.calls[0][0]['qty_before']).toBe(20)
-    expect(mockRepos.stockLog.append.mock.calls[0][0]['qty_after']).toBe(70)
+    expect(mockRepos.stockLog.batchAppend).toHaveBeenCalledTimes(1)
+    const logEntries = mockRepos.stockLog.batchAppend.mock.calls[0][0]
+    expect(logEntries).toHaveLength(2)
+    expect(logEntries[0]['reason']).toBe('purchase_order')
+    expect(logEntries[0]['qty_before']).toBe(20)
+    expect(logEntries[0]['qty_after']).toBe(70)
   })
 
   it('throws InventoryError if order status is already "received"', async () => {

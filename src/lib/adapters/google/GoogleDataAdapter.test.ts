@@ -86,7 +86,7 @@ describe('SheetRepository', () => {
     })
   })
 
-  describe('append', () => {
+  describe('batchAppend', () => {
     it('maps object fields to ordered row array', async () => {
       let capturedBody: unknown
       server.use(
@@ -99,7 +99,7 @@ describe('SheetRepository', () => {
           })
         }),
       )
-      await makeRepo().append({ id: 'prod-3', name: 'Mie Goreng', price: 12000 })
+      await makeRepo().batchAppend([{ id: 'prod-3', name: 'Mie Goreng', price: 12000 }])
       expect(capturedBody).toBeDefined()
       const body = capturedBody as { values: unknown[][] }
       expect(body.values[0]).toContain('prod-3')
@@ -111,27 +111,28 @@ describe('SheetRepository', () => {
         http.post(`${BASE}/values/:range\\:append`, () => new HttpResponse(null, { status: 429 })),
       )
       await expect(
-        makeRepo().append({ name: 'Test' })
-      ).rejects.toThrow('appendRow failed')
+        makeRepo().batchAppend([{ name: 'Test' }])
+      ).rejects.toThrow('batchAppendRows failed')
     })
   })
 
-  describe('updateCell', () => {
-    it('reads row number then sends targeted update', async () => {
-      let updateUrl = ''
+  describe('batchUpdateCells', () => {
+    it('reads sheet then sends targeted batchUpdate', async () => {
+      let capturedBody: unknown
       server.use(
-        http.put(`${BASE}/values/:range`, ({ request }) => {
-          updateUrl = new URL(request.url).pathname
+        http.post(`${BASE}/values\\:batchUpdate`, async ({ request }) => {
+          capturedBody = await request.json()
           return HttpResponse.json({
             spreadsheetId: SPREADSHEET_ID,
-            updatedRange: 'Products!D2',
-            updatedRows: 1, updatedColumns: 1, updatedCells: 1,
+            totalUpdatedCells: 1,
+            responses: [],
           })
         }),
       )
-      await makeRepo().updateCell('prod-1', 'deleted_at', '2026-01-01T00:00:00.000Z')
+      await makeRepo().batchUpdateCells([{ rowId: 'prod-1', column: 'deleted_at', value: '2026-01-01T00:00:00.000Z' }])
       // D is column index 3 (id=A, name=B, price=C, deleted_at=D), row 2 (first data row)
-      expect(updateUrl).toContain('D2')
+      const body = capturedBody as { data: Array<{ range: string }> }
+      expect(body.data[0].range).toContain('D2')
     })
   })
 

@@ -118,15 +118,15 @@ export async function saveOpnameResults(results: OpnameRow[]): Promise<void> {
     getRepos().products.batchUpdateCells(
       changed.map((row) => ({ rowId: row.product_id, column: 'stock', value: row.physical_count })),
     ),
-    ...changed.map((row) =>
-      getRepos().stockLog.append( {
+    getRepos().stockLog.batchAppend(
+      changed.map((row) => ({
         id: generateId(),
         product_id: row.product_id,
         reason: 'opname',
         qty_before: row.system_stock,
         qty_after: row.physical_count,
         created_at,
-      }),
+      })),
     ),
   ])
 }
@@ -154,25 +154,23 @@ export async function createPurchaseOrder(
   const orderId = generateId()
   const created_at = nowUTC()
 
-  await getRepos().purchaseOrders.append( {
+  await getRepos().purchaseOrders.batchAppend([{
     id: orderId,
     supplier: supplier.trim(),
     status: 'pending',
     created_at,
-  })
+  }])
 
-  await Promise.all(
-    items.map((item) =>
-      getRepos().purchaseOrderItems.append( {
-        id: generateId(),
-        order_id: orderId,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        qty: item.qty,
-        cost_price: item.cost_price,
-        created_at,
-      }),
-    ),
+  await getRepos().purchaseOrderItems.batchAppend(
+    items.map((item) => ({
+      id: generateId(),
+      order_id: orderId,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      qty: item.qty,
+      cost_price: item.cost_price,
+      created_at,
+    })),
   )
 
   return { id: orderId, supplier: supplier.trim(), status: 'pending', created_at }
@@ -238,20 +236,20 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
         value: qtyAfter,
       })),
     ),
-    ...stockData.map(({ item, qtyBefore, qtyAfter }) =>
-      getRepos().stockLog.append( {
+    getRepos().stockLog.batchAppend(
+      stockData.map(({ item, qtyBefore, qtyAfter }) => ({
         id: generateId(),
         product_id: item['product_id'],
         reason: 'purchase_order',
         qty_before: qtyBefore,
         qty_after: qtyAfter,
         created_at,
-      }),
+      })),
     ),
   ])
 
   // Step 5: Mark order as received only after all stock updates succeed
-  await getRepos().purchaseOrders.updateCell(orderId, 'status', 'received')
+  await getRepos().purchaseOrders.batchUpdateCells([{ rowId: orderId, column: 'status', value: 'received' }])
 }
 
 /**

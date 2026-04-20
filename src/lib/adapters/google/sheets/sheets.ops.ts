@@ -52,7 +52,7 @@ export async function getSheet(
 
 /**
  * Writes the header row (row 1) to the named sheet tab using values.update.
- * Must be called once after a new tab is created so that appendRow can map
+ * Must be called once after a new tab is created so that batchAppendRows can map
  * object keys to the correct column positions.
  */
 export async function writeHeaders(
@@ -74,44 +74,6 @@ export async function writeHeaders(
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new AdapterError(`writeHeaders failed for "${sheetName}": ${body}`)
-  }
-}
-
-/**
- * Appends a row to the sheet. Fetches header row first to determine column
- * order so object keys are mapped to the correct columns.
- * Pass `knownHeaders` to skip the header-fetch GET when the column order is
- * already known (e.g. from src/lib/schema.ts via SheetRepository).
- */
-export async function appendRow(
-  spreadsheetId: string,
-  sheetName: string,
-  row: Record<string, unknown>,
-  token: string,
-  knownHeaders?: string[],
-): Promise<void> {
-  try {
-    const rowWithId = row['id'] ? row : { id: generateId(), ...row }
-    let values: unknown[]
-    if (knownHeaders && knownHeaders.length > 0) {
-      values = knownHeaders.map((h) => rowWithId[h] ?? null)
-    } else {
-      const headerUrl = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`
-      const headerRes = await fetch(headerUrl, { headers: { Authorization: `Bearer ${token}` } })
-      if (headerRes.ok) {
-        const headerData = await headerRes.json()
-        const headers: string[] = (headerData.values?.[0] ?? []) as string[]
-        values = headers.length > 0 ? headers.map((h) => rowWithId[h] ?? null) : Object.values(rowWithId)
-      } else {
-        values = Object.values(rowWithId)
-      }
-    }
-    await sheetsAppend(spreadsheetId, sheetName, [values] as unknown as (string | number | boolean)[][], token)
-  } catch (err) {
-    if (err instanceof SheetsApiError) {
-      throw new AdapterError(`appendRow failed for "${sheetName}": ${err.message}`, err)
-    }
-    throw err
   }
 }
 

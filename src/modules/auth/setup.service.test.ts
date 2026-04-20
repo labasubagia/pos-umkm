@@ -55,8 +55,7 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    append: vi.fn().mockResolvedValue(undefined),
-    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchAppend: vi.fn().mockResolvedValue(undefined),
     batchUpdateCells: vi.fn().mockResolvedValue(undefined),
     batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
@@ -145,12 +144,12 @@ describe('createMasterSpreadsheet', () => {
 
     await createMasterSpreadsheet('Toko X', 'owner@example.com', 'main-id-000')
 
-    expect(sharedMakeRepo.append).toHaveBeenCalledWith(expect.objectContaining({
+    expect(sharedMakeRepo.batchAppend).toHaveBeenCalledWith([expect.objectContaining({
       store_name: 'Toko X',
       master_spreadsheet_id: 'master-id-456',
       owner_email: 'owner@example.com',
       my_role: 'owner',
-    }))
+    })])
   })
 
   it('saves activeStoreId to localStorage', async () => {
@@ -318,7 +317,7 @@ describe('updateStoreName', () => {
   it('updates store_name cell in main.Stores tab', async () => {
     await updateStoreName('sid-1', 'Toko Baru', 'master-1')
 
-    expect(sharedMakeRepo.updateCell).toHaveBeenCalledWith('sid-1', 'store_name', 'Toko Baru')
+    expect(sharedMakeRepo.batchUpdateCells).toHaveBeenCalledWith([{ rowId: 'sid-1', column: 'store_name', value: 'Toko Baru' }])
   })
 
   it('throws SetupError when mainSpreadsheetId is not set', async () => {
@@ -329,7 +328,7 @@ describe('updateStoreName', () => {
   it('throws SetupError when store is not found in Stores tab', async () => {
     const adapterError = new Error('row not found')
     adapterError.name = 'AdapterError'
-    sharedMakeRepo.updateCell.mockRejectedValue(adapterError)
+    sharedMakeRepo.batchUpdateCells.mockRejectedValue(adapterError)
     await expect(updateStoreName('sid-missing', 'New Name', 'master-1')).rejects.toThrow('not found in main.Stores')
   })
 })
@@ -414,10 +413,10 @@ describe('createMonthlySheet', () => {
     await createMonthlySheet(2026, 4)
 
     expect(adapters.driveClient.createSpreadsheet).toHaveBeenCalledWith('transaction_2026-04', undefined, expect.arrayContaining([...MONTHLY_TABS]))
-    expect(mockRepos.monthlySheets.append).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockRepos.monthlySheets.batchAppend).toHaveBeenCalledWith([expect.objectContaining({
       year_month: '2026-04',
       spreadsheetId: 'monthly-id-001',
-    }))
+    })])
   })
 
   it('creates monthly sheet with correct name regardless of activeStoreId', async () => {

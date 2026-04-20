@@ -16,8 +16,7 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    append: vi.fn().mockResolvedValue(undefined),
-    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchAppend: vi.fn().mockResolvedValue(undefined),
     batchUpdateCells: vi.fn().mockResolvedValue(undefined),
     batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
@@ -116,8 +115,11 @@ describe('saveQRISImage', () => {
     const dataUrl = 'data:image/png;base64,abc123'
     await saveQRISImage(dataUrl)
 
-    expect(mockRepos.settings.append).toHaveBeenCalledWith(
-      expect.objectContaining({ key: 'qris_image_url', value: dataUrl }),
+    expect(mockRepos.settings.batchUpsertByKey).toHaveBeenCalledWith(
+      'key',
+      'value',
+      expect.arrayContaining([{ lookupValue: 'qris_image_url', value: dataUrl }]),
+      expect.any(Function),
     )
   })
 
@@ -126,8 +128,11 @@ describe('saveQRISImage', () => {
 
     await saveQRISImage('https://example.com/qris.png')
 
-    expect(mockRepos.settings.append).toHaveBeenCalledWith(
-      expect.objectContaining({ key: 'qris_image_url', value: 'https://example.com/qris.png' }),
+    expect(mockRepos.settings.batchUpsertByKey).toHaveBeenCalledWith(
+      'key',
+      'value',
+      expect.arrayContaining([{ lookupValue: 'qris_image_url', value: 'https://example.com/qris.png' }]),
+      expect.any(Function),
     )
   })
 
@@ -138,8 +143,12 @@ describe('saveQRISImage', () => {
 
     await saveQRISImage('https://new.com/qr.png')
 
-    expect(mockRepos.settings.updateCell).toHaveBeenCalledWith('row-1', 'value', 'https://new.com/qr.png')
-    expect(mockRepos.settings.append).not.toHaveBeenCalled()
+    expect(mockRepos.settings.batchUpsertByKey).toHaveBeenCalledWith(
+      'key',
+      'value',
+      expect.arrayContaining([{ lookupValue: 'qris_image_url', value: 'https://new.com/qr.png' }]),
+      expect.any(Function),
+    )
   })
 
   it('throws SettingsError if value is not a valid URL or data URL', async () => {

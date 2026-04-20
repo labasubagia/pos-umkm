@@ -96,12 +96,12 @@ export async function addCategory(name: string): Promise<Category> {
 
   const id = generateId()
   const created_at = nowUTC()
-  await getRepos().categories.append( {
+  await getRepos().categories.batchAppend([{
     id,
     name: name.trim(),
     created_at,
     deleted_at: null,
-  })
+  }])
   return { id, name: name.trim(), created_at, deleted_at: null }
 }
 
@@ -116,7 +116,7 @@ export async function updateCategory(id: string, name: string): Promise<void> {
   if (name.trim().length > 100) {
     throw new CatalogError('Nama kategori maksimal 100 karakter')
   }
-  await getRepos().categories.updateCell(id, 'name', name.trim())
+  await getRepos().categories.batchUpdateCells([{ rowId: id, column: 'name', value: name.trim() }])
 }
 
 /**
@@ -193,7 +193,7 @@ export async function addProduct(product: NewProduct): Promise<Product> {
     created_at,
     deleted_at: null,
   }
-  await getRepos().products.append(row)
+  await getRepos().products.batchAppend([row])
   return {
     id,
     category_id: product.category_id,
@@ -252,7 +252,7 @@ export async function decrementStock(productId: string, qty: number): Promise<vo
       `Stok tidak mencukupi: stok saat ini ${currentStock}, pengurangan ${qty}`,
     )
   }
-  await getRepos().products.updateCell(productId, 'stock', newStock)
+  await getRepos().products.batchUpdateCells([{ rowId: productId, column: 'stock', value: newStock }])
 }
 
 // ─── T023 — Product Variants ─────────────────────────────────────────────────
@@ -298,7 +298,7 @@ export async function addVariant(
 
   const id = generateId()
   const created_at = nowUTC()
-  await getRepos().variants.append( {
+  await getRepos().variants.batchAppend([{
     id,
     product_id: productId,
     option_name: optionName,
@@ -307,7 +307,7 @@ export async function addVariant(
     stock,
     created_at,
     deleted_at: null,
-  })
+  }])
   return { id, product_id: productId, option_name: optionName, option_value: optionValue.trim(), price, stock, created_at, deleted_at: null }
 }
 
@@ -333,5 +333,5 @@ export async function decrementVariantStock(variantId: string, qty: number): Pro
       `Stok varian tidak mencukupi: stok saat ini ${currentStock}, pengurangan ${qty}`,
     )
   }
-  await getRepos().variants.updateCell(variantId, 'stock', newStock)
+  await getRepos().variants.batchUpdateCells([{ rowId: variantId, column: 'stock', value: newStock }])
 }

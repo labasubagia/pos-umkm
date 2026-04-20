@@ -110,19 +110,17 @@ export async function createRefund(
   const refundId = generateId()
 
   // Step 2: Append one row per item to Refunds tab
-  await Promise.all(
-    items.map((item) =>
-      getRepos().refunds.append( {
-        id: generateId(),
-        transaction_id: transactionId,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        qty: item.qty,
-        unit_price: item.unit_price,
-        reason,
-        created_at,
-      }),
-    ),
+  await getRepos().refunds.batchAppend(
+    items.map((item) => ({
+      id: generateId(),
+      transaction_id: transactionId,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      qty: item.qty,
+      unit_price: item.unit_price,
+      reason,
+      created_at,
+    })),
   )
 
   // Step 3: Re-increment stock for each returned product
@@ -138,12 +136,12 @@ export async function createRefund(
   }
 
   // Step 4: Append Audit_Log entry
-  await getRepos().auditLog.append( {
+  await getRepos().auditLog.batchAppend([{
     id: generateId(),
     event: 'REFUND',
     data: JSON.stringify({ transactionId, items, reason }),
     created_at,
-  })
+  }])
 
   return {
     id: refundId,

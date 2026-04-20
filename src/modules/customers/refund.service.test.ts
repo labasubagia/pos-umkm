@@ -10,8 +10,7 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    append: vi.fn().mockResolvedValue(undefined),
-    updateCell: vi.fn().mockResolvedValue(undefined),
+    batchAppend: vi.fn().mockResolvedValue(undefined),
     batchUpdateCells: vi.fn().mockResolvedValue(undefined),
     batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
@@ -109,15 +108,15 @@ describe('createRefund', () => {
 
     await createRefund('tx-001', [REFUND_ITEM], 'Produk rusak')
 
-    expect(mockRepos.refunds.append).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(mockRepos.refunds.batchAppend).toHaveBeenCalledWith(
+      [expect.objectContaining({
         transaction_id: 'tx-001',
         product_id: 'prod-1',
         product_name: 'Nasi Goreng',
         qty: 2,
         unit_price: 15000,
         reason: 'Produk rusak',
-      }),
+      })],
     )
   })
 
@@ -139,10 +138,10 @@ describe('createRefund', () => {
 
     await createRefund('tx-001', [REFUND_ITEM], 'Produk rusak')
 
-    expect(mockRepos.auditLog.append).toHaveBeenCalledWith(
-      expect.objectContaining({ event: 'REFUND' }),
+    expect(mockRepos.auditLog.batchAppend).toHaveBeenCalledWith(
+      [expect.objectContaining({ event: 'REFUND' })],
     )
-    const auditRow = mockRepos.auditLog.append.mock.calls[0][0]
+    const auditRow = mockRepos.auditLog.batchAppend.mock.calls[0][0][0]
     const data = JSON.parse(auditRow['data'] as string)
     expect(data.transactionId).toBe('tx-001')
     expect(data.reason).toBe('Produk rusak')

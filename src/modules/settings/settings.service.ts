@@ -47,21 +47,11 @@ export async function getQRISImageUrl(): Promise<string> {
 
 /**
  * Saves the QRIS image URL to the Settings tab.
- * If a row for qris_image_url already exists, it is updated via updateCell.
- * Otherwise a new key-value row is appended.
+ * Delegates to saveSetting which uses batchUpsertByKey — 1 GET + 1 POST
+ * regardless of whether the key already exists or not.
  */
 export async function saveQRISImageUrl(url: string): Promise<void> {
-  const rows = await getRepos().settings.getAll()
-  const existing = rows.find((r) => r['key'] === 'qris_image_url')
-  if (existing) {
-    await getRepos().settings.updateCell(existing['id'] as string, 'value', url)
-  } else {
-    await getRepos().settings.append( {
-      key: 'qris_image_url',
-      value: url,
-      updated_at: nowUTC(),
-    })
-  }
+  await saveSetting('qris_image_url', url)
 }
 
 export class SettingsError extends Error {

@@ -293,7 +293,7 @@ export async function commitTransaction(
   }
 
   // Step 1: Append transaction header
-  await getRepos().transactions.append( {
+  await getRepos().transactions.batchAppend([{
     id: transactionId,
     created_at,
     cashier_id: cashierId,
@@ -309,7 +309,7 @@ export async function commitTransaction(
     change: payment.change,
     receipt_number: receiptNumber,
     notes: '',
-  })
+  }])
 
   // Step 2: Append all items in a single API call
   await getRepos().transactionItems.batchAppend(

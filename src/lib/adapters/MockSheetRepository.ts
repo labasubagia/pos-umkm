@@ -39,12 +39,6 @@ export class MockSheetRepository<T extends Record<string, unknown>> implements I
     return readRows(this.sheetName).filter((r) => !r['deleted_at']) as T[]
   }
 
-  async append(row: Partial<T> & Record<string, unknown>): Promise<void> {
-    const rows = readRows(this.sheetName)
-    rows.push({ id: generateId(), ...row })
-    writeRows(this.sheetName, rows)
-  }
-
   async batchAppend(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void> {
     const existing = readRows(this.sheetName)
     for (const row of rows) {
@@ -53,22 +47,18 @@ export class MockSheetRepository<T extends Record<string, unknown>> implements I
     writeRows(this.sheetName, existing)
   }
 
-  async updateCell(rowId: string, column: string, value: unknown): Promise<void> {
-    const rows = readRows(this.sheetName)
-    const idx = rows.findIndex((r) => r['id'] === rowId)
-    if (idx === -1) {
-      throw new AdapterError(
-        `MockSheetRepository.updateCell: row "${rowId}" not found in "${this.sheetName}"`,
-      )
-    }
-    rows[idx] = { ...rows[idx], [column]: value }
-    writeRows(this.sheetName, rows)
-  }
-
   async batchUpdateCells(updates: Array<{ rowId: string; column: string; value: unknown }>): Promise<void> {
+    const rows = readRows(this.sheetName)
     for (const { rowId, column, value } of updates) {
-      await this.updateCell(rowId, column, value)
+      const idx = rows.findIndex((r) => r['id'] === rowId)
+      if (idx === -1) {
+        throw new AdapterError(
+          `MockSheetRepository.batchUpdateCells: row "${rowId}" not found in "${this.sheetName}"`,
+        )
+      }
+      rows[idx] = { ...rows[idx], [column]: value }
     }
+    writeRows(this.sheetName, rows)
   }
 
   async batchUpsertByKey(
@@ -77,15 +67,19 @@ export class MockSheetRepository<T extends Record<string, unknown>> implements I
     entries: Array<{ lookupValue: string; value: unknown }>,
     makeNewRow: (lookupValue: string, value: unknown) => Record<string, unknown>,
   ): Promise<void> {
+    const toUpdate: Array<{ rowId: string; column: string; value: unknown }> = []
+    const toAppend: Array<Partial<T> & Record<string, unknown>> = []
     const rows = readRows(this.sheetName).filter((r) => !r['deleted_at'])
     for (const { lookupValue, value } of entries) {
       const existing = rows.find((r) => r[lookupColumn] === lookupValue)
       if (existing) {
-        await this.updateCell(existing['id'] as string, updateColumn, value)
+        toUpdate.push({ rowId: existing['id'] as string, column: updateColumn, value })
       } else {
-        await this.append(makeNewRow(lookupValue, value) as Partial<T> & Record<string, unknown>)
+        toAppend.push(makeNewRow(lookupValue, value) as Partial<T> & Record<string, unknown>)
       }
     }
+    if (toUpdate.length > 0) await this.batchUpdateCells(toUpdate)
+    if (toAppend.length > 0) await this.batchAppend(toAppend)
   }
 
   async softDelete(rowId: string): Promise<void> {

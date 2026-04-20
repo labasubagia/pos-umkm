@@ -81,14 +81,14 @@ export async function addCustomer(
 
   const id = generateId()
   const created_at = nowUTC()
-  await getRepos().customers.append( {
+  await getRepos().customers.batchAppend([{
     id,
     name: name.trim(),
     phone,
     email: email ?? '',
     created_at,
     deleted_at: null,
-  })
+  }])
   return { id, name: name.trim(), phone, email, created_at, deleted_at: null }
 }
 

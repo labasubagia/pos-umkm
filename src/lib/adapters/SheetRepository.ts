@@ -14,9 +14,7 @@ export interface ISheetRepository<T extends Record<string, unknown>> {
   readonly spreadsheetId: string
   readonly sheetName: string
   getAll(): Promise<T[]>
-  append(row: Partial<T> & Record<string, unknown>): Promise<void>
   batchAppend(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void>
-  updateCell(rowId: string, column: string, value: unknown): Promise<void>
   batchUpdateCells(updates: Array<{ rowId: string; column: string; value: unknown }>): Promise<void>
   batchUpsertByKey(
     lookupColumn: string,
@@ -50,16 +48,8 @@ export class SheetRepository<T extends Record<string, unknown>> implements IShee
     return sheetsOps.getSheet(this.spreadsheetId, this.sheetName, this.getToken()) as Promise<T[]>
   }
 
-  append(row: Partial<T> & Record<string, unknown>): Promise<void> {
-    return sheetsOps.appendRow(this.spreadsheetId, this.sheetName, row as Record<string, unknown>, this.getToken(), this.knownHeaders)
-  }
-
   batchAppend(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void> {
     return sheetsOps.batchAppendRows(this.spreadsheetId, this.sheetName, rows as Record<string, unknown>[], this.getToken(), this.knownHeaders)
-  }
-
-  updateCell(rowId: string, column: string, value: unknown): Promise<void> {
-    return sheetsOps.updateCell(this.spreadsheetId, this.sheetName, rowId, column, value, this.getToken())
   }
 
   batchUpdateCells(updates: Array<{ rowId: string; column: string; value: unknown }>): Promise<void> {

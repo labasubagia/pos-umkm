@@ -15,29 +15,33 @@ export async function seedLocalStorage(): Promise<void> {
 
   const now = new Date().toISOString()
 
-  await repos.categories.append({ id: generateId(), name: 'Makanan', created_at: now, deleted_at: null })
-  await repos.categories.append({ id: generateId(), name: 'Minuman', created_at: now, deleted_at: null })
+  await repos.categories.batchAppend([
+    { id: generateId(), name: 'Makanan', created_at: now, deleted_at: null },
+    { id: generateId(), name: 'Minuman', created_at: now, deleted_at: null },
+  ])
 
-  await repos.products.append({
-    id: generateId(),
-    category_id: 'cat-001',
-    name: 'Nasi Goreng',
-    price: 15000,
-    sku: 'NASGOR-01',
-    stock: 50,
-    created_at: now,
-    deleted_at: null,
-  })
-  await repos.products.append({
-    id: generateId(),
-    category_id: 'cat-002',
-    name: 'Es Teh Manis',
-    price: 5000,
-    sku: 'ESTEH-01',
-    stock: 100,
-    created_at: now,
-    deleted_at: null,
-  })
+  await repos.products.batchAppend([
+    {
+      id: generateId(),
+      category_id: 'cat-001',
+      name: 'Nasi Goreng',
+      price: 15000,
+      sku: 'NASGOR-01',
+      stock: 50,
+      created_at: now,
+      deleted_at: null,
+    },
+    {
+      id: generateId(),
+      category_id: 'cat-002',
+      name: 'Es Teh Manis',
+      price: 5000,
+      sku: 'ESTEH-01',
+      stock: 100,
+      created_at: now,
+      deleted_at: null,
+    },
+  ])
 
   console.info('[seed] Seeded 2 categories and 2 products')
 }

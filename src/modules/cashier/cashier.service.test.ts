@@ -33,9 +33,7 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    append: vi.fn().mockResolvedValue(undefined),
     batchAppend: vi.fn().mockResolvedValue(undefined),
-    updateCell: vi.fn().mockResolvedValue(undefined),
     batchUpdateCells: vi.fn().mockResolvedValue(undefined),
     batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
@@ -260,7 +258,7 @@ describe('commitTransaction', () => {
   it('appends 1 row to Transactions tab', async () => {
     await commitTransaction(items, null, 0, payment, 'user-1', null, masterSpreadsheetId, 1)
 
-    expect(mockRepos.transactions.append).toHaveBeenCalledTimes(1)
+    expect(mockRepos.transactions.batchAppend).toHaveBeenCalledTimes(1)
   })
 
   it('appends all cart items to Transaction_Items tab in a single call', async () => {

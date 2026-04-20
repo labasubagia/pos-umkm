@@ -185,7 +185,7 @@ export async function updateStoreName(
   if (!mainId) throw new SetupError('updateStoreName: mainSpreadsheetId not found')
 
   try {
-    await makeRepo(mainId, 'Stores').updateCell(storeId, 'store_name', newName)
+    await makeRepo(mainId, 'Stores').batchUpdateCells([{ rowId: storeId, column: 'store_name', value: newName }])
   } catch (err) {
     if (err instanceof Error && err.name === 'AdapterError' && err.message.includes('not found')) {
       throw new SetupError(`updateStoreName: store ${storeId} not found in main.Stores`)
@@ -311,7 +311,7 @@ export async function createMasterSpreadsheet(
     const masterId = await driveClient.createSpreadsheet('master', storeFolderId, [...MASTER_TABS])
 
     // ── 3. Register new store in main.Stores ──────────────────────────────────
-    await makeRepo(mainSpreadsheetId, 'Stores').append({
+    await makeRepo(mainSpreadsheetId, 'Stores').batchAppend([{
       store_id: storeId,
       store_name: businessName,
       master_spreadsheet_id: masterId,
@@ -319,7 +319,7 @@ export async function createMasterSpreadsheet(
       owner_email: ownerEmail,
       my_role: 'owner',
       joined_at: nowUTC(),
-    })
+    }])
 
     // Persist store context so monthly sheets and other services can locate the folder.
     localStorage.setItem('activeStoreId', storeId)
@@ -399,12 +399,12 @@ export async function createMonthlySheet(year: number, month: number): Promise<s
     const id = await driveClient.createSpreadsheet(name, parentFolderId, [...MONTHLY_TABS])
 
     // Register in the Monthly_Sheets registry tab so all users can resolve the ID.
-    await getRepos().monthlySheets.append({
+    await getRepos().monthlySheets.batchAppend([{
       id: generateId(),
       year_month: yearMonth,
       spreadsheetId: id,
       created_at: nowUTC(),
-    })
+    }])
 
     return id
   } catch (err) {
