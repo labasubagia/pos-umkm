@@ -27,6 +27,7 @@ import { SheetRepository } from './SheetRepository'
 import { MockSheetRepository } from './MockSheetRepository'
 import { createGoogleRepos, createMockRepos } from './repos'
 import type { Repos } from './repos'
+import { ALL_TAB_HEADERS } from '../schema'
 
 // Lazy import to avoid circular dependency (authStore imports from here indirectly via services)
 import { useAuthStore } from '../../store/authStore'
@@ -68,7 +69,7 @@ export function makeRepo<T extends Record<string, unknown>>(
   sheetName: string,
 ): ISheetRepository<T> {
   if (adapterType === 'google') {
-    return new SheetRepository<T>(spreadsheetId, sheetName, getToken)
+    return new SheetRepository<T>(spreadsheetId, sheetName, getToken, ALL_TAB_HEADERS[sheetName])
   }
   return new MockSheetRepository<T>(sheetName)
 }

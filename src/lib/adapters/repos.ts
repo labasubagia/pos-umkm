@@ -11,6 +11,7 @@
  */
 import { SheetRepository, type ISheetRepository } from './SheetRepository'
 import { MockSheetRepository } from './MockSheetRepository'
+import { ALL_TAB_HEADERS } from '../schema'
 
 export interface Repos {
   // Main spreadsheet (owner's personal store registry)
@@ -40,7 +41,7 @@ export function createGoogleRepos(
   getToken: () => string,
 ): Repos {
   const r = (spreadsheetId: string, sheetName: string) =>
-    new SheetRepository(spreadsheetId, sheetName, getToken)
+    new SheetRepository(spreadsheetId, sheetName, getToken, ALL_TAB_HEADERS[sheetName])
   return {
     stores:             r(mainId,    'Stores'),
     monthlySheets:      r(masterId,  'Monthly_Sheets'),

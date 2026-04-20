@@ -80,24 +80,31 @@ export async function writeHeaders(
 /**
  * Appends a row to the sheet. Fetches header row first to determine column
  * order so object keys are mapped to the correct columns.
+ * Pass `knownHeaders` to skip the header-fetch GET when the column order is
+ * already known (e.g. from src/lib/schema.ts via SheetRepository).
  */
 export async function appendRow(
   spreadsheetId: string,
   sheetName: string,
   row: Record<string, unknown>,
   token: string,
+  knownHeaders?: string[],
 ): Promise<void> {
   try {
     const rowWithId = row['id'] ? row : { id: generateId(), ...row }
-    const headerUrl = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`
-    const headerRes = await fetch(headerUrl, { headers: { Authorization: `Bearer ${token}` } })
     let values: unknown[]
-    if (headerRes.ok) {
-      const headerData = await headerRes.json()
-      const headers: string[] = (headerData.values?.[0] ?? []) as string[]
-      values = headers.length > 0 ? headers.map((h) => rowWithId[h] ?? null) : Object.values(rowWithId)
+    if (knownHeaders && knownHeaders.length > 0) {
+      values = knownHeaders.map((h) => rowWithId[h] ?? null)
     } else {
-      values = Object.values(rowWithId)
+      const headerUrl = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`
+      const headerRes = await fetch(headerUrl, { headers: { Authorization: `Bearer ${token}` } })
+      if (headerRes.ok) {
+        const headerData = await headerRes.json()
+        const headers: string[] = (headerData.values?.[0] ?? []) as string[]
+        values = headers.length > 0 ? headers.map((h) => rowWithId[h] ?? null) : Object.values(rowWithId)
+      } else {
+        values = Object.values(rowWithId)
+      }
     }
     await sheetsAppend(spreadsheetId, sheetName, [values] as unknown as (string | number | boolean)[][], token)
   } catch (err) {
@@ -114,21 +121,25 @@ export async function appendRow(
  * Fetches the header row ONCE, maps every row object to column order, then
  * calls sheetsAppend with all rows at once. Compared to N × appendRow calls
  * this saves (N − 1) GET requests and (N − 1) POST requests.
+ * Pass `knownHeaders` to skip even the single header-fetch GET.
  */
 export async function batchAppendRows(
   spreadsheetId: string,
   sheetName: string,
   rows: Record<string, unknown>[],
   token: string,
+  knownHeaders?: string[],
 ): Promise<void> {
   if (rows.length === 0) return
   try {
-    const headerUrl = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`
-    const headerRes = await fetch(headerUrl, { headers: { Authorization: `Bearer ${token}` } })
-    let headers: string[] = []
-    if (headerRes.ok) {
-      const headerData = await headerRes.json()
-      headers = (headerData.values?.[0] ?? []) as string[]
+    let headers: string[] = knownHeaders ?? []
+    if (headers.length === 0) {
+      const headerUrl = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`
+      const headerRes = await fetch(headerUrl, { headers: { Authorization: `Bearer ${token}` } })
+      if (headerRes.ok) {
+        const headerData = await headerRes.json()
+        headers = (headerData.values?.[0] ?? []) as string[]
+      }
     }
 
     const valueRows = rows.map((row) => {

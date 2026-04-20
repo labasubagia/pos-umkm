@@ -32,15 +32,18 @@ export class SheetRepository<T extends Record<string, unknown>> implements IShee
   readonly spreadsheetId: string
   readonly sheetName: string
   private readonly getToken: () => string
+  private readonly knownHeaders?: string[]
 
   constructor(
     spreadsheetId: string,
     sheetName: string,
     getToken: () => string,
+    knownHeaders?: string[],
   ) {
     this.spreadsheetId = spreadsheetId
     this.sheetName = sheetName
     this.getToken = getToken
+    this.knownHeaders = knownHeaders
   }
 
   getAll(): Promise<T[]> {
@@ -48,11 +51,11 @@ export class SheetRepository<T extends Record<string, unknown>> implements IShee
   }
 
   append(row: Partial<T> & Record<string, unknown>): Promise<void> {
-    return sheetsOps.appendRow(this.spreadsheetId, this.sheetName, row as Record<string, unknown>, this.getToken())
+    return sheetsOps.appendRow(this.spreadsheetId, this.sheetName, row as Record<string, unknown>, this.getToken(), this.knownHeaders)
   }
 
   batchAppend(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void> {
-    return sheetsOps.batchAppendRows(this.spreadsheetId, this.sheetName, rows as Record<string, unknown>[], this.getToken())
+    return sheetsOps.batchAppendRows(this.spreadsheetId, this.sheetName, rows as Record<string, unknown>[], this.getToken(), this.knownHeaders)
   }
 
   updateCell(rowId: string, column: string, value: unknown): Promise<void> {
