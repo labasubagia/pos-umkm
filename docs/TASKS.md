@@ -1216,6 +1216,151 @@
 
 ---
 
+## Phase 9 — Offline-First (Dexie.js)
+
+> All reads served from IndexedDB; writes queued in `_outbox` and replayed to Google Sheets in the background. Transparent to all module service code via the existing `ISheetRepository<T>` interface. See TRD §12.
+
+---
+
+### T051 — Dexie DB Schema
+
+- **Status:** ✅ done
+- **Phase:** 9 – Offline-First
+- **Depends on:** T045
+- **Test type:** unit
+- **Architecture note:** All 15 entity tables plus `_outbox` and `_syncMeta` are defined in a single `PosUmkmDatabase` Dexie class (`src/lib/adapters/dexie/db.ts`). Table names match the Google Sheets tab names exactly so `db.table(sheetName)` works at runtime via string lookup — no mapping table needed. `_outbox` is keyed on auto-increment `id` to preserve FIFO ordering. `_syncMeta` is keyed on `tableName` for O(1) staleness checks.
+- **Deliverables:**
+  - `src/lib/adapters/dexie/db.ts`
+    - `PosUmkmDatabase extends Dexie` with all 15 entity tables + `_outbox` + `_syncMeta`
+    - `OutboxEntry` type (id, spreadsheetId, sheetName, operation, payload, retries, createdAt)
+    - `SyncMetaEntry` type (tableName, lastHydratedAt)
+    - Singleton `db` exported
+- **Test cases:**
+  - ✅ `db.table() returns correct table for each known entity name`
+  - ✅ `_outbox supports add and bulkGet with auto-increment id`
+  - ✅ `_syncMeta supports put and get by tableName`
+
+---
+
+### T052 — DexieSheetRepository
+
+- **Status:** ✅ done
+- **Phase:** 9 – Offline-First
+- **Depends on:** T051
+- **Test type:** unit
+- **Architecture note:** `DexieSheetRepository<T>` implements `ISheetRepository<T>` backed by IndexedDB. Every write method runs a Dexie ACID transaction that atomically writes to the entity table **and** appends to `_outbox`. This guarantees no write is lost even if the app is closed between the local write and the Sheets sync. `batchUpsertByKey` (used only by Settings service) is decomposed at write time — it queries Dexie locally to distinguish updates vs inserts, then creates separate `batchUpdateCells` and `batchAppend` outbox entries — avoiding the need to serialize the unserializable `makeNewRow` callback. `writeHeaders` bypasses IndexedDB and calls `SheetRepository` directly because it is only called during `SetupWizard` (always online, spreadsheet just created).
+- **Deliverables:**
+  - `src/lib/adapters/dexie/DexieSheetRepository.ts`
+    - `getAll()` — reads from Dexie, filters soft-deleted rows
+    - `append(row)` — Dexie txn: entity table put + `_outbox` add
+    - `batchAppend(rows)` — Dexie txn: bulkPut + single outbox entry
+    - `batchUpdateCells(updates)` — Dexie txn: updates applied via key lookup + outbox entry
+    - `softDelete(id)` — Dexie txn: sets `deleted_at` + outbox entry
+    - `batchUpsertByKey(rows, key, makeNewRow)` — decomposes locally; no outbox closure serialization
+    - `writeHeaders(headers)` — direct pass-through to `SheetRepository` (online only)
+- **Test cases (using `fake-indexeddb`):**
+  - ✅ `getAll returns only non-deleted rows`
+  - ✅ `append adds row to entity table and creates outbox entry`
+  - ✅ `batchAppend adds all rows and creates one outbox entry`
+  - ✅ `batchUpdateCells updates local row and creates outbox entry`
+  - ✅ `softDelete sets deleted_at and creates outbox entry`
+  - ✅ `batchUpsertByKey creates append entry for new rows and update entry for existing rows`
+  - ❌ `getAll returns empty array when table is empty`
+  - ❌ `append throws if row has no id field`
+
+---
+
+### T053 — SyncManager
+
+- **Status:** ✅ done
+- **Phase:** 9 – Offline-First
+- **Depends on:** T051, T052
+- **Test type:** unit
+- **Architecture note:** `SyncManager` drains `_outbox` to Google Sheets in FIFO order. Each entry creates a fresh `SheetRepository` from the stored `spreadsheetId` and `sheetName` — this handles monthly sheet rollovers correctly (no stale spreadsheetId from a prior month cached in a long-lived object). HTTP 429 (rate limit) stops the drain loop and sets a 60-second backoff before resuming; the `SyncManager` listens for the browser `online` event to also trigger an immediate drain. `MAX_RETRIES = 5`; entries exceeding this are permanently skipped (logged to console, not surfaced to the user as they are stale). Sync state is written to `syncStore` for the `SyncStatus` UI component.
+- **Deliverables:**
+  - `src/lib/adapters/dexie/SyncManager.ts`
+    - `start()` — begins polling (30 s interval) + registers `window.addEventListener('online', triggerSync)`
+    - `triggerSync()` — immediately drains the full `_outbox`
+    - `stop()` — clears interval + removes event listener
+    - `applyToSheets(entry)` — creates `SheetRepository` and calls the correct method based on `entry.operation`
+- **Test cases (using `fake-indexeddb` + `vi.spyOn`):**
+  - ✅ `triggerSync drains all outbox entries in FIFO order`
+  - ✅ `triggerSync sets isSyncing=true during drain and false after`
+  - ✅ `triggerSync increments retry count on failure and keeps entry in outbox`
+  - ✅ `triggerSync permanently skips entry after MAX_RETRIES`
+  - ✅ `triggerSync stops drain loop and sets backoff on HTTP 429`
+  - ✅ `triggerSync updates pendingCount in syncStore after each entry`
+  - ❌ `triggerSync does nothing when outbox is empty`
+  - ❌ `applyToSheets throws for unknown operation type`
+
+---
+
+### T054 — HydrationService
+
+- **Status:** ✅ done
+- **Phase:** 9 – Offline-First
+- **Depends on:** T051, T052
+- **Test type:** unit
+- **Architecture note:** `HydrationService.hydrateAll()` fetches all entity tables from Google Sheets in parallel (`Promise.allSettled`) and writes them into IndexedDB via `bulkPut`. Two skip conditions prevent unnecessary fetches and data loss: (a) table hydrated within the last 5 minutes (`_syncMeta.lastHydratedAt`) — avoids redundant Sheets API reads on rapid app restarts; (b) table has pending/unretried outbox entries — avoids overwriting local writes that have not yet been synced to Sheets. `getRawRows()` fetches including soft-deleted rows (unlike `ISheetRepository.getAll()`) to preserve the full dataset.
+- **Deliverables:**
+  - `src/lib/adapters/dexie/HydrationService.ts`
+    - `hydrateAll(mainSpreadsheetId, masterSpreadsheetId, monthlySpreadsheetId)` — hydrates all 15 tables in parallel; records `lastHydratedAt` per table; resolves all errors individually via `allSettled`
+    - `hydrateTable(spreadsheetId, sheetName)` — fetches raw rows, writes to Dexie, updates `_syncMeta`
+    - Skip logic: freshness check (5 min) + pending outbox guard
+- **Test cases:**
+  - ✅ `hydrateAll writes all fetched rows into the correct Dexie tables`
+  - ✅ `hydrateAll skips table if hydrated within last 5 minutes`
+  - ✅ `hydrateAll skips table if there are pending outbox entries for that table`
+  - ✅ `hydrateAll continues hydrating other tables when one table fails`
+  - ❌ `hydrateTable does not overwrite existing rows when skipped`
+
+---
+
+### T055 — Sync Status UI & syncStore
+
+- **Status:** ✅ done
+- **Phase:** 9 – Offline-First
+- **Depends on:** T053, T048
+- **Test type:** unit
+- **Architecture note:** `syncStore` is a Zustand store (not persisted) that `SyncManager` updates during sync. It is the single source of truth for the `SyncStatus` UI component. The `SyncStatus` component is passed to `NavBar` via a `syncStatusSlot?: ReactNode` prop (slot/composition pattern) so NavBar has no knowledge of the sync system. This keeps NavBar testable without requiring a `SyncManager` mock. All labels are in Bahasa Indonesia per TRD §2.4. Click-to-retry on error/pending states calls `syncManager.triggerSync()`.
+- **Deliverables:**
+  - `src/store/syncStore.ts` — Zustand store: `pendingCount`, `isSyncing`, `lastSyncedAt`, `lastError`, `setSyncState()`
+  - `src/components/SyncStatus.tsx` — 5 visual states: offline, syncing, error+pending, pending-only, synced
+    - All interactive elements have `data-testid` per TRD §2.6 convention
+    - Labels: "Offline", "Menyinkronkan…", "Gagal, ketuk untuk coba lagi", "{n} perubahan menunggu", "Tersinkronisasi"
+- **Test cases:**
+  - ✅ `SyncStatus shows "Tersinkronisasi" when pendingCount=0 and online`
+  - ✅ `SyncStatus shows "Menyinkronkan…" spinner when isSyncing=true`
+  - ✅ `SyncStatus shows pending count badge when pendingCount > 0`
+  - ✅ `SyncStatus shows "Offline" indicator when navigator.onLine=false`
+  - ✅ `SyncStatus calls triggerSync on click when in error state`
+  - ❌ `SyncStatus renders nothing when not mounted in NavBar`
+
+---
+
+### T056 — Wire Offline-First into AppShell & Adapter Index
+
+- **Status:** ✅ done
+- **Phase:** 9 – Offline-First
+- **Depends on:** T052, T053, T054, T055
+- **Test type:** none (integration wiring; covered by module unit tests + existing E2E)
+- **Architecture note:** `lib/adapters/index.ts` is the single switching point — it exports `syncManager` and `hydrationService` as singletons. When `VITE_ADAPTER=mock`, both are no-op stubs so `AppShell` can call `.start()` / `.hydrateAll()` unconditionally without branching. When `VITE_ADAPTER=google`, `getRepos()` returns `DexieSheetRepository` instances via `createDexieRepos()`. `makeRepo()` continues to return a raw `SheetRepository` for setup code (SetupWizard), which is always online. `AppShell` triggers hydration inside a `useEffect` that runs only when all three spreadsheet IDs are present in `authStore`, preventing premature Sheets API calls.
+- **Deliverables:**
+  - `src/lib/adapters/index.ts` updated:
+    - `createDexieRepos()` private helper returns `DexieSheetRepository` instances for all 15 entity tables
+    - `getRepos()` uses `createDexieRepos()` for `VITE_ADAPTER=google`; `createMockRepos()` for mock
+    - `syncManager` export: `SyncManager` singleton for google; no-op object for mock
+    - `hydrationService` export: `HydrationService` singleton for google; no-op object for mock
+  - `src/components/AppShell.tsx` updated:
+    - `useEffect` calling `syncManager.start()` once on mount
+    - `useEffect` calling `hydrationService.hydrateAll(mainId, masterId, monthlyId)` when all three IDs are set
+    - Passes `<SyncStatus />` to `<NavBar syncStatusSlot={...} />`
+  - `src/components/NavBar.tsx` updated:
+    - Accepts `syncStatusSlot?: ReactNode` prop
+    - Renders the slot between the centre nav links and the right user section
+
+---
+
 ## Appendix: Parallelization Map
 
 The following tasks within each phase have no mutual dependencies and can be worked on by different agents simultaneously:
@@ -1232,6 +1377,7 @@ The following tasks within each phase have no mutual dependencies and can be wor
 | Within Phase 6 | T036 first, then T037 |
 | Within Phase 7 | T038 first; T039 depends on T038; T040 depends on T039; T041, T042 depend on T039 |
 | Within Phase 8 | T043 first; T044 depends on T043 |
+| Within Phase 9 | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055 |
 
 ---
 

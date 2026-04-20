@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.6                               |
+| Version     | 2.7                               |
 | Status      | Draft                             |
 | Date        | April 2026                        |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -80,10 +80,11 @@ Each business owner's data lives in **their own Google Drive** organized under `
 
 | Constraint | Detail |
 |---|---|
-| Internet required | All read/write operations call Google Sheets API; no offline support in MVP |
-| Single cashier recommended | No atomic writes; concurrent multi-device writes risk stock count discrepancies |
+| Online required for first load | On the very first load (fresh browser, no IndexedDB data) the app must be online to hydrate from Google Sheets |
+| Online required to sync writes | Writes queued in the outbox are replayed to Google Sheets as soon as connectivity is restored; data is not permanently lost but is not shared with other devices until then |
+| Single cashier recommended | No atomic writes to Google Sheets; concurrent multi-device writes risk stock count discrepancies (acceptable for single-cashier UMKM — see §12.5) |
 | Google account required | Every user (owner, family members, cashiers) must have a Google account |
-| API rate limits | Throughput capped by Google Sheets API quotas (see §11) |
+| API rate limits | Throughput capped by Google Sheets API quotas (see §11); offline-first reduces read quota usage significantly |
 
 ---
 
@@ -100,17 +101,22 @@ Each business owner's data lives in **their own Google Drive** organized under `
 | UI components | Tailwind CSS + shadcn/ui (Button, Input, Label, Select, Dialog, Card, Badge, Table, Tabs, Alert, Separator, ScrollArea, Textarea, Checkbox) |
 | Auth adapter (dev) | `MockAuthAdapter` — instant sign-in, no OAuth |
 | Auth adapter (prod) | `@react-oauth/google` (Google Identity Services) |
-| Data adapter (dev) | `MockDataAdapter` — localStorage-backed, no API |
-| Data adapter (prod) | `GoogleDataAdapter` — Google Sheets REST API v4 |
+| Data adapter (dev) | `MockSheetRepository` — localStorage-backed, no API |
+| Data adapter (prod) | `DexieSheetRepository` — IndexedDB-first reads, outbox-queued writes to Google Sheets |
+| Offline storage | `dexie` (IndexedDB wrapper) — all entity tables + `_outbox` + `_syncMeta` |
 | Adapter selector | `VITE_ADAPTER=mock` or `VITE_ADAPTER=google` |
 | i18n | `react-i18next` |
 | Unit testing | Vitest + `@testing-library/react` |
 | E2E testing | Playwright |
 | Hosting | GitHub Pages (via GitHub Actions) or Netlify/Vercel free tier |
 
-### 2.2 No PWA / No Service Worker
+### 2.2 Offline-First via Dexie.js (IndexedDB)
 
-The MVP does not use service workers, PWA manifest, or offline caching libraries. These are post-MVP additions. The app is a standard browser-based SPA.
+The production data layer uses **Dexie.js** as a local-first IndexedDB cache in front of Google Sheets. All reads are served instantly from IndexedDB. Writes go to IndexedDB first (immediately visible in the UI) then are queued in an `_outbox` table and replayed to Google Sheets in the background when online.
+
+This means the app works fully offline after the initial data hydration. There are no service workers or PWA manifests — offline capability comes entirely from the data layer, not the network layer. The app shell (HTML/JS/CSS) itself still requires a network request to load on a fresh browser (unless cached by the browser's standard HTTP cache).
+
+See §12 for the full offline-first architecture.
 
 ### 2.3 Responsive Breakpoints
 
@@ -178,27 +184,39 @@ src/
 │       └── settings.test.ts
 ├── lib/
 │   ├── adapters/        # Swappable data + auth adapter layer
-│   │   ├── types.ts             # DataAdapter & AuthAdapter interfaces
-│   │   ├── index.ts             # Exports active adapter based on VITE_ADAPTER env var
+│   │   ├── types.ts             # ISheetRepository interface + shared types
+│   │   ├── repos.ts             # Repos type map (logical name → ISheetRepository)
+│   │   ├── schema.ts            # ALL_TAB_HEADERS — column header registry
+│   │   ├── index.ts             # Exports active repos, syncManager, hydrationService
 │   │   ├── mock/
-│   │   │   ├── MockDataAdapter.ts   # localStorage-backed, no API calls
-│   │   │   └── MockAuthAdapter.ts   # Instant sign-in with preset test user
-│   │   └── google/
-│   │       ├── GoogleDataAdapter.ts  # Translates DataAdapter interface → Sheets API calls
-│   │       ├── GoogleAuthAdapter.ts  # Wraps @react-oauth/google (GIS)
-│   │       └── sheets/              # Low-level Google Sheets API HTTP client (used only by GoogleDataAdapter)
-│   │           ├── sheets.client.ts
-│   │           ├── sheets.types.ts
-│   │           └── sheets.client.test.ts
+│   │   │   ├── MockSheetRepository.ts   # localStorage-backed, no API calls
+│   │   │   └── MockAuthAdapter.ts       # Instant sign-in with preset test user
+│   │   ├── google/
+│   │   │   ├── SheetRepository.ts       # ISheetRepository → Google Sheets API calls
+│   │   │   ├── GoogleAuthAdapter.ts     # Wraps @react-oauth/google (GIS)
+│   │   │   └── sheets/                  # Low-level Google Sheets API HTTP client
+│   │   │       ├── sheets.client.ts
+│   │   │       └── sheets.client.test.ts
+│   │   └── dexie/               # Offline-first layer (production path)
+│   │       ├── db.ts            # Dexie DB class — all entity tables + _outbox + _syncMeta
+│   │       ├── DexieSheetRepository.ts  # ISheetRepository backed by IndexedDB
+│   │       ├── SyncManager.ts           # Drains _outbox to Sheets; rate-limit backoff
+│   │       ├── HydrationService.ts      # Pulls Sheets → IndexedDB on login
+│   │       ├── DexieSheetRepository.test.ts
+│   │       └── SyncManager.test.ts
 │   ├── formatters.ts    # IDR, date, number formatting utilities
 │   ├── validators.ts    # Input validation rules
 │   └── uuid.ts          # UUID v4 generator
 ├── components/          # Shared, reusable UI components
 │   ├── NavBar.tsx       # Role-aware top navigation bar (desktop; links hidden on mobile, shown on md+)
 │   ├── BottomNav.tsx    # Role-aware bottom navigation bar (mobile only; md:hidden)
-│   ├── AppShell.tsx     # Authenticated page layout: NavBar + Outlet + BottomNav
+│   ├── AppShell.tsx     # Authenticated page layout: NavBar + Outlet + BottomNav; starts SyncManager
+│   ├── SyncStatus.tsx   # NavBar sync badge: offline/pending/syncing/error/synced states
 │   └── ui/              # shadcn/ui primitives (Button, Modal, etc.)
 ├── hooks/               # Shared React hooks (useDebounce, usePagination, etc.)
+├── store/               # Zustand global stores
+│   ├── authStore.ts     # Auth state: user, spreadsheet IDs, sign-out
+│   └── syncStore.ts     # Sync state: pendingCount, isSyncing, lastSyncedAt, lastError
 └── tests/
     └── e2e/             # Playwright end-to-end tests
         ├── setup.flow.spec.ts
@@ -209,8 +227,8 @@ src/
 ```
 
 **Key rules:**
-- `lib/adapters/` is the only data and auth abstraction layer. Module service files call the adapter interface — never `lib/adapters/google/sheets/` or Google APIs directly from modules. `lib/adapters/google/sheets/` is used only inside `GoogleDataAdapter`.
-- `lib/adapters/google/sheets/` is the low-level HTTP transport for the Google Sheets API, used exclusively by `GoogleDataAdapter`.
+- `lib/adapters/` is the only data and auth abstraction layer. Module service files call `ISheetRepository<T>` — never `lib/adapters/google/sheets/` or Google APIs directly from modules. `lib/adapters/google/sheets/` is used only inside `SheetRepository` and `DexieSheetRepository`'s `SyncManager`.
+- `lib/adapters/google/sheets/` is the low-level HTTP transport for the Google Sheets API, used exclusively by `SheetRepository`.
 - No module imports from another module's internals. Shared state goes through Zustand stores or React context.
 - Pure functions (formatters, validators, calculations) live in `lib/` and are unit-testable without DOM or API.
 
@@ -282,13 +300,16 @@ The `CashierPage` outer container uses `flex flex-1 overflow-hidden flex-col md:
 All data reads/writes and authentication go through a **swappable adapter interface**, not hard-coded Google API calls. This allows the entire app to run without any Google account during development.
 
 ```
-modules/ → *.service.ts → DataAdapter (interface)
-                              /              \
-               MockDataAdapter         GoogleDataAdapter
-               (localStorage)          (Sheets API v4)
+modules/ → *.service.ts → ISheetRepository (interface)
+                               /                    \
+               MockSheetRepository          DexieSheetRepository
+               (localStorage)               (IndexedDB ← reads
+                                             IndexedDB + _outbox ← writes
+                                                     ↓ background
+                                             SheetRepository → Sheets API)
 
 modules/ → useAuth.ts → AuthAdapter (interface)
-                            /              \
+                             /              \
              MockAuthAdapter         GoogleAuthAdapter
              (instant sign-in)       (GIS OAuth popup)
 ```
@@ -298,35 +319,22 @@ modules/ → useAuth.ts → AuthAdapter (interface)
 | `VITE_ADAPTER` | Auth | Data storage |
 |---|---|---|
 | `mock` (default in dev) | Instant sign-in, preset test user | `localStorage` — no API calls |
-| `google` (production) | GIS OAuth popup, real Google account | Google Sheets API v4 |
+| `google` (production) | GIS OAuth popup, real Google account | IndexedDB (Dexie) + Google Sheets API v4 |
 
-```ts
-// lib/adapters/index.ts
-// Why: single switching point — no adapter logic leaks into feature modules.
-// Vite replaces import.meta.env.VITE_ADAPTER at build time (tree-shaken).
-export const dataAdapter: DataAdapter =
-  import.meta.env.VITE_ADAPTER === 'google'
-    ? new GoogleDataAdapter()
-    : new MockDataAdapter()
-
-export const authAdapter: AuthAdapter =
-  import.meta.env.VITE_ADAPTER === 'google'
-    ? new GoogleAuthAdapter()
-    : new MockAuthAdapter()
-```
-
-**`MockDataAdapter`** — stores all data in `localStorage` keyed by sheet name (`mock_Products`, `mock_Transactions_2026-04`, etc.). Matches the exact same method signatures as `GoogleDataAdapter`. No network call ever made. Data persists across dev server restarts.
+**`MockSheetRepository`** — stores all data in `localStorage` keyed by sheet name. Matches the exact same `ISheetRepository<T>` method signatures. No network call ever made. Data persists across dev server restarts.
 
 **`MockAuthAdapter`** — returns a hardcoded owner user on `signIn()`. No OAuth popup. No Google account required. Useful for rapid UI development and CI runs without credentials.
 
-**`GoogleDataAdapter`** — wraps `lib/adapters/google/sheets/sheets.client.ts`. Implements the same `DataAdapter` interface. All Google-specific concerns (spreadsheetId management, tab naming, row parsing) live here.
+**`DexieSheetRepository`** — implements `ISheetRepository<T>` backed by IndexedDB (via Dexie.js). All reads are served from IndexedDB. All writes are applied to IndexedDB immediately (so the UI stays responsive offline) and also append a serialized outbox entry to the `_outbox` table for later replay. See §12 for the full offline-first architecture.
+
+**`SheetRepository`** — the raw Google Sheets HTTP client. Implements `ISheetRepository<T>` directly against the Sheets API. Used by `DexieSheetRepository`'s `SyncManager` to drain the outbox, and by setup code (`makeRepo()`) where the spreadsheetId is known and the device is always online.
 
 **`GoogleAuthAdapter`** — wraps `@react-oauth/google`. Stores access token in memory. Implements the same `AuthAdapter` interface.
 
 **Development workflow:**
 ```bash
 VITE_ADAPTER=mock npm run dev      # default — no Google account, instant
-VITE_ADAPTER=google npm run dev    # real Google Sheets — for integration testing
+VITE_ADAPTER=google npm run dev    # real Google Sheets + IndexedDB — for integration testing
 npm run build                      # always builds with VITE_ADAPTER=google
 ```
 
@@ -345,7 +353,7 @@ npm run build                      # always builds with VITE_ADAPTER=google
 3. User grants scopes (see §3.2)
 4. GIS returns an **access token** (valid for 1 hour)
 5. The app stores the access token **in memory only** (never localStorage, never a cookie)
-6. All `GoogleDataAdapter` calls include `Authorization: Bearer <token>` header
+6. All `SheetRepository` calls include `Authorization: Bearer <token>` header
 7. When the token expires, GIS silently refreshes it (`prompt: 'none'`) as long as the browser session is active
 8. After successful auth, `LoginPage` checks for a cached `masterSpreadsheetId` in `localStorage`:
    - **Fast path (returning user):** `masterSpreadsheetId` found → restores adapter routing → navigates to `/cashier`
@@ -443,7 +451,7 @@ Every login (first-time and returning) goes through `/stores` (StorePickerPage) 
 
 ## 4. Data Layer — Google Sheets
 
-> **During development** (`VITE_ADAPTER=mock`): `MockDataAdapter` mirrors this exact schema in `localStorage`. Key format: `mock_<TabName>` (e.g., `mock_Products`, `mock_Transactions_2026-04`). All tab names, column orders, and data conventions below apply to both adapters identically — this is the contract the adapter interface enforces.
+> **During development** (`VITE_ADAPTER=mock`): `MockSheetRepository` mirrors this exact schema in `localStorage`. Key format: `mock_<TabName>` (e.g., `mock_Products`, `mock_Transactions_2026-04`). All tab names, column orders, and data conventions below apply to both adapters identically — this is the contract `ISheetRepository<T>` enforces.
 
 ### 4.1 Three-Spreadsheet Model
 
@@ -1001,15 +1009,91 @@ No backend to enforce hard limits. The app displays a warning banner when the th
 
 ## 12. Offline Mode
 
-> **Not implemented in MVP.**
+The production data path uses **Dexie.js** (IndexedDB) as a local-first cache in front of Google Sheets. After the initial data hydration, the app reads entirely from IndexedDB and works fully offline. Writes are queued in an outbox and replayed to Google Sheets when the device is back online.
 
-Offline mode requires either a backend sync infrastructure or a local-first database. Both add cost or complexity inconsistent with the 100% free goal.
+### 12.1 Architecture
 
-Post-MVP options:
-- **Option A:** Add a lightweight sync backend (e.g., PocketBase on Oracle Cloud Always Free)
-- **Option B:** Local-first with PouchDB + background sync to Google Sheets when online
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Module Service (e.g., catalog.service.ts)                        │
+│  Calls ISheetRepository methods — never aware of online/offline   │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  DexieSheetRepository (src/lib/adapters/dexie/)                   │
+│                                                                    │
+│  Reads ──────────────────────────────────► IndexedDB (instant)   │
+│                                                                    │
+│  Writes ─────► IndexedDB (ACID txn) ──┐                          │
+│                                        └──► _outbox (serialized)  │
+└──────────────────────────────────────────────┬───────────────────┘
+                                               │ background
+                                               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  SyncManager                                                       │
+│  • Polls every 30 s + fires on browser 'online' event            │
+│  • Drains _outbox FIFO → SheetRepository → Google Sheets API     │
+│  • HTTP 429 → pauses 60 s then retries                           │
+│  • MAX_RETRIES = 5; permanently skips entries after that         │
+│  • Updates syncStore (pendingCount, isSyncing, lastSyncedAt)     │
+└──────────────────────────────────────────────────────────────────┘
+```
 
-Users must be clearly informed at login that an active internet connection is required.
+### 12.2 Data Hydration
+
+`HydrationService.hydrateAll(mainId, masterId, monthlyId)` is called by `AppShell` after the auth store has all three spreadsheet IDs. It:
+
+1. Fetches all 15 entity tables from Google Sheets in parallel (`Promise.allSettled`)
+2. Writes each table's rows into the corresponding IndexedDB table via `db.table(name).bulkPut()`
+3. Records a `_syncMeta` timestamp per table; skips tables hydrated within the last 5 minutes
+4. Skips tables with pending outbox entries to avoid overwriting unsynced local writes
+
+On subsequent logins the skip condition (5-minute freshness window) means hydration only re-fetches stale tables, significantly reducing Sheets API read quota usage.
+
+### 12.3 Outbox Pattern
+
+Every `DexieSheetRepository` write method (`append`, `batchAppend`, `batchUpdateCells`, `softDelete`) runs a Dexie ACID transaction that:
+1. Writes the record(s) to the entity table in IndexedDB (immediately visible to all reads)
+2. Appends a serialized `OutboxEntry` to `_outbox` describing the Sheets API call to make
+
+The `OutboxEntry` schema:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | auto-increment | FIFO ordering key |
+| `spreadsheetId` | string | Target spreadsheet (master or monthly) |
+| `sheetName` | string | Target tab (e.g. `Products`, `Transactions`) |
+| `operation` | string | `append` \| `batchAppend` \| `batchUpdateCells` \| `softDelete` |
+| `payload` | string | JSON-serialized arguments for the Sheets API call |
+| `retries` | number | Number of failed sync attempts (max 5) |
+| `createdAt` | string | ISO 8601 timestamp |
+
+`batchUpsertByKey` (used by Settings service) is decomposed at write time: Dexie is queried locally to distinguish updates from inserts, then `batchUpdateCells` and `batchAppend` outbox entries are created individually — avoiding the need to serialize the `makeNewRow` callback function.
+
+### 12.4 Sync Status UI
+
+`SyncStatus` is a NavBar component (slot passed via `syncStatusSlot` prop) that shows the current sync state using `syncStore` (Zustand):
+
+| State | Indicator | Bahasa Indonesia label |
+|---|---|---|
+| Offline | 🔴 dot | "Offline" |
+| Syncing | ⟳ spinner | "Menyinkronkan…" |
+| Error + pending | ⚠ icon + count badge | "Gagal, ketuk untuk coba lagi" |
+| Pending (not error) | �� icon + count badge | "{n} perubahan menunggu" |
+| Synced | ✓ green dot | "Tersinkronisasi" |
+
+Tapping the error or pending indicator calls `syncManager.triggerSync()` to force an immediate drain attempt.
+
+### 12.5 Known Trade-offs
+
+| Trade-off | Detail |
+|---|---|
+| Absolute stock writes | The outbox stores absolute stock values (not deltas). If two devices write the same product's stock offline simultaneously, the last-synced value wins. This is acceptable for single-cashier UMKM (the primary target persona). |
+| Monthly sheet rollover | When `monthlySpreadsheetId` changes at month start, old transaction rows remain in IndexedDB indefinitely. A pruning strategy for long-running installations is deferred. |
+| No app-shell offline cache | The HTML/JS/CSS bundle is not cached by a service worker. After a hard refresh on a device without network, the app shell will fail to load. IndexedDB data is preserved but inaccessible. |
+| First-load requires network | A completely fresh browser (empty IndexedDB) must be online for `HydrationService` to populate the local cache. |
+
 
 ---
 
@@ -1043,9 +1127,14 @@ Users must be clearly informed at login that an active internet connection is re
 | **HID** | Human Interface Device — USB device class; barcode scanners appear as keyboards (post-MVP) |
 | **Vite** | Fast frontend build tool for React/TypeScript projects |
 | **GitHub Actions** | CI/CD platform built into GitHub; runs tests and deploys to GitHub Pages |
-| **PouchDB** | JavaScript database for offline-first apps; a post-MVP offline option |
+| **IndexedDB** | Browser-native key-value object store; persists data across sessions; used by Dexie.js as the physical storage layer |
+| **Dexie.js** | Minimal IndexedDB wrapper (npm: `dexie`) providing typed tables, ACID transactions, and a fluent query API; used as the offline-first local cache |
+| **Outbox pattern** | A write-through queueing technique: writes are applied locally first, then queued in an `_outbox` table for asynchronous replay to the remote system (Google Sheets) |
+| **SyncManager** | Background service (`src/lib/adapters/dexie/SyncManager.ts`) that drains the `_outbox` to Google Sheets; handles rate limiting, retries, and updates `syncStore` |
+| **HydrationService** | Service (`src/lib/adapters/dexie/HydrationService.ts`) that pulls all Google Sheets data into IndexedDB on login; skips recently-hydrated and outbox-pending tables |
+| **syncStore** | Zustand store (`src/store/syncStore.ts`) tracking `pendingCount`, `isSyncing`, `lastSyncedAt`, and `lastError` for the sync status UI |
 | **IDR integers** | Monetary values stored as plain integers in IDR (no decimals) to avoid floating-point errors |
 
 ---
 
-*End of Document — POS UMKM TRD v2.5*
+*End of Document — POS UMKM TRD v2.7*
