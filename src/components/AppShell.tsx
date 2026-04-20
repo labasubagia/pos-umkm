@@ -30,14 +30,6 @@ export function AppShell() {
   useEffect(() => {
     if (!spreadsheetId || !mainSpreadsheetId || !activeStoreId) return
 
-    // Guard: during a store switch, activateStore() updates spreadsheetId before
-    // setStores() updates activeStoreId. In that transitional render the state is
-    // inconsistent — skip hydration here; the effect will fire again once
-    // activeStoreId catches up and both IDs refer to the same store.
-    const { stores } = useAuthStore.getState()
-    const activeStore = stores.find((s) => s.store_id === activeStoreId)
-    if (activeStore && activeStore.master_spreadsheet_id !== spreadsheetId) return
-
     // Reinit the per-store Dexie layer only when the active store changes.
     // This ensures hydrationService always targets the correct IndexedDB before
     // hydrateAll() is called.
