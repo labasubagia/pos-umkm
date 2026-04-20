@@ -7,7 +7,7 @@
  * stateless and independently testable. Error translation from
  * SheetsApiError → AdapterError happens here so GoogleDataAdapter stays thin.
  */
-import { sheetsAppend, sheetsUpdate, sheetsBatchUpdate } from './sheets.client'
+import { sheetsAppend, sheetsUpdate, sheetsBatchGet, sheetsBatchUpdate } from './sheets.client'
 import { SheetsApiError } from './sheets.types'
 import { AdapterError } from '../../types'
 import { generateId } from '../../../uuid'
@@ -184,9 +184,11 @@ function columnToLetter(index: number): string {
 /**
  * Updates multiple cells in a sheet with a single API round-trip.
  *
- * Reads the sheet ONCE to resolve row indices and column letters, then
- * calls values.batchUpdate with all ranges in a single HTTP POST.
- * Compared to N × updateCell calls this saves (2N − 1) GET requests.
+ * Fetches only the header row (Sheet!1:1) and ID column (Sheet!A:A) via
+ * values.batchGet — not the full sheet — to resolve row indices and column
+ * letters. Then calls values.batchUpdate with all ranges in a single HTTP POST.
+ * Compared to N × updateCell calls this saves (2N − 1) GET requests, and
+ * compared to a full-sheet fetch this avoids transferring unused cell data.
  *
  * All updates must target the same sheet tab. Rows are identified by their
  * first-column value (same convention as updateCell).
@@ -199,23 +201,30 @@ export async function batchUpdateCells(
 ): Promise<void> {
   if (updates.length === 0) return
   try {
-    const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    if (!res.ok) throw new SheetsApiError(res.status, `Failed to fetch sheet "${sheetName}"`)
-    const data = await res.json()
-    const rows: string[][] = data.values ?? []
-    if (rows.length < 2) throw new AdapterError(`batchUpdateCells: sheet "${sheetName}" has no data rows`)
+    // Fetch only the header row and the ID column (column A) — avoids
+    // loading all cell data for sheets with many columns or rows.
+    const batchRes = await sheetsBatchGet(
+      spreadsheetId,
+      [`${sheetName}!1:1`, `${sheetName}!A:A`],
+      token,
+    )
+    const headers = (batchRes.valueRanges[0].values?.[0] ?? []) as string[]
+    const idColumn = (batchRes.valueRanges[1].values ?? []) as string[][]
+    // idColumn[0] is the header cell ("id"); slice it off to get data rows.
+    const idRows = idColumn.slice(1)
 
-    const headers = rows[0]
-    const dataRows = rows.slice(1)
+    if (idRows.length === 0) throw new AdapterError(`batchUpdateCells: sheet "${sheetName}" has no data rows`)
+
+    // Build lookup maps once — O(1) per update instead of O(n) findIndex/indexOf.
+    const colIndexByName = new Map(headers.map((h, i) => [h, i]))
+    const sheetRowByRowId = new Map(idRows.map((r, i) => [r[0], i + 2])) // +1 header, +1 one-based
 
     const rangeUpdates: Array<{ range: string; values: (string | number | boolean)[][] }> = []
     for (const { rowId, column, value } of updates) {
-      const colIndex = headers.indexOf(column)
-      if (colIndex === -1) throw new AdapterError(`batchUpdateCells: column "${column}" not found in "${sheetName}"`)
-      const dataRowIndex = dataRows.findIndex((r) => r[0] === rowId)
-      if (dataRowIndex === -1) throw new AdapterError(`batchUpdateCells: row "${rowId}" not found in "${sheetName}"`)
-      const sheetRowNumber = dataRowIndex + 2 // +1 header, +1 one-based
+      const colIndex = colIndexByName.get(column)
+      if (colIndex === undefined) throw new AdapterError(`batchUpdateCells: column "${column}" not found in "${sheetName}"`)
+      const sheetRowNumber = sheetRowByRowId.get(rowId)
+      if (sheetRowNumber === undefined) throw new AdapterError(`batchUpdateCells: row "${rowId}" not found in "${sheetName}"`)
       rangeUpdates.push({
         range: `${sheetName}!${columnToLetter(colIndex)}${sheetRowNumber}`,
         values: [[value as string]],
