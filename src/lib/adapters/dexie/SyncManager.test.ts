@@ -5,20 +5,30 @@
  * Sheets API HTTP mocking.
  */
 import 'fake-indexeddb/auto'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { SyncManager } from './SyncManager'
-import { db } from './db'
+import { getDb, clearDbCache } from './db'
 import type { OutboxEntry } from './db'
 
 const SPREADSHEET_ID = 'test-sheet-id'
 const TOKEN = 'test-token'
+const TEST_STORE_ID = 'sync-test-store'
 
 // Reset DB and online state before each test
 beforeEach(async () => {
+  const db = getDb(TEST_STORE_ID)
   await db._outbox.clear()
   // Ensure navigator.onLine is stubbed to true by default
   Object.defineProperty(navigator, 'onLine', { value: true, writable: true, configurable: true })
 })
+
+afterEach(() => {
+  clearDbCache()
+})
+
+function makeManager() {
+  return new SyncManager(() => TOKEN, getDb(TEST_STORE_ID))
+}
 
 function makeEntry(overrides: Partial<OutboxEntry> = {}): Omit<OutboxEntry, 'id'> {
   return {
@@ -37,8 +47,8 @@ function makeEntry(overrides: Partial<OutboxEntry> = {}): Omit<OutboxEntry, 'id'
 
 describe('drain', () => {
   it('calls the SheetRepository for a pending append entry', async () => {
-    const appliedOps: string[] = []
-    const manager = new SyncManager(() => TOKEN)
+    const manager = makeManager()
+    const db = getDb(TEST_STORE_ID)
 
     // Spy on the internal applyToSheets by mocking SheetRepository.batchAppend
     // We intercept by patching the prototype used inside SyncManager.
@@ -55,7 +65,8 @@ describe('drain', () => {
   })
 
   it('deletes the outbox entry on success', async () => {
-    const manager = new SyncManager(() => TOKEN)
+    const manager = makeManager()
+    const db = getDb(TEST_STORE_ID)
     const { SheetRepository } = await import('../SheetRepository')
     const spy = vi.spyOn(SheetRepository.prototype, 'batchAppend').mockResolvedValue(undefined)
 
@@ -67,7 +78,8 @@ describe('drain', () => {
   })
 
   it('marks entry as failed and increments retries on error', async () => {
-    const manager = new SyncManager(() => TOKEN)
+    const manager = makeManager()
+    const db = getDb(TEST_STORE_ID)
     const { SheetRepository } = await import('../SheetRepository')
     const spy = vi.spyOn(SheetRepository.prototype, 'batchAppend').mockRejectedValue(
       new Error('Network error'),
@@ -83,7 +95,8 @@ describe('drain', () => {
   })
 
   it('stops draining on HTTP 429 rate limit error', async () => {
-    const manager = new SyncManager(() => TOKEN)
+    const manager = makeManager()
+    const db = getDb(TEST_STORE_ID)
     const { SheetRepository } = await import('../SheetRepository')
     const spy = vi.spyOn(SheetRepository.prototype, 'batchAppend').mockRejectedValue(
       new Error('Sheets API error 429: rate limit exceeded'),
@@ -104,7 +117,8 @@ describe('drain', () => {
   })
 
   it('skips entries with retries >= MAX_RETRIES', async () => {
-    const manager = new SyncManager(() => TOKEN)
+    const manager = makeManager()
+    const db = getDb(TEST_STORE_ID)
     const { SheetRepository } = await import('../SheetRepository')
     const spy = vi.spyOn(SheetRepository.prototype, 'batchAppend').mockResolvedValue(undefined)
 
@@ -118,7 +132,8 @@ describe('drain', () => {
 
   it('does not drain when offline', async () => {
     Object.defineProperty(navigator, 'onLine', { value: false, writable: true, configurable: true })
-    const manager = new SyncManager(() => TOKEN)
+    const manager = makeManager()
+    const db = getDb(TEST_STORE_ID)
     const { SheetRepository } = await import('../SheetRepository')
     const spy = vi.spyOn(SheetRepository.prototype, 'batchAppend').mockResolvedValue(undefined)
 
@@ -135,7 +150,8 @@ describe('drain', () => {
 
 describe('operation routing', () => {
   it('calls batchUpdateCells for batchUpdateCells op', async () => {
-    const manager = new SyncManager(() => TOKEN)
+    const manager = makeManager()
+    const db = getDb(TEST_STORE_ID)
     const { SheetRepository } = await import('../SheetRepository')
     const spy = vi.spyOn(SheetRepository.prototype, 'batchUpdateCells').mockResolvedValue(undefined)
 
@@ -149,7 +165,8 @@ describe('operation routing', () => {
   })
 
   it('calls softDelete for softDelete op', async () => {
-    const manager = new SyncManager(() => TOKEN)
+    const manager = makeManager()
+    const db = getDb(TEST_STORE_ID)
     const { SheetRepository } = await import('../SheetRepository')
     const spy = vi.spyOn(SheetRepository.prototype, 'softDelete').mockResolvedValue(undefined)
 

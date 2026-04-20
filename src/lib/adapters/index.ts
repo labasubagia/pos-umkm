@@ -34,6 +34,7 @@ import { ALL_TAB_HEADERS } from '../schema'
 import { DexieSheetRepository } from './dexie/DexieSheetRepository'
 import { SyncManager } from './dexie/SyncManager'
 import { HydrationService } from './dexie/HydrationService'
+import { getDb } from './dexie/db'
 
 // Lazy import to avoid circular dependency (authStore imports from here indirectly via services)
 import { useAuthStore } from '../../store/authStore'
@@ -52,23 +53,37 @@ export const driveClient: IDriveClient = adapterType === 'google'
   : new MockDriveClient()
 
 /**
- * SyncManager singleton (google adapter only).
- * Drains the IndexedDB outbox to Google Sheets when the device is online.
- * Call syncManager.start() once after the user authenticates.
- * No-op object provided for mock adapter so callers don't need to branch.
+ * SyncManager (google adapter only) — drains the IndexedDB outbox to Google Sheets.
+ * Mutable so reinitDexieLayer() can replace it when the active store changes.
  */
-export const syncManager: SyncManager = adapterType === 'google'
-  ? new SyncManager(getToken)
+// eslint-disable-next-line prefer-const
+export let syncManager: SyncManager = adapterType === 'google'
+  ? new SyncManager(getToken, getDb('__init__'))
   : { start: () => {}, stop: () => {}, triggerSync: () => {} } as unknown as SyncManager
 
 /**
- * HydrationService singleton (google adapter only).
- * Pulls Google Sheets data into IndexedDB after login.
- * No-op object provided for mock adapter.
+ * HydrationService (google adapter only) — pulls Sheets data into IndexedDB after login.
+ * Mutable so reinitDexieLayer() can replace it when the active store changes.
  */
-export const hydrationService: HydrationService = adapterType === 'google'
-  ? new HydrationService(getToken)
+// eslint-disable-next-line prefer-const
+export let hydrationService: HydrationService = adapterType === 'google'
+  ? new HydrationService(getToken, getDb('__init__'))
   : { hydrateAll: async () => {}, forceHydrate: async () => {} } as unknown as HydrationService
+
+/**
+ * Re-initializes the Dexie sync layer for the given store.
+ * Call this when the active store changes (user switches store or first login).
+ * Stops the old SyncManager, creates new instances backed by the store's DB,
+ * and starts the new SyncManager.
+ */
+export function reinitDexieLayer(storeId: string): void {
+  if (adapterType !== 'google') return
+  syncManager.stop()
+  const db = getDb(storeId)
+  syncManager = new SyncManager(getToken, db)
+  hydrationService = new HydrationService(getToken, db)
+  syncManager.start()
+}
 
 /**
  * Returns typed repo instances reading IDs from the current auth store state.
@@ -81,8 +96,9 @@ export const hydrationService: HydrationService = adapterType === 'google'
  */
 export function getRepos(): Repos {
   if (adapterType === 'google') {
-    const { mainSpreadsheetId, spreadsheetId, monthlySpreadsheetId } = useAuthStore.getState()
+    const { mainSpreadsheetId, spreadsheetId, monthlySpreadsheetId, activeStoreId } = useAuthStore.getState()
     return createDexieRepos(
+      activeStoreId ?? '__init__',
       mainSpreadsheetId ?? '',
       spreadsheetId ?? '',
       monthlySpreadsheetId ?? '',
@@ -119,15 +135,19 @@ export function makeRepo<T extends Record<string, unknown>>(
  * SheetRepository on the fly) so IDs don't need to be captured at call time.
  */
 function createDexieRepos(
+  storeId: string,
   mainId: string,
   masterId: string,
   monthlyId: string,
 ): Repos {
+  const storeDb = getDb(storeId)
+
   function dexie<T extends Record<string, unknown>>(
     spreadsheetId: string,
     sheetName: string,
   ): DexieSheetRepository<T> {
     return new DexieSheetRepository<T>(
+      storeDb,
       spreadsheetId,
       sheetName,
       // Remote repo factory — evaluated lazily by DexieSheetRepository.writeHeaders()

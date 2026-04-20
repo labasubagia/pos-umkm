@@ -19,7 +19,7 @@
  * any stale spreadsheetId references and matches the existing auth pattern.
  */
 import { SheetRepository } from '../SheetRepository'
-import { db } from './db'
+import type { PosUmkmDatabase } from './db'
 import type { OutboxEntry, OutboxOperation } from './db'
 import { ALL_TAB_HEADERS } from '../../schema'
 import { useSyncStore } from '../../../store/syncStore'
@@ -31,12 +31,14 @@ const RATE_LIMIT_BACKOFF_MS = 60_000
 export class SyncManager {
   private isSyncing = false
   private readonly getToken: () => string
+  private readonly db: PosUmkmDatabase
   private pollTimer: ReturnType<typeof setInterval> | null = null
   private rateLimitTimer: ReturnType<typeof setTimeout> | null = null
   private rateLimited = false
 
-  constructor(getToken: () => string) {
+  constructor(getToken: () => string, db: PosUmkmDatabase) {
     this.getToken = getToken
+    this.db = db
   }
 
   /**
@@ -84,28 +86,27 @@ export class SyncManager {
     this.triggerSync()
   }
 
-  /** Processes the outbox FIFO until empty, rate-limited, or a fatal error. */
   private async drain(): Promise<void> {
     this.isSyncing = true
     useSyncStore.getState().setIsSyncing(true)
 
     try {
-      const pending = await db._outbox
+      const pending = await this.db._outbox
         .where('status').anyOf(['pending', 'failed'])
         .and((entry) => entry.retries < MAX_RETRIES)
         .sortBy('id')
 
       for (const entry of pending) {
         // Mark as syncing so the UI shows progress
-        await db._outbox.update(entry.id!, { status: 'syncing' })
+        await this.db._outbox.update(entry.id!, { status: 'syncing' })
 
         try {
           await this.applyToSheets(entry)
-          await db._outbox.delete(entry.id!)
+          await this.db._outbox.delete(entry.id!)
           useSyncStore.getState().setLastError(null)
         } catch (err) {
           const isRateLimit = isRateLimitError(err)
-          await db._outbox.update(entry.id!, {
+          await this.db._outbox.update(entry.id!, {
             status: 'failed',
             retries: entry.retries + 1,
             errorMessage: String(err),
@@ -169,7 +170,7 @@ export class SyncManager {
   }
 
   private refreshPendingCount(): void {
-    db._outbox.where('status').anyOf(['pending', 'failed']).count().then((count) => {
+    this.db._outbox.where('status').anyOf(['pending', 'failed']).count().then((count) => {
       useSyncStore.getState().setPendingCount(count)
     }).catch(() => {/* non-critical */})
   }

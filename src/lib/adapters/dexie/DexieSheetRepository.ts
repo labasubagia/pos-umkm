@@ -21,7 +21,7 @@
  * directly and is only called during SetupWizard (requires online access).
  */
 import type { ISheetRepository } from '../SheetRepository'
-import { db } from './db'
+import type { PosUmkmDatabase } from './db'
 import type { OutboxEntry, OutboxOperation } from './db'
 import { generateId } from '../../uuid'
 import { useSyncStore } from '../../../store/syncStore'
@@ -30,6 +30,7 @@ export class DexieSheetRepository<T extends Record<string, unknown>>
   implements ISheetRepository<T> {
   readonly spreadsheetId: string
   readonly sheetName: string
+  private readonly db: PosUmkmDatabase
 
   /**
    * Factory that returns a remote SheetRepository for writeHeaders and
@@ -39,10 +40,12 @@ export class DexieSheetRepository<T extends Record<string, unknown>>
   private readonly getRemoteRepo: () => ISheetRepository<T>
 
   constructor(
+    db: PosUmkmDatabase,
     spreadsheetId: string,
     sheetName: string,
     getRemoteRepo: () => ISheetRepository<T>,
   ) {
+    this.db = db
     this.spreadsheetId = spreadsheetId
     this.sheetName = sheetName
     this.getRemoteRepo = getRemoteRepo
@@ -51,7 +54,7 @@ export class DexieSheetRepository<T extends Record<string, unknown>>
   // ─── Reads (always from IndexedDB) ──────────────────────────────────────────
 
   async getAll(): Promise<T[]> {
-    const rows = await db.table<T>(this.sheetName).toArray()
+    const rows = await this.db.table<T>(this.sheetName).toArray()
     // Filter soft-deleted rows the same way as Google adapter
     return rows.filter((r) => !(r as Record<string, unknown>)['deleted_at'])
   }
@@ -63,8 +66,8 @@ export class DexieSheetRepository<T extends Record<string, unknown>>
     const rowsWithIds = rows.map((r) =>
       r['id'] ? r : { id: generateId(), ...r },
     )
-    await db.transaction('rw', [db.table(this.sheetName), db._outbox], async () => {
-      await db.table(this.sheetName).bulkPut(rowsWithIds)
+    await this.db.transaction('rw', [this.db.table(this.sheetName), this.db._outbox], async () => {
+      await this.db.table(this.sheetName).bulkPut(rowsWithIds)
       await this.enqueue({ op: 'append', rows: rowsWithIds as Record<string, unknown>[] })
     })
     this.refreshPendingCount()
@@ -74,11 +77,11 @@ export class DexieSheetRepository<T extends Record<string, unknown>>
     updates: Array<{ rowId: string; column: string; value: unknown }>,
   ): Promise<void> {
     if (updates.length === 0) return
-    await db.transaction('rw', [db.table(this.sheetName), db._outbox], async () => {
+    await this.db.transaction('rw', [this.db.table(this.sheetName), this.db._outbox], async () => {
       for (const { rowId, column, value } of updates) {
-        const existing = await db.table(this.sheetName).get(rowId)
+        const existing = await this.db.table(this.sheetName).get(rowId)
         if (!existing) continue // row not locally cached yet — skip local update
-        await db.table(this.sheetName).update(rowId, { [column]: value })
+        await this.db.table(this.sheetName).update(rowId, { [column]: value })
       }
       await this.enqueue({ op: 'batchUpdateCells', updates })
     })
@@ -99,7 +102,7 @@ export class DexieSheetRepository<T extends Record<string, unknown>>
     if (entries.length === 0) return
 
     // Read existing rows once to determine updates vs inserts
-    const allRows = await db.table<Record<string, unknown>>(this.sheetName).toArray()
+    const allRows = await this.db.table<Record<string, unknown>>(this.sheetName).toArray()
     const existingByKey = new Map(allRows.map((r) => [r[lookupColumn] as string, r]))
 
     const updates: Array<{ rowId: string; column: string; value: unknown }> = []
@@ -120,8 +123,8 @@ export class DexieSheetRepository<T extends Record<string, unknown>>
 
   async softDelete(rowId: string): Promise<void> {
     const deletedAt = new Date().toISOString()
-    await db.transaction('rw', [db.table(this.sheetName), db._outbox], async () => {
-      await db.table(this.sheetName).update(rowId, { deleted_at: deletedAt })
+    await this.db.transaction('rw', [this.db.table(this.sheetName), this.db._outbox], async () => {
+      await this.db.table(this.sheetName).update(rowId, { deleted_at: deletedAt })
       await this.enqueue({ op: 'softDelete', rowId })
     })
     this.refreshPendingCount()
@@ -149,12 +152,11 @@ export class DexieSheetRepository<T extends Record<string, unknown>>
       retries: 0,
       createdAt: new Date().toISOString(),
     }
-    return db._outbox.add(entry)
+    return this.db._outbox.add(entry)
   }
 
-  /** Updates the sync store's pending count asynchronously (fire-and-forget). */
   private refreshPendingCount(): void {
-    db._outbox.where('status').anyOf(['pending', 'failed']).count().then((count) => {
+    this.db._outbox.where('status').anyOf(['pending', 'failed']).count().then((count) => {
       useSyncStore.getState().setPendingCount(count)
     }).catch(() => {/* non-critical */})
   }

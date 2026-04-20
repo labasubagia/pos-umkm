@@ -11,6 +11,9 @@
  *
  * Only frequently-queried columns are declared as Dexie indexes.
  * All other columns are stored but unindexed (IDB stores the full object).
+ *
+ * Each store gets its own Dexie database (named `pos_umkm_<storeId>`) so
+ * switching stores never mixes data between tenants.
  */
 import Dexie, { type Table } from 'dexie'
 
@@ -71,8 +74,8 @@ export class PosUmkmDatabase extends Dexie {
   _outbox!: Table<OutboxEntry>
   _syncMeta!: Table<SyncMetaEntry>
 
-  constructor() {
-    super('pos_umkm')
+  constructor(storeId: string) {
+    super(`pos_umkm_${storeId}`)
 
     this.version(1).stores({
       // Main spreadsheet
@@ -104,10 +107,27 @@ export class PosUmkmDatabase extends Dexie {
   }
 }
 
+// ─── Per-store database factory ───────────────────────────────────────────────
+
+const dbCache = new Map<string, PosUmkmDatabase>()
+
 /**
- * Singleton database instance shared across the app.
- *
- * Dexie creates the IndexedDB lazily on first use, so importing this file
- * in tests with fake-indexeddb is safe — the DB is not opened at import time.
+ * Returns the Dexie database for the given store. Instances are cached so each
+ * storeId opens exactly one connection. Database name: `pos_umkm_<storeId>`.
  */
-export const db = new PosUmkmDatabase()
+export function getDb(storeId: string): PosUmkmDatabase {
+  let instance = dbCache.get(storeId)
+  if (!instance) {
+    instance = new PosUmkmDatabase(storeId)
+    dbCache.set(storeId, instance)
+  }
+  return instance
+}
+
+/**
+ * Clears the factory cache. Use in tests to get a fresh database instance
+ * between test cases (requires fake-indexeddb/auto at the top of the test file).
+ */
+export function clearDbCache(): void {
+  dbCache.clear()
+}
