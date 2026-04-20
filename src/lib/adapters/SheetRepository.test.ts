@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
-import { SheetRepository } from '../SheetRepository'
+import { SheetRepository } from './SheetRepository'
 
 const SPREADSHEET_ID = 'test-spreadsheet-id'
 const TOKEN = 'test-token'
@@ -117,16 +117,24 @@ describe('SheetRepository', () => {
   })
 
   describe('batchUpdateCells', () => {
-    it('reads sheet then sends targeted batchUpdate', async () => {
+    it('reads only headers + ID column then sends targeted batchUpdate', async () => {
       let capturedBody: unknown
       server.use(
+        // batchGet returns only header row and ID column — not the full sheet
+        http.get(`${BASE}/values\\:batchGet`, () =>
+          HttpResponse.json({
+            spreadsheetId: SPREADSHEET_ID,
+            valueRanges: [
+              // range 0: Sheet!1:1 — header row
+              { range: 'Products!1:1', majorDimension: 'ROWS', values: [['id', 'name', 'price', 'deleted_at']] },
+              // range 1: Sheet!A:A — ID column (includes header cell, ROWS dimension)
+              { range: 'Products!A:A', majorDimension: 'ROWS', values: [['id'], ['prod-1'], ['prod-2']] },
+            ],
+          }),
+        ),
         http.post(`${BASE}/values\\:batchUpdate`, async ({ request }) => {
           capturedBody = await request.json()
-          return HttpResponse.json({
-            spreadsheetId: SPREADSHEET_ID,
-            totalUpdatedCells: 1,
-            responses: [],
-          })
+          return HttpResponse.json({ spreadsheetId: SPREADSHEET_ID, totalUpdatedCells: 1 })
         }),
       )
       await makeRepo().batchUpdateCells([{ rowId: 'prod-1', column: 'deleted_at', value: '2026-01-01T00:00:00.000Z' }])
