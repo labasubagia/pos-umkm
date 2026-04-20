@@ -8,7 +8,7 @@
  * Uses DataAdapter so it works with both Mock and Google adapters.
  */
 
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos } from '../../lib/adapters'
 import type { Role } from '../../lib/adapters/types'
 
 /** Thrown when a user's email is not found in (or has been revoked from) the Members tab. */
@@ -24,7 +24,7 @@ export class UnauthorizedError extends Error {
  * Throws UnauthorizedError if the email is not found or has been revoked.
  */
 export async function resolveUserRole(email: string): Promise<Role> {
-  const members = await dataAdapter.getSheet('Members')
+  const members = await getRepos().members.getAll()
 
   // getSheet already filters out deleted rows, but double-check deleted_at for safety
   const user = members.find(
@@ -45,6 +45,6 @@ export async function resolveUserRole(email: string): Promise<Role> {
  * the store yet. Used to route to /setup on first login.
  */
 export async function isFirstTimeOwner(): Promise<boolean> {
-  const members = await dataAdapter.getSheet('Members')
+  const members = await getRepos().members.getAll()
   return members.length === 0
 }

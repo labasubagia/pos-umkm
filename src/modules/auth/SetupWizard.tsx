@@ -13,7 +13,7 @@ import { Label } from '../../components/ui/label'
 import { Checkbox } from '../../components/ui/checkbox'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { runStoreSetup } from './setup.service'
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos } from '../../lib/adapters'
 import { nowUTC } from '../../lib/formatters'
 import { useAuth } from './useAuth'
 
@@ -56,7 +56,7 @@ export default function SetupWizard() {
       const ts = nowUTC()
       await Promise.all(
         settingsRows.map((s) =>
-          dataAdapter.appendRow('Settings', { ...s, updated_at: ts }),
+          getRepos().settings.append( { ...s, updated_at: ts }),
         ),
       )
 

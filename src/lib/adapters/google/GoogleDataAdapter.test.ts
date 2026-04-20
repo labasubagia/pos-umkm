@@ -1,10 +1,10 @@
 /**
- * Unit tests for GoogleDataAdapter using MSW for HTTP mocking.
+ * Unit tests for SheetRepository using MSW for HTTP mocking.
  */
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
-import { GoogleDataAdapter } from './GoogleDataAdapter'
+import { SheetRepository } from '../SheetRepository'
 
 const SPREADSHEET_ID = 'test-spreadsheet-id'
 const TOKEN = 'test-token'
@@ -44,12 +44,20 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 
-function makeAdapter() {
-  return new GoogleDataAdapter(SPREADSHEET_ID, () => TOKEN)
+type ProductRow = Record<string, unknown>
+
+function makeRepo(): SheetRepository<ProductRow> {
+  return new SheetRepository<ProductRow>(SPREADSHEET_ID, 'Products', () => TOKEN)
 }
 
-describe('GoogleDataAdapter', () => {
-  describe('getSheet', () => {
+describe('SheetRepository', () => {
+  it('is bound to the given spreadsheetId and sheetName', () => {
+    const repo = makeRepo()
+    expect(repo.spreadsheetId).toBe(SPREADSHEET_ID)
+    expect(repo.sheetName).toBe('Products')
+  })
+
+  describe('getAll', () => {
     it('fetches correct spreadsheetId and range', async () => {
       let requestedPath = ''
       server.use(
@@ -58,15 +66,13 @@ describe('GoogleDataAdapter', () => {
           return HttpResponse.json(FAKE_SHEET_VALUES)
         }),
       )
-      const adapter = makeAdapter()
-      await adapter.getSheet('Products')
+      await makeRepo().getAll()
       expect(requestedPath).toContain(SPREADSHEET_ID)
       expect(requestedPath).toContain('Products')
     })
 
     it('maps header row columns to object keys', async () => {
-      const adapter = makeAdapter()
-      const rows = await adapter.getSheet('Products')
+      const rows = await makeRepo().getAll()
       expect(rows[0]).toHaveProperty('id', 'prod-1')
       expect(rows[0]).toHaveProperty('name', 'Nasi Goreng')
       expect(rows[0]).toHaveProperty('price', '15000')
@@ -76,12 +82,11 @@ describe('GoogleDataAdapter', () => {
       server.use(
         http.get(`${BASE}/values/:range`, () => new HttpResponse('Forbidden', { status: 403 })),
       )
-      const adapter = makeAdapter()
-      await expect(adapter.getSheet('Products')).rejects.toThrow('getSheet failed')
+      await expect(makeRepo().getAll()).rejects.toThrow('getSheet failed')
     })
   })
 
-  describe('appendRow', () => {
+  describe('append', () => {
     it('maps object fields to ordered row array', async () => {
       let capturedBody: unknown
       server.use(
@@ -94,8 +99,7 @@ describe('GoogleDataAdapter', () => {
           })
         }),
       )
-      const adapter = makeAdapter()
-      await adapter.appendRow('Products', { id: 'prod-3', name: 'Mie Goreng', price: 12000 })
+      await makeRepo().append({ id: 'prod-3', name: 'Mie Goreng', price: 12000 })
       expect(capturedBody).toBeDefined()
       const body = capturedBody as { values: unknown[][] }
       expect(body.values[0]).toContain('prod-3')
@@ -106,9 +110,8 @@ describe('GoogleDataAdapter', () => {
       server.use(
         http.post(`${BASE}/values/:range\\:append`, () => new HttpResponse(null, { status: 429 })),
       )
-      const adapter = makeAdapter()
       await expect(
-        adapter.appendRow('Products', { name: 'Test' })
+        makeRepo().append({ name: 'Test' })
       ).rejects.toThrow('appendRow failed')
     })
   })
@@ -126,8 +129,7 @@ describe('GoogleDataAdapter', () => {
           })
         }),
       )
-      const adapter = makeAdapter()
-      await adapter.updateCell('Products', 'prod-1', 'deleted_at', '2026-01-01T00:00:00.000Z')
+      await makeRepo().updateCell('prod-1', 'deleted_at', '2026-01-01T00:00:00.000Z')
       // D is column index 3 (id=A, name=B, price=C, deleted_at=D), row 2 (first data row)
       expect(updateUrl).toContain('D2')
     })
@@ -146,11 +148,10 @@ describe('GoogleDataAdapter', () => {
           })
         }),
       )
-      const adapter = makeAdapter()
-      await adapter.softDelete('Products', 'prod-1')
+      await makeRepo().softDelete('prod-1')
       const body = capturedBody as { values: string[][] }
-      // The value should be an ISO timestamp
       expect(body.values[0][0]).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     })
   })
 })
+

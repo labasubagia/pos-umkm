@@ -61,7 +61,7 @@ export default function BusinessProfile() {
       // If the business name changed, sync it to main spreadsheet's Stores tab
       // and to Zustand so the NavBar store picker reflects the new name immediately.
       if (form.business_name !== initialName && activeStoreId && spreadsheetId) {
-        await updateStoreName(activeStoreId, form.business_name, spreadsheetId)
+        await updateStoreName(activeStoreId, form.business_name)
         updateActiveStoreName(form.business_name)
         setInitialName(form.business_name)
       }

@@ -1,53 +1,41 @@
 /**
- * Optional seed data for MockDataAdapter.
+ * Optional seed data for the mock adapter.
  * Call seedLocalStorage() in main.tsx when VITE_ADAPTER=mock to populate
  * localStorage with realistic data for development and manual testing.
  */
-import { MockDataAdapter } from './MockDataAdapter'
+import { createMockRepos } from '../repos'
+import { generateId } from '../../uuid'
 
 export async function seedLocalStorage(): Promise<void> {
-  const adapter = new MockDataAdapter()
+  const repos = createMockRepos()
 
   // Only seed if there's no data yet
-  const existing = await adapter.getSheet('Products')
+  const existing = await repos.products.getAll()
   if (existing.length > 0) return
 
-  const spreadsheetId = await adapter.createSpreadsheet('POS UMKM Test Store')
-  console.info('[seed] Created mock spreadsheet:', spreadsheetId)
+  const now = new Date().toISOString()
 
-  // Seed categories
-  await adapter.appendRow('Categories', {
-    id: 'cat-001',
-    name: 'Makanan',
-    created_at: new Date().toISOString(),
-    deleted_at: null,
-  })
-  await adapter.appendRow('Categories', {
-    id: 'cat-002',
-    name: 'Minuman',
-    created_at: new Date().toISOString(),
-    deleted_at: null,
-  })
+  await repos.categories.append({ id: generateId(), name: 'Makanan', created_at: now, deleted_at: null })
+  await repos.categories.append({ id: generateId(), name: 'Minuman', created_at: now, deleted_at: null })
 
-  // Seed products
-  await adapter.appendRow('Products', {
-    id: 'prod-001',
+  await repos.products.append({
+    id: generateId(),
     category_id: 'cat-001',
     name: 'Nasi Goreng',
     price: 15000,
     sku: 'NASGOR-01',
     stock: 50,
-    created_at: new Date().toISOString(),
+    created_at: now,
     deleted_at: null,
   })
-  await adapter.appendRow('Products', {
-    id: 'prod-002',
+  await repos.products.append({
+    id: generateId(),
     category_id: 'cat-002',
     name: 'Es Teh Manis',
     price: 5000,
     sku: 'ESTEH-01',
     stock: 100,
-    created_at: new Date().toISOString(),
+    created_at: now,
     deleted_at: null,
   })
 

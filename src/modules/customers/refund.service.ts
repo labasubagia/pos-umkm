@@ -17,7 +17,7 @@
  *   Audit_Log (Master Sheet): id, event, data, created_at
  */
 
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos } from '../../lib/adapters'
 import { nowUTC } from '../../lib/formatters'
 import { generateId } from '../../lib/uuid'
 import type { Transaction } from '../cashier/cashier.service'
@@ -58,7 +58,7 @@ export class RefundError extends Error {
  * Throws RefundError if not found (transaction may be in a different monthly sheet).
  */
 export async function fetchTransaction(transactionId: string): Promise<Transaction> {
-  const rows = await dataAdapter.getSheet('Transactions')
+  const rows = await getRepos().transactions.getAll()
   const row = rows.find((r) => r['id'] === transactionId)
   if (!row) {
     throw new RefundError(`Transaksi dengan id "${transactionId}" tidak ditemukan`)
@@ -112,7 +112,7 @@ export async function createRefund(
   // Step 2: Append one row per item to Refunds tab
   await Promise.all(
     items.map((item) =>
-      dataAdapter.appendRow('Refunds', {
+      getRepos().refunds.append( {
         id: generateId(),
         transaction_id: transactionId,
         product_id: item.product_id,
@@ -127,18 +127,18 @@ export async function createRefund(
 
   // Step 3: Re-increment stock for each returned product
   // Read Products once, compute all new stocks, batch-write in one round-trip.
-  const products = await dataAdapter.getSheet('Products')
+  const products = await getRepos().products.getAll()
   const stockUpdates = items.flatMap((item) => {
     const product = products.find((p) => p['id'] === item.product_id)
     if (!product) return []
     return [{ rowId: item.product_id, column: 'stock', value: Number(product['stock']) + item.qty }]
   })
   if (stockUpdates.length > 0) {
-    await dataAdapter.batchUpdateCells('Products', stockUpdates)
+    await getRepos().products.batchUpdateCells(stockUpdates)
   }
 
   // Step 4: Append Audit_Log entry
-  await dataAdapter.appendRow('Audit_Log', {
+  await getRepos().auditLog.append( {
     id: generateId(),
     event: 'REFUND',
     data: JSON.stringify({ transactionId, items, reason }),

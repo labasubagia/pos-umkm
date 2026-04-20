@@ -17,7 +17,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../../components/ui/button'
 import { Alert, AlertDescription } from '../../components/ui/alert'
-import { authAdapter, dataAdapter } from '../../lib/adapters'
+import { authAdapter } from '../../lib/adapters'
 import { useAuth } from './useAuth'
 import { resolveUserRole } from './auth.service'
 
@@ -43,7 +43,6 @@ export default function JoinPage() {
       const userWithRole = { ...user, role }
       const token = authAdapter.getAccessToken() ?? ''
       setUser(userWithRole, role, token)
-      dataAdapter.setSpreadsheetId(sid)
       setSpreadsheetId(sid)
       navigate('/cashier')
     } catch (err) {

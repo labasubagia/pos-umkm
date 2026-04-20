@@ -16,7 +16,7 @@
  *   Variants:   id, product_id, option_name, option_value, price, stock, created_at, deleted_at
  */
 
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos } from '../../lib/adapters'
 import { nowUTC } from '../../lib/formatters'
 import { generateId } from '../../lib/uuid'
 
@@ -71,7 +71,7 @@ export class CatalogError extends Error {
  * The adapter's getSheet already filters rows where deleted_at is set.
  */
 export async function fetchCategories(): Promise<Category[]> {
-  const rows = await dataAdapter.getSheet('Categories')
+  const rows = await getRepos().categories.getAll()
   return rows
     .filter((r) => r['name']) // skip sentinel/header rows without a name
     .map((r) => ({
@@ -96,7 +96,7 @@ export async function addCategory(name: string): Promise<Category> {
 
   const id = generateId()
   const created_at = nowUTC()
-  await dataAdapter.appendRow('Categories', {
+  await getRepos().categories.append( {
     id,
     name: name.trim(),
     created_at,
@@ -116,7 +116,7 @@ export async function updateCategory(id: string, name: string): Promise<void> {
   if (name.trim().length > 100) {
     throw new CatalogError('Nama kategori maksimal 100 karakter')
   }
-  await dataAdapter.updateCell('Categories', id, 'name', name.trim())
+  await getRepos().categories.updateCell(id, 'name', name.trim())
 }
 
 /**
@@ -125,14 +125,14 @@ export async function updateCategory(id: string, name: string): Promise<void> {
  * Throws CatalogError if associated products exist.
  */
 export async function deleteCategory(id: string): Promise<void> {
-  const products = await dataAdapter.getSheet('Products')
+  const products = await getRepos().products.getAll()
   const hasProducts = products.some((p) => p['category_id'] === id)
   if (hasProducts) {
     throw new CatalogError(
       'Kategori tidak dapat dihapus karena masih ada produk yang menggunakan kategori ini',
     )
   }
-  await dataAdapter.softDelete('Categories', id)
+  await getRepos().categories.softDelete(id)
 }
 
 // ─── T022 — Products CRUD ────────────────────────────────────────────────────
@@ -142,7 +142,7 @@ export async function deleteCategory(id: string): Promise<void> {
  * Adapter's getSheet already filters deleted rows.
  */
 export async function fetchProducts(): Promise<Product[]> {
-  const rows = await dataAdapter.getSheet('Products')
+  const rows = await getRepos().products.getAll()
   return rows
     .filter((r) => r['name'])
     .map((r) => ({
@@ -193,7 +193,7 @@ export async function addProduct(product: NewProduct): Promise<Product> {
     created_at,
     deleted_at: null,
   }
-  await dataAdapter.appendRow('Products', row)
+  await getRepos().products.append(row)
   return {
     id,
     category_id: product.category_id,
@@ -223,12 +223,12 @@ export async function updateProduct(id: string, changes: ProductChanges): Promis
     value: val,
   }))
   if (updates.length === 0) return
-  await dataAdapter.batchUpdateCells('Products', updates)
+  await getRepos().products.batchUpdateCells(updates)
 }
 
 /** Soft-deletes a product by setting deleted_at. */
 export async function deleteProduct(id: string): Promise<void> {
-  await dataAdapter.softDelete('Products', id)
+  await getRepos().products.softDelete(id)
 }
 
 /**
@@ -240,7 +240,7 @@ export async function deleteProduct(id: string): Promise<void> {
  * caller may choose to allow negative stock for data correction purposes.
  */
 export async function decrementStock(productId: string, qty: number): Promise<void> {
-  const rows = await dataAdapter.getSheet('Products')
+  const rows = await getRepos().products.getAll()
   const product = rows.find((r) => r['id'] === productId)
   if (!product) {
     throw new CatalogError(`Produk dengan id "${productId}" tidak ditemukan`)
@@ -252,7 +252,7 @@ export async function decrementStock(productId: string, qty: number): Promise<vo
       `Stok tidak mencukupi: stok saat ini ${currentStock}, pengurangan ${qty}`,
     )
   }
-  await dataAdapter.updateCell('Products', productId, 'stock', newStock)
+  await getRepos().products.updateCell(productId, 'stock', newStock)
 }
 
 // ─── T023 — Product Variants ─────────────────────────────────────────────────
@@ -263,7 +263,7 @@ export async function decrementStock(productId: string, qty: number): Promise<vo
  * to avoid repeated API calls when the cashier selects different products.
  */
 export async function fetchVariants(): Promise<Variant[]> {
-  const rows = await dataAdapter.getSheet('Variants')
+  const rows = await getRepos().variants.getAll()
   return rows
     .filter((r) => r['product_id'])
     .map((r) => ({
@@ -298,7 +298,7 @@ export async function addVariant(
 
   const id = generateId()
   const created_at = nowUTC()
-  await dataAdapter.appendRow('Variants', {
+  await getRepos().variants.append( {
     id,
     product_id: productId,
     option_name: optionName,
@@ -313,7 +313,7 @@ export async function addVariant(
 
 /** Soft-deletes a variant. */
 export async function deleteVariant(variantId: string): Promise<void> {
-  await dataAdapter.softDelete('Variants', variantId)
+  await getRepos().variants.softDelete(variantId)
 }
 
 /**
@@ -321,7 +321,7 @@ export async function deleteVariant(variantId: string): Promise<void> {
  * Same read-then-write pattern as decrementStock; acceptable for single-cashier MVP.
  */
 export async function decrementVariantStock(variantId: string, qty: number): Promise<void> {
-  const rows = await dataAdapter.getSheet('Variants')
+  const rows = await getRepos().variants.getAll()
   const variant = rows.find((r) => r['id'] === variantId)
   if (!variant) {
     throw new CatalogError(`Varian dengan id "${variantId}" tidak ditemukan`)
@@ -333,5 +333,5 @@ export async function decrementVariantStock(variantId: string, qty: number): Pro
       `Stok varian tidak mencukupi: stok saat ini ${currentStock}, pengurangan ${qty}`,
     )
   }
-  await dataAdapter.updateCell('Variants', variantId, 'stock', newStock)
+  await getRepos().variants.updateCell(variantId, 'stock', newStock)
 }

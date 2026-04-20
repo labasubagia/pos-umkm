@@ -1,4 +1,4 @@
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos } from '../../lib/adapters'
 import { nowUTC } from '../../lib/formatters'
 
 export interface TransactionRow {
@@ -97,8 +97,8 @@ export function aggregateTransactions(
 
 export async function fetchDailySummary(date: string): Promise<DailySummary> {
   const [txRows, itemRows] = await Promise.all([
-    dataAdapter.getSheet('Transactions'),
-    dataAdapter.getSheet('Transaction_Items'),
+    getRepos().transactions.getAll(),
+    getRepos().transactionItems.getAll(),
   ])
 
   if (txRows.length === 0) {
@@ -156,7 +156,7 @@ export async function fetchTransactionsForRange(
   const seen = new Set<string>()
 
   for (const _month of months) {
-    const rows = await dataAdapter.getSheet('Transactions')
+    const rows = await getRepos().transactions.getAll()
     for (const r of rows) {
       const id = String(r['id'])
       const created_at = String(r['created_at'])
@@ -254,7 +254,7 @@ export async function saveReconciliation(
     throw new ReportError('Saldo penutup tidak boleh negatif')
   }
   const surplus_deficit = actual - expected
-  await dataAdapter.appendRow('Audit_Log', {
+  await getRepos().auditLog.append( {
     event: 'CASH_RECONCILIATION',
     data: JSON.stringify({ expected, actual, surplus_deficit, date }),
     created_at: nowUTC(),

@@ -5,7 +5,7 @@ import {
   type ProfitSummary,
   ReportError,
 } from './reports.service'
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos } from '../../lib/adapters'
 import { formatIDR } from '../../lib/formatters'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -27,8 +27,8 @@ export function GrossProfitReport() {
     try {
       const [transactions, itemRows, productRows] = await Promise.all([
         fetchTransactionsForRange(startDate, endDate),
-        dataAdapter.getSheet('Transaction_Items'),
-        dataAdapter.getSheet('Products'),
+        getRepos().transactionItems.getAll(),
+        getRepos().products.getAll(),
       ])
 
       const items = itemRows.map((r) => ({

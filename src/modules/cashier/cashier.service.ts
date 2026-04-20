@@ -9,10 +9,11 @@
  * transaction commit (commitTransaction) and the monthly sheet check.
  */
 
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos } from '../../lib/adapters'
 import { generateId } from '../../lib/uuid'
 import { nowUTC } from '../../lib/formatters'
 import { createMonthlySheet, initializeMonthlySheets, getCurrentMonthSheetId, shareSheetWithAllMembers } from '../auth/setup.service'
+import { useAuthStore } from '../../store/authStore'
 import type { Product, Variant } from '../catalog/catalog.service'
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
@@ -208,14 +209,14 @@ export async function ensureMonthlySheetExists(_masterSpreadsheetId: string): Pr
   const existing = await getCurrentMonthSheetId()
   if (existing) {
     // Ensure the adapter routes monthly tab writes to the correct spreadsheet.
-    dataAdapter.setMonthlySpreadsheetId(existing)
+    useAuthStore.getState().setMonthlySpreadsheetId(existing)
     return existing
   }
 
   const now = new Date()
   const id = await createMonthlySheet(now.getFullYear(), now.getMonth() + 1)
   // Set routing BEFORE initializeMonthlySheets so writeHeaders goes to the monthly sheet.
-  dataAdapter.setMonthlySpreadsheetId(id)
+  useAuthStore.getState().setMonthlySpreadsheetId(id)
   await initializeMonthlySheets(id)
   await shareSheetWithAllMembers(id)
   return id
@@ -292,7 +293,7 @@ export async function commitTransaction(
   }
 
   // Step 1: Append transaction header
-  await dataAdapter.appendRow('Transactions', {
+  await getRepos().transactions.append( {
     id: transactionId,
     created_at,
     cashier_id: cashierId,
@@ -313,7 +314,7 @@ export async function commitTransaction(
   // Step 2: Append all items at once
   await Promise.all(
     items.map((item) =>
-      dataAdapter.appendRow('Transaction_Items', {
+      getRepos().transactionItems.append( {
         id: generateId(),
         transaction_id: transactionId,
         product_id: item.productId,
@@ -340,12 +341,12 @@ export async function commitTransaction(
       hasVariantItems
         ? (preloadedVariants
             ? Promise.resolve(preloadedVariants as unknown as Record<string, unknown>[])
-            : dataAdapter.getSheet('Variants'))
+            : getRepos().variants.getAll())
         : Promise.resolve([]),
       hasProductItems
         ? (preloadedProducts
             ? Promise.resolve(preloadedProducts as unknown as Record<string, unknown>[])
-            : dataAdapter.getSheet('Products'))
+            : getRepos().products.getAll())
         : Promise.resolve([]),
     ])
 
@@ -366,8 +367,8 @@ export async function commitTransaction(
       })
 
     await Promise.all([
-      variantUpdates.length > 0 ? dataAdapter.batchUpdateCells('Variants', variantUpdates) : Promise.resolve(),
-      productUpdates.length > 0 ? dataAdapter.batchUpdateCells('Products', productUpdates) : Promise.resolve(),
+      variantUpdates.length > 0 ? getRepos().variants.batchUpdateCells(variantUpdates) : Promise.resolve(),
+      productUpdates.length > 0 ? getRepos().products.batchUpdateCells(productUpdates) : Promise.resolve(),
     ])
   } catch (err) {
     stockErrors.push(String(err))

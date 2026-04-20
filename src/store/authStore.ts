@@ -12,6 +12,8 @@ interface AuthState {
   spreadsheetId: string | null
   /** Main spreadsheet ID — one per Google account, shared across all stores (persisted). */
   mainSpreadsheetId: string | null
+  /** Current month's transaction spreadsheet ID (persisted). */
+  monthlySpreadsheetId: string | null
   isAuthenticated: boolean
   stores: StoreRecord[]
   activeStoreId: string | null
@@ -19,6 +21,7 @@ interface AuthState {
   setAccessToken: (token: string) => void
   setSpreadsheetId: (id: string) => void
   setMainSpreadsheetId: (id: string) => void
+  setMonthlySpreadsheetId: (id: string) => void
   setStores: (stores: StoreRecord[], activeStoreId: string | null) => void
   updateActiveStoreName: (name: string) => void
   clearAuth: () => void
@@ -41,6 +44,7 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       spreadsheetId: null,
       mainSpreadsheetId: null,
+      monthlySpreadsheetId: null,
       isAuthenticated: false,
       stores: [],
       activeStoreId: null,
@@ -49,6 +53,7 @@ export const useAuthStore = create<AuthState>()(
       setAccessToken: (token) => set({ accessToken: token }),
       setSpreadsheetId: (id) => set({ spreadsheetId: id }),
       setMainSpreadsheetId: (id) => set({ mainSpreadsheetId: id }),
+      setMonthlySpreadsheetId: (id) => set({ monthlySpreadsheetId: id }),
       setStores: (stores, activeStoreId) => set({ stores, activeStoreId }),
       updateActiveStoreName: (name) =>
         set((state) => ({
@@ -64,6 +69,7 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           spreadsheetId: null,
           mainSpreadsheetId: null,
+          monthlySpreadsheetId: null,
           stores: [],
           activeStoreId: null,
         }),
@@ -77,6 +83,7 @@ export const useAuthStore = create<AuthState>()(
         role: state.role,
         spreadsheetId: state.spreadsheetId,
         mainSpreadsheetId: state.mainSpreadsheetId,
+        monthlySpreadsheetId: state.monthlySpreadsheetId,
         isAuthenticated: state.isAuthenticated,
         stores: state.stores,
         activeStoreId: state.activeStoreId,

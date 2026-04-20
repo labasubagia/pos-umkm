@@ -15,7 +15,7 @@
  * but the invite logic touches the Users sheet (master data).
  */
 
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos, driveClient } from '../../lib/adapters'
 import type { Role } from '../../lib/adapters/types'
 import { validateEmail } from '../../lib/validators'
 import { nowUTC } from '../../lib/formatters'
@@ -63,7 +63,7 @@ export async function inviteMember(
   }
 
   try {
-    await dataAdapter.shareSpreadsheet(masterSpreadsheetId, email, 'editor')
+    await driveClient.shareSpreadsheet(masterSpreadsheetId, email, 'editor')
   } catch (err) {
     throw new MemberError(`inviteMember: Drive API share failed — ${String(err)}`)
   }
@@ -77,7 +77,7 @@ export async function inviteMember(
     deleted_at: null,
   }
 
-  await dataAdapter.appendRow('Members', member as unknown as Record<string, unknown>)
+  await getRepos().members.append(member as unknown as Record<string, unknown>)
   return member
 }
 
@@ -95,14 +95,14 @@ export function generateStoreLink(spreadsheetId: string): string {
  * in Google Drive if they want to fully revoke folder access.
  */
 export async function revokeMember(userId: string): Promise<void> {
-  await dataAdapter.softDelete('Members', userId)
+  await getRepos().members.softDelete(userId)
 }
 
 /**
  * Returns all active (non-deleted) members from the Members tab.
  */
 export async function listMembers(): Promise<Member[]> {
-  const rows = await dataAdapter.getSheet('Members')
+  const rows = await getRepos().members.getAll()
   return rows
     .filter((r) => !r['deleted_at'] && typeof r['email'] === 'string' && r['email'] !== '')
     .map((r) => ({

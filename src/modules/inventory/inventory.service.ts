@@ -13,7 +13,7 @@
  *   Purchase_Order_Items: id, order_id, product_id, product_name, qty, cost_price, created_at
  */
 
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos } from '../../lib/adapters'
 import { generateId } from '../../lib/uuid'
 import { nowUTC } from '../../lib/formatters'
 
@@ -74,7 +74,7 @@ export interface PurchaseOrderItemRow extends PurchaseOrderItem {
  * owner only needs to edit the rows that differ.
  */
 export async function fetchStockOpnameData(): Promise<OpnameRow[]> {
-  const rows = await dataAdapter.getSheet('Products')
+  const rows = await getRepos().products.getAll()
   return rows
     .filter((r) => r['name']) // skip sentinel rows
     .map((r) => ({
@@ -115,12 +115,11 @@ export async function saveOpnameResults(results: OpnameRow[]): Promise<void> {
   // Batch all stock writes in one round-trip, then append log entries in parallel.
   const created_at = nowUTC()
   await Promise.all([
-    dataAdapter.batchUpdateCells(
-      'Products',
+    getRepos().products.batchUpdateCells(
       changed.map((row) => ({ rowId: row.product_id, column: 'stock', value: row.physical_count })),
     ),
     ...changed.map((row) =>
-      dataAdapter.appendRow('Stock_Log', {
+      getRepos().stockLog.append( {
         id: generateId(),
         product_id: row.product_id,
         reason: 'opname',
@@ -155,7 +154,7 @@ export async function createPurchaseOrder(
   const orderId = generateId()
   const created_at = nowUTC()
 
-  await dataAdapter.appendRow('Purchase_Orders', {
+  await getRepos().purchaseOrders.append( {
     id: orderId,
     supplier: supplier.trim(),
     status: 'pending',
@@ -164,7 +163,7 @@ export async function createPurchaseOrder(
 
   await Promise.all(
     items.map((item) =>
-      dataAdapter.appendRow('Purchase_Order_Items', {
+      getRepos().purchaseOrderItems.append( {
         id: generateId(),
         order_id: orderId,
         product_id: item.product_id,
@@ -195,7 +194,7 @@ export async function createPurchaseOrder(
  */
 export async function receivePurchaseOrder(orderId: string): Promise<void> {
   // Step 1: Load order and validate state
-  const orders = await dataAdapter.getSheet('Purchase_Orders')
+  const orders = await getRepos().purchaseOrders.getAll()
   const order = orders.find((o) => o['id'] === orderId)
   if (!order) {
     throw new InventoryError(`Purchase order "${orderId}" tidak ditemukan`)
@@ -208,8 +207,8 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
 
   // Step 2: Load order items and current product stocks
   const [allItems, products] = await Promise.all([
-    dataAdapter.getSheet('Purchase_Order_Items'),
-    dataAdapter.getSheet('Products'),
+    getRepos().purchaseOrderItems.getAll(),
+    getRepos().products.getAll(),
   ])
 
   const orderItems = (allItems.filter(
@@ -232,8 +231,7 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
 
   // Steps 3 & 4: Batch all stock updates in one round-trip + append logs in parallel
   await Promise.all([
-    dataAdapter.batchUpdateCells(
-      'Products',
+    getRepos().products.batchUpdateCells(
       stockData.map(({ item, qtyAfter }) => ({
         rowId: item['product_id'] as string,
         column: 'stock',
@@ -241,7 +239,7 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
       })),
     ),
     ...stockData.map(({ item, qtyBefore, qtyAfter }) =>
-      dataAdapter.appendRow('Stock_Log', {
+      getRepos().stockLog.append( {
         id: generateId(),
         product_id: item['product_id'],
         reason: 'purchase_order',
@@ -253,7 +251,7 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
   ])
 
   // Step 5: Mark order as received only after all stock updates succeed
-  await dataAdapter.updateCell('Purchase_Orders', orderId, 'status', 'received')
+  await getRepos().purchaseOrders.updateCell(orderId, 'status', 'received')
 }
 
 /**
@@ -261,7 +259,7 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
  * Used to display the purchase order list in PurchaseOrders.tsx.
  */
 export async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
-  const rows = await dataAdapter.getSheet('Purchase_Orders')
+  const rows = await getRepos().purchaseOrders.getAll()
   return rows
     .filter((r) => r['supplier'])
     .map((r) => ({
@@ -277,7 +275,7 @@ export async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
  * Fetches all items for a given purchase order.
  */
 export async function fetchPurchaseOrderItems(orderId: string): Promise<PurchaseOrderItemRow[]> {
-  const rows = await dataAdapter.getSheet('Purchase_Order_Items')
+  const rows = await getRepos().purchaseOrderItems.getAll()
   return rows
     .filter((r) => r['order_id'] === orderId)
     .map((r) => ({

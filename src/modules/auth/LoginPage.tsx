@@ -16,7 +16,8 @@
 import { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from './useAuth'
-import { authAdapter, dataAdapter } from '../../lib/adapters'
+import { authAdapter } from '../../lib/adapters'
+import { useAuthStore } from '../../store/authStore'
 import { Button } from '../../components/ui/button'
 
 export default function LoginPage() {
@@ -42,12 +43,11 @@ export default function LoginPage() {
 
     const masterId = spreadsheetId ?? localStorage.getItem('masterSpreadsheetId')
     if (masterId) {
-      dataAdapter.setSpreadsheetId(masterId)
       setSpreadsheetId(masterId)
       const now = new Date()
       const mm = String(now.getMonth() + 1).padStart(2, '0')
       const monthlyId = localStorage.getItem(`txSheet_${now.getFullYear()}-${mm}`)
-      if (monthlyId) dataAdapter.setMonthlySpreadsheetId(monthlyId)
+      if (monthlyId) useAuthStore.getState().setMonthlySpreadsheetId(monthlyId)
       navigate('/cashier')
     } else {
       navigate('/stores')

@@ -272,7 +272,7 @@ export async function batchUpsertByKey(
       await sheetsBatchUpdate(spreadsheetId, rangeUpdates, token)
     }
     for (const { lookupValue, value } of toAppend) {
-      await sheetsAppend(spreadsheetId, sheetName, [Object.values(makeNewRow(lookupValue, value))], token)
+      await sheetsAppend(spreadsheetId, sheetName, [Object.values(makeNewRow(lookupValue, value)) as (string | number | boolean)[]], token)
     }
   } catch (err) {
     if (err instanceof AdapterError) throw err

@@ -29,7 +29,7 @@
  * Zustand sync + expired-session redirect separately.
  */
 import { useEffect, useRef, type ReactNode } from 'react'
-import { authAdapter, dataAdapter } from '../lib/adapters'
+import { authAdapter } from '../lib/adapters'
 import { useAuth } from '../modules/auth/useAuth'
 
 const IS_MOCK = import.meta.env.VITE_ADAPTER !== 'google'
@@ -39,20 +39,11 @@ interface Props {
 }
 
 export function AuthInitializer({ children }: Props) {
-  const { isAuthenticated, spreadsheetId, setAccessToken, clearAuth } = useAuth()
+  const { isAuthenticated, setAccessToken, clearAuth } = useAuth()
 
-  // ── Synchronous adapter wiring ──────────────────────────────────────────────
-  // Restore in-memory dataAdapter routing from persisted Zustand state BEFORE
-  // children render, so child useEffects that load page data don't get a null
-  // spreadsheetId. This is safe to call during render because it is a
-  // non-React side effect (no setState, no DOM mutation).
-  if (spreadsheetId) {
-    dataAdapter.setSpreadsheetId(spreadsheetId)
-    const now = new Date()
-    const mm = String(now.getMonth() + 1).padStart(2, '0')
-    const monthlyId = localStorage.getItem(`txSheet_${now.getFullYear()}-${mm}`)
-    if (monthlyId) dataAdapter.setMonthlySpreadsheetId(monthlyId)
-  }
+  // ── Adapter IDs are now read from Zustand by getRepos() on every call ─────────
+  // No need to imperatively wire the adapter — getRepos() reads spreadsheetId
+  // and monthlySpreadsheetId from the auth store at call time.
 
   // ── Synchronous token restoration ───────────────────────────────────────────
   // restoreSession() reads localStorage only (no await), so calling it in the

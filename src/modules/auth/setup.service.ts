@@ -11,7 +11,7 @@
  * adapters — no direct Sheets API calls from this file.
  */
 
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos, driveClient, makeRepo } from '../../lib/adapters'
 import { generateId } from '../../lib/uuid'
 import { nowUTC } from '../../lib/formatters'
 import { useAuthStore } from '../../store/authStore'
@@ -184,13 +184,10 @@ export function monthlySheetKey(year: number, month: number): string {
 export async function createMainSpreadsheet(ownerEmail = ''): Promise<string> {
   try {
     let parentFolderId: string | undefined
-    if (dataAdapter.ensureFolder) {
-      const fid = await dataAdapter.ensureFolder(['apps', 'pos_umkm'])
-      if (fid) parentFolderId = fid
-    }
-    const mainId = await dataAdapter.createSpreadsheet('main', parentFolderId, [...MAIN_TABS])
-    dataAdapter.setSpreadsheetId(mainId)
-    await dataAdapter.writeHeaders('Stores', MAIN_TAB_HEADERS['Stores'] ?? [])
+    const fid = await driveClient.ensureFolder(['apps', 'pos_umkm'])
+    if (fid) parentFolderId = fid
+    const mainId = await driveClient.createSpreadsheet('main', parentFolderId, [...MAIN_TABS])
+    await makeRepo(mainId, 'Stores').writeHeaders(MAIN_TAB_HEADERS['Stores'] ?? [])
     void ownerEmail // reserved for future row insertion on member join flow
     return mainId
   } catch (err) {
@@ -204,8 +201,7 @@ export async function createMainSpreadsheet(ownerEmail = ''): Promise<string> {
  * at main — callers that activate a store must call setSpreadsheetId(masterId).
  */
 export async function listStores(mainSpreadsheetId: string): Promise<StoreRecord[]> {
-  dataAdapter.setSpreadsheetId(mainSpreadsheetId)
-  const rows = await dataAdapter.getSheet('Stores')
+  const rows = await makeRepo(mainSpreadsheetId, 'Stores').getAll()
   return rows
     .filter((r) => r['store_id'] && r['master_spreadsheet_id'])
     .map((r) => ({
@@ -230,33 +226,24 @@ export async function listStores(mainSpreadsheetId: string): Promise<StoreRecord
  *   1. Temporarily routes the adapter to mainSpreadsheetId.
  *   2. Finds the row for `storeId` in the `Stores` tab.
  *   3. Updates the `store_name` cell for that row.
- *   4. Restores adapter routing to the master spreadsheetId so all
- *      subsequent service calls continue to target the active store.
  *
- * @param storeId           The `store_id` of the store being renamed.
- * @param newName           The new store/business name.
- * @param masterSpreadsheetId  The master spreadsheetId to restore after the update.
+ * @param storeId  The `store_id` of the store being renamed.
+ * @param newName  The new store/business name.
  */
 export async function updateStoreName(
   storeId: string,
   newName: string,
-  masterSpreadsheetId: string,
 ): Promise<void> {
   const mainId = getMainSpreadsheetId()
   if (!mainId) throw new SetupError('updateStoreName: mainSpreadsheetId not found')
 
   try {
-    dataAdapter.setSpreadsheetId(mainId)
-    // updateCell reads the sheet once internally and throws AdapterError if
-    // the row is not found — no need for a separate getSheet pre-check.
-    await dataAdapter.updateCell('Stores', storeId, 'store_name', newName)
+    await makeRepo(mainId, 'Stores').updateCell(storeId, 'store_name', newName)
   } catch (err) {
     if (err instanceof Error && err.name === 'AdapterError' && err.message.includes('not found')) {
       throw new SetupError(`updateStoreName: store ${storeId} not found in main.Stores`)
     }
     throw err
-  } finally {
-    dataAdapter.setSpreadsheetId(masterSpreadsheetId)
   }
 }
 
@@ -313,7 +300,7 @@ export async function findOrCreateMain(
 export async function activateStore(store: StoreRecord): Promise<void> {
   const { master_spreadsheet_id: masterId, store_id: storeId } = store
 
-  dataAdapter.setSpreadsheetId(masterId)
+  useAuthStore.getState().setSpreadsheetId(masterId)
   // activeStoreId must be in localStorage synchronously — createMonthlySheet()
   // reads it during this same call to determine the Drive folder path.
   localStorage.setItem('activeStoreId', storeId)
@@ -326,7 +313,7 @@ export async function activateStore(store: StoreRecord): Promise<void> {
   if (!monthlyId) {
     try {
       monthlyId = await createMonthlySheet(year, month)
-      dataAdapter.setMonthlySpreadsheetId(monthlyId)
+      useAuthStore.getState().setMonthlySpreadsheetId(monthlyId)
       await initializeMonthlySheets(monthlyId)
     } catch {
       // Cashiers lack the drive scope to create monthly sheets.
@@ -334,7 +321,7 @@ export async function activateStore(store: StoreRecord): Promise<void> {
       return
     }
   } else {
-    dataAdapter.setMonthlySpreadsheetId(monthlyId)
+    useAuthStore.getState().setMonthlySpreadsheetId(monthlyId)
   }
 
   localStorage.setItem(monthlySheetKey(year, month), monthlyId)
@@ -370,17 +357,14 @@ export async function createMasterSpreadsheet(
 
     // ── 1. Create store folder ────────────────────────────────────────────────
     let storeFolderId: string | undefined
-    if (dataAdapter.ensureFolder) {
-      const fid = await dataAdapter.ensureFolder(['apps', 'pos_umkm', 'stores', storeId])
-      if (fid) storeFolderId = fid
-    }
+    const fid = await driveClient.ensureFolder(['apps', 'pos_umkm', 'stores', storeId])
+    if (fid) storeFolderId = fid
 
     // ── 2. Create master spreadsheet ──────────────────────────────────────────
-    const masterId = await dataAdapter.createSpreadsheet('master', storeFolderId, [...MASTER_TABS])
+    const masterId = await driveClient.createSpreadsheet('master', storeFolderId, [...MASTER_TABS])
 
     // ── 3. Register new store in main.Stores ──────────────────────────────────
-    dataAdapter.setSpreadsheetId(mainSpreadsheetId)
-    await dataAdapter.appendRow('Stores', {
+    await makeRepo(mainSpreadsheetId, 'Stores').append({
       store_id: storeId,
       store_name: businessName,
       master_spreadsheet_id: masterId,
@@ -389,9 +373,6 @@ export async function createMasterSpreadsheet(
       my_role: 'owner',
       joined_at: nowUTC(),
     })
-
-    // Restore master as the active spreadsheet for all subsequent calls.
-    dataAdapter.setSpreadsheetId(masterId)
 
     // Persist store context so monthly sheets and other services can locate the folder.
     localStorage.setItem('activeStoreId', storeId)
@@ -413,13 +394,8 @@ export async function initializeMasterSheets(spreadsheetId: string): Promise<voi
   if (!spreadsheetId) {
     throw new SetupError('initializeMasterSheets: spreadsheetId is required')
   }
-  // Ensure the adapter targets the correct spreadsheet before writing.
-  dataAdapter.setSpreadsheetId(spreadsheetId)
-  // Write one header row per tab concurrently.
   await Promise.all(
-    MASTER_TABS.map((tab) =>
-      dataAdapter.writeHeaders(tab, MASTER_TAB_HEADERS[tab] ?? []),
-    ),
+    MASTER_TABS.map((tab) => makeRepo(spreadsheetId, tab).writeHeaders(MASTER_TAB_HEADERS[tab] ?? [])),
   )
 }
 
@@ -439,7 +415,7 @@ export async function getCurrentMonthSheetId(): Promise<string | null> {
   const now = new Date()
   const yearMonth = `${now.getFullYear()}-${mm(now.getMonth() + 1)}`
   try {
-    const rows = await dataAdapter.getSheet('Monthly_Sheets')
+    const rows = await getRepos().monthlySheets.getAll()
     const row = rows.find((r) => r['year_month'] === yearMonth)
     return (row?.['spreadsheetId'] as string) ?? null
   } catch {
@@ -462,24 +438,21 @@ export async function createMonthlySheet(year: number, month: number): Promise<s
     const name = `transaction_${yearMonth}`
 
     let parentFolderId: string | undefined
-    if (dataAdapter.ensureFolder) {
-      const storeId = localStorage.getItem('activeStoreId')
-      if (storeId) {
-        // Place sheet in apps/pos_umkm/stores/<store_id>/transactions/<year>/
-        const folderId = await dataAdapter.ensureFolder([
-          'apps', 'pos_umkm', 'stores', storeId, 'transactions', String(year),
-        ])
-        if (folderId) parentFolderId = folderId
-      } else {
-        // Fallback: use the store folder directly (pre-existing sessions without activeStoreId)
-        parentFolderId = localStorage.getItem('storeFolderId') ?? undefined
-      }
+    const storeId = localStorage.getItem('activeStoreId')
+    if (storeId) {
+      const folderId = await driveClient.ensureFolder([
+        'apps', 'pos_umkm', 'stores', storeId, 'transactions', String(year),
+      ])
+      if (folderId) parentFolderId = folderId
+    } else {
+      // Fallback: use the store folder directly (pre-existing sessions without activeStoreId)
+      parentFolderId = localStorage.getItem('storeFolderId') ?? undefined
     }
 
-    const id = await dataAdapter.createSpreadsheet(name, parentFolderId, [...MONTHLY_TABS])
+    const id = await driveClient.createSpreadsheet(name, parentFolderId, [...MONTHLY_TABS])
 
     // Register in the Monthly_Sheets registry tab so all users can resolve the ID.
-    await dataAdapter.appendRow('Monthly_Sheets', {
+    await getRepos().monthlySheets.append({
       id: generateId(),
       year_month: yearMonth,
       spreadsheetId: id,
@@ -503,9 +476,7 @@ export async function initializeMonthlySheets(spreadsheetId: string): Promise<vo
     throw new SetupError('initializeMonthlySheets: spreadsheetId is required')
   }
   await Promise.all(
-    MONTHLY_TABS.map((tab) =>
-      dataAdapter.writeHeaders(tab, MONTHLY_TAB_HEADERS[tab] ?? []),
-    ),
+    MONTHLY_TABS.map((tab) => makeRepo(spreadsheetId, tab).writeHeaders(MONTHLY_TAB_HEADERS[tab] ?? [])),
   )
 }
 
@@ -547,7 +518,7 @@ export async function runStoreSetup(
   const year = now.getFullYear()
   const month = now.getMonth() + 1
   const monthlySpreadsheetId = await createMonthlySheet(year, month)
-  dataAdapter.setMonthlySpreadsheetId(monthlySpreadsheetId)
+  useAuthStore.getState().setMonthlySpreadsheetId(monthlySpreadsheetId)
   await initializeMonthlySheets(monthlySpreadsheetId)
   localStorage.setItem(monthlySheetKey(year, month), monthlySpreadsheetId)
 
@@ -577,13 +548,13 @@ export async function runFirstTimeSetup(
  * Called after creating a new monthly sheet so all members can access it.
  */
 export async function shareSheetWithAllMembers(spreadsheetId: string): Promise<void> {
-  const members = await dataAdapter.getSheet('Members')
+  const members = await getRepos().members.getAll()
   const activeMembers = members.filter(
     (u) => !u['deleted_at'] && u['email'] && u['email'] !== '',
   )
   await Promise.all(
     activeMembers.map((u) =>
-      dataAdapter.shareSpreadsheet(spreadsheetId, u['email'] as string, 'editor'),
+      driveClient.shareSpreadsheet(spreadsheetId, u['email'] as string, 'editor'),
     ),
   )
 }

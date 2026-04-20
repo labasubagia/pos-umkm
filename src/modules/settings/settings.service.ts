@@ -10,7 +10,7 @@
  * static merchant QR code without any backend integration.
  */
 
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos } from '../../lib/adapters'
 import { nowUTC } from '../../lib/formatters'
 
 export interface BusinessSettings {
@@ -23,7 +23,7 @@ export interface BusinessSettings {
 
 /** Reads all settings rows and returns them as a flat object. */
 export async function getSettings(): Promise<BusinessSettings> {
-  const rows = await dataAdapter.getSheet('Settings')
+  const rows = await getRepos().settings.getAll()
   const map: Record<string, string> = {}
   for (const row of rows) {
     if (row['key'] && row['value'] !== undefined) {
@@ -51,12 +51,12 @@ export async function getQRISImageUrl(): Promise<string> {
  * Otherwise a new key-value row is appended.
  */
 export async function saveQRISImageUrl(url: string): Promise<void> {
-  const rows = await dataAdapter.getSheet('Settings')
+  const rows = await getRepos().settings.getAll()
   const existing = rows.find((r) => r['key'] === 'qris_image_url')
   if (existing) {
-    await dataAdapter.updateCell('Settings', existing['id'] as string, 'value', url)
+    await getRepos().settings.updateCell(existing['id'] as string, 'value', url)
   } else {
-    await dataAdapter.appendRow('Settings', {
+    await getRepos().settings.append( {
       key: 'qris_image_url',
       value: url,
       updated_at: nowUTC(),
@@ -102,8 +102,7 @@ export async function saveSettings(settings: Partial<BusinessSettings>): Promise
     .map(([key, value]) => ({ lookupValue: key, value: String(value) }))
   if (entries.length === 0) return
 
-  await dataAdapter.batchUpsertByKey(
-    'Settings',
+  await getRepos().settings.batchUpsertByKey(
     'key',
     'value',
     entries,

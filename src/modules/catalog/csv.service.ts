@@ -10,7 +10,7 @@
  */
 
 import Papa from 'papaparse'
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos } from '../../lib/adapters'
 import { generateId } from '../../lib/uuid'
 import { nowUTC } from '../../lib/formatters'
 
@@ -95,7 +95,7 @@ export async function bulkImportProducts(
   const now = nowUTC()
   await Promise.all(
     rows.map((row) =>
-      dataAdapter.appendRow('Products', {
+      getRepos().products.append( {
         id: generateId(),
         name: row.name,
         category_id: row.category_id,

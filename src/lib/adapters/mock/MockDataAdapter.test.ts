@@ -1,13 +1,11 @@
 /**
- * Unit tests for MockDataAdapter.
+ * Unit tests for MockSheetRepository.
  * Uses jsdom's localStorage (provided by vitest jsdom environment).
  */
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
-import { MockDataAdapter } from './MockDataAdapter'
+import { MockSheetRepository } from '../MockSheetRepository'
 import { AdapterError } from '../types'
 
-// jsdom's localStorage.clear() may not be available in all vitest versions.
-// Use a Map-backed mock for full control.
 const localStorageMock = (() => {
   let store: Record<string, string> = {}
   return {
@@ -24,16 +22,23 @@ beforeAll(() => {
   vi.stubGlobal('localStorage', localStorageMock)
 })
 
-describe('MockDataAdapter', () => {
-  let adapter: MockDataAdapter
+type ProductRow = { id: string; name: string; price: number; deleted_at: string | null }
+
+describe('MockSheetRepository', () => {
+  let repo: MockSheetRepository<ProductRow>
 
   beforeEach(() => {
     localStorage.clear()
-    adapter = new MockDataAdapter()
+    repo = new MockSheetRepository<ProductRow>('Products')
   })
 
-  it('appendRow stores row in localStorage under correct key', async () => {
-    await adapter.appendRow('Products', { name: 'Nasi Goreng', price: 15000 })
+  it('is bound to the given sheetName', () => {
+    expect(repo.sheetName).toBe('Products')
+    expect(repo.spreadsheetId).toBe('mock')
+  })
+
+  it('append stores row in localStorage under correct key', async () => {
+    await repo.append({ name: 'Nasi Goreng', price: 15000 })
     const raw = localStorage.getItem('mock_Products')
     expect(raw).not.toBeNull()
     const rows = JSON.parse(raw!)
@@ -41,31 +46,36 @@ describe('MockDataAdapter', () => {
     expect(rows[0].name).toBe('Nasi Goreng')
   })
 
-  it('getSheet returns all non-deleted rows', async () => {
-    await adapter.appendRow('Products', { name: 'Row 1' })
-    await adapter.appendRow('Products', { name: 'Row 2', deleted_at: '2026-01-01T00:00:00.000Z' })
-    const rows = await adapter.getSheet('Products')
+  it('getAll returns all non-deleted rows', async () => {
+    await repo.append({ name: 'Row 1' })
+    await repo.append({ name: 'Row 2', deleted_at: '2026-01-01T00:00:00.000Z' })
+    const rows = await repo.getAll()
     expect(rows).toHaveLength(1)
     expect(rows[0].name).toBe('Row 1')
   })
 
-  it('getSheet returns empty array when key does not exist', async () => {
-    const rows = await adapter.getSheet('NonExistent')
+  it('getAll returns empty array when sheet is empty', async () => {
+    const rows = await repo.getAll()
     expect(rows).toEqual([])
   })
 
   it('updateCell modifies correct field on correct row', async () => {
-    await adapter.appendRow('Products', { id: 'prod-1', name: 'Old Name', price: 10000 })
-    await adapter.updateCell('Products', 'prod-1', 'name', 'New Name')
-    const rows = await adapter.getSheet('Products')
+    await repo.append({ id: 'prod-1', name: 'Old Name', price: 10000 })
+    await repo.updateCell('prod-1', 'name', 'New Name')
+    const rows = await repo.getAll()
     expect(rows[0].name).toBe('New Name')
     expect(rows[0].price).toBe(10000)
   })
 
+  it('updateCell throws AdapterError if rowId not found', async () => {
+    await repo.append({ id: 'prod-1', name: 'Test' })
+    await expect(repo.updateCell('non-existent', 'name', 'X')).rejects.toThrow(AdapterError)
+    await expect(repo.updateCell('non-existent', 'name', 'X')).rejects.toThrow('not found')
+  })
+
   it('softDelete sets deleted_at on correct row', async () => {
-    await adapter.appendRow('Products', { id: 'prod-1', name: 'Test' })
-    await adapter.softDelete('Products', 'prod-1')
-    // Read raw localStorage to verify deleted_at was set
+    await repo.append({ id: 'prod-1', name: 'Test' })
+    await repo.softDelete('prod-1')
     const raw = localStorage.getItem('mock_Products')
     const rows = JSON.parse(raw!) as Record<string, unknown>[]
     const deleted = rows.find((r) => r['id'] === 'prod-1')
@@ -73,26 +83,50 @@ describe('MockDataAdapter', () => {
   })
 
   it('softDelete does not physically remove the row', async () => {
-    await adapter.appendRow('Products', { id: 'prod-1', name: 'Test' })
-    await adapter.softDelete('Products', 'prod-1')
+    await repo.append({ id: 'prod-1', name: 'Test' })
+    await repo.softDelete('prod-1')
     const raw = localStorage.getItem('mock_Products')
     const rows = JSON.parse(raw!)
-    expect(rows).toHaveLength(1) // still in storage, just flagged
+    expect(rows).toHaveLength(1)
   })
 
-  it('createSpreadsheet stores and returns a UUID', async () => {
-    const id = await adapter.createSpreadsheet('Test Store')
-    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
-    expect(localStorage.getItem('mock_masterSpreadsheetId')).toBe(id)
+  it('softDelete throws AdapterError if rowId not found', async () => {
+    await repo.append({ id: 'prod-1', name: 'Test' })
+    await expect(repo.softDelete('non-existent')).rejects.toThrow(AdapterError)
+    await expect(repo.softDelete('non-existent')).rejects.toThrow('not found')
   })
 
-  it('updateCell throws if rowId not found', async () => {
-    await adapter.appendRow('Products', { id: 'prod-1', name: 'Test' })
-    await expect(adapter.updateCell('Products', 'non-existent', 'name', 'X')).rejects.toThrow('not found')
+  it('batchUpdateCells applies all updates in order', async () => {
+    await repo.append({ id: 'prod-1', name: 'Original', price: 10000 })
+    await repo.batchUpdateCells([
+      { rowId: 'prod-1', column: 'name', value: 'Updated' },
+      { rowId: 'prod-1', column: 'price', value: 20000 },
+    ])
+    const rows = await repo.getAll()
+    expect(rows[0].name).toBe('Updated')
+    expect(rows[0].price).toBe(20000)
   })
 
-  it('softDelete throws if rowId not found', async () => {
-    await adapter.appendRow('Products', { id: 'prod-1', name: 'Test' })
-    await expect(adapter.softDelete('Products', 'non-existent')).rejects.toThrow('not found')
+  it('batchUpsertByKey updates existing and inserts new entries', async () => {
+    await repo.append({ id: 'prod-1', name: 'Existing', price: 10000 })
+    const makeNewRow = (lookupValue: string, value: unknown) => ({
+      name: lookupValue,
+      price: value,
+    })
+    await repo.batchUpsertByKey('name', 'price', [
+      { lookupValue: 'Existing', value: 99999 },
+      { lookupValue: 'New Product', value: 5000 },
+    ], makeNewRow)
+    const rows = await repo.getAll()
+    const existing = rows.find((r) => r.name === 'Existing')
+    const newRow = rows.find((r) => r.name === 'New Product')
+    expect(existing?.price).toBe(99999)
+    expect(newRow).toBeDefined()
+    expect(newRow?.price).toBe(5000)
+  })
+
+  it('writeHeaders is a no-op', async () => {
+    await expect(repo.writeHeaders(['id', 'name', 'price'])).resolves.toBeUndefined()
   })
 })
+

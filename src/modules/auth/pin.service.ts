@@ -10,7 +10,7 @@
  */
 
 import bcrypt from 'bcryptjs'
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos } from '../../lib/adapters'
 
 const BCRYPT_ROUNDS = 10
 
@@ -42,5 +42,5 @@ export async function savePINHash(
   userId: string,
   hash: string,
 ): Promise<void> {
-  await dataAdapter.updateCell('Members', userId, 'pin_hash', hash)
+  await getRepos().members.updateCell(userId, 'pin_hash', hash)
 }

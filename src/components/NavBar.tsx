@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../modules/auth/useAuth'
 import { clearSetupStorage } from '../modules/auth/setup.service'
-import { authAdapter, dataAdapter } from '../lib/adapters'
+import { authAdapter } from '../lib/adapters'
 import { activateStore } from '../modules/auth/setup.service'
 import type { Role } from '../lib/adapters/types'
 import { Button } from './ui/button'
@@ -62,7 +62,6 @@ export function NavBar() {
     if (!store || store.store_id === activeStoreId) return
     try {
       await activateStore(store)
-      dataAdapter.setSpreadsheetId(store.master_spreadsheet_id)
       setSpreadsheetId(store.master_spreadsheet_id)
       setStores(stores, storeId)
       navigate('/cashier', { replace: true })

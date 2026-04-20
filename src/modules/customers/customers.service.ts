@@ -10,7 +10,7 @@
  *   Customers: id, name, phone, email, created_at, deleted_at
  */
 
-import { dataAdapter } from '../../lib/adapters'
+import { getRepos } from '../../lib/adapters'
 import { nowUTC } from '../../lib/formatters'
 import { generateId } from '../../lib/uuid'
 import { validatePhone } from '../../lib/validators'
@@ -44,7 +44,7 @@ export class CustomerError extends Error {
  * The adapter's getSheet already filters rows where deleted_at is set.
  */
 export async function fetchCustomers(): Promise<Customer[]> {
-  const rows = await dataAdapter.getSheet('Customers')
+  const rows = await getRepos().customers.getAll()
   return rows
     .filter((r) => r['name'])
     .map((r) => ({
@@ -73,7 +73,7 @@ export async function addCustomer(
   }
 
   // Check for duplicate phone in existing customers
-  const existing = await dataAdapter.getSheet('Customers')
+  const existing = await getRepos().customers.getAll()
   const duplicate = existing.find((r) => r['name'] && r['phone'] === phone)
   if (duplicate) {
     throw new CustomerError(`Nomor telepon ${phone} sudah terdaftar`)
@@ -81,7 +81,7 @@ export async function addCustomer(
 
   const id = generateId()
   const created_at = nowUTC()
-  await dataAdapter.appendRow('Customers', {
+  await getRepos().customers.append( {
     id,
     name: name.trim(),
     phone,
@@ -107,5 +107,5 @@ export async function updateCustomer(
     value: val,
   }))
   if (updates.length === 0) return
-  await dataAdapter.batchUpdateCells('Customers', updates)
+  await getRepos().customers.batchUpdateCells(updates)
 }
