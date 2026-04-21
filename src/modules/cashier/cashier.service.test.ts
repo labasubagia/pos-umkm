@@ -283,7 +283,7 @@ describe('commitTransaction', () => {
     expect(result.id).toBeTruthy()
     expect(result.total).toBe(35000) // 15000*2 + 5000*1
     expect(result.payment_method).toBe('CASH')
-    expect(result.receipt_number).toMatch(/^INV\/\d{4}\/001$/)
+    expect(result.receipt_number).toMatch(/^INV\/\d{4}\/\d{2}\/[A-Z0-9]{5}$/)
   })
 
   it('throws if cart is empty', async () => {

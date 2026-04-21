@@ -269,7 +269,10 @@ export async function commitTransaction(
 
   const now = new Date()
   const yyyy = now.getFullYear()
-  const receiptNumber = `INV/${yyyy}/${String(receiptSequence).padStart(3, '0')}`
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  const rand = Array.from({ length: 5 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('')
+  const receiptNumber = `INV/${yyyy}/${mm}/${rand}`
 
   const transactionId = generateId()
   const created_at = nowUTC()
