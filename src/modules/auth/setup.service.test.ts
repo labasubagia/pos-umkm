@@ -132,11 +132,12 @@ describe('createMasterSpreadsheet', () => {
   it('creates only master spreadsheet (not main)', async () => {
     vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('master-id-123')
 
-    const id = await createMasterSpreadsheet('Toko Santoso', 'owner@example.com', 'main-id-000')
+    const result = await createMasterSpreadsheet('Toko Santoso', 'owner@example.com', 'main-id-000')
 
     expect(adapters.driveClient.createSpreadsheet).toHaveBeenCalledTimes(1)
     expect(adapters.driveClient.createSpreadsheet).toHaveBeenCalledWith('master', expect.anything(), expect.arrayContaining([...MASTER_TABS]))
-    expect(id).toBe('master-id-123')
+    expect(result.masterId).toBe('master-id-123')
+    expect(result.storeId).toBeTruthy()
   })
 
   it('registers store in main.Stores tab', async () => {

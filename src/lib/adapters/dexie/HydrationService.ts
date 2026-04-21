@@ -80,6 +80,13 @@ export class HydrationService {
 
     // Signal page-level useEffects to re-fetch data from the now-populated Dexie cache.
     useSyncStore.getState().setLastHydratedAt(Date.now())
+
+    // Expose a synchronous window flag for Playwright E2E tests so they can
+    // reliably wait for all table.clear() transactions to complete before
+    // seeding test data (avoids a race between seedDexie and hydrateTable).
+    if (import.meta.env.VITE_E2E === 'true') {
+      ;(window as Record<string, unknown>)['__lastHydratedAt'] = Date.now()
+    }
   }
 
   /**
@@ -128,10 +135,19 @@ export class HydrationService {
       // We store all rows including soft-deleted ones in Dexie so that
       // DexieSheetRepository.getAll() can filter them too.
       const rawRows = await this.getRawRows(spreadsheetId, sheetName)
+      // Normalize rows that use store_id as their primary identifier (Stores table).
+      // Google Sheets headers for Stores are ['store_id', ...] with no 'id' column.
+      // Dexie requires 'id' as primary key, so we map store_id → id when id is absent.
+      const normalizedRows = rawRows.map((r) => {
+        if ((r['id'] == null || r['id'] === '') && r['store_id'] != null && r['store_id'] !== '') {
+          return { ...r, id: r['store_id'] }
+        }
+        return r
+      })
       // Filter rows where the primary key (id) is missing — Google Sheets can
       // return trailing empty rows that parse to { id: null, ... } which IDB
       // rejects with a DataError when the key path yields no value.
-      const validRows = rawRows.filter((r) => r['id'] != null && r['id'] !== '')
+      const validRows = normalizedRows.filter((r) => r['id'] != null && r['id'] !== '')
       // Clear the local table then re-populate from Sheets (full replace).
       // This removes rows that were deleted in Sheets and ensures the local cache
       // is an exact replica of the remote sheet — not an accumulation of upserts.

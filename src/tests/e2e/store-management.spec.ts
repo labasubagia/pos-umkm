@@ -7,7 +7,7 @@
  */
 import { test, expect } from '@playwright/test'
 import { injectAuthState, DEFAULT_STORE, BASE } from './helpers/auth-dexie'
-import { seedDexie, reloadAndWait } from './helpers/dexie-seed'
+import { seedDexie, reloadAndWait, waitForHydration } from './helpers/dexie-seed'
 import { navigateTo } from './helpers/auth'
 
 const STORE = DEFAULT_STORE
@@ -48,6 +48,7 @@ async function signInToSettings(page: Parameters<typeof injectAuthState>[0]) {
   await injectAuthState(page, STORE)
   await page.goto(`${BASE}/settings`)
   await page.getByTestId('btn-tab-stores').waitFor()
+  await waitForHydration(page)
   await seedDexie(page, STORE.storeId, { Stores: SEED_STORES })
   await reloadAndWait(page, 'btn-tab-stores')
   await page.getByTestId('btn-tab-stores').click()
@@ -56,28 +57,39 @@ async function signInToSettings(page: Parameters<typeof injectAuthState>[0]) {
 
 test.describe('Store Management', () => {
   test('owner can add a new store', async ({ page }) => {
-    // Stub createSpreadsheet to return a fake spreadsheetId
+    await signInToSettings(page)
+
+    // Specific API stubs registered AFTER signInToSettings so they take priority
+    // over the general stub (Playwright matches routes LIFO — last registered wins).
+    // Drive stub distinguishes GET (search → empty files list) from POST/PATCH (create/move → id).
     await page.route('**googleapis.com/drive/v3/files**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ id: 'new-folder-id', name: 'POS UMKM' }),
-      })
+      const req = route.request()
+      if (req.method() === 'GET' && req.url().includes('?fields=parents')) {
+        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ parents: ['root'] }) })
+      } else if (req.method() === 'GET') {
+        // Search query — return no existing items so createStore always creates fresh.
+        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ files: [] }) })
+      } else {
+        // POST create folder / PATCH move
+        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'new-folder-id' }) })
+      }
     })
     await page.route('**googleapis.com/v4/spreadsheets**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ spreadsheetId: 'new-sheet-id', properties: { title: 'Cabang Baru' } }),
-      })
+      const req = route.request()
+      if (req.method() === 'POST' && /\/v4\/spreadsheets$/.test(req.url())) {
+        // Create spreadsheet
+        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ spreadsheetId: 'new-sheet-id', properties: { title: 'Cabang Baru' } }) })
+      } else {
+        // batchUpdate, values.append, values.get, etc.
+        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) })
+      }
     })
-
-    await signInToSettings(page)
     await page.getByTestId('btn-add-store').click()
     await page.getByTestId('input-store-name').fill('Cabang Baru')
     await page.getByTestId('btn-save-store').click()
 
-    await expect(page.getByText('Cabang Baru')).toBeVisible({ timeout: 5000 })
+    // Use role=cell to avoid strict-mode ambiguity with the navbar store switcher option.
+    await expect(page.getByRole('cell', { name: 'Cabang Baru' })).toBeVisible({ timeout: 5000 })
   })
 
   test('owner can edit store name', async ({ page }) => {
@@ -89,16 +101,18 @@ test.describe('Store Management', () => {
     await input.fill('Toko Utama Renamed')
     await page.getByTestId('btn-save-store-edit').click()
 
-    await expect(page.getByText('Toko Utama Renamed')).toBeVisible({ timeout: 5000 })
+    // Use role=cell to avoid strict-mode ambiguity with the navbar store switcher option.
+    await expect(page.getByRole('cell', { name: 'Toko Utama Renamed' })).toBeVisible({ timeout: 5000 })
   })
 
   test('owner can delete owned store', async ({ page }) => {
     await signInToSettings(page)
 
-    await expect(page.getByText('Toko Utama')).toBeVisible()
+    // Use role=cell to avoid strict-mode ambiguity with the navbar store switcher option.
+    await expect(page.getByRole('cell', { name: 'Toko Utama' })).toBeVisible()
     await page.getByTestId('btn-delete-store-store-a').click()
     await page.getByTestId('btn-confirm-delete-store').click()
-    await expect(page.getByText('Toko Utama')).not.toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('cell', { name: 'Toko Utama' })).not.toBeVisible({ timeout: 5000 })
   })
 
   test('member can leave a non-owned store', async ({ page }) => {
@@ -117,7 +131,11 @@ test.describe('Store Management', () => {
     await injectAuthState(page, STORE)
     await page.goto(`${BASE}/settings`)
     await page.getByTestId('btn-tab-stores').waitFor()
-    await seedDexie(page, STORE.storeId, { Stores: SEED_STORES, Members: storeMembers })
+    await waitForHydration(page)
+    // Seed Stores in the active store's DB, and Members in store-b's DB
+    // (removeAccessToStore uses getMembersForStore which opens the target store's DB)
+    await seedDexie(page, STORE.storeId, { Stores: SEED_STORES })
+    await seedDexie(page, 'store-b', { Members: storeMembers })
     await reloadAndWait(page, 'btn-tab-stores')
     await page.getByTestId('btn-tab-stores').click()
     await page.getByRole('heading', { name: /kelola toko/i }).waitFor()

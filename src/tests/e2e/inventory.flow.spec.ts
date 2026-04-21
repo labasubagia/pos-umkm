@@ -7,7 +7,7 @@
  */
 import { test, expect } from '@playwright/test'
 import { injectAuthState, DEFAULT_STORE, BASE } from './helpers/auth-dexie'
-import { seedDexie, reloadAndWait } from './helpers/dexie-seed'
+import { seedDexie, reloadAndWait, waitForHydration } from './helpers/dexie-seed'
 import { navigateTo } from './helpers/auth'
 
 const STORE = DEFAULT_STORE
@@ -94,6 +94,7 @@ test.describe('Products CRUD (T022)', () => {
     await injectAuthState(page, STORE)
     await page.goto(`${BASE}/catalog`)
     await page.getByTestId('btn-tab-products').waitFor()
+    await waitForHydration(page)
     await seedDexie(page, STORE.storeId, {
       Categories: [{ id: 'cat-search', name: 'Makanan', created_at: now, deleted_at: null }],
     })
@@ -123,6 +124,15 @@ test.describe('Products CRUD (T022)', () => {
     await injectAuthState(page, STORE)
     await page.goto(`${BASE}/cashier`)
     await page.getByTestId('product-search-input').waitFor()
+    await waitForHydration(page)
+    const monthlySheetSeed = [
+      {
+        id: 'e2e-monthly-sheet-stock',
+        year_month: now.slice(0, 7),
+        spreadsheetId: STORE.monthlySpreadsheetId,
+        created_at: now,
+      },
+    ]
     await seedDexie(page, STORE.storeId, {
       Products: [
         {
@@ -138,8 +148,10 @@ test.describe('Products CRUD (T022)', () => {
         },
       ],
       Categories: [{ id: 'cat-1', name: 'Umum', created_at: now, deleted_at: null }],
+      Monthly_Sheets: monthlySheetSeed,
     })
     await reloadAndWait(page, 'product-search-input')
+    await page.locator('[data-testid^="product-card-"]').first().waitFor({ timeout: 10000 })
 
     await page.getByTestId('product-search-input').fill('Produk Stok Test')
     await page.getByTestId(`product-card-${prodId}`).click()
@@ -164,6 +176,7 @@ test.describe('Stock Opname (T034)', () => {
     await injectAuthState(page, STORE)
     await page.goto(`${BASE}/inventory`)
     await page.getByTestId('btn-tab-opname').waitFor()
+    await waitForHydration(page)
     await seedDexie(page, STORE.storeId, {
       Products: [
         {
@@ -219,6 +232,7 @@ test.describe('Purchase Orders (T035)', () => {
     await injectAuthState(page, STORE)
     await page.goto(`${BASE}/inventory`)
     await page.getByTestId('btn-tab-opname').waitFor()
+    await waitForHydration(page)
     await seedDexie(page, STORE.storeId, {
       Products: [
         {

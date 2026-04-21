@@ -170,3 +170,37 @@ export type { IDriveClient, ISheetRepository, Repos }
 export type { AuthAdapter }
 export { AdapterError } from './types'
 export type { User, Role } from './types'
+
+/**
+ * Writes rows directly to the Dexie table for the active store, bypassing the outbox.
+ * Use when the remote write has already happened (e.g. via a direct Sheets API call)
+ * and only the local cache needs updating.
+ */
+export async function localCachePut(
+  tableName: string,
+  rows: Record<string, unknown>[],
+): Promise<void> {
+  const { activeStoreId } = useAuthStore.getState()
+  const db = getDb(activeStoreId ?? '__init__')
+  await db.table(tableName).bulkPut(rows)
+}
+
+/**
+ * Returns a Dexie-backed Members repository for a specific store's database.
+ * Use when mutating another store's Members (e.g. removing self when leaving a store).
+ *
+ * @param targetStoreId        The store_id whose Dexie DB contains the Members table.
+ * @param masterSpreadsheetId  The spreadsheetId used as the outbox sync target.
+ */
+export function getMembersForStore(
+  targetStoreId: string,
+  masterSpreadsheetId: string,
+): DexieSheetRepository<Record<string, unknown>> {
+  const db = getDb(targetStoreId)
+  return new DexieSheetRepository<Record<string, unknown>>(
+    db,
+    masterSpreadsheetId,
+    'Members',
+    () => new SheetRepository(masterSpreadsheetId, 'Members', getToken, ALL_TAB_HEADERS['Members']),
+  )
+}

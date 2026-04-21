@@ -315,7 +315,7 @@ export async function createMasterSpreadsheet(
   businessName: string,
   ownerEmail = '',
   mainSpreadsheetId: string,
-): Promise<string> {
+): Promise<{ masterId: string; storeId: string; driveFolderId: string }> {
   try {
     const storeId = generateId()
 
@@ -342,7 +342,7 @@ export async function createMasterSpreadsheet(
     localStorage.setItem('activeStoreId', storeId)
     if (storeFolderId) localStorage.setItem('storeFolderId', storeFolderId)
 
-    return masterId
+    return { masterId, storeId, driveFolderId: storeFolderId ?? '' }
   } catch (err) {
     throw new SetupError(`createMasterSpreadsheet failed: ${String(err)}`, err)
   }
@@ -474,7 +474,7 @@ export async function runStoreSetup(
     )
   }
 
-  const masterSpreadsheetId = await createMasterSpreadsheet(businessName, ownerEmail, mainId)
+  const { masterId: masterSpreadsheetId, storeId: newStoreId } = await createMasterSpreadsheet(businessName, ownerEmail, mainId)
   await initializeMasterSheets(masterSpreadsheetId)
   saveSpreadsheetId(masterSpreadsheetId)
 
@@ -484,8 +484,6 @@ export async function runStoreSetup(
   const monthlySpreadsheetId = await createMonthlySheet(year, month)
   useAuthStore.getState().setMonthlySpreadsheetId(monthlySpreadsheetId)
   await initializeMonthlySheets(monthlySpreadsheetId)
-  // storeId was written to localStorage by createMasterSpreadsheet above.
-  const newStoreId = localStorage.getItem('activeStoreId') ?? ''
   localStorage.setItem(monthlySheetKey(newStoreId, year, month), monthlySpreadsheetId)
 
   return { masterSpreadsheetId, monthlySpreadsheetId }

@@ -7,11 +7,21 @@
  */
 import { test, expect } from '@playwright/test'
 import { injectAuthState, DEFAULT_STORE, BASE } from './helpers/auth-dexie'
-import { seedDexie, reloadAndWait } from './helpers/dexie-seed'
+import { seedDexie, reloadAndWait, waitForHydration } from './helpers/dexie-seed'
 import { navigateTo } from './helpers/auth'
 
 const STORE = DEFAULT_STORE
 const now = new Date().toISOString()
+// Seed a Monthly_Sheets entry for the current month so ensureMonthlySheetExists()
+// finds an existing record and skips all Google Sheets API calls during payment.
+const MONTHLY_SHEET_SEED = [
+  {
+    id: 'e2e-monthly-sheet-1',
+    year_month: now.slice(0, 7),
+    spreadsheetId: STORE.monthlySpreadsheetId,
+    created_at: now,
+  },
+]
 
 const PRODUCTS = [
   {
@@ -47,9 +57,18 @@ async function signInToCashier(page: Parameters<typeof injectAuthState>[0]) {
   await page.goto(`${BASE}/cashier`)
   // Wait for the cashier search input — present even when the DB is empty.
   await page.getByTestId('product-search-input').waitFor()
+  // Wait for HydrationService to finish before seeding to avoid the race where
+  // hydrateTable().clear() overwrites our bulkPut inserts.
+  await waitForHydration(page)
   // Seed Dexie and reload so React Query reads the seeded data.
-  await seedDexie(page, STORE.storeId, { Products: PRODUCTS, Categories: CATEGORIES })
+  await seedDexie(page, STORE.storeId, {
+    Products: PRODUCTS,
+    Categories: CATEGORIES,
+    Monthly_Sheets: MONTHLY_SHEET_SEED,
+  })
   await reloadAndWait(page, 'product-search-input')
+  // Wait for at least one product card — confirms seeded data survived the reload.
+  await page.locator('[data-testid^="product-card-"]').first().waitFor({ timeout: 10000 })
 }
 
 // ─── T026 — Product Search ────────────────────────────────────────────────────
@@ -246,6 +265,7 @@ test.describe('Customer Search (T036)', () => {
     await injectAuthState(page, STORE)
     await page.goto(`${BASE}/cashier`)
     await page.getByTestId('product-search-input').waitFor()
+    await waitForHydration(page)
     await seedDexie(page, STORE.storeId, {
       Products: PRODUCTS,
       Categories: CATEGORIES,
@@ -304,6 +324,7 @@ test.describe('Refund Flow (T037)', () => {
     await injectAuthState(page, STORE)
     await page.goto(`${BASE}/customers`)
     await page.getByTestId('tab-refund').waitFor()
+    await waitForHydration(page)
     await seedDexie(page, STORE.storeId, {
       Products: REFUND_PRODUCTS,
       Categories: CATEGORIES,

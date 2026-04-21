@@ -2,12 +2,14 @@
  * Unit tests for store-management.service.ts
  *
  * All external I/O is mocked:
- *   - makeRepo  → in-memory stub
+ *   - getRepos()         → in-memory stub (stores, members repos)
+ *   - localCachePut      → vi.fn() no-op
+ *   - getMembersForStore → in-memory stub
  *   - createMasterSpreadsheet / initializeMasterSheets → vi.fn()
  *   - useAuthStore → preset state
  *
  * Tests validate the orchestration logic in each service function;
- * lower-level repo / Google Sheets behaviour is tested elsewhere.
+ * lower-level repo / Dexie behaviour is tested elsewhere.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as adapters from '../../lib/adapters'
@@ -71,6 +73,8 @@ beforeEach(() => {
     mainSpreadsheetId: MAIN_ID,
   } as ReturnType<typeof useAuthStore.getState>)
   vi.spyOn(setupService, 'getMainSpreadsheetId').mockReturnValue(MAIN_ID)
+  // localCachePut is a no-op in unit tests
+  vi.spyOn(adapters, 'localCachePut').mockResolvedValue(undefined)
 })
 
 // ─── listStores ───────────────────────────────────────────────────────────────
@@ -78,7 +82,7 @@ beforeEach(() => {
 describe('listStores', () => {
   it('returns all non-deleted stores', async () => {
     const storesRepo = makeRepoStub([storeA, storeB] as unknown as Record<string, unknown>[])
-    vi.spyOn(adapters, 'makeRepo').mockReturnValue(storesRepo as unknown as ReturnType<typeof adapters.makeRepo>)
+    vi.spyOn(adapters, 'getRepos').mockReturnValue({ stores: storesRepo } as unknown as ReturnType<typeof adapters.getRepos>)
 
     const result = await listStores()
 
@@ -88,11 +92,11 @@ describe('listStores', () => {
     expect(result[1]).toMatchObject({ store_id: 'store-b', store_name: 'Toko B' })
   })
 
-  it('excludes rows with deleted_at set (already filtered by getAll via SheetRepository)', async () => {
-    // getAll() in SheetRepository filters deleted rows — the service tests that it
+  it('excludes rows with deleted_at set (already filtered by getAll via DexieSheetRepository)', async () => {
+    // getAll() in DexieSheetRepository filters deleted rows — the service tests that it
     // calls getAll() and maps the returned rows. Rows with deleted_at are not returned by getAll.
     const storesRepo = makeRepoStub([storeA] as unknown as Record<string, unknown>[])
-    vi.spyOn(adapters, 'makeRepo').mockReturnValue(storesRepo as unknown as ReturnType<typeof adapters.makeRepo>)
+    vi.spyOn(adapters, 'getRepos').mockReturnValue({ stores: storesRepo } as unknown as ReturnType<typeof adapters.getRepos>)
 
     const result = await listStores()
 
@@ -110,34 +114,27 @@ describe('listStores', () => {
 // ─── createStore ──────────────────────────────────────────────────────────────
 
 describe('createStore', () => {
-  it('appends a new store row and returns the store with a uuid', async () => {
+  it('provisions a new store and returns the record with the generated storeId', async () => {
     const newMasterId = 'master-new'
-    vi.spyOn(setupService, 'createMasterSpreadsheet').mockResolvedValue(newMasterId)
+    const newStoreId = 'store-new'
+    vi.spyOn(setupService, 'createMasterSpreadsheet').mockResolvedValue({
+      masterId: newMasterId,
+      storeId: newStoreId,
+      driveFolderId: 'folder-new',
+    })
     vi.spyOn(setupService, 'initializeMasterSheets').mockResolvedValue(undefined)
-
-    const newStore: StoreRecord = {
-      store_id: 'store-new',
-      store_name: 'Toko Baru',
-      master_spreadsheet_id: newMasterId,
-      drive_folder_id: 'folder-new',
-      owner_email: 'owner@test.com',
-      my_role: 'owner',
-      joined_at: '2026-04-21T00:00:00Z',
-    }
-    const storesRepo = makeRepoStub([newStore] as unknown as Record<string, unknown>[])
-    vi.spyOn(adapters, 'makeRepo').mockReturnValue(storesRepo as unknown as ReturnType<typeof adapters.makeRepo>)
 
     const result = await createStore('Toko Baru')
 
     expect(setupService.createMasterSpreadsheet).toHaveBeenCalledWith('Toko Baru', 'owner@test.com', MAIN_ID)
     expect(setupService.initializeMasterSheets).toHaveBeenCalledWith(newMasterId)
-    expect(result).toMatchObject({ store_name: 'Toko Baru', master_spreadsheet_id: newMasterId })
+    expect(adapters.localCachePut).toHaveBeenCalledWith('Stores', [expect.objectContaining({ id: newStoreId, store_id: newStoreId })])
+    expect(result).toMatchObject({ store_name: 'Toko Baru', master_spreadsheet_id: newMasterId, store_id: newStoreId })
   })
 
   it('propagates error when createMasterSpreadsheet fails', async () => {
     vi.spyOn(setupService, 'createMasterSpreadsheet').mockRejectedValue(new Error('Drive API error'))
     vi.spyOn(setupService, 'initializeMasterSheets').mockResolvedValue(undefined)
-    vi.spyOn(adapters, 'makeRepo').mockReturnValue(makeRepoStub() as unknown as ReturnType<typeof adapters.makeRepo>)
 
     await expect(createStore('Toko Gagal')).rejects.toThrow('Drive API error')
   })
@@ -148,7 +145,7 @@ describe('createStore', () => {
 describe('updateStore', () => {
   it('calls batchUpdateCells with the patched store_name', async () => {
     const storesRepo = makeRepoStub()
-    vi.spyOn(adapters, 'makeRepo').mockReturnValue(storesRepo as unknown as ReturnType<typeof adapters.makeRepo>)
+    vi.spyOn(adapters, 'getRepos').mockReturnValue({ stores: storesRepo } as unknown as ReturnType<typeof adapters.getRepos>)
 
     await updateStore('store-a', { store_name: 'Toko A Baru' })
 
@@ -159,7 +156,7 @@ describe('updateStore', () => {
 
   it('does nothing when patch is empty or store_name is blank', async () => {
     const storesRepo = makeRepoStub()
-    vi.spyOn(adapters, 'makeRepo').mockReturnValue(storesRepo as unknown as ReturnType<typeof adapters.makeRepo>)
+    vi.spyOn(adapters, 'getRepos').mockReturnValue({ stores: storesRepo } as unknown as ReturnType<typeof adapters.getRepos>)
 
     await updateStore('store-a', { store_name: '  ' })
 
@@ -172,7 +169,7 @@ describe('updateStore', () => {
 describe('removeOwnedStore', () => {
   it('soft-deletes the matching store row in the Stores tab', async () => {
     const storesRepo = makeRepoStub([storeA] as unknown as Record<string, unknown>[])
-    vi.spyOn(adapters, 'makeRepo').mockReturnValue(storesRepo as unknown as ReturnType<typeof adapters.makeRepo>)
+    vi.spyOn(adapters, 'getRepos').mockReturnValue({ stores: storesRepo } as unknown as ReturnType<typeof adapters.getRepos>)
 
     await removeOwnedStore('store-a')
 
@@ -185,7 +182,7 @@ describe('removeOwnedStore', () => {
 
   it('throws StoreManagementError if storeId does not exist', async () => {
     const storesRepo = makeRepoStub([])
-    vi.spyOn(adapters, 'makeRepo').mockReturnValue(storesRepo as unknown as ReturnType<typeof adapters.makeRepo>)
+    vi.spyOn(adapters, 'getRepos').mockReturnValue({ stores: storesRepo } as unknown as ReturnType<typeof adapters.getRepos>)
 
     await expect(removeOwnedStore('nonexistent')).rejects.toThrow(StoreManagementError)
   })
@@ -195,21 +192,26 @@ describe('removeOwnedStore', () => {
 
 describe('removeAccessToStore', () => {
   it("soft-deletes the caller's row in the target store's Members tab", async () => {
+    const storesRepo = makeRepoStub([storeB] as unknown as Record<string, unknown>[])
     const membersRepo = makeRepoStub([
       { id: 'm1', email: 'owner@test.com', role: 'manager', invited_at: '', deleted_at: null },
     ])
-    vi.spyOn(adapters, 'makeRepo').mockReturnValue(membersRepo as unknown as ReturnType<typeof adapters.makeRepo>)
+    vi.spyOn(adapters, 'getRepos').mockReturnValue({ stores: storesRepo } as unknown as ReturnType<typeof adapters.getRepos>)
+    vi.spyOn(adapters, 'getMembersForStore').mockReturnValue(membersRepo as unknown as ReturnType<typeof adapters.getMembersForStore>)
 
     await removeAccessToStore(MASTER_ID_B)
 
+    expect(adapters.getMembersForStore).toHaveBeenCalledWith('store-b', MASTER_ID_B)
     expect(membersRepo.softDelete).toHaveBeenCalledWith('m1')
   })
 
   it('throws StoreManagementError if caller is not a member of the store', async () => {
+    const storesRepo = makeRepoStub([storeB] as unknown as Record<string, unknown>[])
     const membersRepo = makeRepoStub([
       { id: 'm99', email: 'someone-else@test.com', role: 'cashier', invited_at: '', deleted_at: null },
     ])
-    vi.spyOn(adapters, 'makeRepo').mockReturnValue(membersRepo as unknown as ReturnType<typeof adapters.makeRepo>)
+    vi.spyOn(adapters, 'getRepos').mockReturnValue({ stores: storesRepo } as unknown as ReturnType<typeof adapters.getRepos>)
+    vi.spyOn(adapters, 'getMembersForStore').mockReturnValue(membersRepo as unknown as ReturnType<typeof adapters.getMembersForStore>)
 
     await expect(removeAccessToStore(MASTER_ID_B)).rejects.toThrow(StoreManagementError)
   })

@@ -6,7 +6,7 @@
  */
 import { test, expect } from '@playwright/test'
 import { injectAuthState, DEFAULT_STORE, BASE } from './helpers/auth-dexie'
-import { seedDexie, reloadAndWait } from './helpers/dexie-seed'
+import { seedDexie, reloadAndWait, waitForHydration } from './helpers/dexie-seed'
 
 const STORE = DEFAULT_STORE
 const today = new Date().toISOString().slice(0, 10)
@@ -76,6 +76,7 @@ async function signInToReports(page: Parameters<typeof injectAuthState>[0]) {
   await injectAuthState(page, STORE)
   await page.goto(`${BASE}/reports`)
   await page.getByTestId('reports-page').waitFor()
+  await waitForHydration(page)
   await seedDexie(page, STORE.storeId, {
     Transactions: SEED_TRANSACTIONS,
     Transaction_Items: SEED_TX_ITEMS,

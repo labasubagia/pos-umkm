@@ -2044,6 +2044,28 @@
 - `src/tests/e2e/members.flow.spec.ts` — same pattern
 - `src/tests/e2e/store-management.spec.ts` — same pattern
 
+### T081 — Fix remaining E2E test failures (36/36)
+
+- **Status:** ✅ done
+- **Section:** Testing Overhaul
+- **Depends on:** T080
+- **Test type:** e2e
+
+**Goal**: Bring the full E2E suite from 32/36 to 36/36 by fixing three independent root causes.
+
+**Root causes fixed**:
+
+1. **Store management tests (3 failures) — locator ambiguity + Drive stub**
+   - `getByText('Toko Utama')` resolved to 2 elements: the navbar store-switcher `<option>` AND the table `<td>`. Fixed by using `getByRole('cell', { name: '...' })` in all three assertions (add/edit/delete).
+   - `page.route('**googleapis.com/drive/v3/files**')` returned `{ id: '...' }` for ALL Drive calls including GET search queries. `ensureDriveFolderUnder` calls `searchData.files.length` which threw `TypeError: Cannot read properties of undefined (reading 'length')`. Fixed by dispatching on `request.method()` and URL: GET+`?q=` → `{ files: [] }`; GET+`?fields=parents` → `{ parents: ['root'] }`; POST/PATCH → `{ id: 'new-folder-id' }`.
+   - Similarly updated the `**googleapis.com/v4/spreadsheets**` stub to return `{ spreadsheetId: '...' }` only for `POST /v4/spreadsheets` (create) and `{}` for all other methods (batchUpdate, values.append, etc.)
+
+2. **Reports "filter by date range" test (1 failure) — flaky test stabilised**
+   - Root cause was a pre-existing Dexie-layer migration bug: `listStores()` was using `makeRepo` (Sheets API) instead of `getRepos().stores` (Dexie), and `HydrationService` was silently dropping all `Stores` rows because their `id` column was missing (fixed in sessions preceding T081). After those fixes the test became deterministic and passed consistently.
+
+**Test files changed**:
+- `src/tests/e2e/store-management.spec.ts` — Drive stub split by method; locators changed to `getByRole('cell', ...)`
+
 ---
 
 ## Appendix: Parallelization Map
