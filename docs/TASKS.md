@@ -2070,7 +2070,7 @@
 
 ### T082 — Refactor DexieSheetRepository → DexieRepository; introduce ILocalRepository
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Section:** Architecture Cleanup
 - **Depends on:** T081
 - **Test type:** unit
