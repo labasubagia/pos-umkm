@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.8                               |
+| Version     | 2.9                               |
 | Status      | Draft                             |
 | Date        | April 2026                        |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -100,12 +100,10 @@ Each business owner's data lives in **their own Google Drive** organized under `
 | State management | Zustand (session state only: auth, activeStoreId, spreadsheet IDs) |
 | Data fetching & caching | `@tanstack/react-query` — all server/Dexie data reads go through `useQuery` hooks in `src/hooks/`; mutations call service + `invalidateQueries` |
 | UI components | Tailwind CSS + shadcn/ui (Button, Input, Label, Select, Dialog, Card, Badge, Table, Tabs, Alert, Separator, ScrollArea, Textarea, Checkbox) |
-| Auth adapter (dev) | `MockAuthAdapter` — instant sign-in, no OAuth |
+| Auth adapter (dev) | `MockAuthAdapter` — instant sign-in, no OAuth (dev only) |
 | Auth adapter (prod) | `@react-oauth/google` (Google Identity Services) |
-| Data adapter (dev) | `MockSheetRepository` — localStorage-backed, no API |
-| Data adapter (prod) | `DexieSheetRepository` — IndexedDB-first reads, outbox-queued writes to Google Sheets |
+| Local data store | `DexieRepository` — IndexedDB-first reads, outbox-queued writes to Google Sheets |
 | Offline storage | `dexie` (IndexedDB wrapper) — all entity tables + `_outbox` + `_syncMeta` |
-| Adapter selector | `VITE_ADAPTER=mock` or `VITE_ADAPTER=google` |
 | i18n | `react-i18next` |
 | Unit testing | Vitest + `@testing-library/react` |
 | E2E testing | Playwright |
@@ -184,26 +182,23 @@ src/
 │       ├── settings.service.ts
 │       └── settings.test.ts
 ├── lib/
-│   ├── adapters/        # Swappable data + auth adapter layer
-│   │   ├── types.ts             # ISheetRepository interface + shared types
-│   │   ├── repos.ts             # Repos type map (logical name → ISheetRepository)
+│   ├── adapters/        # Data access + auth layer
+│   │   ├── types.ts             # AuthAdapter interface + shared types (AdapterError, User, Role)
+│   │   ├── repos.ts             # Repos type map (logical name → ILocalRepository)
 │   │   ├── schema.ts            # ALL_TAB_HEADERS — column header registry
 │   │   ├── index.ts             # Exports active repos, syncManager, hydrationService
-│   │   ├── mock/
-│   │   │   ├── MockSheetRepository.ts   # localStorage-backed, no API calls
-│   │   │   └── MockAuthAdapter.ts       # Instant sign-in with preset test user
 │   │   ├── google/
 │   │   │   ├── SheetRepository.ts       # ISheetRepository → Google Sheets API calls
 │   │   │   ├── GoogleAuthAdapter.ts     # Wraps @react-oauth/google (GIS)
 │   │   │   └── sheets/                  # Low-level Google Sheets API HTTP client
 │   │   │       ├── sheets.client.ts
 │   │   │       └── sheets.client.test.ts
-│   │   └── dexie/               # Offline-first layer (production path)
+│   │   └── dexie/               # Offline-first layer (browser IndexedDB)
 │   │       ├── db.ts            # Dexie DB class — all entity tables + _outbox + _syncMeta
-│   │       ├── DexieSheetRepository.ts  # ISheetRepository backed by IndexedDB
+│   │       ├── DexieRepository.ts       # ILocalRepository backed by IndexedDB + outbox
 │   │       ├── SyncManager.ts           # Drains _outbox to Sheets; rate-limit backoff
 │   │       ├── HydrationService.ts      # Pulls Sheets → IndexedDB on login
-│   │       ├── DexieSheetRepository.test.ts
+│   │       ├── DexieRepository.test.ts
 │   │       └── SyncManager.test.ts
 │   ├── formatters.ts    # IDR, date, number formatting utilities
 │   ├── validators.ts    # Input validation rules
@@ -231,7 +226,7 @@ src/
 ```
 
 **Key rules:**
-- `lib/adapters/` is the only data and auth abstraction layer. Module service files call `ISheetRepository<T>` — never `lib/adapters/google/sheets/` or Google APIs directly from modules. `lib/adapters/google/sheets/` is used only inside `SheetRepository` and `DexieSheetRepository`'s `SyncManager`.
+- `lib/adapters/` is the only data and auth abstraction layer. Module service files call `ILocalRepository<T>` via `getRepos()` — never `lib/adapters/google/sheets/` or Google APIs directly from modules. `lib/adapters/google/sheets/` is used only inside `SheetRepository`, `SyncManager`, and `HydrationService`.
 - `lib/adapters/google/sheets/` is the low-level HTTP transport for the Google Sheets API, used exclusively by `SheetRepository`.
 - No module imports from another module's internals. Shared state goes through **React Query hooks** (`src/hooks/`) for server/Dexie data, or **Zustand** (`src/store/`) for session state.
 - All React Query hooks include `activeStoreId` as part of the query key so switching stores automatically invalidates and refetches cached data.
@@ -301,56 +296,55 @@ The `CashierPage` outer container uses `flex flex-1 overflow-hidden flex-col md:
 | Mobile Produk tab | `btn-tab-products` |
 | Mobile Keranjang tab | `btn-tab-cart` |
 
-### 2.7 Adapter Pattern
+### 2.7 Data Layer Architecture
 
-All data reads/writes and authentication go through a **swappable adapter interface**, not hard-coded Google API calls. This allows the entire app to run without any Google account during development.
+The production data path has three distinct subsystems — each with a clear, single responsibility:
 
 ```
-modules/ → *.service.ts → ISheetRepository (interface)
-                               /                    \
-               MockSheetRepository          DexieSheetRepository
-               (localStorage)               (IndexedDB ← reads
-                                             IndexedDB + _outbox ← writes
-                                                     ↓ background
-                                             SheetRepository → Sheets API)
+GDrive (DriveClient)
+  └─ Provisions store folders + spreadsheets (setup only; always-online)
 
-modules/ → useAuth.ts → AuthAdapter (interface)
-                             /              \
-             MockAuthAdapter         GoogleAuthAdapter
-             (instant sign-in)       (GIS OAuth popup)
+IndexedDB / Dexie (DexieRepository)
+  └─ Browser-local read/write; source of truth for all feature module reads
+  └─ Every write also enqueues an OutboxEntry for background sync
+
+Google Sheets API (SheetRepository + SyncManager + HydrationService)
+  └─ Remote persistence; written to only by SyncManager (drains outbox)
+  └─ Read by HydrationService on login to populate IndexedDB
 ```
 
-**Adapter selection** is controlled by a Vite environment variable:
+**Two separate repository interfaces keep these concerns explicit:**
 
-| `VITE_ADAPTER` | Auth | Data storage |
-|---|---|---|
-| `mock` (default in dev) | Instant sign-in, preset test user | `localStorage` — no API calls |
-| `google` (production) | GIS OAuth popup, real Google account | IndexedDB (Dexie) + Google Sheets API v4 |
+```
+ILocalRepository<T>          — used by feature modules via getRepos()
+  getAll()                   — read from IndexedDB
+  batchInsert(rows)          — write to IndexedDB + enqueue outbox
+  batchUpdate(updates)       — patch specific columns + enqueue outbox
+  batchUpsertBy(...)         — upsert by lookup key + enqueue outbox
+  softDelete(id)             — stamp deleted_at + enqueue outbox
 
-**`MockSheetRepository`** — stores all data in `localStorage` keyed by sheet name. Matches the exact same `ISheetRepository<T>` method signatures. No network call ever made. Data persists across dev server restarts.
-
-**`MockAuthAdapter`** — returns a hardcoded owner user on `signIn()`. No OAuth popup. No Google account required. Useful for rapid UI development and CI runs without credentials.
-
-**`DexieSheetRepository`** — implements `ISheetRepository<T>` backed by IndexedDB (via Dexie.js). All reads are served from IndexedDB. All writes are applied to IndexedDB immediately (so the UI stays responsive offline) and also append a serialized outbox entry to the `_outbox` table for later replay. See §12 for the full offline-first architecture.
-
-**`SheetRepository`** — the raw Google Sheets HTTP client. Implements `ISheetRepository<T>` directly against the Sheets API. Used by `DexieSheetRepository`'s `SyncManager` to drain the outbox, and by setup code (`makeRepo()`) where the spreadsheetId is known and the device is always online.
-
-**`GoogleAuthAdapter`** — wraps `@react-oauth/google`. Stores access token in memory. Implements the same `AuthAdapter` interface.
-
-**Development workflow:**
-```bash
-VITE_ADAPTER=mock npm run dev      # default — no Google account, instant
-VITE_ADAPTER=google npm run dev    # real Google Sheets + IndexedDB — for integration testing
-npm run build                      # always builds with VITE_ADAPTER=google
+ISheetRepository<T>          — used by sync layer only
+  getAll()                   — read from Google Sheets API
+  batchAppend(rows)          — append rows to Sheets
+  batchUpdateCells(updates)  — update cells in Sheets
+  batchUpsertByKey(...)      — upsert in Sheets
+  softDelete(id)             — stamp deleted_at in Sheets
+  writeHeaders(headers)      — write column header row (setup only)
 ```
 
-**Playwright E2E tests** run with `VITE_ADAPTER=mock` against the built app — fast, deterministic, no API quota risk. A separate optional suite with `VITE_ADAPTER=google` can be run manually against a real test Google account.
+**`DexieRepository<T>`** implements `ILocalRepository<T>`. Its constructor takes a `syncTarget: SyncTarget` (`{ spreadsheetId, sheetName }`) — a routing hint stored in each `OutboxEntry` so `SyncManager` knows which remote Sheet to replay the mutation against. `DexieRepository` is not "a Sheet" — it is a browser IndexedDB table that happens to sync to one.
+
+**`SheetRepository<T>`** implements `ISheetRepository<T>`. Used by `SyncManager` (to drain the outbox) and by `makeRepo()` in setup code (where the device is guaranteed online). Never called directly by feature module service files.
+
+**`GoogleAuthAdapter`** — wraps `@react-oauth/google`. Stores access token in memory. Implements `AuthAdapter`.
+
+**Key rule:** `getRepos()` returns `Repos` (typed as `ILocalRepository<T>` per field). `makeRepo()` returns `ISheetRepository<T>`. Feature modules only ever call `getRepos()`.
 
 ---
 
 ## 3. Authentication — Google Login
 
-> **During development** (`VITE_ADAPTER=mock`): `MockAuthAdapter.signIn()` returns a hardcoded owner user instantly — no OAuth, no Google account required. Skip to §3.2 for production auth flow.
+> **Note on auth:** `MockAuthAdapter` is available for development (instant sign-in, no OAuth popup). In production, `GoogleAuthAdapter` (GIS) is used. Skip to §3.2 for the production auth flow.
 
 ### 3.1 Production Auth Flow (GoogleAuthAdapter)
 
@@ -457,7 +451,7 @@ Every login (first-time and returning) goes through `/stores` (StorePickerPage) 
 
 ## 4. Data Layer — Google Sheets
 
-> **During development** (`VITE_ADAPTER=mock`): `MockSheetRepository` mirrors this exact schema in `localStorage`. Key format: `mock_<TabName>` (e.g., `mock_Products`, `mock_Transactions_2026-04`). All tab names, column orders, and data conventions below apply to both adapters identically — this is the contract `ISheetRepository<T>` enforces.
+> **Data schema note:** The column names, data types, and conventions in this section define the Google Sheets schema that `HydrationService` reads from and `SyncManager` writes to. `DexieRepository` stores objects with identical field names in IndexedDB.
 
 ### 4.1 Three-Spreadsheet Model
 
@@ -1022,12 +1016,13 @@ The production data path uses **Dexie.js** (IndexedDB) as a local-first cache in
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │  Module Service (e.g., catalog.service.ts)                        │
-│  Calls ISheetRepository methods — never aware of online/offline   │
+│  Calls ILocalRepository methods via getRepos() — never aware of   │
+│  online/offline state or Google Sheets API                         │
 └──────────────────────────┬───────────────────────────────────────┘
                            │
                            ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│  DexieSheetRepository (src/lib/adapters/dexie/)                   │
+│  DexieRepository (src/lib/adapters/dexie/)                        │
 │                                                                    │
 │  Reads ──────────────────────────────────► IndexedDB (instant)   │
 │                                                                    │
@@ -1059,7 +1054,7 @@ On subsequent logins the skip condition (5-minute freshness window) means hydrat
 
 ### 12.3 Outbox Pattern
 
-Every `DexieSheetRepository` write method (`append`, `batchAppend`, `batchUpdateCells`, `softDelete`) runs a Dexie ACID transaction that:
+Every `DexieRepository` write method (`batchInsert`, `batchUpdate`, `batchUpsertBy`, `softDelete`) runs a Dexie ACID transaction that:
 1. Writes the record(s) to the entity table in IndexedDB (immediately visible to all reads)
 2. Appends a serialized `OutboxEntry` to `_outbox` describing the Sheets API call to make
 

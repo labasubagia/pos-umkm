@@ -2068,6 +2068,88 @@
 
 ---
 
+### T082 — Refactor DexieSheetRepository → DexieRepository; introduce ILocalRepository
+
+- **Status:** ⬜ todo
+- **Section:** Architecture Cleanup
+- **Depends on:** T081
+- **Test type:** unit
+
+**Goal**: Fix the semantic mismatch where `DexieSheetRepository` implements `ISheetRepository` — Dexie is a browser database, not a sheet. Introduce a clean `ILocalRepository<T>` interface that feature modules use, with method names that describe local data operations, not Google Sheets API calls. `ISheetRepository<T>` is narrowed to the sync layer only.
+
+**Changes**:
+
+1. **New `ILocalRepository<T>` interface** (inline in `repos.ts` or new `src/lib/adapters/ILocalRepository.ts`):
+   ```ts
+   interface ILocalRepository<T> {
+     getAll(): Promise<T[]>
+     batchInsert(rows): Promise<void>       // was batchAppend
+     batchUpdate(updates): Promise<void>    // was batchUpdateCells
+     batchUpsertBy(...): Promise<void>      // was batchUpsertByKey
+     softDelete(id): Promise<void>
+   }
+   ```
+   No `writeHeaders` — that is a remote/setup operation only.
+
+2. **Rename `DexieSheetRepository` → `DexieRepository`**:
+   - File: `dexie/DexieSheetRepository.ts` → `dexie/DexieRepository.ts`
+   - `implements ILocalRepository<T>` (not `ISheetRepository<T>`)
+   - Constructor: replace `spreadsheetId: string, sheetName: string` with `syncTarget: SyncTarget`
+     where `SyncTarget = { spreadsheetId: string; sheetName: string }` (routing hint for outbox only)
+   - Rename methods: `batchAppend` → `batchInsert`, `batchUpdateCells` → `batchUpdate`, `batchUpsertByKey` → `batchUpsertBy`
+
+3. **Rename test file**: `DexieSheetRepository.test.ts` → `DexieRepository.test.ts`; update all method refs
+
+4. **Update `repos.ts`**: change field types from `ISheetRepository<T>` → `ILocalRepository<T>`
+
+5. **Update `adapters/index.ts`**:
+   - Import `DexieRepository` (not `DexieSheetRepository`)
+   - `dexie()` helper constructs `DexieRepository` with `{ spreadsheetId, sheetName }` as `syncTarget`
+   - `localCachePut` helper uses `batchInsert` internally
+   - `getMembersForStore` uses `batchInsert` internally
+
+6. **Update all call sites** (feature service/component files) — mechanical rename:
+   - `getRepos().*.batchAppend(...)` → `batchInsert`
+   - `getRepos().*.batchUpdateCells(...)` → `batchUpdate`
+   - `getRepos().*.batchUpsertByKey(...)` → `batchUpsertBy`
+   - `softDelete` and `getAll` unchanged
+   - **Note**: `makeRepo(...)` calls (`batchAppend`, `batchUpdateCells`, `writeHeaders`) are left unchanged — `makeRepo()` still returns `ISheetRepository<T>`
+
+7. **`ISheetRepository<T>` stays unchanged** — keeps `batchAppend`, `batchUpdateCells`, `batchUpsertByKey`, `writeHeaders`. Used only by `SheetRepository`, `SyncManager`, `HydrationService`, and `makeRepo()`.
+
+**Files affected**:
+- `src/lib/adapters/dexie/DexieSheetRepository.ts` → renamed + refactored
+- `src/lib/adapters/dexie/DexieSheetRepository.test.ts` → renamed + updated
+- `src/lib/adapters/repos.ts`
+- `src/lib/adapters/index.ts`
+- `src/test-utils/dexie-test-utils.tsx`
+- `src/modules/auth/setup.service.ts` (only `getRepos()` calls, not `makeRepo()` calls)
+- `src/modules/auth/SetupWizard.tsx`
+- `src/modules/cashier/cashier.service.ts`
+- `src/modules/catalog/catalog.service.ts`
+- `src/modules/catalog/csv.service.ts`
+- `src/modules/customers/customers.service.ts`
+- `src/modules/customers/refund.service.ts`
+- `src/modules/inventory/inventory.service.ts`
+- `src/modules/reports/reports.service.ts`
+- `src/modules/settings/members.service.ts`
+- `src/modules/settings/settings.service.ts`
+- `src/modules/settings/store-management.service.ts`
+- `src/modules/auth/pin.service.ts`
+
+**Architecture note**: `DexieRepository` is not "a Sheet" — it is a browser IndexedDB table that syncs to a sheet. The `syncTarget` field names (`spreadsheetId`, `sheetName`) are routing metadata for the outbox, not identity claims. Feature modules never see them. The `ISheetRepository` interface with Sheets API naming (`batchAppend`, `writeHeaders`) is now fully isolated behind the sync boundary.
+
+**Test cases**:
+- ✅ `batchInsert writes rows to IndexedDB and enqueues outbox entry`
+- ✅ `batchUpdate patches column on existing row and enqueues outbox entry`
+- ✅ `batchUpsertBy inserts new row when key not found`
+- ✅ `batchUpsertBy updates existing row when key found`
+- ✅ `softDelete stamps deleted_at and enqueues outbox entry`
+- ✅ `getAll filters soft-deleted rows`
+- ❌ `batchUpdate silently skips rowId not found in IndexedDB`
+
+---
+
 ## Appendix: Parallelization Map
 
 The following tasks within each section have no mutual dependencies and can be worked on by different agents simultaneously:
