@@ -33,7 +33,12 @@ vi.mock('../modules/settings/store-management.service', () => ({
 
 vi.mock('../modules/auth/setup.service', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../modules/auth/setup.service')>()
-  return { ...actual, activateStore: vi.fn().mockResolvedValue(undefined) }
+  return {
+    ...actual,
+    activateStore: vi.fn().mockImplementation((store) =>
+      Promise.resolve({ spreadsheetId: store.master_spreadsheet_id, monthlySpreadsheetId: null }),
+    ),
+  }
 })
 
 const mockNavigate = vi.fn()

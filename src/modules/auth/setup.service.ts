@@ -244,10 +244,12 @@ export async function findOrCreateMain(
  * if the owner has not yet created one for this month; pages should handle this
  * gracefully with an empty-state message rather than crashing.
  */
-export async function activateStore(store: StoreRecord): Promise<void> {
+export async function activateStore(store: StoreRecord): Promise<{
+  spreadsheetId: string
+  monthlySpreadsheetId: string | null
+}> {
   const { master_spreadsheet_id: masterId, store_id: storeId } = store
 
-  useAuthStore.getState().setSpreadsheetId(masterId)
   // activeStoreId must be in localStorage synchronously — createMonthlySheet()
   // reads it during this same call to determine the Drive folder path.
   localStorage.setItem('activeStoreId', storeId)
@@ -275,18 +277,16 @@ export async function activateStore(store: StoreRecord): Promise<void> {
   if (!monthlyId) {
     try {
       monthlyId = await createMonthlySheet(year, month)
-      useAuthStore.getState().setMonthlySpreadsheetId(monthlyId)
       await initializeMonthlySheets(monthlyId)
     } catch {
       // Cashiers lack the drive scope to create monthly sheets.
       // The monthly sheet must be pre-created by an owner or manager.
-      return
+      return { spreadsheetId: masterId, monthlySpreadsheetId: null }
     }
-  } else {
-    useAuthStore.getState().setMonthlySpreadsheetId(monthlyId)
   }
 
   localStorage.setItem(monthlySheetKey(year, month), monthlyId)
+  return { spreadsheetId: masterId, monthlySpreadsheetId: monthlyId }
 }
 
 // ─── Master Spreadsheet ───────────────────────────────────────────────────────

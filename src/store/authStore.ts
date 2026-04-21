@@ -21,6 +21,17 @@ interface AuthState {
   setMainSpreadsheetId: (id: string) => void
   setMonthlySpreadsheetId: (id: string) => void
   setActiveStoreId: (id: string | null) => void
+  /**
+   * Atomically updates spreadsheetId, monthlySpreadsheetId, and activeStoreId
+   * in a single Zustand set() call — preventing AppShell from seeing partial
+   * state (e.g. new spreadsheetId with old activeStoreId) that would cause
+   * hydration to write the wrong store's data into the wrong Dexie database.
+   */
+  setStoreSession: (
+    spreadsheetId: string,
+    monthlySpreadsheetId: string | null,
+    activeStoreId: string,
+  ) => void
   clearAuth: () => void
 }
 
@@ -54,6 +65,8 @@ export const useAuthStore = create<AuthState>()(
       setMainSpreadsheetId: (id) => set({ mainSpreadsheetId: id }),
       setMonthlySpreadsheetId: (id) => set({ monthlySpreadsheetId: id }),
       setActiveStoreId: (id) => set({ activeStoreId: id }),
+      setStoreSession: (spreadsheetId, monthlySpreadsheetId, activeStoreId) =>
+        set({ spreadsheetId, monthlySpreadsheetId, activeStoreId }),
       clearAuth: () =>
         set({
           user: null,

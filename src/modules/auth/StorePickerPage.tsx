@@ -23,7 +23,7 @@ import { STORES_QUERY_KEY } from '../../hooks/useStores'
 
 export default function StorePickerPage() {
   const navigate = useNavigate()
-  const { user, setSpreadsheetId, setActiveStoreId } = useAuth()
+  const { user, setStoreSession } = useAuth()
   const queryClient = useQueryClient()
 
   const [loading, setLoading] = useState(true)
@@ -62,9 +62,8 @@ export default function StorePickerPage() {
   async function activate(store: StoreRecord) {
     setActivating(true)
     try {
-      await activateStore(store)
-      setSpreadsheetId(store.master_spreadsheet_id)
-      setActiveStoreId(store.store_id)
+      const session = await activateStore(store)
+      setStoreSession(session.spreadsheetId, session.monthlySpreadsheetId, store.store_id)
       navigate('/cashier', { replace: true })
     } catch (err) {
       setError(`Gagal mengaktifkan toko: ${String(err)}`)

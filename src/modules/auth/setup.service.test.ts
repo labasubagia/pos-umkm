@@ -351,9 +351,9 @@ describe('activateStore', () => {
     sharedMakeRepo.getAll.mockResolvedValue([])
     vi.spyOn(adapters.driveClient, 'createSpreadsheet').mockResolvedValue('monthly-id')
 
-    await activateStore(store)
+    const session = await activateStore(store)
 
-    expect(useAuthStore.getState().spreadsheetId).toBe('master-100')
+    expect(session.spreadsheetId).toBe('master-100')
     expect(localStorage.getItem('activeStoreId')).toBe('sid-100')
   })
 
@@ -364,9 +364,9 @@ describe('activateStore', () => {
       { year_month: yearMonth, spreadsheetId: 'existing-monthly-id', id: 'r1', created_at: '' },
     ])
 
-    await activateStore(store)
+    const session = await activateStore(store)
 
-    expect(useAuthStore.getState().monthlySpreadsheetId).toBe('existing-monthly-id')
+    expect(session.monthlySpreadsheetId).toBe('existing-monthly-id')
   })
 
   it('creates monthly sheet when none exists for current month', async () => {

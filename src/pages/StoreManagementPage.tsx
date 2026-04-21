@@ -46,7 +46,7 @@ import { useStores, STORES_QUERY_KEY } from '../hooks/useStores'
 export default function StoreManagementPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { user, activeStoreId, setActiveStoreId, setSpreadsheetId } = useAuthStore()
+  const { user, activeStoreId, setStoreSession } = useAuthStore()
 
   const { data: stores = [], error: storesError } = useStores()
   const [mutationError, setMutationError] = useState<string | null>(null)
@@ -91,9 +91,8 @@ export default function StoreManagementPage() {
       if (storeId === activeStoreId) {
         const remaining = queryClient.getQueryData<StoreRecord[]>(STORES_QUERY_KEY) ?? []
         if (remaining.length > 0) {
-          await activateStore(remaining[0])
-          setSpreadsheetId(remaining[0].master_spreadsheet_id)
-          setActiveStoreId(remaining[0].store_id)
+          const session = await activateStore(remaining[0])
+          setStoreSession(session.spreadsheetId, session.monthlySpreadsheetId, remaining[0].store_id)
         } else {
           useAuthStore.getState().clearAuth()
           navigate('/setup')
@@ -118,9 +117,8 @@ export default function StoreManagementPage() {
 
   const activateMutation = useMutation({
     mutationFn: async (store: StoreRecord) => {
-      await activateStore(store)
-      setSpreadsheetId(store.master_spreadsheet_id)
-      setActiveStoreId(store.store_id)
+      const session = await activateStore(store)
+      setStoreSession(session.spreadsheetId, session.monthlySpreadsheetId, store.store_id)
     },
     onError: (err) => setMutationError(String(err instanceof Error ? err.message : err)),
   })

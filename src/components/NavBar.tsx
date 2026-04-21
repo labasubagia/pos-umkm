@@ -33,7 +33,7 @@ interface NavBarProps {
 }
 
 export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
-  const { user, role, activeStoreId, clearAuth, setSpreadsheetId, setActiveStoreId } = useAuth()
+  const { user, role, activeStoreId, clearAuth, setStoreSession } = useAuth()
   const { data: stores = [] } = useStores()
   const navigate = useNavigate()
 
@@ -56,9 +56,8 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
     const store = stores.find((s) => s.store_id === storeId)
     if (!store || store.store_id === activeStoreId) return
     try {
-      await activateStore(store)
-      setSpreadsheetId(store.master_spreadsheet_id)
-      setActiveStoreId(storeId)
+      const session = await activateStore(store)
+      setStoreSession(session.spreadsheetId, session.monthlySpreadsheetId, storeId)
       // Stay on the current page — AppShell re-hydrates Dexie for the new store.
     } catch {
       // Silent — store picker reverts visually on next render
