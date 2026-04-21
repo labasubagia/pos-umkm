@@ -187,22 +187,25 @@ describe('softDelete', () => {
 describe('batchUpsertByKey', () => {
   it('updates existing rows and inserts new ones', async () => {
     const db = getDb(TEST_STORE_ID)
-    await db.Products.put({ id: 'p1', name: 'Teh', price: 3000, deleted_at: null })
-    const repo = makeRepo()
-    await repo.batchUpsertByKey(
-      'name', 'price',
-      [
-        { lookupValue: 'Teh',  value: 3500 }, // update
-        { lookupValue: 'Kopi', value: 5000 }, // insert
-      ],
-      (name, price) => ({ id: `new-${name}`, name, price, deleted_at: null }),
+    // Use Settings table — indexed on 'key', matching the real-world usage.
+    await db.Settings.put({ id: 's1', key: 'business_name', value: 'Toko Lama', deleted_at: null })
+    const repo = new DexieSheetRepository<Record<string, unknown>>(
+      db, 'spreadsheet-1', 'Settings', () => makeRemoteStub(),
     )
-    const all = await db.Products.toArray()
+    await repo.batchUpsertByKey(
+      'key', 'value',
+      [
+        { lookupValue: 'business_name', value: 'Toko Baru' }, // update
+        { lookupValue: 'address',        value: 'Jl. Merdeka' }, // insert
+      ],
+      (key, value) => ({ id: `new-${key}`, key, value, deleted_at: null }),
+    )
+    const all = await db.Settings.toArray()
     expect(all).toHaveLength(2)
-    const teh = all.find((r) => r.name === 'Teh')
-    expect(teh?.price).toBe(3500)
-    const kopi = all.find((r) => r.name === 'Kopi')
-    expect(kopi).toBeTruthy()
+    const name = all.find((r) => r['key'] === 'business_name')
+    expect(name?.['value']).toBe('Toko Baru')
+    const addr = all.find((r) => r['key'] === 'address')
+    expect(addr).toBeTruthy()
   })
 })
 

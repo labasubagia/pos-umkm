@@ -1840,6 +1840,129 @@
 
 ---
 
+## Section: Store Isolation Fixes
+
+### T073 — Scope monthlySheetKey to storeId
+
+- **Status:** ⬜ todo
+- **Section:** Store Isolation Fixes
+- **Depends on:** T072
+- **Test type:** unit
+
+**Goal**: `monthlySheetKey()` currently returns `txSheet_YYYY-MM` — the same localStorage key for every store. When two stores exist, activating Store 2 overwrites Store 1's monthly spreadsheet ID. On the next login `LoginPage` reads the wrong ID and transaction writes go to the wrong sheet.
+
+**Changes**:
+
+1. **`setup.service.ts`** — add `storeId` parameter to `monthlySheetKey(storeId, year, month)` → key becomes `txSheet_<storeId>_YYYY-MM`
+2. Update all callers of `monthlySheetKey` (two write sites in `activateStore`, one in `ensureMonthlySheet`)
+3. **`clearSetupStorage()`** — update to clear `txSheet_<storeId>_*` keys; also clear legacy `txSheet_YYYY-MM` keys for backward compat
+4. **`LoginPage.tsx`** — update fast-path monthly ID restore to use store-scoped key (read `activeStoreId` from authStore)
+
+**Architecture note**: Each store can have a different active monthly sheet. Sharing a single key caused last-writer-wins corruption when switching between stores.
+
+**Test cases**:
+- ✅ `monthlySheetKey returns txSheet_<storeId>_YYYY-MM`
+- ✅ `activateStore stores monthlyId under store-scoped key`
+- ✅ `activating store2 does not overwrite store1 monthly key`
+- ❌ `monthlySheetKey without storeId is rejected by TypeScript`
+
+---
+
+### T074 — Prevent stale hydrateAll from invalidating wrong store cache
+
+- **Status:** ⬜ todo
+- **Section:** Store Isolation Fixes
+- **Depends on:** T072
+- **Test type:** unit
+
+**Goal**: `hydrateAll()` is async (5–30 seconds). If the user switches stores before it completes, the old in-flight Promise will call `queryClient.invalidateQueries()` after the new store is already active — causing a spurious full cache invalidation at the wrong time, potentially triggering unnecessary refetches with wrong context.
+
+**Changes**:
+
+1. **`AppShell.tsx`** — add a generation counter ref (`hydrateGenRef`). Increment on every store switch. After `hydrateAll()` resolves, only call `invalidateQueries()` if the generation still matches.
+2. Add scoped `invalidateQueries` predicate — only invalidate queries whose key[1] matches `activeStoreId` (avoids nuking unrelated caches such as `['stores']`).
+
+**Architecture note**: This is a defensive guard. Without it, a slow hydration for Store A can trigger a cache-bust while the user is already viewing Store B, causing all of Store B's active queries to re-fetch unexpectedly.
+
+**Test cases**:
+- ✅ `invalidateQueries is NOT called if store switches before hydrateAll resolves`
+- ✅ `invalidateQueries IS called when generation matches after hydrateAll`
+- ✅ `invalidateQueries predicate scopes invalidation to activeStoreId`
+
+---
+
+### T075 — Clear dbCache on logout
+
+- **Status:** ⬜ todo
+- **Section:** Store Isolation Fixes
+- **Depends on:** T073, T074
+- **Test type:** unit
+
+**Goal**: The module-level `dbCache` Map in `db.ts` accumulates one `PosUmkmDatabase` instance per visited store and never frees them. After logout, stale IndexedDB connections remain open. If a second user logs in on the same tab with a colliding `storeId` (unlikely with UUIDs, but possible in dev/test), they could access the previous user's cached DB.
+
+**Changes**:
+
+1. **`db.ts`** — export `clearDbCache()` (already exists); document it as the logout hook
+2. **`authStore.ts`** — call `clearDbCache()` inside `clearAuth()` before the `set(...)` call
+3. **`adapters/index.ts`** — after `clearDbCache()`, reset `syncManager` and `hydrationService` to their no-op defaults so stale references don't hold live DB connections
+
+**Architecture note**: DB connections and their associated memory (metadata, event listeners) should be released when the user logs out. This also ensures a fresh login always hydrates from a clean slate rather than a potentially-stale cache.
+
+**Test cases**:
+- ✅ `clearAuth calls clearDbCache`
+- ✅ `getDb returns fresh instance after clearDbCache`
+- ✅ `syncManager is reset to no-op after clearDbCache on logout`
+
+---
+
+### T076 — Scope invalidateQueries predicate to activeStoreId
+
+- **Status:** ⬜ todo
+- **Section:** Store Isolation Fixes
+- **Depends on:** T074
+- **Test type:** unit
+
+**Goal**: `queryClient.invalidateQueries()` with no filter nukes every query in the cache — including `['stores']`, `['daily-summary', storeId, date]` with `enabled:false`, and any future global queries. After hydration we only need to re-fetch the active store's data.
+
+**Changes**:
+
+1. **`AppShell.tsx`** — replace bare `queryClient.invalidateQueries()` with a predicate that matches `queryKey[1] === activeStoreId`
+2. Queries whose key does not include `storeId` at position 1 (e.g. `['stores']`) are explicitly excluded — they have their own invalidation on mutation
+
+**Architecture note**: The scoped predicate is safer and faster. It prevents cache-busting unrelated queries and avoids re-fetching `['stores']` on every hydration cycle.
+
+**Test cases**:
+- ✅ `invalidateQueries only targets keys matching activeStoreId`
+- ✅ `['stores'] query is NOT invalidated by hydration`
+- ✅ `['categories', activeStoreId] IS invalidated by hydration`
+
+---
+
+### T077 — Optimize batchUpsertByKey with indexed lookup
+
+- **Status:** ⬜ todo
+- **Section:** Store Isolation Fixes
+- **Depends on:** T075
+- **Test type:** unit
+
+**Goal**: `DexieSheetRepository.batchUpsertByKey()` calls `toArray()` to load the full table into memory before processing entries. For large tables (Products with thousands of rows) this creates memory spikes and slow updates.
+
+**Changes**:
+
+1. **`DexieSheetRepository.ts`** — rewrite `batchUpsertByKey` to query each lookup individually using `this.db.table(sheetName).where(lookupColumn).equals(lookupValue).first()` instead of loading all rows
+2. Wrap all individual queries in `Promise.all` for parallel execution
+3. Keep the same outbox behavior (batch the resulting updates/appends)
+
+**Architecture note**: Dexie indexes allow O(log n) lookups by indexed column. The `Settings` table is indexed on `key`; `Members` on `email`. Using `.where().equals()` avoids full table scans.
+
+**Test cases**:
+- ✅ `batchUpsertByKey updates existing row found by indexed lookup`
+- ✅ `batchUpsertByKey inserts new row when lookupValue not found`
+- ✅ `batchUpsertByKey does not call toArray()`
+- ❌ `batchUpsertByKey with empty entries is a no-op`
+
+---
+
 ## Appendix: Parallelization Map
 
 The following tasks within each section have no mutual dependencies and can be worked on by different agents simultaneously:
@@ -1859,6 +1982,7 @@ The following tasks within each section have no mutual dependencies and can be w
 | Offline-First | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055; T057 depends on T056; T058 and T059 depend on T056 (can run in parallel with each other and with T057) |
 | Store Management | T060 first (service), then T061 (UI), then T062 (NavBar sync + switch button), then T063 (remove stale spreadsheet IDs from persistence); T064 (no /cashier redirect) can run in parallel with T063 |
 | State Management | T065 first (install React Query), then T066 (migrate stores); then T067–T071 in parallel (all depend on T066); then T072 (depends on T067–T071) |
+| Store Isolation Fixes | T073 and T074 in parallel (both depend on T072); T075 depends on T073+T074; T076 depends on T074; T077 depends on T075 |
 
 ---
 

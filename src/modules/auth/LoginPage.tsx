@@ -46,7 +46,14 @@ export default function LoginPage() {
       setSpreadsheetId(masterId)
       const now = new Date()
       const mm = String(now.getMonth() + 1).padStart(2, '0')
-      const monthlyId = localStorage.getItem(`txSheet_${now.getFullYear()}-${mm}`)
+      const restoredStoreId = useAuthStore.getState().activeStoreId
+        ?? localStorage.getItem('activeStoreId')
+        ?? ''
+      // Use store-scoped key (txSheet_<storeId>_YYYY-MM). Fall back to legacy
+      // unscoped key (txSheet_YYYY-MM) for sessions created before T073.
+      const monthlyId =
+        localStorage.getItem(`txSheet_${restoredStoreId}_${now.getFullYear()}-${mm}`) ??
+        localStorage.getItem(`txSheet_${now.getFullYear()}-${mm}`)
       if (monthlyId) useAuthStore.getState().setMonthlySpreadsheetId(monthlyId)
       navigate('/cashier')
     } else {

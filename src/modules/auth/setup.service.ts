@@ -105,7 +105,8 @@ export function clearSetupStorage(): void {
   localStorage.removeItem('masterSpreadsheetId')
   localStorage.removeItem('activeStoreId')
   localStorage.removeItem('storeFolderId')
-  // Clear all monthly transaction sheet cache keys (txSheet_YYYY-MM).
+  // Clear all monthly transaction sheet cache keys — both store-scoped
+  // (txSheet_<storeId>_YYYY-MM) and legacy unscoped (txSheet_YYYY-MM) formats.
   Object.keys(localStorage)
     .filter((k) => k.startsWith('txSheet_'))
     .forEach((k) => localStorage.removeItem(k))
@@ -114,10 +115,11 @@ export function clearSetupStorage(): void {
 /**
  * Returns the localStorage key used to cache a monthly transaction sheet ID.
  * LoginPage reads this key on session restore to avoid a Sheets API lookup.
- * Example: txSheet_2026-04
+ * Key is scoped to storeId to prevent multi-store collisions.
+ * Example: txSheet_abc123_2026-04
  */
-export function monthlySheetKey(year: number, month: number): string {
-  return `txSheet_${year}-${mm(month)}`
+export function monthlySheetKey(storeId: string, year: number, month: number): string {
+  return `txSheet_${storeId}_${year}-${mm(month)}`
 }
 
 // ─── Main Spreadsheet ─────────────────────────────────────────────────────────
@@ -285,7 +287,7 @@ export async function activateStore(store: StoreRecord): Promise<{
     }
   }
 
-  localStorage.setItem(monthlySheetKey(year, month), monthlyId)
+  localStorage.setItem(monthlySheetKey(storeId, year, month), monthlyId)
   return { spreadsheetId: masterId, monthlySpreadsheetId: monthlyId }
 }
 
@@ -482,7 +484,9 @@ export async function runStoreSetup(
   const monthlySpreadsheetId = await createMonthlySheet(year, month)
   useAuthStore.getState().setMonthlySpreadsheetId(monthlySpreadsheetId)
   await initializeMonthlySheets(monthlySpreadsheetId)
-  localStorage.setItem(monthlySheetKey(year, month), monthlySpreadsheetId)
+  // storeId was written to localStorage by createMasterSpreadsheet above.
+  const newStoreId = localStorage.getItem('activeStoreId') ?? ''
+  localStorage.setItem(monthlySheetKey(newStoreId, year, month), monthlySpreadsheetId)
 
   return { masterSpreadsheetId, monthlySpreadsheetId }
 }

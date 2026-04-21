@@ -29,6 +29,7 @@ vi.mock('../lib/adapters', () => ({
     getAccessToken: vi.fn(() => null),
   },
   dataAdapter: {},
+  resetDexieLayer: vi.fn(),
 }))
 
 vi.mock('../modules/auth/setup.service', async (importOriginal) => {

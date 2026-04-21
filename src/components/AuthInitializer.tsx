@@ -29,7 +29,7 @@
  * Zustand sync + expired-session redirect separately.
  */
 import { useEffect, useRef, type ReactNode } from 'react'
-import { authAdapter } from '../lib/adapters'
+import { authAdapter, resetDexieLayer } from '../lib/adapters'
 import { useAuth } from '../modules/auth/useAuth'
 
 const IS_MOCK = import.meta.env.VITE_ADAPTER !== 'google'
@@ -65,7 +65,8 @@ export function AuthInitializer({ children }: Props) {
         const token = authAdapter.getAccessToken()
         if (token) setAccessToken(token)
       } else if (isAuthenticated && !IS_MOCK) {
-        // Google token expired / revoked — wipe persisted auth.
+        // Google token expired / revoked — wipe persisted auth and release DBs.
+        resetDexieLayer()
         clearAuth()
       }
       // Mock: restoreSession always returns null; leave persisted state intact

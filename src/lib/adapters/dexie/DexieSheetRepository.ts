@@ -92,6 +92,10 @@ export class DexieSheetRepository<T extends Record<string, unknown>>
    * Decomposes batchUpsertByKey into primitives (append + batchUpdateCells)
    * that are individually outbox-able. This avoids serialising the makeNewRow
    * function into the outbox while keeping the Sheets-side behaviour identical.
+   *
+   * Uses per-entry indexed lookups (where().equals()) instead of loading the
+   * full table into memory, so large tables (Products, Members) don't cause
+   * memory spikes (T077).
    */
   async batchUpsertByKey(
     lookupColumn: string,
@@ -101,15 +105,21 @@ export class DexieSheetRepository<T extends Record<string, unknown>>
   ): Promise<void> {
     if (entries.length === 0) return
 
-    // Read existing rows once to determine updates vs inserts
-    const allRows = await this.db.table<Record<string, unknown>>(this.sheetName).toArray()
-    const existingByKey = new Map(allRows.map((r) => [r[lookupColumn] as string, r]))
+    // Fetch only the rows we need — one indexed lookup per entry in parallel.
+    const existingRows = await Promise.all(
+      entries.map(({ lookupValue }) =>
+        this.db.table<Record<string, unknown>>(this.sheetName)
+          .where(lookupColumn).equals(lookupValue)
+          .first(),
+      ),
+    )
 
     const updates: Array<{ rowId: string; column: string; value: unknown }> = []
     const newRows: Record<string, unknown>[] = []
 
-    for (const { lookupValue, value } of entries) {
-      const existing = existingByKey.get(lookupValue)
+    for (let i = 0; i < entries.length; i++) {
+      const { lookupValue, value } = entries[i]
+      const existing = existingRows[i]
       if (existing) {
         updates.push({ rowId: existing['id'] as string, column: updateColumn, value })
       } else {

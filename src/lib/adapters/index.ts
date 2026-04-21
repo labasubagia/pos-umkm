@@ -34,7 +34,7 @@ import { ALL_TAB_HEADERS } from '../schema'
 import { DexieSheetRepository } from './dexie/DexieSheetRepository'
 import { SyncManager } from './dexie/SyncManager'
 import { HydrationService } from './dexie/HydrationService'
-import { getDb } from './dexie/db'
+import { getDb, clearDbCache } from './dexie/db'
 
 // Lazy import to avoid circular dependency (authStore imports from here indirectly via services)
 import { useAuthStore } from '../../store/authStore'
@@ -52,6 +52,19 @@ export const driveClient: IDriveClient = adapterType === 'google'
   ? new GoogleDriveClient(getToken)
   : new MockDriveClient()
 
+/** No-op SyncManager used as the initial value and after logout. */
+const noopSyncManager = {
+  start: () => {},
+  stop: () => {},
+  triggerSync: () => {},
+} as unknown as SyncManager
+
+/** No-op HydrationService used as the initial value and after logout. */
+const noopHydrationService = {
+  hydrateAll: async () => {},
+  forceHydrate: async () => {},
+} as unknown as HydrationService
+
 /**
  * SyncManager (google adapter only) — drains the IndexedDB outbox to Google Sheets.
  * Mutable so reinitDexieLayer() can replace it when the active store changes.
@@ -59,7 +72,7 @@ export const driveClient: IDriveClient = adapterType === 'google'
 // eslint-disable-next-line prefer-const
 export let syncManager: SyncManager = adapterType === 'google'
   ? new SyncManager(getToken, getDb('__init__'))
-  : { start: () => {}, stop: () => {}, triggerSync: () => {} } as unknown as SyncManager
+  : noopSyncManager
 
 /**
  * HydrationService (google adapter only) — pulls Sheets data into IndexedDB after login.
@@ -68,7 +81,7 @@ export let syncManager: SyncManager = adapterType === 'google'
 // eslint-disable-next-line prefer-const
 export let hydrationService: HydrationService = adapterType === 'google'
   ? new HydrationService(getToken, getDb('__init__'))
-  : { hydrateAll: async () => {}, forceHydrate: async () => {} } as unknown as HydrationService
+  : noopHydrationService
 
 /**
  * Re-initializes the Dexie sync layer for the given store.
@@ -83,6 +96,18 @@ export function reinitDexieLayer(storeId: string): void {
   syncManager = new SyncManager(getToken, db)
   hydrationService = new HydrationService(getToken, db)
   syncManager.start()
+}
+
+/**
+ * Resets the Dexie sync layer to no-ops and clears the DB cache.
+ * Call on logout so stale IndexedDB connections and references are released.
+ */
+export function resetDexieLayer(): void {
+  if (adapterType !== 'google') return
+  syncManager.stop()
+  syncManager = noopSyncManager
+  hydrationService = noopHydrationService
+  clearDbCache()
 }
 
 /**

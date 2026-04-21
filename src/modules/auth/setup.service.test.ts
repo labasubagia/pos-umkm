@@ -491,11 +491,11 @@ describe('shareSheetWithAllMembers', () => {
 
 describe('monthlySheetKey', () => {
   it('returns zero-padded key for single-digit months', () => {
-    expect(monthlySheetKey(2026, 4)).toBe('txSheet_2026-04')
+    expect(monthlySheetKey('store-abc', 2026, 4)).toBe('txSheet_store-abc_2026-04')
   })
 
   it('returns key for double-digit months', () => {
-    expect(monthlySheetKey(2026, 11)).toBe('txSheet_2026-11')
+    expect(monthlySheetKey('store-abc', 2026, 11)).toBe('txSheet_store-abc_2026-11')
   })
 })
 
@@ -524,8 +524,10 @@ describe('runStoreSetup', () => {
     localStorage.setItem('mainSpreadsheetId', 'main-id')
     mockAll()
     const now = new Date()
-    const expectedKey = `txSheet_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     await runStoreSetup('Toko Santoso')
+    // storeId is written by createMasterSpreadsheet; read it back to build the expected key
+    const storeId = localStorage.getItem('activeStoreId') ?? ''
+    const expectedKey = `txSheet_${storeId}_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     expect(localStorage.getItem('masterSpreadsheetId')).toBe('master-id')
     expect(localStorage.getItem(expectedKey)).toBe('monthly-id')
   })

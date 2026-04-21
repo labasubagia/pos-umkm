@@ -11,8 +11,13 @@
  *     listening for connectivity changes.
  *   - HydrationService.hydrateAll() is called once after the spreadsheet IDs
  *     are available to pre-populate IndexedDB from Google Sheets. After
- *     hydration completes, all React Query caches are invalidated so pages
- *     refetch from the freshly-populated IndexedDB.
+ *     hydration completes, only React Query caches for the current store are
+ *     invalidated (predicate: queryKey[1] === activeStoreId).
+ *
+ * Race condition guard (T074):
+ *   A generation counter prevents a stale in-flight hydrateAll() from calling
+ *   invalidateQueries() after the user has already switched to a different store.
+ *   Only the most-recent hydration call is allowed to trigger invalidation.
  */
 import { useEffect, useRef } from 'react'
 import { Outlet } from 'react-router-dom'
@@ -31,6 +36,11 @@ export function AppShell() {
   // reinit when the active store actually changes (not on every monthly rollover).
   const lastInitStoreId = useRef<string | null>(null)
 
+  // Generation counter: incremented on every effect run. Compared inside the
+  // .then() callback — if the generation no longer matches, the hydration result
+  // is for a store we've already left and must be discarded (T074).
+  const hydrateGen = useRef(0)
+
   useEffect(() => {
     if (!spreadsheetId || !mainSpreadsheetId || !activeStoreId) return
 
@@ -42,9 +52,21 @@ export function AppShell() {
       lastInitStoreId.current = activeStoreId
     }
 
+    const gen = ++hydrateGen.current
+    const storeIdAtLaunch = activeStoreId
+
     void hydrationService
       .hydrateAll(mainSpreadsheetId, spreadsheetId, monthlySpreadsheetId ?? '')
-      .then(() => queryClient.invalidateQueries())
+      .then(() => {
+        // Discard result if the user switched stores before this hydration finished.
+        if (gen !== hydrateGen.current) return
+        // Scope invalidation to the current store only — avoids nuking
+        // unrelated caches like ['stores'] or date-range reports (T076).
+        void queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) && query.queryKey[1] === storeIdAtLaunch,
+        })
+      })
   }, [spreadsheetId, mainSpreadsheetId, monthlySpreadsheetId, activeStoreId, queryClient])
 
   return (
