@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { ShoppingBag, ShoppingCart } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
-import { useCatalogStore } from '../modules/catalog/useCatalog'
+import { useProducts } from '../hooks/useProducts'
+import { useVariants } from '../hooks/useVariants'
+import { useQRISImage } from '../hooks/useQRISImage'
 import { useCartStore } from '../modules/cashier/useCart'
 import { ProductSearch } from '../modules/cashier/ProductSearch'
 import { CartPanel } from '../modules/cashier/CartPanel'
@@ -20,11 +22,9 @@ import {
   ensureMonthlySheetExists,
   CashierError,
 } from '../modules/cashier/cashier.service'
-import { getQRISImageUrl } from '../modules/settings/settings.service'
 import type { Transaction, TransactionItem, PaymentInfo } from '../modules/cashier/cashier.service'
 import { Button } from '../components/ui/button'
 import { Alert, AlertDescription } from '../components/ui/alert'
-import { useSyncStore } from '../store/syncStore'
 
 const TAX_RATE = 0 // PPN disabled by default; owner can enable in Settings (post-MVP)
 
@@ -32,36 +32,18 @@ type MobileView = 'products' | 'cart'
 
 export default function CashierPage() {
   const { user, spreadsheetId } = useAuthStore()
-  const { products, variants, loadCatalog } = useCatalogStore()
-  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
+  const { data: products = [] } = useProducts()
+  const { data: variants = [] } = useVariants()
+  const { data: qrisImageUrl = '' } = useQRISImage()
   const { items, discount, resetCart, holdCart } = useCartStore()
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [showPayment, setShowPayment] = useState(false)
   const [showHeld, setShowHeld] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [qrisImageUrl, setQrisImageUrl] = useState('')
   const [completedTransaction, setCompletedTransaction] = useState<{ tx: Transaction; txItems: TransactionItem[] } | null>(null)
   const [txError, setTxError] = useState('')
   const [receiptSeq, setReceiptSeq] = useState(1)
   const [mobileView, setMobileView] = useState<MobileView>('products')
-
-  const initialized = useRef(false)
-
-  useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    loadCatalog()
-    getQRISImageUrl().then(setQrisImageUrl).catch(() => {})
-  }, [loadCatalog])
-
-  // Re-fetch catalog data after HydrationService populates IndexedDB on login.
-  useEffect(() => {
-    if (lastHydratedAt === null) return
-    initialized.current = false
-    loadCatalog()
-    getQRISImageUrl().then(setQrisImageUrl).catch(() => {})
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastHydratedAt])
 
   const subtotal = calculateSubtotal(items)
   const discountAmount = discount

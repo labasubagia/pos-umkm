@@ -1,4 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
+/**
+ * DailySummary.tsx — Daily sales summary report.
+ *
+ * Uses React Query with enabled:false — fetches only when user clicks
+ * "Lihat Laporan". Query key includes date so clicking with a new date
+ * triggers a fresh fetch.
+ */
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useAuthStore } from '../../store/authStore'
 import { fetchDailySummary, type DailySummary as DailySummaryType, ReportError } from './reports.service'
 import { formatIDR } from '../../lib/formatters'
 import { Button } from '../../components/ui/button'
@@ -14,47 +23,30 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
-import { useSyncStore } from '../../store/syncStore'
 
 export function DailySummary() {
   const today = new Date().toISOString().slice(0, 10)
   const [date, setDate] = useState(today)
-  const [summary, setSummary] = useState<DailySummaryType | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const initialized = useRef(false)
-  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
+  const [enabled, setEnabled] = useState(true) // fetch on mount with today's date
+  const activeStoreId = useAuthStore((s) => s.activeStoreId)
 
-  async function load(d: string) {
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await fetchDailySummary(d)
-      setSummary(result)
-    } catch (err) {
-      if (err instanceof ReportError) {
-        setError(err.message)
-      } else {
-        setError('Terjadi kesalahan saat memuat laporan')
-      }
-    } finally {
-      setLoading(false)
-    }
+  const { data: summary, isLoading, error, refetch } = useQuery({
+    queryKey: ['daily-summary', activeStoreId, date],
+    queryFn: () => fetchDailySummary(date),
+    enabled,
+    retry: false,
+  })
+
+  function handleLoad() {
+    setEnabled(true)
+    void refetch()
   }
 
-  useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    load(today)
-  }, [])
-
-  // Re-load after HydrationService populates IndexedDB on login.
-  useEffect(() => {
-    if (lastHydratedAt === null) return
-    initialized.current = false
-    load(date)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastHydratedAt])
+  const errorMsg = error instanceof ReportError
+    ? error.message
+    : error instanceof Error
+      ? 'Terjadi kesalahan saat memuat laporan'
+      : null
 
   return (
     <div data-testid="daily-summary-container" className="p-4 space-y-4">
@@ -66,22 +58,18 @@ export function DailySummary() {
             data-testid="input-summary-date"
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => { setDate(e.target.value); setEnabled(false) }}
             className="w-auto"
           />
         </div>
-        <Button
-          data-testid="btn-load-summary"
-          onClick={() => load(date)}
-          disabled={loading}
-        >
+        <Button data-testid="btn-load-summary" onClick={handleLoad} disabled={isLoading}>
           Lihat Laporan
         </Button>
       </div>
 
-      {error && (
+      {errorMsg && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{errorMsg}</AlertDescription>
         </Alert>
       )}
 

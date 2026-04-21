@@ -1,47 +1,24 @@
 /**
  * CustomerSearch.tsx — Typeahead search component for attaching a customer to a transaction.
  *
- * Loads the full customer list once on mount and filters client-side to avoid
- * per-keystroke API calls (acceptable for UMKM scale: typically < 1000 customers).
- * Shows a "Tambah Pelanggan Baru" button when no results match the query.
+ * Loads the full customer list via useCustomers() (React Query) and filters
+ * client-side to avoid per-keystroke API calls.
  */
 
-import { useState, useEffect, useRef } from 'react'
-import { fetchCustomers, type Customer } from './customers.service'
+import { useState } from 'react'
+import { useCustomers } from '../../hooks/useCustomers'
+import type { Customer } from './customers.service'
 import { Input } from '../../components/ui/input'
 import { Button } from '../../components/ui/button'
-import { useSyncStore } from '../../store/syncStore'
 
 interface CustomerSearchProps {
-  /** Called when the user selects a customer, or null to clear the selection. */
   onSelect: (customer: Customer | null) => void
 }
 
 export function CustomerSearch({ onSelect }: CustomerSearchProps) {
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const { data: customers = [], isLoading } = useCustomers()
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Customer | null>(null)
-  const [loading, setLoading] = useState(true)
-  const initialized = useRef(false)
-  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
-
-  useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    fetchCustomers()
-      .then(setCustomers)
-      .finally(() => setLoading(false))
-  }, [])
-
-  // Re-load after HydrationService populates IndexedDB on login.
-  useEffect(() => {
-    if (lastHydratedAt === null) return
-    initialized.current = false
-    fetchCustomers()
-      .then(setCustomers)
-      .finally(() => setLoading(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastHydratedAt])
 
   const filtered = query.trim()
     ? customers.filter(
@@ -81,7 +58,7 @@ export function CustomerSearch({ onSelect }: CustomerSearchProps) {
             }
           }}
           data-testid="customer-search-input"
-          disabled={loading}
+          disabled={isLoading}
         />
         {selected && (
           <Button
@@ -97,7 +74,6 @@ export function CustomerSearch({ onSelect }: CustomerSearchProps) {
         )}
       </div>
 
-      {/* Dropdown results */}
       {!selected && query.trim().length > 0 && (
         <ul className="absolute z-10 mt-1 w-full rounded border border-gray-200 bg-white shadow-lg">
           {hasResults ? (
@@ -119,9 +95,6 @@ export function CustomerSearch({ onSelect }: CustomerSearchProps) {
               <button
                 type="button"
                 className="w-full px-4 py-2 text-left text-sm text-blue-600 hover:bg-blue-50"
-                onClick={() => {
-                  /* Parent can handle this via a modal / form */
-                }}
                 data-testid="btn-add-new-customer"
               >
                 + Tambah Pelanggan Baru

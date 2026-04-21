@@ -1,50 +1,45 @@
 /**
  * QRISConfig — Upload or paste a QRIS merchant QR code image.
  *
- * Accepts a file upload (converted to data URL) or a direct https URL.
- * Displays a preview of the current image if one is stored.
+ * Loads current image via useQRISImage() (React Query).
+ * Save invalidates the query to reflect the update.
  */
-import { useState, useEffect, useRef } from 'react'
-import { getQRISImage, saveQRISImage, SettingsError } from './settings.service'
+import { useState, useRef, useEffect } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '../../store/authStore'
+import { useQRISImage, QRIS_QUERY_KEY } from '../../hooks/useQRISImage'
+import { saveQRISImage, SettingsError } from './settings.service'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Alert, AlertDescription } from '../../components/ui/alert'
-import { useSyncStore } from '../../store/syncStore'
 
 export default function QRISConfig() {
+  const queryClient = useQueryClient()
+  const activeStoreId = useAuthStore((s) => s.activeStoreId)
+  const { data: storedUrl = '' } = useQRISImage()
+
   const [url, setUrl] = useState('')
   const [preview, setPreview] = useState<string>('')
-  const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const initialized = useRef(false)
-  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
 
+  // Populate url/preview when query data loads
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    void getQRISImage().then((stored) => {
-      if (stored) {
-        setUrl(stored)
-        setPreview(stored)
-      }
-    })
-  }, [])
+    if (storedUrl) {
+      setUrl(storedUrl)
+      setPreview(storedUrl)
+    }
+  }, [storedUrl])
 
-  // Re-load after HydrationService populates IndexedDB on login.
-  useEffect(() => {
-    if (lastHydratedAt === null) return
-    initialized.current = false
-    void getQRISImage().then((stored) => {
-      if (stored) {
-        setUrl(stored)
-        setPreview(stored)
-      }
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastHydratedAt])
+  const saveMutation = useMutation({
+    mutationFn: (urlToSave: string) => saveQRISImage(urlToSave),
+    onSuccess: () => {
+      setSuccess(true)
+      void queryClient.invalidateQueries({ queryKey: QRIS_QUERY_KEY(activeStoreId) })
+    },
+    onError: () => setSuccess(false),
+  })
 
   function handleUrlChange(e: React.ChangeEvent<HTMLInputElement>) {
     setUrl(e.target.value)
@@ -63,24 +58,17 @@ export default function QRISConfig() {
     reader.readAsDataURL(file)
   }
 
-  async function handleSave(e: React.FormEvent) {
+  function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    setSaving(true)
     setSuccess(false)
-    setError(null)
-    try {
-      await saveQRISImage(url)
-      setSuccess(true)
-    } catch (err) {
-      if (err instanceof SettingsError) {
-        setError(err.message)
-      } else {
-        setError(String(err))
-      }
-    } finally {
-      setSaving(false)
-    }
+    saveMutation.mutate(url)
   }
+
+  const errorMsg = saveMutation.isError
+    ? (saveMutation.error instanceof SettingsError
+        ? saveMutation.error.message
+        : String(saveMutation.error))
+    : null
 
   return (
     <div data-testid="qris-config-container" className="space-y-4 max-w-lg">
@@ -124,14 +112,14 @@ export default function QRISConfig() {
             <AlertDescription>Gambar QRIS berhasil disimpan.</AlertDescription>
           </Alert>
         )}
-        {error && (
+        {errorMsg && (
           <Alert variant="destructive" data-testid="qris-save-error">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>{errorMsg}</AlertDescription>
           </Alert>
         )}
 
-        <Button data-testid="btn-save-qris" type="submit" disabled={saving || !url}>
-          {saving ? 'Menyimpan…' : 'Simpan QRIS'}
+        <Button data-testid="btn-save-qris" type="submit" disabled={saveMutation.isPending || !url}>
+          {saveMutation.isPending ? 'Menyimpan…' : 'Simpan QRIS'}
         </Button>
       </form>
     </div>

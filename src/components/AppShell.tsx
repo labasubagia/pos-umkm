@@ -10,10 +10,13 @@
  *   - SyncManager.start() is called once to begin draining the outbox and
  *     listening for connectivity changes.
  *   - HydrationService.hydrateAll() is called once after the spreadsheet IDs
- *     are available to pre-populate IndexedDB from Google Sheets.
+ *     are available to pre-populate IndexedDB from Google Sheets. After
+ *     hydration completes, all React Query caches are invalidated so pages
+ *     refetch from the freshly-populated IndexedDB.
  */
 import { useEffect, useRef } from 'react'
 import { Outlet } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { NavBar } from './NavBar'
 import { BottomNav } from './BottomNav'
 import { SyncStatus } from './SyncStatus'
@@ -22,6 +25,7 @@ import { useAuthStore } from '../store/authStore'
 
 export function AppShell() {
   const { spreadsheetId, mainSpreadsheetId, monthlySpreadsheetId, activeStoreId } = useAuthStore()
+  const queryClient = useQueryClient()
 
   // Track the last storeId for which we called reinitDexieLayer so we only
   // reinit when the active store actually changes (not on every monthly rollover).
@@ -38,12 +42,10 @@ export function AppShell() {
       lastInitStoreId.current = activeStoreId
     }
 
-    void hydrationService.hydrateAll(
-      mainSpreadsheetId,
-      spreadsheetId,
-      monthlySpreadsheetId ?? '',
-    )
-  }, [spreadsheetId, mainSpreadsheetId, monthlySpreadsheetId, activeStoreId])
+    void hydrationService
+      .hydrateAll(mainSpreadsheetId, spreadsheetId, monthlySpreadsheetId ?? '')
+      .then(() => queryClient.invalidateQueries())
+  }, [spreadsheetId, mainSpreadsheetId, monthlySpreadsheetId, activeStoreId, queryClient])
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" data-testid="app-shell">

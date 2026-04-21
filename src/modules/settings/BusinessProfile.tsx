@@ -1,28 +1,31 @@
 /**
  * BusinessProfile — Form for editing business settings.
  *
- * Loads settings on mount. On save, calls saveSettings with changed fields only.
- * If business_name changed, also syncs the new name to the main spreadsheet's
- * Stores tab and invalidates the React Query stores cache so NavBar reflects it.
+ * Loads settings via useSettings() (React Query). On save, calls saveSettings
+ * and invalidates the settings query. If business_name changed, also syncs
+ * to the main spreadsheet and invalidates the stores query.
  */
-import { useState, useEffect, useRef } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { getSettings, saveSettings, type BusinessSettings } from './settings.service'
+import { useState, useEffect } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSettings, SETTINGS_QUERY_KEY } from '../../hooks/useSettings'
+import { saveSettings, type BusinessSettings } from './settings.service'
 import { updateStoreName } from '../auth/setup.service'
 import { useAuth } from '../auth/useAuth'
+import { useAuthStore } from '../../store/authStore'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Alert, AlertDescription } from '../../components/ui/alert'
-import { useSyncStore } from '../../store/syncStore'
 import { STORES_QUERY_KEY } from '../../hooks/useStores'
 
 const TIMEZONES = ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'] as const
 
 export default function BusinessProfile() {
   const { activeStoreId, spreadsheetId } = useAuth()
+  const zustandActiveStoreId = useAuthStore((s) => s.activeStoreId)
   const queryClient = useQueryClient()
-  const [initialName, setInitialName] = useState('')
+  const { data: settings, isLoading } = useSettings()
+
   const [form, setForm] = useState<BusinessSettings>({
     business_name: '',
     timezone: 'Asia/Jakarta',
@@ -30,34 +33,30 @@ export default function BusinessProfile() {
     receipt_footer: '',
     qris_image_url: '',
   })
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [initialName, setInitialName] = useState('')
   const [success, setSuccess] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const initialized = useRef(false)
-  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
 
+  // Populate form when settings load
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    void getSettings().then((s) => {
-      setForm(s)
-      setInitialName(s.business_name)
-      setLoading(false)
-    })
-  }, [])
+    if (settings) {
+      setForm(settings)
+      setInitialName(settings.business_name)
+    }
+  }, [settings])
 
-  // Re-load after HydrationService populates IndexedDB on login.
-  useEffect(() => {
-    if (lastHydratedAt === null) return
-    initialized.current = false
-    void getSettings().then((s) => {
-      setForm(s)
-      setInitialName(s.business_name)
-      setLoading(false)
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastHydratedAt])
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      await saveSettings(form)
+      if (form.business_name !== initialName && activeStoreId && spreadsheetId) {
+        await updateStoreName(activeStoreId, form.business_name)
+        void queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY })
+        setInitialName(form.business_name)
+      }
+      void queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY(zustandActiveStoreId) })
+    },
+    onSuccess: () => setSuccess(true),
+    onError: () => setSuccess(false),
+  })
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target
@@ -67,31 +66,13 @@ export default function BusinessProfile() {
     }))
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setSaving(true)
     setSuccess(false)
-    setError(null)
-    try {
-      await saveSettings(form)
-
-      // If the business name changed, sync it to main spreadsheet's Stores tab
-      // and to Zustand so the NavBar store picker reflects the new name immediately.
-      if (form.business_name !== initialName && activeStoreId && spreadsheetId) {
-        await updateStoreName(activeStoreId, form.business_name)
-        void queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY })
-        setInitialName(form.business_name)
-      }
-
-      setSuccess(true)
-    } catch (err) {
-      setError(String(err))
-    } finally {
-      setSaving(false)
-    }
+    saveMutation.mutate()
   }
 
-  if (loading) return <p className="p-4 text-sm text-gray-500">Memuat pengaturan…</p>
+  if (isLoading) return <p className="p-4 text-sm text-gray-500">Memuat pengaturan…</p>
 
   return (
     <form
@@ -161,14 +142,14 @@ export default function BusinessProfile() {
           <AlertDescription>Pengaturan berhasil disimpan.</AlertDescription>
         </Alert>
       )}
-      {error && (
+      {saveMutation.isError && (
         <Alert variant="destructive" data-testid="profile-save-error">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{String(saveMutation.error)}</AlertDescription>
         </Alert>
       )}
 
-      <Button data-testid="btn-save-profile" type="submit" disabled={saving}>
-        {saving ? 'Menyimpan…' : 'Simpan'}
+      <Button data-testid="btn-save-profile" type="submit" disabled={saveMutation.isPending}>
+        {saveMutation.isPending ? 'Menyimpan…' : 'Simpan'}
       </Button>
     </form>
   )

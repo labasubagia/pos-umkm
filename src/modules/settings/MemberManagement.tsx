@@ -1,73 +1,54 @@
 /**
  * MemberManagement — UI for inviting, listing, and revoking store members.
  *
- * Only accessible to the store owner (role === 'owner').
- * The owner enters a member's email and selects a role; on submit the
- * member is invited and a Store Link is displayed for sharing.
+ * Data comes from useMembers() (React Query). Mutations invalidate the query.
  */
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '../../store/authStore'
+import { useMembers, MEMBERS_QUERY_KEY } from '../../hooks/useMembers'
 import { useAuth } from '../auth/useAuth'
 import {
   inviteMember,
   revokeMember,
-  listMembers,
   generateStoreLink,
-  type Member,
 } from './members.service'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Alert, AlertDescription } from '../../components/ui/alert'
-import { useSyncStore } from '../../store/syncStore'
 
 export default function MemberManagement() {
   const { spreadsheetId } = useAuth()
-  const [members, setMembers] = useState<Member[]>([])
+  const activeStoreId = useAuthStore((s) => s.activeStoreId)
+  const queryClient = useQueryClient()
+  const { data: members = [], isLoading } = useMembers()
+
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'manager' | 'cashier'>('cashier')
   const [storeLink, setStoreLink] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const initialized = useRef(false)
-  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
 
-  useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    void listMembers().then(setMembers)
-  }, [])
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: MEMBERS_QUERY_KEY(activeStoreId) })
 
-  // Re-load after HydrationService populates IndexedDB on login.
-  useEffect(() => {
-    if (lastHydratedAt === null) return
-    initialized.current = false
-    void listMembers().then(setMembers)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastHydratedAt])
-
-  async function handleInvite(e: React.FormEvent) {
-    e.preventDefault()
-    if (!spreadsheetId) return
-    setLoading(true)
-    setError(null)
-    setStoreLink(null)
-    try {
+  const inviteMutation = useMutation({
+    mutationFn: async () => {
+      if (!spreadsheetId) throw new Error('No spreadsheet ID')
       await inviteMember(email, role, spreadsheetId)
       setStoreLink(generateStoreLink(spreadsheetId))
       setEmail('')
-      const updated = await listMembers()
-      setMembers(updated)
-    } catch (err) {
-      setError(String(err))
-    } finally {
-      setLoading(false)
-    }
-  }
+      await invalidate()
+    },
+  })
 
-  async function handleRevoke(userId: string) {
-    await revokeMember(userId)
-    const updated = await listMembers()
-    setMembers(updated)
+  const revokeMutation = useMutation({
+    mutationFn: (userId: string) => revokeMember(userId),
+    onSuccess: () => void invalidate(),
+  })
+
+  function handleInvite(e: React.FormEvent) {
+    e.preventDefault()
+    inviteMutation.mutate()
   }
 
   return (
@@ -99,13 +80,13 @@ export default function MemberManagement() {
             <option value="manager">Manajer</option>
           </select>
         </div>
-        {error && (
+        {inviteMutation.isError && (
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>{String(inviteMutation.error)}</AlertDescription>
           </Alert>
         )}
-        <Button type="submit" disabled={loading} data-testid="btn-invite-member">
-          {loading ? 'Mengundang...' : 'Undang Anggota'}
+        <Button type="submit" disabled={inviteMutation.isPending} data-testid="btn-invite-member">
+          {inviteMutation.isPending ? 'Mengundang...' : 'Undang Anggota'}
         </Button>
       </form>
 
@@ -121,7 +102,9 @@ export default function MemberManagement() {
 
       <div>
         <h3 className="font-semibold mb-2">Daftar Anggota</h3>
-        {members.length === 0 ? (
+        {isLoading ? (
+          <p className="text-muted-foreground text-sm">Memuat anggota…</p>
+        ) : members.length === 0 ? (
           <p className="text-muted-foreground text-sm">Belum ada anggota.</p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -131,7 +114,11 @@ export default function MemberManagement() {
                   <p className="font-medium">{m.email}</p>
                   <p className="text-sm text-muted-foreground capitalize">{m.role}</p>
                 </div>
-                <Button variant="destructive" onClick={() => void handleRevoke(m.id)} data-testid={`btn-revoke-${m.id}`}>
+                <Button
+                  variant="destructive"
+                  onClick={() => revokeMutation.mutate(m.id)}
+                  data-testid={`btn-revoke-${m.id}`}
+                >
                   Cabut
                 </Button>
               </li>

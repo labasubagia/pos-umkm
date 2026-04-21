@@ -1,10 +1,16 @@
 /**
  * ProductList.tsx — Displays the product catalog with add, edit, delete,
  * and variant management actions.
+ *
+ * Data comes from useProducts() + useCategories() (React Query).
+ * Mutations call the service and invalidate the relevant queries.
  */
 
 import { useState } from 'react'
-import { useCatalogStore } from './useCatalog'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '../../store/authStore'
+import { useCategories, CATEGORIES_QUERY_KEY } from '../../hooks/useCategories'
+import { useProducts, PRODUCTS_QUERY_KEY } from '../../hooks/useProducts'
 import { addProduct, updateProduct, deleteProduct } from './catalog.service'
 import type { NewProduct, ProductChanges } from './catalog.service'
 import { ProductForm } from './ProductForm'
@@ -14,47 +20,49 @@ import { Button } from '../../components/ui/button'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 
 export function ProductList() {
-  const { categories, products, addProductToStore, updateProductInStore, removeProductFromStore } =
-    useCatalogStore()
+  const queryClient = useQueryClient()
+  const activeStoreId = useAuthStore((s) => s.activeStoreId)
+  const { data: categories = [] } = useCategories()
+  const { data: products = [], isLoading, error: fetchError } = useProducts()
 
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [variantProductId, setVariantProductId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [mutationError, setMutationError] = useState<string | null>(null)
 
-  async function handleAdd(product: NewProduct) {
-    const created = await addProduct(product)
-    addProductToStore(created)
-    setShowAddForm(false)
-  }
+  const invalidateProducts = () =>
+    queryClient.invalidateQueries({ queryKey: PRODUCTS_QUERY_KEY(activeStoreId) })
+  const invalidateCategories = () =>
+    queryClient.invalidateQueries({ queryKey: CATEGORIES_QUERY_KEY(activeStoreId) })
 
-  async function handleUpdate(id: string, changes: ProductChanges) {
-    await updateProduct(id, changes)
-    updateProductInStore(id, changes)
-    setEditingId(null)
-  }
+  const addMutation = useMutation({
+    mutationFn: (product: NewProduct) => addProduct(product),
+    onSuccess: () => { setShowAddForm(false); void invalidateProducts(); void invalidateCategories() },
+    onError: (err: Error) => setMutationError(err.message),
+  })
 
-  async function handleDelete(id: string) {
-    setError(null)
-    try {
-      await deleteProduct(id)
-      removeProductFromStore(id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    }
-  }
+  const updateMutation = useMutation({
+    mutationFn: ({ id, changes }: { id: string; changes: ProductChanges }) => updateProduct(id, changes),
+    onSuccess: () => { setEditingId(null); void invalidateProducts() },
+    onError: (err: Error) => setMutationError(err.message),
+  })
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteProduct(id),
+    onSuccess: () => { setMutationError(null); void invalidateProducts() },
+    onError: (err: Error) => setMutationError(err.message),
+  })
+
+  const displayError = mutationError ?? (fetchError instanceof Error ? fetchError.message : null)
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]))
+
+  if (isLoading) return <p className="text-sm text-gray-500">Memuat produk…</p>
 
   if (variantProductId) {
     const product = products.find((p) => p.id === variantProductId)
     return (
       <div>
-        <Button
-          variant="ghost"
-          onClick={() => setVariantProductId(null)}
-          className="mb-4"
-        >
+        <Button variant="ghost" onClick={() => setVariantProductId(null)} className="mb-4">
           ← Kembali ke Daftar Produk
         </Button>
         {product && <VariantManager product={product} />}
@@ -71,9 +79,9 @@ export function ProductList() {
         </Button>
       </div>
 
-      {error && (
+      {displayError && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{displayError}</AlertDescription>
         </Alert>
       )}
 
@@ -81,7 +89,7 @@ export function ProductList() {
         <div className="rounded border border-gray-200 p-4">
           <ProductForm
             categories={categories}
-            onSubmit={handleAdd}
+            onSubmit={(p) => addMutation.mutate(p)}
             onCancel={() => setShowAddForm(false)}
             submitLabel="Tambah"
           />
@@ -92,62 +100,55 @@ export function ProductList() {
         <p className="text-sm text-gray-500">Belum ada produk. Tambahkan produk pertama Anda.</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {products.map((product) => {
-            const editingThisProduct = editingId === product.id
-            return (
-              <li key={product.id} className="rounded border border-gray-200 p-3" data-testid={`product-item-${product.id}`}>
-                {editingThisProduct ? (
-                  <ProductForm
-                    categories={categories}
-                    initialProduct={product}
-                    onSubmit={(changes) => handleUpdate(product.id, changes)}
-                    onCancel={() => setEditingId(null)}
-                    submitLabel="Perbarui"
-                  />
-                ) : (
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-medium" data-testid={`product-name-${product.id}`}>{product.name}</span>
-                      <span className="text-xs text-gray-500">
-                        {categoryMap.get(product.category_id) ?? '—'} ·{' '}
-                        {product.sku ? `SKU: ${product.sku} · ` : ''}
-                        <span data-testid={`product-price-${product.id}`}>{formatIDR(product.price)}</span>{' '}
-                        · <span data-testid={`product-stock-${product.id}`}>Stok: {product.stock}</span>
-                        {product.has_variants && ' · Memiliki varian'}
-                      </span>
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      {product.has_variants && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setVariantProductId(product.id)}
-                          className="text-purple-600"
-                        >
-                          Varian
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingId(product.id)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(product.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        Hapus
-                      </Button>
-                    </div>
+          {products.map((product) => (
+            <li key={product.id} className="rounded border border-gray-200 p-3" data-testid={`product-item-${product.id}`}>
+              {editingId === product.id ? (
+                <ProductForm
+                  categories={categories}
+                  initialProduct={product}
+                  onSubmit={(changes) => updateMutation.mutate({ id: product.id, changes })}
+                  onCancel={() => setEditingId(null)}
+                  submitLabel="Perbarui"
+                />
+              ) : (
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-medium" data-testid={`product-name-${product.id}`}>{product.name}</span>
+                    <span className="text-xs text-gray-500">
+                      {categoryMap.get(product.category_id) ?? '—'} ·{' '}
+                      {product.sku ? `SKU: ${product.sku} · ` : ''}
+                      <span data-testid={`product-price-${product.id}`}>{formatIDR(product.price)}</span>{' '}
+                      · <span data-testid={`product-stock-${product.id}`}>Stok: {product.stock}</span>
+                      {product.has_variants && ' · Memiliki varian'}
+                    </span>
                   </div>
-                )}
-              </li>
-            )
-          })}
+                  <div className="flex shrink-0 gap-2">
+                    {product.has_variants && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setVariantProductId(product.id)}
+                        className="text-purple-600"
+                      >
+                        Varian
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => setEditingId(product.id)}>
+                      Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteMutation.mutate(product.id)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      Hapus
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </li>
+          ))}
         </ul>
       )}
     </div>

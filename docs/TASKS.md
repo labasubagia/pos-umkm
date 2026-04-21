@@ -1690,6 +1690,156 @@
 
 ---
 
+### T067 — Migrate Catalog Data to React Query
+
+- **Status:** ✅ done
+- **Section:** State Management
+- **Depends on:** T066
+- **Test type:** unit
+
+**Goal**: Replace `useCatalogStore` (Zustand) with React Query hooks for categories, products, and variants. Eliminates manual `loadCatalog()` calls and `lastHydratedAt` re-load triggers in `CatalogPage` and `CashierPage`.
+
+**Changes**:
+
+1. **`src/hooks/useCategories.ts`** — `useQuery(['categories', activeStoreId], fetchCategories)`
+2. **`src/hooks/useProducts.ts`** — `useQuery(['products', activeStoreId], fetchProducts)`
+3. **`src/hooks/useVariants.ts`** — `useQuery(['variants', activeStoreId], fetchVariants)`
+4. **`CategoryList.tsx`** — replace `useCatalogStore()` with `useCategories()`; mutations call service + `invalidateQueries(['categories', activeStoreId])`
+5. **`ProductList.tsx`** — replace `useCatalogStore()` with `useProducts()` + `useCategories()`; mutations call service + `invalidateQueries(['products', activeStoreId])`
+6. **`VariantManager.tsx`** — replace `useCatalogStore()` with `useVariants()`; mutations call service + `invalidateQueries(['variants', activeStoreId])`
+7. **`CatalogPage.tsx`** — remove `loadCatalog()` call; remove `lastHydratedAt` effect; loading state comes from `useProducts().isLoading`
+8. **`CashierPage.tsx`** — replace `useCatalogStore()` with `useProducts()` + `useVariants()`; remove `loadCatalog()` and `lastHydratedAt` effect
+9. **`useCatalog.ts`** — delete (no longer used)
+
+**Architecture note**: Query keys include `activeStoreId` so switching stores auto-invalidates catalog cache. `invalidateQueries` after mutations triggers all subscribers to refetch simultaneously — no optimistic update bookkeeping needed.
+
+**Test cases**:
+- ✅ `CategoryList renders categories from useCategories hook`
+- ✅ `addCategory mutation calls service and triggers refetch`
+- ✅ `deleteCategory mutation calls service and triggers refetch`
+- ✅ `ProductList renders products from useProducts hook`
+- ✅ `CashierPage passes products/variants from React Query to ProductSearch`
+- ❌ `CategoryList shows error when fetchCategories fails`
+
+---
+
+### T068 — Migrate Settings Data to React Query
+
+- **Status:** ✅ done
+- **Section:** State Management
+- **Depends on:** T066
+- **Test type:** unit
+
+**Goal**: Replace manual `useState/useEffect/lastHydratedAt` patterns in `BusinessProfile`, `MemberManagement`, and `QRISConfig` with React Query hooks.
+
+**Changes**:
+
+1. **`src/hooks/useSettings.ts`** — `useQuery(['settings', activeStoreId], getSettings)`
+2. **`src/hooks/useMembers.ts`** — `useQuery(['members', activeStoreId], listMembers)`
+3. **`BusinessProfile.tsx`** — replace `useState/useEffect/lastHydratedAt` with `useSettings()`; on submit call `saveSettings` + `invalidateQueries(['settings', activeStoreId])`
+4. **`MemberManagement.tsx`** — replace `useState/useEffect/lastHydratedAt` with `useMembers()`; `inviteMember`/`revokeMember` use `useMutation` + `invalidateQueries(['members', activeStoreId])`
+5. **`QRISConfig.tsx`** — replace `useState/useEffect/lastHydratedAt` with `useQuery(['qris', activeStoreId], getQRISImage)`; save uses `useMutation`
+
+**Test cases**:
+- ✅ `BusinessProfile renders settings from useSettings hook`
+- ✅ `save settings mutation calls service and invalidates settings query`
+- ✅ `MemberManagement renders member list from useMembers hook`
+- ✅ `invite member mutation calls service and refetches members`
+- ✅ `revoke member mutation calls service and refetches members`
+- ❌ `BusinessProfile shows error when getSettings fails`
+
+---
+
+### T069 — Migrate Inventory Data to React Query
+
+- **Status:** ✅ done
+- **Section:** State Management
+- **Depends on:** T066
+- **Test type:** unit
+
+**Goal**: Replace manual `useState/useEffect/lastHydratedAt` in `StockOpname` and `PurchaseOrders` with React Query hooks.
+
+**Changes**:
+
+1. **`src/hooks/useStockOpname.ts`** — `useQuery(['stock-opname', activeStoreId], fetchStockOpnameData)`
+2. **`src/hooks/usePurchaseOrders.ts`** — `useQuery(['purchase-orders', activeStoreId], fetchPurchaseOrders)`
+3. **`StockOpname.tsx`** — replace manual load/state with `useStockOpname()`; after save, `invalidateQueries(['stock-opname', activeStoreId])`
+4. **`PurchaseOrders.tsx`** — replace manual load/state with `usePurchaseOrders()` + `useProducts()`; mutations invalidate relevant queries
+
+**Test cases**:
+- ✅ `StockOpname renders rows from useStockOpname hook`
+- ✅ `save opname invalidates stock-opname query triggering refetch`
+- ✅ `PurchaseOrders renders orders from usePurchaseOrders hook`
+- ❌ `StockOpname shows error when fetchStockOpnameData fails`
+
+---
+
+### T070 — Migrate Customers Data to React Query
+
+- **Status:** ✅ done
+- **Section:** State Management
+- **Depends on:** T066
+- **Test type:** unit
+
+**Goal**: Replace manual `useState/useEffect/lastHydratedAt` in `CustomerSearch` with a React Query hook.
+
+**Changes**:
+
+1. **`src/hooks/useCustomers.ts`** — `useQuery(['customers', activeStoreId], fetchCustomers)`
+2. **`CustomerSearch.tsx`** — replace `useState/useEffect/lastHydratedAt` with `useCustomers()`; component must be wrapped in `QueryClientProvider` by its parent (already done via `main.tsx`)
+
+**Test cases**:
+- ✅ `CustomerSearch renders customers from useCustomers hook`
+- ✅ `filtering customers narrows list by name/phone`
+- ❌ `CustomerSearch shows loading state while fetching`
+
+---
+
+### T071 — Migrate Reports to React Query; Remove lastHydratedAt
+
+- **Status:** ✅ done
+- **Section:** State Management
+- **Depends on:** T066
+- **Test type:** unit
+
+**Goal**: Replace `DailySummary`'s manual load pattern with React Query (`useQuery` with `enabled: false` + manual `refetch()` on button press). Remove stale `lastHydratedAt` references from `SalesReport`, `GrossProfitReport`, and `CashReconciliation`.
+
+**Changes**:
+
+1. **`DailySummary.tsx`** — `useQuery(['daily-summary', activeStoreId, date], () => fetchDailySummary(date), { enabled: false })`; button calls `refetch()`; remove `lastHydratedAt` effect
+2. **`SalesReport.tsx`** — remove `useSyncStore`/`lastHydratedAt` import if any (it had none); verify clean
+3. **`GrossProfitReport.tsx`** — same check
+4. **`CashReconciliation.tsx`** — same check
+
+**Test cases**:
+- ✅ `DailySummary fetches when button is clicked`
+- ✅ `DailySummary refetches when date changes and button clicked again`
+- ❌ `DailySummary shows error when fetchDailySummary fails`
+
+---
+
+### T072 — Invalidate React Query Cache After Hydration
+
+- **Status:** ✅ done
+- **Section:** State Management
+- **Depends on:** T067, T068, T069, T070, T071
+- **Test type:** unit
+
+**Goal**: After `HydrationService.hydrateAll()` completes in `AppShell`, call `queryClient.invalidateQueries()` so all active React Query hooks refetch from freshly-populated IndexedDB. This replaces the `lastHydratedAt` pattern that each component previously had to subscribe to individually.
+
+**Changes**:
+
+1. **`AppShell.tsx`** — after `await hydrationService.hydrateAll(...)`, call `queryClient.invalidateQueries()` (no filter — refetch all active queries for the current store)
+2. Remove all remaining `useSyncStore` / `lastHydratedAt` usage from component files (confirmed clean after T067–T071)
+
+**Architecture note**: Instead of each component watching `lastHydratedAt` to trigger a re-load, a single invalidation at the AppShell level notifies React Query to refetch all active queries. Components no longer need to know about hydration at all.
+
+**Test cases**:
+- ✅ `AppShell calls queryClient.invalidateQueries after hydrateAll resolves`
+- ✅ `components using useQuery refetch after invalidation (integration)`
+
+---
+
 ## Appendix: Parallelization Map
 
 The following tasks within each section have no mutual dependencies and can be worked on by different agents simultaneously:
@@ -1708,7 +1858,7 @@ The following tasks within each section have no mutual dependencies and can be w
 | Settings | T043 first; T044 depends on T043 |
 | Offline-First | T051 first; then T052, T054 in parallel; T053 depends on T052; T055 depends on T053; T056 depends on T052+T053+T054+T055; T057 depends on T056; T058 and T059 depend on T056 (can run in parallel with each other and with T057) |
 | Store Management | T060 first (service), then T061 (UI), then T062 (NavBar sync + switch button), then T063 (remove stale spreadsheet IDs from persistence); T064 (no /cashier redirect) can run in parallel with T063 |
-| State Management | T065 first (install React Query), then T066 (migrate stores) |
+| State Management | T065 first (install React Query), then T066 (migrate stores); then T067–T071 in parallel (all depend on T066); then T072 (depends on T067–T071) |
 
 ---
 

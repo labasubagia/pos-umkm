@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.7                               |
+| Version     | 2.8                               |
 | Status      | Draft                             |
 | Date        | April 2026                        |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -97,7 +97,8 @@ Each business owner's data lives in **their own Google Drive** organized under `
 | Framework | React 18 (with TypeScript) |
 | Build tool | Vite |
 | Routing | React Router v6 |
-| State management | Zustand |
+| State management | Zustand (session state only: auth, activeStoreId, spreadsheet IDs) |
+| Data fetching & caching | `@tanstack/react-query` — all server/Dexie data reads go through `useQuery` hooks in `src/hooks/`; mutations call service + `invalidateQueries` |
 | UI components | Tailwind CSS + shadcn/ui (Button, Input, Label, Select, Dialog, Card, Badge, Table, Tabs, Alert, Separator, ScrollArea, Textarea, Checkbox) |
 | Auth adapter (dev) | `MockAuthAdapter` — instant sign-in, no OAuth |
 | Auth adapter (prod) | `@react-oauth/google` (Google Identity Services) |
@@ -213,9 +214,12 @@ src/
 │   ├── AppShell.tsx     # Authenticated page layout: NavBar + Outlet + BottomNav; starts SyncManager
 │   ├── SyncStatus.tsx   # NavBar sync badge: offline/pending/syncing/error/synced states
 │   └── ui/              # shadcn/ui primitives (Button, Modal, etc.)
-├── hooks/               # Shared React hooks (useDebounce, usePagination, etc.)
-├── store/               # Zustand global stores
-│   ├── authStore.ts     # Auth state: user, spreadsheet IDs, sign-out
+├── hooks/               # Shared React hooks — all React Query data hooks live here
+│   │                    # (useStores, useCategories, useProducts, useVariants,
+│   │                    #  useCustomers, useMembers, useSettings, useStockOpname,
+│   │                    #  usePurchaseOrders — each includes activeStoreId in queryKey)
+├── store/               # Zustand global stores — session state only
+│   ├── authStore.ts     # Auth state: user, activeStoreId, spreadsheet IDs, sign-out
 │   └── syncStore.ts     # Sync state: pendingCount, isSyncing, lastSyncedAt, lastError
 └── tests/
     └── e2e/             # Playwright end-to-end tests
@@ -229,7 +233,9 @@ src/
 **Key rules:**
 - `lib/adapters/` is the only data and auth abstraction layer. Module service files call `ISheetRepository<T>` — never `lib/adapters/google/sheets/` or Google APIs directly from modules. `lib/adapters/google/sheets/` is used only inside `SheetRepository` and `DexieSheetRepository`'s `SyncManager`.
 - `lib/adapters/google/sheets/` is the low-level HTTP transport for the Google Sheets API, used exclusively by `SheetRepository`.
-- No module imports from another module's internals. Shared state goes through Zustand stores or React context.
+- No module imports from another module's internals. Shared state goes through **React Query hooks** (`src/hooks/`) for server/Dexie data, or **Zustand** (`src/store/`) for session state.
+- All React Query hooks include `activeStoreId` as part of the query key so switching stores automatically invalidates and refetches cached data.
+- After `HydrationService.hydrateAll()` completes in `AppShell`, `queryClient.invalidateQueries()` is called to refetch all active queries from freshly-populated IndexedDB.
 - Pure functions (formatters, validators, calculations) live in `lib/` and are unit-testable without DOM or API.
 
 ### 2.6 Application Layout — AppShell, NavBar & BottomNav

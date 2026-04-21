@@ -2,46 +2,52 @@
  * CategoryList.tsx — Displays the list of product categories with
  * inline edit and delete actions.
  *
- * Reads from useCatalogStore; writes go through catalog.service functions
- * and then update the store optimistically.
+ * Data comes from useCategories() (React Query). Mutations call the
+ * service directly and invalidate the query to trigger a refetch.
  */
 
 import { useState } from 'react'
-import { useCatalogStore } from './useCatalog'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '../../store/authStore'
+import { useCategories, CATEGORIES_QUERY_KEY } from '../../hooks/useCategories'
 import { addCategory, updateCategory, deleteCategory } from './catalog.service'
 import { CategoryForm } from './CategoryForm'
 import { Button } from '../../components/ui/button'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 
 export function CategoryList() {
-  const { categories, addCategoryToStore, updateCategoryInStore, removeCategoryFromStore } =
-    useCatalogStore()
+  const queryClient = useQueryClient()
+  const activeStoreId = useAuthStore((s) => s.activeStoreId)
+  const { data: categories = [], isLoading, error: fetchError } = useCategories()
 
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [mutationError, setMutationError] = useState<string | null>(null)
 
-  async function handleAdd(name: string) {
-    const category = await addCategory(name)
-    addCategoryToStore(category)
-    setShowAddForm(false)
-  }
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: CATEGORIES_QUERY_KEY(activeStoreId) })
 
-  async function handleUpdate(id: string, name: string) {
-    await updateCategory(id, name)
-    updateCategoryInStore(id, name)
-    setEditingId(null)
-  }
+  const addMutation = useMutation({
+    mutationFn: (name: string) => addCategory(name),
+    onSuccess: () => { setShowAddForm(false); void invalidate() },
+    onError: (err: Error) => setMutationError(err.message),
+  })
 
-  async function handleDelete(id: string) {
-    setDeleteError(null)
-    try {
-      await deleteCategory(id)
-      removeCategoryFromStore(id)
-    } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : String(err))
-    }
-  }
+  const updateMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => updateCategory(id, name),
+    onSuccess: () => { setEditingId(null); void invalidate() },
+    onError: (err: Error) => setMutationError(err.message),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteCategory(id),
+    onSuccess: () => { setMutationError(null); void invalidate() },
+    onError: (err: Error) => setMutationError(err.message),
+  })
+
+  const displayError = mutationError ?? (fetchError instanceof Error ? fetchError.message : null)
+
+  if (isLoading) return <p className="text-sm text-gray-500">Memuat kategori…</p>
 
   return (
     <div className="flex flex-col gap-4">
@@ -52,16 +58,16 @@ export function CategoryList() {
         </Button>
       </div>
 
-      {deleteError && (
+      {displayError && (
         <Alert variant="destructive">
-          <AlertDescription>{deleteError}</AlertDescription>
+          <AlertDescription>{displayError}</AlertDescription>
         </Alert>
       )}
 
       {showAddForm && (
         <div className="rounded border border-gray-200 p-4">
           <CategoryForm
-            onSubmit={handleAdd}
+            onSubmit={(name) => addMutation.mutate(name)}
             onCancel={() => setShowAddForm(false)}
             submitLabel="Tambah"
           />
@@ -77,7 +83,7 @@ export function CategoryList() {
               {editingId === cat.id ? (
                 <CategoryForm
                   initialName={cat.name}
-                  onSubmit={(name) => handleUpdate(cat.id, name)}
+                  onSubmit={(name) => updateMutation.mutate({ id: cat.id, name })}
                   onCancel={() => setEditingId(null)}
                   submitLabel="Perbarui"
                 />
@@ -96,7 +102,7 @@ export function CategoryList() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(cat.id)}
+                      onClick={() => deleteMutation.mutate(cat.id)}
                       className="text-red-600 hover:text-red-700"
                       data-testid={`btn-delete-category-${cat.id}`}
                     >

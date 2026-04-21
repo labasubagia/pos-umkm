@@ -1,13 +1,16 @@
 /**
  * StockOpname.tsx — Stock opname (physical stock count) UI.
  *
- * Displays a table of all products with system stock and an editable
- * physical count input. On save, only changed rows are written to the sheet.
+ * Data comes from useStockOpname() (React Query). After save, invalidates
+ * the query to refetch updated system_stock values.
  *
  * T034 deliverable.
  */
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { fetchStockOpnameData, saveOpnameResults, InventoryError, type OpnameRow } from './inventory.service'
+import { useState, useEffect } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '../../store/authStore'
+import { useStockOpname, STOCK_OPNAME_QUERY_KEY } from '../../hooks/useStockOpname'
+import { saveOpnameResults, InventoryError, type OpnameRow } from './inventory.service'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Alert, AlertDescription } from '../../components/ui/alert'
@@ -19,44 +22,33 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
-import { useSyncStore } from '../../store/syncStore'
 
 export function StockOpname() {
+  const queryClient = useQueryClient()
+  const activeStoreId = useAuthStore((s) => s.activeStoreId)
+  const { data: fetchedRows = [], isLoading, error: fetchError } = useStockOpname()
+
+  // Local editable rows — initialised from query data, mutated locally until saved
   const [rows, setRows] = useState<OpnameRow[]>([])
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
-  const lastHydratedAt = useSyncStore((s) => s.lastHydratedAt)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await fetchStockOpnameData()
-      setRows(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal memuat data stok')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  const initialized = useRef(false)
 
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    load()
-  }, [load])
+    setRows(fetchedRows)
+  }, [fetchedRows])
 
-  // Re-load after HydrationService populates IndexedDB on login.
-  useEffect(() => {
-    if (lastHydratedAt === null) return
-    initialized.current = false
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastHydratedAt])
+  const saveMutation = useMutation({
+    mutationFn: () => saveOpnameResults(rows),
+    onSuccess: () => {
+      const changedCount = rows.filter((r) => r.physical_count !== r.system_stock).length
+      setSuccessMsg(
+        changedCount === 0
+          ? 'Tidak ada perubahan stok yang perlu disimpan.'
+          : `Stok opname selesai — ${changedCount} produk diperbarui.`,
+      )
+      void queryClient.invalidateQueries({ queryKey: STOCK_OPNAME_QUERY_KEY(activeStoreId) })
+    },
+    onError: (err) => setSuccessMsg(null),
+  })
 
   function handlePhysicalCountChange(productId: string, value: string) {
     const count = parseInt(value, 10)
@@ -70,28 +62,11 @@ export function StockOpname() {
     setSuccessMsg(null)
   }
 
-  async function handleSave() {
-    setSaving(true)
-    setError(null)
-    setSuccessMsg(null)
-    try {
-      await saveOpnameResults(rows)
-      const changedCount = rows.filter((r) => r.physical_count !== r.system_stock).length
-      setSuccessMsg(
-        changedCount === 0
-          ? 'Tidak ada perubahan stok yang perlu disimpan.'
-          : `Stok opname selesai — ${changedCount} produk diperbarui.`,
-      )
-      // Reload to reflect updated system_stock values
-      await load()
-    } catch (err) {
-      setError(err instanceof InventoryError ? err.message : 'Gagal menyimpan hasil opname')
-    } finally {
-      setSaving(false)
-    }
-  }
+  const errorMsg = saveMutation.isError
+    ? (saveMutation.error instanceof InventoryError ? saveMutation.error.message : 'Gagal menyimpan hasil opname')
+    : (fetchError instanceof Error ? fetchError.message : null)
 
-  if (loading) {
+  if (isLoading) {
     return <p data-testid="opname-loading" className="text-sm text-gray-500">Memuat data stok…</p>
   }
 
@@ -101,16 +76,16 @@ export function StockOpname() {
         <h2 className="text-lg font-semibold">Stok Opname</h2>
         <Button
           data-testid="btn-save-opname"
-          onClick={handleSave}
-          disabled={saving}
+          onClick={() => saveMutation.mutate()}
+          disabled={saveMutation.isPending}
         >
-          {saving ? 'Menyimpan…' : 'Simpan Hasil Opname'}
+          {saveMutation.isPending ? 'Menyimpan…' : 'Simpan Hasil Opname'}
         </Button>
       </div>
 
-      {error && (
+      {errorMsg && (
         <Alert variant="destructive" className="mb-3" data-testid="opname-error">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{errorMsg}</AlertDescription>
         </Alert>
       )}
       {successMsg && (

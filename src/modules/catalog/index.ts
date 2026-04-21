@@ -19,7 +19,6 @@ export {
   decrementVariantStock,
   CatalogError,
 } from './catalog.service'
-export { useCatalogStore } from './useCatalog'
 export type { ParsedProduct, RowValidationResult } from './csv.service'
 export { parseProductCSV, validateImportRows, bulkImportProducts } from './csv.service'
 export { CategoryList } from './CategoryList'

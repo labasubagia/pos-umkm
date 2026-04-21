@@ -1,10 +1,14 @@
 /**
  * VariantManager.tsx — Manages variants for a product that has has_variants=true.
  * Shows existing variants and allows adding/deleting them.
+ *
+ * Data comes from useVariants() (React Query). Mutations invalidate the query.
  */
 
 import { useState } from 'react'
-import { useCatalogStore } from './useCatalog'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '../../store/authStore'
+import { useVariants, VARIANTS_QUERY_KEY } from '../../hooks/useVariants'
 import { addVariant, deleteVariant } from './catalog.service'
 import type { Product } from './catalog.service'
 import { formatIDR } from '../../lib/formatters'
@@ -18,7 +22,9 @@ interface Props {
 }
 
 export function VariantManager({ product }: Props) {
-  const { variants, addVariantToStore, removeVariantFromStore } = useCatalogStore()
+  const queryClient = useQueryClient()
+  const activeStoreId = useAuthStore((s) => s.activeStoreId)
+  const { data: variants = [] } = useVariants()
 
   const productVariants = variants.filter((v) => v.product_id === product.id)
 
@@ -27,44 +33,38 @@ export function VariantManager({ product }: Props) {
   const [price, setPrice] = useState('')
   const [stock, setStock] = useState('0')
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    const priceNum = parseInt(price, 10)
-    if (!Number.isInteger(priceNum) || priceNum <= 0) {
-      setError('Harga harus bilangan bulat positif')
-      return
-    }
-    if (!optionValue.trim()) {
-      setError('Nilai varian tidak boleh kosong')
-      return
-    }
-    setLoading(true)
-    try {
-      const variant = await addVariant(
-        product.id,
-        optionName.trim(),
-        optionValue.trim(),
-        priceNum,
-        parseInt(stock, 10) || 0,
-      )
-      addVariantToStore(variant)
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: VARIANTS_QUERY_KEY(activeStoreId) })
+
+  const addMutation = useMutation({
+    mutationFn: () => {
+      const priceNum = parseInt(price, 10)
+      if (!Number.isInteger(priceNum) || priceNum <= 0) throw new Error('Harga harus bilangan bulat positif')
+      if (!optionValue.trim()) throw new Error('Nilai varian tidak boleh kosong')
+      return addVariant(product.id, optionName.trim(), optionValue.trim(), priceNum, parseInt(stock, 10) || 0)
+    },
+    onSuccess: () => {
       setOptionName('')
       setOptionValue('')
       setPrice('')
       setStock('0')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setLoading(false)
-    }
-  }
+      setError(null)
+      void invalidate()
+    },
+    onError: (err: Error) => setError(err.message),
+  })
 
-  async function handleDelete(variantId: string) {
-    await deleteVariant(variantId)
-    removeVariantFromStore(variantId)
+  const deleteMutation = useMutation({
+    mutationFn: (variantId: string) => deleteVariant(variantId),
+    onSuccess: () => void invalidate(),
+    onError: (err: Error) => setError(err.message),
+  })
+
+  function handleAdd(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    addMutation.mutate()
   }
 
   return (
@@ -122,8 +122,8 @@ export function VariantManager({ product }: Props) {
           </Alert>
         )}
         <div className="flex justify-end">
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Menambahkan…' : 'Tambah Varian'}
+          <Button type="submit" disabled={addMutation.isPending}>
+            {addMutation.isPending ? 'Menambahkan…' : 'Tambah Varian'}
           </Button>
         </div>
       </form>
@@ -148,7 +148,7 @@ export function VariantManager({ product }: Props) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleDelete(v.id)}
+                onClick={() => deleteMutation.mutate(v.id)}
                 className="text-red-600 hover:text-red-700"
               >
                 Hapus

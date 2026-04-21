@@ -9,9 +9,12 @@
  */
 
 import { useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { parseProductCSV, validateImportRows, bulkImportProducts } from './csv.service'
 import type { ParsedProduct, RowValidationResult } from './csv.service'
-import { useCatalogStore } from './useCatalog'
+import { PRODUCTS_QUERY_KEY } from '../../hooks/useProducts'
+import { CATEGORIES_QUERY_KEY } from '../../hooks/useCategories'
+import { useAuthStore } from '../../store/authStore'
 import { formatIDR } from '../../lib/formatters'
 import { Button } from '../../components/ui/button'
 import { Alert, AlertDescription } from '../../components/ui/alert'
@@ -32,7 +35,8 @@ export function CSVImport() {
   const [importError, setImportError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [successCount, setSuccessCount] = useState<number | null>(null)
-  const { loadCatalog } = useCatalogStore()
+  const queryClient = useQueryClient()
+  const activeStoreId = useAuthStore((s) => s.activeStoreId)
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -58,7 +62,8 @@ export function CSVImport() {
       setRows([])
       setResults([])
       if (fileInputRef.current) fileInputRef.current.value = ''
-      await loadCatalog()
+      await queryClient.invalidateQueries({ queryKey: PRODUCTS_QUERY_KEY(activeStoreId) })
+      await queryClient.invalidateQueries({ queryKey: CATEGORIES_QUERY_KEY(activeStoreId) })
     } catch (err) {
       setImportError(err instanceof Error ? err.message : String(err))
     } finally {
