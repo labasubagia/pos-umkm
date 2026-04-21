@@ -30,6 +30,7 @@ function appBaseUrl(): string {
 
 export interface Member {
   id: string
+  google_user_id: string
   email: string
   name: string
   role: Role
@@ -70,6 +71,7 @@ export async function inviteMember(
 
   const member: Member = {
     id: generateId(),
+    google_user_id: '',
     email,
     name: '',
     role,
@@ -107,10 +109,23 @@ export async function listMembers(): Promise<Member[]> {
     .filter((r) => !r['deleted_at'] && typeof r['email'] === 'string' && r['email'] !== '')
     .map((r) => ({
       id: r['id'] as string,
+      google_user_id: (r['google_user_id'] as string) ?? '',
       email: r['email'] as string,
       name: (r['name'] as string) ?? '',
       role: r['role'] as Role,
       invited_at: r['invited_at'] as string,
       deleted_at: null,
     }))
+}
+
+/**
+ * Records the Google user ID for a member after they sign in.
+ * Called on each sign-in so the ID stays current even if it changes.
+ * No-op if no active row is found for the given email.
+ */
+export async function recordGoogleUserId(email: string, googleUserId: string): Promise<void> {
+  const rows = await getRepos().members.getAll()
+  const existing = rows.find((r) => r['email'] === email && !r['deleted_at'])
+  if (!existing) return
+  await getRepos().members.batchUpdate([{ id: existing['id'] as string, google_user_id: googleUserId }])
 }

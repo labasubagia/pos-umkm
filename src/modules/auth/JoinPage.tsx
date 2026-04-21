@@ -20,6 +20,7 @@ import { Alert, AlertDescription } from '../../components/ui/alert'
 import { authAdapter } from '../../lib/adapters'
 import { useAuth } from './useAuth'
 import { resolveUserRole } from './auth.service'
+import { recordGoogleUserId } from '../../modules/settings/members.service'
 
 export default function JoinPage() {
   const navigate = useNavigate()
@@ -40,6 +41,7 @@ export default function JoinPage() {
     try {
       const user = await authAdapter.signIn()
       const role = await resolveUserRole(user.email)
+      await recordGoogleUserId(user.email, user.id)
       const userWithRole = { ...user, role }
       const token = authAdapter.getAccessToken() ?? ''
       setUser(userWithRole, role, token)

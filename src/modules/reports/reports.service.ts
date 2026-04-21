@@ -3,6 +3,7 @@ import { nowUTC } from '../../lib/formatters'
 
 export interface TransactionRow {
   id: string
+  receipt_number: string
   created_at: string
   cashier_id: string
   payment_method: string
@@ -107,6 +108,7 @@ export async function fetchDailySummary(date: string): Promise<DailySummary> {
 
   const transactions = txRows.map((r) => ({
     id: String(r['id']),
+    receipt_number: String(r['receipt_number'] ?? ''),
     created_at: String(r['created_at']),
     cashier_id: String(r['cashier_id']),
     payment_method: String(r['payment_method']),
@@ -165,6 +167,7 @@ export async function fetchTransactionsForRange(
         seen.add(id)
         allRows.push({
           id,
+          receipt_number: String(r['receipt_number'] ?? ''),
           created_at,
           cashier_id: String(r['cashier_id']),
           payment_method: String(r['payment_method']),

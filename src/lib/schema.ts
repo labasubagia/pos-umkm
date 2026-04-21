@@ -44,7 +44,7 @@ export const MAIN_TAB_HEADERS: Record<string, string[]> = {
 /** Column headers for each Master Sheet tab. */
 export const MASTER_TAB_HEADERS: Record<string, string[]> = {
   Settings: ['id', 'key', 'value', 'updated_at'],
-  Members: ['id', 'email', 'name', 'role', 'invited_at', 'deleted_at'],
+  Members: ['id', 'google_user_id', 'email', 'name', 'role', 'invited_at', 'deleted_at'],
   Categories: ['id', 'name', 'created_at', 'deleted_at'],
   Products: ['id', 'category_id', 'name', 'sku', 'price', 'stock', 'has_variants', 'created_at', 'deleted_at'],
   Variants: ['id', 'product_id', 'option_name', 'option_value', 'price', 'stock', 'created_at', 'deleted_at'],

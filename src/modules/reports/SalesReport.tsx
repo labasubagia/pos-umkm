@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import dayjs from 'dayjs'
 import {
   fetchTransactionsForRange,
   filterTransactions,
@@ -8,6 +9,8 @@ import {
 } from './reports.service'
 import { formatIDR } from '../../lib/formatters'
 import { exportToExcel, printReport } from './export.service'
+import { listMembers } from '../settings/members.service'
+import { useAuthStore } from '../../store/authStore'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
@@ -28,6 +31,7 @@ export function SalesReport() {
   const [cashierEmail, setCashierEmail] = useState('')
   const [paymentFilter, setPaymentFilter] = useState<'' | 'CASH' | 'QRIS' | 'SPLIT'>('')
   const [rows, setRows] = useState<TransactionRow[] | null>(null)
+  const [cashierEmailMap, setCashierEmailMap] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -35,11 +39,23 @@ export function SalesReport() {
     setLoading(true)
     setError(null)
     try {
+      // Build google_user_id → email map: logged-in user first, then Members sheet.
+      const authUser = useAuthStore.getState().user
+      const emailMap: Record<string, string> = {}
+      if (authUser?.id && authUser?.email) emailMap[authUser.id] = authUser.email
+      const members = await listMembers()
+      for (const m of members) {
+        if (m.google_user_id && m.email) emailMap[m.google_user_id] = m.email
+      }
+      setCashierEmailMap(emailMap)
+
       const all = await fetchTransactionsForRange(startDate, endDate)
       const filters: ReportFilters = {}
       if (cashierEmail.trim()) filters.cashier_email = cashierEmail.trim()
       if (paymentFilter) filters.payment_method = paymentFilter
-      setRows(filterTransactions(all, filters))
+      const filtered = filterTransactions(all, filters)
+      filtered.sort((a, b) => b.created_at.localeCompare(a.created_at))
+      setRows(filtered)
     } catch (err) {
       if (err instanceof ReportError) {
         setError(err.message)
@@ -53,13 +69,17 @@ export function SalesReport() {
 
   const totalRevenue = rows ? rows.reduce((s, r) => s + r.total, 0) : 0
 
+  function resolveCashier(cashierId: string): string {
+    return cashierEmailMap[cashierId] ?? cashierId
+  }
+
   function handleExport() {
     if (!rows || rows.length === 0) return
     exportToExcel(
       rows.map((r) => ({
-        ID: r.id,
-        Tanggal: r.created_at,
-        Kasir: r.cashier_id,
+        'No. Struk': r.receipt_number,
+        Tanggal: dayjs(r.created_at).format('YYYY-MM-DD HH:mm'),
+        Kasir: resolveCashier(r.cashier_id),
         Pembayaran: r.payment_method,
         Total: r.total,
       })),
@@ -155,7 +175,7 @@ export function SalesReport() {
           <Table data-testid="report-results-table">
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
+                <TableHead>No. Struk</TableHead>
                 <TableHead>Tanggal</TableHead>
                 <TableHead>Kasir</TableHead>
                 <TableHead>Pembayaran</TableHead>
@@ -165,9 +185,9 @@ export function SalesReport() {
             <TableBody>
               {rows.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell>{r.id}</TableCell>
-                  <TableCell>{r.created_at}</TableCell>
-                  <TableCell>{r.cashier_id}</TableCell>
+                  <TableCell>{r.receipt_number}</TableCell>
+                  <TableCell>{dayjs(r.created_at).format('YYYY-MM-DD HH:mm')}</TableCell>
+                  <TableCell>{resolveCashier(r.cashier_id)}</TableCell>
                   <TableCell>{r.payment_method}</TableCell>
                   <TableCell className="text-right">{formatIDR(r.total)}</TableCell>
                 </TableRow>
@@ -194,3 +214,5 @@ export function SalesReport() {
     </div>
   )
 }
+
+
