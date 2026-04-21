@@ -117,7 +117,7 @@ export async function updateStore(
   if (!trimmedName) return
 
   await getRepos().stores.batchUpdate([
-    { id: storeId, field: 'store_name', value: trimmedName },
+    { id: storeId, store_name: trimmedName },
   ])
 }
 
@@ -140,7 +140,7 @@ export async function removeOwnedStore(storeId: string): Promise<void> {
     throw new StoreManagementError(`removeOwnedStore: store "${storeId}" not found`)
   }
 
-  await repo.batchUpdate([{ id: storeId, field: 'deleted_at', value: nowUTC() }])
+  await repo.batchUpdate([{ id: storeId, deleted_at: nowUTC() }])
 }
 
 /**

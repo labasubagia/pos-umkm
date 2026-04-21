@@ -15,23 +15,16 @@ export interface ILocalRepository<T extends Record<string, unknown>> {
   batchInsert(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void>
 
   /**
-   * Patch specific fields on specific records in IndexedDB and queue outbox
-   * entries for remote sync.
+   * Patch records in IndexedDB by id. Each row must contain `id` plus the
+   * fields to update. Only the provided fields are changed.
    */
-  batchUpdate(updates: Array<{ id: string; field: string; value: unknown }>): Promise<void>
+  batchUpdate(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void>
 
   /**
-   * For each entry: update `updateField` if a record matching `lookupField =
-   * lookupValue` already exists; otherwise insert a new record via `makeNewRow`.
-   * Decomposes into batchInsert + batchUpdate so each part is individually
-   * outbox-able without serialising `makeNewRow`.
+   * Insert-or-update records by `id`. Each row must contain `id`.
+   * Rows whose `id` already exists are updated; the rest are inserted.
    */
-  batchUpsertBy(
-    lookupField: string,
-    updateField: string,
-    entries: Array<{ lookupValue: string; value: unknown }>,
-    makeNewRow: (lookupValue: string, value: unknown) => Record<string, unknown>,
-  ): Promise<void>
+  batchUpsert(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void>
 
   /** Stamp `deleted_at` on a record and queue an outbox entry for remote sync. */
   softDelete(id: string): Promise<void>

@@ -105,10 +105,10 @@ describe('batchInsert', () => {
 // ─── batchUpdate ──────────────────────────────────────────────────────────────
 
 describe('batchUpdate', () => {
-  it('updates the column in IndexedDB', async () => {
+  it('updates the field in IndexedDB', async () => {
     const db = getDb(TEST_STORE_ID)
     await db.Products.put({ id: 'p1', name: 'Roti', price: 2000, deleted_at: null })
-    await makeRepo().batchUpdate([{ id: 'p1', field: 'price', value: 2500 }])
+    await makeRepo().batchUpdate([{ id: 'p1', price: 2500 }])
     const updated = await db.Products.get('p1')
     expect(updated?.price).toBe(2500)
   })
@@ -116,7 +116,7 @@ describe('batchUpdate', () => {
   it('queues an outbox entry with op=batchUpdateCells', async () => {
     const db = getDb(TEST_STORE_ID)
     await db.Products.put({ id: 'p1', name: 'Roti', price: 2000, deleted_at: null })
-    await makeRepo().batchUpdate([{ id: 'p1', field: 'price', value: 2500 }])
+    await makeRepo().batchUpdate([{ id: 'p1', price: 2500 }])
     const entry = (await db._outbox.toArray())[0]
     expect(entry.operation.op).toBe('batchUpdateCells')
   })
@@ -124,12 +124,12 @@ describe('batchUpdate', () => {
   it('skips rows not found locally (race condition guard)', async () => {
     const db = getDb(TEST_STORE_ID)
     // Row doesn't exist in Dexie yet — should not throw
-    await makeRepo().batchUpdate([{ id: 'missing', field: 'price', value: 1 }])
+    await makeRepo().batchUpdate([{ id: 'missing', price: 1 }])
     // Outbox entry is still queued — SyncManager will handle it
     expect(await db._outbox.count()).toBe(1)
   })
 
-  it('is a no-op for empty updates array', async () => {
+  it('is a no-op for empty rows array', async () => {
     const db = getDb(TEST_STORE_ID)
     await makeRepo().batchUpdate([])
     expect(await db._outbox.count()).toBe(0)
@@ -165,24 +165,19 @@ describe('softDelete', () => {
   })
 })
 
-// ─── batchUpsertBy ────────────────────────────────────────────────────────────
+// ─── batchUpsert ─────────────────────────────────────────────────────────────
 
-describe('batchUpsertBy', () => {
-  it('updates existing rows and inserts new ones', async () => {
+describe('batchUpsert', () => {
+  it('updates existing rows and inserts new ones by id', async () => {
     const db = getDb(TEST_STORE_ID)
-    // Use Settings table — indexed on 'key', matching the real-world usage.
     await db.Settings.put({ id: 's1', key: 'business_name', value: 'Toko Lama', deleted_at: null })
     const repo = new DexieRepository<Record<string, unknown>>(
       db, { spreadsheetId: 'spreadsheet-1', sheetName: 'Settings' },
     )
-    await repo.batchUpsertBy(
-      'key', 'value',
-      [
-        { lookupValue: 'business_name', value: 'Toko Baru' }, // update
-        { lookupValue: 'address',        value: 'Jl. Merdeka' }, // insert
-      ],
-      (key, value) => ({ id: `new-${key}`, key, value, deleted_at: null }),
-    )
+    await repo.batchUpsert([
+      { id: 's1', key: 'business_name', value: 'Toko Baru', deleted_at: null }, // update
+      { id: 'new-addr', key: 'address', value: 'Jl. Merdeka', deleted_at: null }, // insert
+    ])
     const all = await db.Settings.toArray()
     expect(all).toHaveLength(2)
     const name = all.find((r) => r['key'] === 'business_name')

@@ -21,7 +21,7 @@ function mockRepo(overrides = {}) {
     getAll: vi.fn().mockResolvedValue([]),
     batchInsert: vi.fn().mockResolvedValue(undefined),
     batchUpdate: vi.fn().mockResolvedValue(undefined),
-    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
+    batchUpsert: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -108,7 +108,7 @@ describe('saveOpnameResults', () => {
 
     // Only p1 changed (30 → 28); p2 is unchanged
     expect(mockRepos.products.batchUpdate).toHaveBeenCalledWith([
-      { id: 'p1', field: 'stock', value: 28 },
+      { id: 'p1', stock: 28 },
     ])
   })
 
@@ -197,9 +197,9 @@ describe('receivePurchaseOrder', () => {
     const updates = mockRepos.products.batchUpdate.mock.calls[0][0]
     expect(updates).toHaveLength(2)
     // prod-1: 20 + 50 = 70
-    expect(updates.find((u: { id: string }) => u.id === 'prod-1')?.value).toBe(70)
+    expect(updates.find((u: { id: string }) => u.id === 'prod-1')?.['stock']).toBe(70)
     // prod-2: 10 + 100 = 110
-    expect(updates.find((u: { id: string }) => u.id === 'prod-2')?.value).toBe(110)
+    expect(updates.find((u: { id: string }) => u.id === 'prod-2')?.['stock']).toBe(110)
   })
 
   it('appends Stock_Log entry with reason "purchase_order" for each item', async () => {

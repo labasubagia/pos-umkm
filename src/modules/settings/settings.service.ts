@@ -12,6 +12,7 @@
 
 import { getRepos } from '../../lib/adapters'
 import { nowUTC } from '../../lib/formatters'
+import { generateId } from '../../lib/uuid'
 
 export interface BusinessSettings {
   business_name: string
@@ -82,22 +83,23 @@ export async function getQRISImage(): Promise<string> {
 /**
  * Saves multiple settings in a single round-trip.
  *
- * Uses batchUpsertByKey: the adapter reads the Settings sheet ONCE, then
- * batch-updates all existing keys in one POST and appends any missing keys.
- * Result: 1 GET + 1 batchUpdate (vs. old 2N GETs + N PUTs).
+ * Reads existing settings once, maps each key to the row with its known id
+ * (update) or a newly generated id (insert), then calls batchUpsert.
+ * Result: 1 getAll + 1 batchUpsert.
  */
 export async function saveSettings(settings: Partial<BusinessSettings>): Promise<void> {
   const entries = (Object.entries(settings) as [string, string | number | undefined][])
     .filter(([, v]) => v !== undefined)
-    .map(([key, value]) => ({ lookupValue: key, value: String(value) }))
   if (entries.length === 0) return
 
-  await getRepos().settings.batchUpsertBy(
-    'key',
-    'value',
-    entries,
-    (key, value) => ({ key, value: String(value), updated_at: nowUTC() }),
-  )
+  const existing = await getRepos().settings.getAll()
+  const rows = entries.map(([key, value]) => {
+    const found = existing.find((r) => r['key'] === key)
+    return found
+      ? { ...found, value: String(value), updated_at: nowUTC() }
+      : { id: generateId(), key, value: String(value), updated_at: nowUTC() }
+  })
+  await getRepos().settings.batchUpsert(rows)
 }
 
 /** Saves a single setting key-value pair. */

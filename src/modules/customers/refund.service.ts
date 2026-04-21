@@ -129,7 +129,7 @@ export async function createRefund(
   const stockUpdates = items.flatMap((item) => {
     const product = products.find((p) => p['id'] === item.product_id)
     if (!product) return []
-    return [{ id: item.product_id, field: 'stock', value: Number(product['stock']) + item.qty }]
+    return [{ id: item.product_id, stock: Number(product['stock']) + item.qty }]
   })
   if (stockUpdates.length > 0) {
     await getRepos().products.batchUpdate(stockUpdates)

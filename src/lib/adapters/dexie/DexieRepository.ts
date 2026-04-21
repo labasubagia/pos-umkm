@@ -60,60 +60,48 @@ export class DexieRepository<T extends Record<string, unknown>>
     this.refreshPendingCount()
   }
 
-  async batchUpdate(
-    updates: Array<{ id: string; field: string; value: unknown }>,
-  ): Promise<void> {
-    if (updates.length === 0) return
+  async batchUpdate(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void> {
+    if (rows.length === 0) return
     const tableName = this.syncTarget.sheetName
     await this.db.transaction('rw', [this.db.table(tableName), this.db._outbox], async () => {
-      for (const { id, field, value } of updates) {
-        const existing = await this.db.table(tableName).get(id)
+      for (const row of rows) {
+        const { id, ...fields } = row
+        if (!id) continue
+        const existing = await this.db.table(tableName).get(id as string)
         if (!existing) continue // row not locally cached yet — skip local update
-        await this.db.table(tableName).update(id, { [field]: value })
+        await this.db.table(tableName).update(id as string, fields)
       }
-      // Translate to outbox vocabulary (rowId/column) for SyncManager compatibility
-      await this.enqueue({ op: 'batchUpdateCells', updates: updates.map(({ id, field, value }) => ({ rowId: id, column: field, value })) })
+      // Translate to outbox vocabulary for SyncManager compatibility
+      const updates = rows.flatMap(({ id, ...fields }) =>
+        Object.entries(fields).map(([column, value]) => ({ rowId: id as string, column, value })),
+      )
+      await this.enqueue({ op: 'batchUpdateCells', updates })
     })
     this.refreshPendingCount()
   }
 
   /**
-   * Decomposes batchUpsertBy into primitives (batchInsert + batchUpdate) that
-   * are individually outbox-able. Uses per-entry indexed lookups instead of
-   * loading the full table into memory, avoiding memory spikes on large tables.
+   * Insert-or-update rows by `id`. Checks which IDs exist in the local table,
+   * routes existing rows to batchUpdate and new rows to batchInsert so each
+   * part gets the correct outbox operation type.
    */
-  async batchUpsertBy(
-    lookupField: string,
-    updateField: string,
-    entries: Array<{ lookupValue: string; value: unknown }>,
-    makeNewRow: (lookupValue: string, value: unknown) => Record<string, unknown>,
-  ): Promise<void> {
-    if (entries.length === 0) return
-
+  async batchUpsert(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void> {
+    if (rows.length === 0) return
     const tableName = this.syncTarget.sheetName
-    const existingRows = await Promise.all(
-      entries.map(({ lookupValue }) =>
-        this.db.table<Record<string, unknown>>(tableName)
-          .where(lookupField).equals(lookupValue)
-          .first(),
-      ),
+
+    const existingSet = new Set(
+      (await Promise.all(
+        rows.map((r) => this.db.table(tableName).get(r['id'] as string)),
+      ))
+        .map((r, i) => (r ? rows[i]['id'] as string : null))
+        .filter((id): id is string => id !== null),
     )
 
-    const updates: Array<{ id: string; field: string; value: unknown }> = []
-    const newRows: Record<string, unknown>[] = []
+    const toUpdate = rows.filter((r) => existingSet.has(r['id'] as string))
+    const toInsert = rows.filter((r) => !existingSet.has(r['id'] as string))
 
-    for (let i = 0; i < entries.length; i++) {
-      const { lookupValue, value } = entries[i]
-      const existing = existingRows[i]
-      if (existing) {
-        updates.push({ id: existing['id'] as string, field: updateField, value })
-      } else {
-        newRows.push(makeNewRow(lookupValue, value))
-      }
-    }
-
-    if (updates.length > 0) await this.batchUpdate(updates)
-    if (newRows.length > 0) await this.batchInsert(newRows as Array<Partial<T> & Record<string, unknown>>)
+    if (toUpdate.length > 0) await this.batchUpdate(toUpdate)
+    if (toInsert.length > 0) await this.batchInsert(toInsert)
   }
 
   async softDelete(id: string): Promise<void> {

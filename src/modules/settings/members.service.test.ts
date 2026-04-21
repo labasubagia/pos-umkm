@@ -18,7 +18,7 @@ function mockRepo(overrides = {}) {
     getAll: vi.fn().mockResolvedValue([]),
     batchInsert: vi.fn().mockResolvedValue(undefined),
     batchUpdate: vi.fn().mockResolvedValue(undefined),
-    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
+    batchUpsert: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,

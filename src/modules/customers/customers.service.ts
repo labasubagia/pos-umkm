@@ -101,11 +101,6 @@ export async function updateCustomer(
   id: string,
   changes: Partial<Pick<Customer, 'name' | 'phone' | 'email'>>,
 ): Promise<void> {
-  const updates = (Object.entries(changes) as [string, unknown][]).map(([col, val]) => ({
-    id,
-    field: col,
-    value: val,
-  }))
-  if (updates.length === 0) return
-  await getRepos().customers.batchUpdate(updates)
+  if (Object.keys(changes).length === 0) return
+  await getRepos().customers.batchUpdate([{ id, ...changes }])
 }

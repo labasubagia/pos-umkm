@@ -35,7 +35,7 @@ function mockRepo(overrides = {}) {
     getAll: vi.fn().mockResolvedValue([]),
     batchInsert: vi.fn().mockResolvedValue(undefined),
     batchUpdate: vi.fn().mockResolvedValue(undefined),
-    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
+    batchUpsert: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -273,8 +273,8 @@ describe('commitTransaction', () => {
     await commitTransaction(items, null, 0, payment, 'user-1', null, masterSpreadsheetId, 1)
 
     const updates = mockRepos.products.batchUpdate.mock.calls[0][0]
-    expect(updates.find((u: { id: string }) => u.id === 'prod-1')?.value).toBe(8) // 10 - 2
-    expect(updates.find((u: { id: string }) => u.id === 'prod-2')?.value).toBe(19) // 20 - 1
+    expect(updates.find((u: { id: string }) => u.id === 'prod-1')?.['stock']).toBe(8) // 10 - 2
+    expect(updates.find((u: { id: string }) => u.id === 'prod-2')?.['stock']).toBe(19) // 20 - 1
   })
 
   it('returns the completed transaction object with generated ID', async () => {

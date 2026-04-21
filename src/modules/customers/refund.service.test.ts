@@ -12,7 +12,7 @@ function mockRepo(overrides = {}) {
     getAll: vi.fn().mockResolvedValue([]),
     batchInsert: vi.fn().mockResolvedValue(undefined),
     batchUpdate: vi.fn().mockResolvedValue(undefined),
-    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
+    batchUpsert: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -128,7 +128,7 @@ describe('createRefund', () => {
 
     // Stock was 18, returning 2 → should be updated to 20
     expect(mockRepos.products.batchUpdate).toHaveBeenCalledWith(
-      expect.arrayContaining([{ id: 'prod-1', field: 'stock', value: 20 }]),
+      expect.arrayContaining([{ id: 'prod-1', stock: 20 }]),
     )
   })
 

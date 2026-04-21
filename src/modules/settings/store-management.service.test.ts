@@ -59,7 +59,7 @@ function makeRepoStub(rows: Record<string, unknown>[] = []) {
     batchInsert: vi.fn().mockResolvedValue(undefined),
     batchUpdate: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
-    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
+    batchUpsert: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
   }
 }
@@ -150,7 +150,7 @@ describe('updateStore', () => {
     await updateStore('store-a', { store_name: 'Toko A Baru' })
 
     expect(storesRepo.batchUpdate).toHaveBeenCalledWith([
-      { id: 'store-a', field: 'store_name', value: 'Toko A Baru' },
+      { id: 'store-a', store_name: 'Toko A Baru' },
     ])
   })
 
@@ -175,7 +175,7 @@ describe('removeOwnedStore', () => {
 
     expect(storesRepo.batchUpdate).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ id: 'store-a', field: 'deleted_at' }),
+        expect.objectContaining({ id: 'store-a', deleted_at: expect.any(String) }),
       ]),
     )
   })
