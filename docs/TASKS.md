@@ -1844,7 +1844,7 @@
 
 ### T073 — Scope monthlySheetKey to storeId
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Section:** Store Isolation Fixes
 - **Depends on:** T072
 - **Test type:** unit
@@ -1870,7 +1870,7 @@
 
 ### T074 — Prevent stale hydrateAll from invalidating wrong store cache
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Section:** Store Isolation Fixes
 - **Depends on:** T072
 - **Test type:** unit
@@ -1893,7 +1893,7 @@
 
 ### T075 — Clear dbCache on logout
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Section:** Store Isolation Fixes
 - **Depends on:** T073, T074
 - **Test type:** unit
@@ -1917,7 +1917,7 @@
 
 ### T076 — Scope invalidateQueries predicate to activeStoreId
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Section:** Store Isolation Fixes
 - **Depends on:** T074
 - **Test type:** unit
@@ -1940,7 +1940,7 @@
 
 ### T077 — Optimize batchUpsertByKey with indexed lookup
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Section:** Store Isolation Fixes
 - **Depends on:** T075
 - **Test type:** unit
