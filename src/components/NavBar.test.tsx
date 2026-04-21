@@ -30,6 +30,7 @@ vi.mock('../lib/adapters', () => ({
   },
   dataAdapter: {},
   resetDexieLayer: vi.fn(),
+  syncManager: { triggerSync: vi.fn() },
 }))
 
 vi.mock('../modules/auth/setup.service', async (importOriginal) => {

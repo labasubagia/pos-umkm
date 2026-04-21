@@ -42,6 +42,7 @@ import {
   TableRow,
 } from '../components/ui/table'
 import { useStores, STORES_QUERY_KEY } from '../hooks/useStores'
+import { syncManager } from '../lib/adapters'
 
 export default function StoreManagementPage() {
   const navigate = useNavigate()
@@ -94,6 +95,7 @@ export default function StoreManagementPage() {
           const session = await activateStore(remaining[0])
           setStoreSession(session.spreadsheetId, session.monthlySpreadsheetId, remaining[0].store_id)
         } else {
+          syncManager.triggerSync()
           useAuthStore.getState().clearAuth()
           navigate('/setup')
         }

@@ -14,7 +14,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { LogOut, Store } from 'lucide-react'
 import { useAuth } from '../modules/auth/useAuth'
 import { clearSetupStorage } from '../modules/auth/setup.service'
-import { authAdapter, resetDexieLayer } from '../lib/adapters'
+import { authAdapter, resetDexieLayer, syncManager } from '../lib/adapters'
 import { activateStore } from '../modules/auth/setup.service'
 import type { Role } from '../lib/adapters/types'
 import { Button } from './ui/button'
@@ -44,6 +44,7 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
   const showStorePicker = role === 'owner' && stores.length >= 2
 
   async function handleSignOut() {
+    syncManager.triggerSync()
     await authAdapter.signOut()
     resetDexieLayer()  // Release IndexedDB connections and clear DB cache (T075)
     clearAuth()

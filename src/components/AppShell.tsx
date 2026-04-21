@@ -25,7 +25,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { NavBar } from './NavBar'
 import { BottomNav } from './BottomNav'
 import { SyncStatus } from './SyncStatus'
-import { reinitDexieLayer, hydrationService } from '../lib/adapters'
+import { reinitDexieLayer, hydrationService, syncManager } from '../lib/adapters'
 import { useAuthStore } from '../store/authStore'
 
 export function AppShell() {
@@ -48,6 +48,7 @@ export function AppShell() {
     // This ensures hydrationService always targets the correct IndexedDB before
     // hydrateAll() is called.
     if (activeStoreId !== lastInitStoreId.current) {
+      syncManager.triggerSync()
       reinitDexieLayer(activeStoreId)
       lastInitStoreId.current = activeStoreId
     }
