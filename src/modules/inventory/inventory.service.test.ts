@@ -108,7 +108,7 @@ describe('saveOpnameResults', () => {
 
     // Only p1 changed (30 → 28); p2 is unchanged
     expect(mockRepos.products.batchUpdate).toHaveBeenCalledWith([
-      { rowId: 'p1', column: 'stock', value: 28 },
+      { id: 'p1', field: 'stock', value: 28 },
     ])
   })
 
@@ -197,9 +197,9 @@ describe('receivePurchaseOrder', () => {
     const updates = mockRepos.products.batchUpdate.mock.calls[0][0]
     expect(updates).toHaveLength(2)
     // prod-1: 20 + 50 = 70
-    expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-1')?.value).toBe(70)
+    expect(updates.find((u: { id: string }) => u.id === 'prod-1')?.value).toBe(70)
     // prod-2: 10 + 100 = 110
-    expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-2')?.value).toBe(110)
+    expect(updates.find((u: { id: string }) => u.id === 'prod-2')?.value).toBe(110)
   })
 
   it('appends Stock_Log entry with reason "purchase_order" for each item', async () => {

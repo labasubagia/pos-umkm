@@ -116,7 +116,7 @@ export async function updateCategory(id: string, name: string): Promise<void> {
   if (name.trim().length > 100) {
     throw new CatalogError('Nama kategori maksimal 100 karakter')
   }
-  await getRepos().categories.batchUpdate([{ rowId: id, column: 'name', value: name.trim() }])
+  await getRepos().categories.batchUpdate([{ id: id, field: 'name', value: name.trim() }])
 }
 
 /**
@@ -218,8 +218,8 @@ export type ProductChanges = Partial<
  */
 export async function updateProduct(id: string, changes: ProductChanges): Promise<void> {
   const updates = (Object.entries(changes) as [string, unknown][]).map(([col, val]) => ({
-    rowId: id,
-    column: col,
+    id,
+    field: col,
     value: val,
   }))
   if (updates.length === 0) return
@@ -252,7 +252,7 @@ export async function decrementStock(productId: string, qty: number): Promise<vo
       `Stok tidak mencukupi: stok saat ini ${currentStock}, pengurangan ${qty}`,
     )
   }
-  await getRepos().products.batchUpdate([{ rowId: productId, column: 'stock', value: newStock }])
+  await getRepos().products.batchUpdate([{ id: productId, field: 'stock', value: newStock }])
 }
 
 // ─── T023 — Product Variants ─────────────────────────────────────────────────
@@ -333,5 +333,5 @@ export async function decrementVariantStock(variantId: string, qty: number): Pro
       `Stok varian tidak mencukupi: stok saat ini ${currentStock}, pengurangan ${qty}`,
     )
   }
-  await getRepos().variants.batchUpdate([{ rowId: variantId, column: 'stock', value: newStock }])
+  await getRepos().variants.batchUpdate([{ id: variantId, field: 'stock', value: newStock }])
 }

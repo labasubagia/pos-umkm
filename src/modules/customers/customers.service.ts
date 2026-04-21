@@ -102,8 +102,8 @@ export async function updateCustomer(
   changes: Partial<Pick<Customer, 'name' | 'phone' | 'email'>>,
 ): Promise<void> {
   const updates = (Object.entries(changes) as [string, unknown][]).map(([col, val]) => ({
-    rowId: id,
-    column: col,
+    id,
+    field: col,
     value: val,
   }))
   if (updates.length === 0) return

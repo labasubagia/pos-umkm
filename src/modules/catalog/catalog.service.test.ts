@@ -114,7 +114,7 @@ describe('updateCategory', () => {
   it('updates name cell of correct row', async () => {
     await updateCategory('cat-1', 'Makanan Berat')
 
-    expect(mockRepos.categories.batchUpdate).toHaveBeenCalledWith([{ rowId: 'cat-1', column: 'name', value: 'Makanan Berat' }])
+    expect(mockRepos.categories.batchUpdate).toHaveBeenCalledWith([{ id: 'cat-1', field: 'name', value: 'Makanan Berat' }])
   })
 })
 
@@ -195,8 +195,8 @@ describe('updateProduct', () => {
     await updateProduct('prod-1', { name: 'Nasi Goreng Spesial', price: 18000 })
 
     expect(mockRepos.products.batchUpdate).toHaveBeenCalledWith([
-      { rowId: 'prod-1', column: 'name', value: 'Nasi Goreng Spesial' },
-      { rowId: 'prod-1', column: 'price', value: 18000 },
+      { id: 'prod-1', field: 'name', value: 'Nasi Goreng Spesial' },
+      { id: 'prod-1', field: 'price', value: 18000 },
     ])
   })
 })
@@ -217,7 +217,7 @@ describe('decrementStock', () => {
 
     await decrementStock('prod-1', 3)
 
-    expect(mockRepos.products.batchUpdate).toHaveBeenCalledWith([{ rowId: 'prod-1', column: 'stock', value: 7 }])
+    expect(mockRepos.products.batchUpdate).toHaveBeenCalledWith([{ id: 'prod-1', field: 'stock', value: 7 }])
   })
 
   it('throws if resulting stock would go below 0', async () => {
@@ -301,7 +301,7 @@ describe('decrementVariantStock', () => {
 
     await decrementVariantStock('v-1', 3)
 
-    expect(mockRepos.variants.batchUpdate).toHaveBeenCalledWith([{ rowId: 'v-1', column: 'stock', value: 5 }])
+    expect(mockRepos.variants.batchUpdate).toHaveBeenCalledWith([{ id: 'v-1', field: 'stock', value: 5 }])
   })
 
   it('throws if resulting stock would go below 0', async () => {

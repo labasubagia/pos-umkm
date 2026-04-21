@@ -353,7 +353,7 @@ export async function commitTransaction(
       .flatMap((item) => {
         const v = variantRows.find((r) => r['id'] === item.variantId)
         if (!v) return []
-        return [{ rowId: item.variantId!, column: 'stock', value: Math.max(0, Number(v['stock']) - item.quantity) }]
+        return [{ id: item.variantId!, field: 'stock', value: Math.max(0, Number(v['stock']) - item.quantity) }]
       })
 
     const productUpdates = items
@@ -361,7 +361,7 @@ export async function commitTransaction(
       .flatMap((item) => {
         const p = productRows.find((r) => r['id'] === item.productId)
         if (!p) return []
-        return [{ rowId: item.productId, column: 'stock', value: Math.max(0, Number(p['stock']) - item.quantity) }]
+        return [{ id: item.productId, field: 'stock', value: Math.max(0, Number(p['stock']) - item.quantity) }]
       })
 
     await Promise.all([

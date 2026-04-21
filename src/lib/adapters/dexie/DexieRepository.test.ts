@@ -108,7 +108,7 @@ describe('batchUpdate', () => {
   it('updates the column in IndexedDB', async () => {
     const db = getDb(TEST_STORE_ID)
     await db.Products.put({ id: 'p1', name: 'Roti', price: 2000, deleted_at: null })
-    await makeRepo().batchUpdate([{ rowId: 'p1', column: 'price', value: 2500 }])
+    await makeRepo().batchUpdate([{ id: 'p1', field: 'price', value: 2500 }])
     const updated = await db.Products.get('p1')
     expect(updated?.price).toBe(2500)
   })
@@ -116,7 +116,7 @@ describe('batchUpdate', () => {
   it('queues an outbox entry with op=batchUpdateCells', async () => {
     const db = getDb(TEST_STORE_ID)
     await db.Products.put({ id: 'p1', name: 'Roti', price: 2000, deleted_at: null })
-    await makeRepo().batchUpdate([{ rowId: 'p1', column: 'price', value: 2500 }])
+    await makeRepo().batchUpdate([{ id: 'p1', field: 'price', value: 2500 }])
     const entry = (await db._outbox.toArray())[0]
     expect(entry.operation.op).toBe('batchUpdateCells')
   })
@@ -124,7 +124,7 @@ describe('batchUpdate', () => {
   it('skips rows not found locally (race condition guard)', async () => {
     const db = getDb(TEST_STORE_ID)
     // Row doesn't exist in Dexie yet — should not throw
-    await makeRepo().batchUpdate([{ rowId: 'missing', column: 'price', value: 1 }])
+    await makeRepo().batchUpdate([{ id: 'missing', field: 'price', value: 1 }])
     // Outbox entry is still queued — SyncManager will handle it
     expect(await db._outbox.count()).toBe(1)
   })

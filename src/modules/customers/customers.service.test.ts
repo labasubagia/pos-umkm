@@ -130,8 +130,8 @@ describe('updateCustomer', () => {
     await updateCustomer('cus-1', { name: 'Budi Baru', email: 'baru@mail.com' })
 
     expect(mockRepos.customers.batchUpdate).toHaveBeenCalledWith([
-      { rowId: 'cus-1', column: 'name', value: 'Budi Baru' },
-      { rowId: 'cus-1', column: 'email', value: 'baru@mail.com' },
+      { id: 'cus-1', field: 'name', value: 'Budi Baru' },
+      { id: 'cus-1', field: 'email', value: 'baru@mail.com' },
     ])
   })
 })

@@ -42,5 +42,5 @@ export async function savePINHash(
   userId: string,
   hash: string,
 ): Promise<void> {
-  await getRepos().members.batchUpdate([{ rowId: userId, column: 'pin_hash', value: hash }])
+  await getRepos().members.batchUpdate([{ id: userId, field: 'pin_hash', value: hash }])
 }

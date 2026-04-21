@@ -150,7 +150,7 @@ describe('updateStore', () => {
     await updateStore('store-a', { store_name: 'Toko A Baru' })
 
     expect(storesRepo.batchUpdate).toHaveBeenCalledWith([
-      { rowId: 'store-a', column: 'store_name', value: 'Toko A Baru' },
+      { id: 'store-a', field: 'store_name', value: 'Toko A Baru' },
     ])
   })
 
@@ -175,7 +175,7 @@ describe('removeOwnedStore', () => {
 
     expect(storesRepo.batchUpdate).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ rowId: 'store-a', column: 'deleted_at' }),
+        expect.objectContaining({ id: 'store-a', field: 'deleted_at' }),
       ]),
     )
   })

@@ -61,17 +61,18 @@ export class DexieRepository<T extends Record<string, unknown>>
   }
 
   async batchUpdate(
-    updates: Array<{ rowId: string; column: string; value: unknown }>,
+    updates: Array<{ id: string; field: string; value: unknown }>,
   ): Promise<void> {
     if (updates.length === 0) return
     const tableName = this.syncTarget.sheetName
     await this.db.transaction('rw', [this.db.table(tableName), this.db._outbox], async () => {
-      for (const { rowId, column, value } of updates) {
-        const existing = await this.db.table(tableName).get(rowId)
+      for (const { id, field, value } of updates) {
+        const existing = await this.db.table(tableName).get(id)
         if (!existing) continue // row not locally cached yet — skip local update
-        await this.db.table(tableName).update(rowId, { [column]: value })
+        await this.db.table(tableName).update(id, { [field]: value })
       }
-      await this.enqueue({ op: 'batchUpdateCells', updates })
+      // Translate to outbox vocabulary (rowId/column) for SyncManager compatibility
+      await this.enqueue({ op: 'batchUpdateCells', updates: updates.map(({ id, field, value }) => ({ rowId: id, column: field, value })) })
     })
     this.refreshPendingCount()
   }
@@ -82,8 +83,8 @@ export class DexieRepository<T extends Record<string, unknown>>
    * loading the full table into memory, avoiding memory spikes on large tables.
    */
   async batchUpsertBy(
-    lookupColumn: string,
-    updateColumn: string,
+    lookupField: string,
+    updateField: string,
     entries: Array<{ lookupValue: string; value: unknown }>,
     makeNewRow: (lookupValue: string, value: unknown) => Record<string, unknown>,
   ): Promise<void> {
@@ -93,19 +94,19 @@ export class DexieRepository<T extends Record<string, unknown>>
     const existingRows = await Promise.all(
       entries.map(({ lookupValue }) =>
         this.db.table<Record<string, unknown>>(tableName)
-          .where(lookupColumn).equals(lookupValue)
+          .where(lookupField).equals(lookupValue)
           .first(),
       ),
     )
 
-    const updates: Array<{ rowId: string; column: string; value: unknown }> = []
+    const updates: Array<{ id: string; field: string; value: unknown }> = []
     const newRows: Record<string, unknown>[] = []
 
     for (let i = 0; i < entries.length; i++) {
       const { lookupValue, value } = entries[i]
       const existing = existingRows[i]
       if (existing) {
-        updates.push({ rowId: existing['id'] as string, column: updateColumn, value })
+        updates.push({ id: existing['id'] as string, field: updateField, value })
       } else {
         newRows.push(makeNewRow(lookupValue, value))
       }
@@ -115,12 +116,12 @@ export class DexieRepository<T extends Record<string, unknown>>
     if (newRows.length > 0) await this.batchInsert(newRows as Array<Partial<T> & Record<string, unknown>>)
   }
 
-  async softDelete(rowId: string): Promise<void> {
+  async softDelete(id: string): Promise<void> {
     const deletedAt = new Date().toISOString()
     const tableName = this.syncTarget.sheetName
     await this.db.transaction('rw', [this.db.table(tableName), this.db._outbox], async () => {
-      await this.db.table(tableName).update(rowId, { deleted_at: deletedAt })
-      await this.enqueue({ op: 'softDelete', rowId })
+      await this.db.table(tableName).update(id, { deleted_at: deletedAt })
+      await this.enqueue({ op: 'softDelete', rowId: id })
     })
     this.refreshPendingCount()
   }

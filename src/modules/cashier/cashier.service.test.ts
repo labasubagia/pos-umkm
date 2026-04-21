@@ -273,8 +273,8 @@ describe('commitTransaction', () => {
     await commitTransaction(items, null, 0, payment, 'user-1', null, masterSpreadsheetId, 1)
 
     const updates = mockRepos.products.batchUpdate.mock.calls[0][0]
-    expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-1')?.value).toBe(8) // 10 - 2
-    expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-2')?.value).toBe(19) // 20 - 1
+    expect(updates.find((u: { id: string }) => u.id === 'prod-1')?.value).toBe(8) // 10 - 2
+    expect(updates.find((u: { id: string }) => u.id === 'prod-2')?.value).toBe(19) // 20 - 1
   })
 
   it('returns the completed transaction object with generated ID', async () => {

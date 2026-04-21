@@ -116,7 +116,7 @@ export async function saveOpnameResults(results: OpnameRow[]): Promise<void> {
   const created_at = nowUTC()
   await Promise.all([
     getRepos().products.batchUpdate(
-      changed.map((row) => ({ rowId: row.product_id, column: 'stock', value: row.physical_count })),
+      changed.map((row) => ({ id: row.product_id, field: 'stock', value: row.physical_count })),
     ),
     getRepos().stockLog.batchInsert(
       changed.map((row) => ({
@@ -231,8 +231,8 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
   await Promise.all([
     getRepos().products.batchUpdate(
       stockData.map(({ item, qtyAfter }) => ({
-        rowId: item['product_id'] as string,
-        column: 'stock',
+        id: item['product_id'] as string,
+        field: 'stock',
         value: qtyAfter,
       })),
     ),
@@ -249,7 +249,7 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
   ])
 
   // Step 5: Mark order as received only after all stock updates succeed
-  await getRepos().purchaseOrders.batchUpdate([{ rowId: orderId, column: 'status', value: 'received' }])
+  await getRepos().purchaseOrders.batchUpdate([{ id: orderId, field: 'status', value: 'received' }])
 }
 
 /**
