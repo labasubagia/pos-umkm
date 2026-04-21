@@ -55,9 +55,14 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
+    // ISheetRepository methods — used by sharedMakeRepo (makeRepo() path)
     batchAppend: vi.fn().mockResolvedValue(undefined),
     batchUpdateCells: vi.fn().mockResolvedValue(undefined),
     batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    // ILocalRepository methods — used by mockRepos (getRepos() path)
+    batchInsert: vi.fn().mockResolvedValue(undefined),
+    batchUpdate: vi.fn().mockResolvedValue(undefined),
+    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -438,7 +443,7 @@ describe('createMonthlySheet', () => {
     await createMonthlySheet(2026, 4)
 
     expect(adapters.driveClient.createSpreadsheet).toHaveBeenCalledWith('transaction_2026-04', undefined, expect.arrayContaining([...MONTHLY_TABS]))
-    expect(mockRepos.monthlySheets.batchAppend).toHaveBeenCalledWith([expect.objectContaining({
+    expect(mockRepos.monthlySheets.batchInsert).toHaveBeenCalledWith([expect.objectContaining({
       year_month: '2026-04',
       spreadsheetId: 'monthly-id-001',
     })])

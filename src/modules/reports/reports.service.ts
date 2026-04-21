@@ -254,7 +254,7 @@ export async function saveReconciliation(
     throw new ReportError('Saldo penutup tidak boleh negatif')
   }
   const surplus_deficit = actual - expected
-  await getRepos().auditLog.batchAppend([{
+  await getRepos().auditLog.batchInsert([{
     event: 'CASH_RECONCILIATION',
     data: JSON.stringify({ expected, actual, surplus_deficit, date }),
     created_at: nowUTC(),

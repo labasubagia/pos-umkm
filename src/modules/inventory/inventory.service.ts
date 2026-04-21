@@ -115,10 +115,10 @@ export async function saveOpnameResults(results: OpnameRow[]): Promise<void> {
   // Batch all stock writes in one round-trip, then append log entries in parallel.
   const created_at = nowUTC()
   await Promise.all([
-    getRepos().products.batchUpdateCells(
+    getRepos().products.batchUpdate(
       changed.map((row) => ({ rowId: row.product_id, column: 'stock', value: row.physical_count })),
     ),
-    getRepos().stockLog.batchAppend(
+    getRepos().stockLog.batchInsert(
       changed.map((row) => ({
         id: generateId(),
         product_id: row.product_id,
@@ -154,14 +154,14 @@ export async function createPurchaseOrder(
   const orderId = generateId()
   const created_at = nowUTC()
 
-  await getRepos().purchaseOrders.batchAppend([{
+  await getRepos().purchaseOrders.batchInsert([{
     id: orderId,
     supplier: supplier.trim(),
     status: 'pending',
     created_at,
   }])
 
-  await getRepos().purchaseOrderItems.batchAppend(
+  await getRepos().purchaseOrderItems.batchInsert(
     items.map((item) => ({
       id: generateId(),
       order_id: orderId,
@@ -229,14 +229,14 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
 
   // Steps 3 & 4: Batch all stock updates in one round-trip + append logs in parallel
   await Promise.all([
-    getRepos().products.batchUpdateCells(
+    getRepos().products.batchUpdate(
       stockData.map(({ item, qtyAfter }) => ({
         rowId: item['product_id'] as string,
         column: 'stock',
         value: qtyAfter,
       })),
     ),
-    getRepos().stockLog.batchAppend(
+    getRepos().stockLog.batchInsert(
       stockData.map(({ item, qtyBefore, qtyAfter }) => ({
         id: generateId(),
         product_id: item['product_id'],
@@ -249,7 +249,7 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
   ])
 
   // Step 5: Mark order as received only after all stock updates succeed
-  await getRepos().purchaseOrders.batchUpdateCells([{ rowId: orderId, column: 'status', value: 'received' }])
+  await getRepos().purchaseOrders.batchUpdate([{ rowId: orderId, column: 'status', value: 'received' }])
 }
 
 /**

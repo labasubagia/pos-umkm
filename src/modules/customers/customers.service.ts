@@ -81,7 +81,7 @@ export async function addCustomer(
 
   const id = generateId()
   const created_at = nowUTC()
-  await getRepos().customers.batchAppend([{
+  await getRepos().customers.batchInsert([{
     id,
     name: name.trim(),
     phone,
@@ -107,5 +107,5 @@ export async function updateCustomer(
     value: val,
   }))
   if (updates.length === 0) return
-  await getRepos().customers.batchUpdateCells(updates)
+  await getRepos().customers.batchUpdate(updates)
 }

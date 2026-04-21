@@ -15,9 +15,9 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    batchAppend: vi.fn().mockResolvedValue(undefined),
-    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
-    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    batchInsert: vi.fn().mockResolvedValue(undefined),
+    batchUpdate: vi.fn().mockResolvedValue(undefined),
+    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -163,8 +163,8 @@ describe('bulkImportProducts', () => {
 
     await bulkImportProducts(rows)
 
-    expect(mockRepos.products.batchAppend).toHaveBeenCalledTimes(1)
-    expect(mockRepos.products.batchAppend.mock.calls[0][0]).toHaveLength(2)
+    expect(mockRepos.products.batchInsert).toHaveBeenCalledTimes(1)
+    expect(mockRepos.products.batchInsert.mock.calls[0][0]).toHaveLength(2)
   })
 
   it('throws and does not write if any row is invalid', async () => {
@@ -175,6 +175,6 @@ describe('bulkImportProducts', () => {
 
     await expect(bulkImportProducts(rows)).rejects.toThrow()
 
-    expect(mockRepos.products.batchAppend).not.toHaveBeenCalled()
+    expect(mockRepos.products.batchInsert).not.toHaveBeenCalled()
   })
 })

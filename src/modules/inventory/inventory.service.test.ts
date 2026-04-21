@@ -19,9 +19,9 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    batchAppend: vi.fn().mockResolvedValue(undefined),
-    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
-    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    batchInsert: vi.fn().mockResolvedValue(undefined),
+    batchUpdate: vi.fn().mockResolvedValue(undefined),
+    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -107,7 +107,7 @@ describe('saveOpnameResults', () => {
     ])
 
     // Only p1 changed (30 → 28); p2 is unchanged
-    expect(mockRepos.products.batchUpdateCells).toHaveBeenCalledWith([
+    expect(mockRepos.products.batchUpdate).toHaveBeenCalledWith([
       { rowId: 'p1', column: 'stock', value: 28 },
     ])
   })
@@ -117,8 +117,8 @@ describe('saveOpnameResults', () => {
       { product_id: 'p1', product_name: 'Nasi Goreng', sku: 'NASGOR', system_stock: 30, physical_count: 28 },
     ])
 
-    expect(mockRepos.stockLog.batchAppend).toHaveBeenCalledTimes(1)
-    const logRow = mockRepos.stockLog.batchAppend.mock.calls[0][0][0]
+    expect(mockRepos.stockLog.batchInsert).toHaveBeenCalledTimes(1)
+    const logRow = mockRepos.stockLog.batchInsert.mock.calls[0][0][0]
     expect(logRow['product_id']).toBe('p1')
     expect(logRow['reason']).toBe('opname')
     expect(logRow['qty_before']).toBe(30)
@@ -131,8 +131,8 @@ describe('saveOpnameResults', () => {
       { product_id: 'p2', product_name: 'Es Teh', sku: 'ESTEH', system_stock: 5, physical_count: 5 },
     ])
 
-    expect(mockRepos.products.batchUpdateCells).not.toHaveBeenCalled()
-    expect(mockRepos.stockLog.batchAppend).not.toHaveBeenCalled()
+    expect(mockRepos.products.batchUpdate).not.toHaveBeenCalled()
+    expect(mockRepos.stockLog.batchInsert).not.toHaveBeenCalled()
   })
 
   it('throws InventoryError if physical count is negative', async () => {
@@ -153,13 +153,13 @@ describe('createPurchaseOrder', () => {
       { product_id: 'p2', product_name: 'Es Teh', qty: 100, cost_price: 3000 },
     ])
 
-    expect(mockRepos.purchaseOrders.batchAppend).toHaveBeenCalledTimes(1)
-    const orderRow = mockRepos.purchaseOrders.batchAppend.mock.calls[0][0][0]
+    expect(mockRepos.purchaseOrders.batchInsert).toHaveBeenCalledTimes(1)
+    const orderRow = mockRepos.purchaseOrders.batchInsert.mock.calls[0][0][0]
     expect(orderRow['supplier']).toBe('Supplier ABC')
     expect(orderRow['status']).toBe('pending')
 
-    expect(mockRepos.purchaseOrderItems.batchAppend).toHaveBeenCalledTimes(1)
-    const poItems = mockRepos.purchaseOrderItems.batchAppend.mock.calls[0][0]
+    expect(mockRepos.purchaseOrderItems.batchInsert).toHaveBeenCalledTimes(1)
+    const poItems = mockRepos.purchaseOrderItems.batchInsert.mock.calls[0][0]
     expect(poItems).toHaveLength(2)
     expect(poItems[0]['product_id']).toBe('p1')
     expect(poItems[0]['qty']).toBe(50)
@@ -194,7 +194,7 @@ describe('receivePurchaseOrder', () => {
 
     await receivePurchaseOrder(orderId)
 
-    const updates = mockRepos.products.batchUpdateCells.mock.calls[0][0]
+    const updates = mockRepos.products.batchUpdate.mock.calls[0][0]
     expect(updates).toHaveLength(2)
     // prod-1: 20 + 50 = 70
     expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-1')?.value).toBe(70)
@@ -209,8 +209,8 @@ describe('receivePurchaseOrder', () => {
 
     await receivePurchaseOrder(orderId)
 
-    expect(mockRepos.stockLog.batchAppend).toHaveBeenCalledTimes(1)
-    const logEntries = mockRepos.stockLog.batchAppend.mock.calls[0][0]
+    expect(mockRepos.stockLog.batchInsert).toHaveBeenCalledTimes(1)
+    const logEntries = mockRepos.stockLog.batchInsert.mock.calls[0][0]
     expect(logEntries).toHaveLength(2)
     expect(logEntries[0]['reason']).toBe('purchase_order')
     expect(logEntries[0]['qty_before']).toBe(20)

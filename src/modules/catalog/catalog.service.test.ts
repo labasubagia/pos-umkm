@@ -25,9 +25,9 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    batchAppend: vi.fn().mockResolvedValue(undefined),
-    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
-    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    batchInsert: vi.fn().mockResolvedValue(undefined),
+    batchUpdate: vi.fn().mockResolvedValue(undefined),
+    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -91,8 +91,8 @@ describe('addCategory', () => {
   it('appends correct row with generated UUID', async () => {
     const result = await addCategory('Snack')
 
-    expect(mockRepos.categories.batchAppend).toHaveBeenCalledOnce()
-    const row = mockRepos.categories.batchAppend.mock.calls[0][0][0]
+    expect(mockRepos.categories.batchInsert).toHaveBeenCalledOnce()
+    const row = mockRepos.categories.batchInsert.mock.calls[0][0][0]
     expect(row['name']).toBe('Snack')
     expect(typeof row['id']).toBe('string')
     expect(row['id']).toBeTruthy()
@@ -114,7 +114,7 @@ describe('updateCategory', () => {
   it('updates name cell of correct row', async () => {
     await updateCategory('cat-1', 'Makanan Berat')
 
-    expect(mockRepos.categories.batchUpdateCells).toHaveBeenCalledWith([{ rowId: 'cat-1', column: 'name', value: 'Makanan Berat' }])
+    expect(mockRepos.categories.batchUpdate).toHaveBeenCalledWith([{ rowId: 'cat-1', column: 'name', value: 'Makanan Berat' }])
   })
 })
 
@@ -172,8 +172,8 @@ describe('addProduct', () => {
       sku: 'NASGOR',
     })
 
-    expect(mockRepos.products.batchAppend).toHaveBeenCalledOnce()
-    const row = mockRepos.products.batchAppend.mock.calls[0][0][0]
+    expect(mockRepos.products.batchInsert).toHaveBeenCalledOnce()
+    const row = mockRepos.products.batchInsert.mock.calls[0][0][0]
     expect(row['name']).toBe('Nasi Goreng')
     expect(row['price']).toBe(15000)
     expect(result.id).toBeTruthy()
@@ -194,7 +194,7 @@ describe('updateProduct', () => {
   it('updates only changed fields', async () => {
     await updateProduct('prod-1', { name: 'Nasi Goreng Spesial', price: 18000 })
 
-    expect(mockRepos.products.batchUpdateCells).toHaveBeenCalledWith([
+    expect(mockRepos.products.batchUpdate).toHaveBeenCalledWith([
       { rowId: 'prod-1', column: 'name', value: 'Nasi Goreng Spesial' },
       { rowId: 'prod-1', column: 'price', value: 18000 },
     ])
@@ -217,7 +217,7 @@ describe('decrementStock', () => {
 
     await decrementStock('prod-1', 3)
 
-    expect(mockRepos.products.batchUpdateCells).toHaveBeenCalledWith([{ rowId: 'prod-1', column: 'stock', value: 7 }])
+    expect(mockRepos.products.batchUpdate).toHaveBeenCalledWith([{ rowId: 'prod-1', column: 'stock', value: 7 }])
   })
 
   it('throws if resulting stock would go below 0', async () => {
@@ -267,8 +267,8 @@ describe('addVariant', () => {
   it('appends row linked to correct product_id', async () => {
     const result = await addVariant('prod-1', 'Ukuran', 'L', 30000, 10)
 
-    expect(mockRepos.variants.batchAppend).toHaveBeenCalledOnce()
-    const row = mockRepos.variants.batchAppend.mock.calls[0][0][0]
+    expect(mockRepos.variants.batchInsert).toHaveBeenCalledOnce()
+    const row = mockRepos.variants.batchInsert.mock.calls[0][0][0]
     expect(row['product_id']).toBe('prod-1')
     expect(row['option_value']).toBe('L')
     expect(result.price).toBe(30000)
@@ -301,7 +301,7 @@ describe('decrementVariantStock', () => {
 
     await decrementVariantStock('v-1', 3)
 
-    expect(mockRepos.variants.batchUpdateCells).toHaveBeenCalledWith([{ rowId: 'v-1', column: 'stock', value: 5 }])
+    expect(mockRepos.variants.batchUpdate).toHaveBeenCalledWith([{ rowId: 'v-1', column: 'stock', value: 5 }])
   })
 
   it('throws if resulting stock would go below 0', async () => {

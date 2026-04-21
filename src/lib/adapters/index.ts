@@ -22,7 +22,7 @@ import type { ISheetRepository } from './SheetRepository'
 import { SheetRepository } from './SheetRepository'
 import type { Repos } from './repos'
 import { ALL_TAB_HEADERS } from '../schema'
-import { DexieSheetRepository } from './dexie/DexieSheetRepository'
+import { DexieRepository } from './dexie/DexieRepository'
 import { SyncManager } from './dexie/SyncManager'
 import { HydrationService } from './dexie/HydrationService'
 import { getDb, clearDbCache } from './dexie/db'
@@ -137,14 +137,8 @@ function createDexieRepos(
   function dexie<T extends Record<string, unknown>>(
     spreadsheetId: string,
     sheetName: string,
-  ): DexieSheetRepository<T> {
-    return new DexieSheetRepository<T>(
-      storeDb,
-      spreadsheetId,
-      sheetName,
-      // Remote repo factory — evaluated lazily by DexieSheetRepository.writeHeaders()
-      () => new SheetRepository<T>(spreadsheetId, sheetName, getToken, ALL_TAB_HEADERS[sheetName]),
-    )
+  ): DexieRepository<T> {
+    return new DexieRepository<T>(storeDb, { spreadsheetId, sheetName })
   }
 
   return {
@@ -167,6 +161,7 @@ function createDexieRepos(
 }
 
 export type { IDriveClient, ISheetRepository, Repos }
+export type { ILocalRepository } from './ILocalRepository'
 export type { AuthAdapter }
 export { AdapterError } from './types'
 export type { User, Role } from './types'
@@ -195,12 +190,10 @@ export async function localCachePut(
 export function getMembersForStore(
   targetStoreId: string,
   masterSpreadsheetId: string,
-): DexieSheetRepository<Record<string, unknown>> {
+): DexieRepository<Record<string, unknown>> {
   const db = getDb(targetStoreId)
-  return new DexieSheetRepository<Record<string, unknown>>(
+  return new DexieRepository<Record<string, unknown>>(
     db,
-    masterSpreadsheetId,
-    'Members',
-    () => new SheetRepository(masterSpreadsheetId, 'Members', getToken, ALL_TAB_HEADERS['Members']),
+    { spreadsheetId: masterSpreadsheetId, sheetName: 'Members' },
   )
 }

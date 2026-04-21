@@ -293,7 +293,7 @@ export async function commitTransaction(
   }
 
   // Step 1: Append transaction header
-  await getRepos().transactions.batchAppend([{
+  await getRepos().transactions.batchInsert([{
     id: transactionId,
     created_at,
     cashier_id: cashierId,
@@ -312,7 +312,7 @@ export async function commitTransaction(
   }])
 
   // Step 2: Append all items in a single API call
-  await getRepos().transactionItems.batchAppend(
+  await getRepos().transactionItems.batchInsert(
     items.map((item) => ({
       id: generateId(),
       transaction_id: transactionId,
@@ -365,8 +365,8 @@ export async function commitTransaction(
       })
 
     await Promise.all([
-      variantUpdates.length > 0 ? getRepos().variants.batchUpdateCells(variantUpdates) : Promise.resolve(),
-      productUpdates.length > 0 ? getRepos().products.batchUpdateCells(productUpdates) : Promise.resolve(),
+      variantUpdates.length > 0 ? getRepos().variants.batchUpdate(variantUpdates) : Promise.resolve(),
+      productUpdates.length > 0 ? getRepos().products.batchUpdate(productUpdates) : Promise.resolve(),
     ])
   } catch (err) {
     stockErrors.push(String(err))

@@ -54,7 +54,7 @@ export default function SetupWizard() {
         { key: 'receipt_footer', value: '' },
       ]
       const ts = nowUTC()
-      await getRepos().settings.batchAppend(
+      await getRepos().settings.batchInsert(
         settingsRows.map((s) => ({ ...s, updated_at: ts })),
       )
 

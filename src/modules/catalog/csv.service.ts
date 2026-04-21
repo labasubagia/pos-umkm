@@ -93,7 +93,7 @@ export async function bulkImportProducts(
   // Write all rows; use sequential appends via Promise.all for single-batch semantics.
   // GoogleDataAdapter's appendRow maps to values.append which is idempotent on retry.
   const now = nowUTC()
-  await getRepos().products.batchAppend(
+  await getRepos().products.batchInsert(
     rows.map((row) => ({
       id: generateId(),
       name: row.name,

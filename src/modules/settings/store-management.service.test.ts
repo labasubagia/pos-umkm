@@ -56,10 +56,10 @@ const storeB: StoreRecord = {
 function makeRepoStub(rows: Record<string, unknown>[] = []) {
   return {
     getAll: vi.fn().mockResolvedValue(rows),
-    batchAppend: vi.fn().mockResolvedValue(undefined),
-    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
+    batchInsert: vi.fn().mockResolvedValue(undefined),
+    batchUpdate: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
-    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
   }
 }
@@ -149,7 +149,7 @@ describe('updateStore', () => {
 
     await updateStore('store-a', { store_name: 'Toko A Baru' })
 
-    expect(storesRepo.batchUpdateCells).toHaveBeenCalledWith([
+    expect(storesRepo.batchUpdate).toHaveBeenCalledWith([
       { rowId: 'store-a', column: 'store_name', value: 'Toko A Baru' },
     ])
   })
@@ -160,7 +160,7 @@ describe('updateStore', () => {
 
     await updateStore('store-a', { store_name: '  ' })
 
-    expect(storesRepo.batchUpdateCells).not.toHaveBeenCalled()
+    expect(storesRepo.batchUpdate).not.toHaveBeenCalled()
   })
 })
 
@@ -173,7 +173,7 @@ describe('removeOwnedStore', () => {
 
     await removeOwnedStore('store-a')
 
-    expect(storesRepo.batchUpdateCells).toHaveBeenCalledWith(
+    expect(storesRepo.batchUpdate).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({ rowId: 'store-a', column: 'deleted_at' }),
       ]),

@@ -77,7 +77,7 @@ export async function inviteMember(
     deleted_at: null,
   }
 
-  await getRepos().members.batchAppend([member as unknown as Record<string, unknown>])
+  await getRepos().members.batchInsert([member as unknown as Record<string, unknown>])
   return member
 }
 

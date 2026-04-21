@@ -15,9 +15,9 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    batchAppend: vi.fn().mockResolvedValue(undefined),
-    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
-    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    batchInsert: vi.fn().mockResolvedValue(undefined),
+    batchUpdate: vi.fn().mockResolvedValue(undefined),
+    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -85,8 +85,8 @@ describe('addCustomer', () => {
 
     const result = await addCustomer('Budi Santoso', '08111234567')
 
-    expect(mockRepos.customers.batchAppend).toHaveBeenCalledOnce()
-    expect(mockRepos.customers.batchAppend).toHaveBeenCalledWith([expect.objectContaining({
+    expect(mockRepos.customers.batchInsert).toHaveBeenCalledOnce()
+    expect(mockRepos.customers.batchInsert).toHaveBeenCalledWith([expect.objectContaining({
       name: 'Budi Santoso',
       phone: '08111234567',
     })])
@@ -101,7 +101,7 @@ describe('addCustomer', () => {
 
     const result = await addCustomer('Budi Santoso', '08111234567', 'budi@mail.com')
 
-    expect(mockRepos.customers.batchAppend).toHaveBeenCalledWith([expect.objectContaining({
+    expect(mockRepos.customers.batchInsert).toHaveBeenCalledWith([expect.objectContaining({
       email: 'budi@mail.com',
     })])
     expect(result.email).toBe('budi@mail.com')
@@ -129,7 +129,7 @@ describe('updateCustomer', () => {
   it('calls batchUpdateCells for each changed field', async () => {
     await updateCustomer('cus-1', { name: 'Budi Baru', email: 'baru@mail.com' })
 
-    expect(mockRepos.customers.batchUpdateCells).toHaveBeenCalledWith([
+    expect(mockRepos.customers.batchUpdate).toHaveBeenCalledWith([
       { rowId: 'cus-1', column: 'name', value: 'Budi Baru' },
       { rowId: 'cus-1', column: 'email', value: 'baru@mail.com' },
     ])

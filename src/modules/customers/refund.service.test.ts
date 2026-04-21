@@ -10,9 +10,9 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    batchAppend: vi.fn().mockResolvedValue(undefined),
-    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
-    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    batchInsert: vi.fn().mockResolvedValue(undefined),
+    batchUpdate: vi.fn().mockResolvedValue(undefined),
+    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -108,7 +108,7 @@ describe('createRefund', () => {
 
     await createRefund('tx-001', [REFUND_ITEM], 'Produk rusak')
 
-    expect(mockRepos.refunds.batchAppend).toHaveBeenCalledWith(
+    expect(mockRepos.refunds.batchInsert).toHaveBeenCalledWith(
       [expect.objectContaining({
         transaction_id: 'tx-001',
         product_id: 'prod-1',
@@ -127,7 +127,7 @@ describe('createRefund', () => {
     await createRefund('tx-001', [REFUND_ITEM], 'Produk rusak')
 
     // Stock was 18, returning 2 → should be updated to 20
-    expect(mockRepos.products.batchUpdateCells).toHaveBeenCalledWith(
+    expect(mockRepos.products.batchUpdate).toHaveBeenCalledWith(
       expect.arrayContaining([{ rowId: 'prod-1', column: 'stock', value: 20 }]),
     )
   })
@@ -138,10 +138,10 @@ describe('createRefund', () => {
 
     await createRefund('tx-001', [REFUND_ITEM], 'Produk rusak')
 
-    expect(mockRepos.auditLog.batchAppend).toHaveBeenCalledWith(
+    expect(mockRepos.auditLog.batchInsert).toHaveBeenCalledWith(
       [expect.objectContaining({ event: 'REFUND' })],
     )
-    const auditRow = mockRepos.auditLog.batchAppend.mock.calls[0][0][0]
+    const auditRow = mockRepos.auditLog.batchInsert.mock.calls[0][0][0]
     const data = JSON.parse(auditRow['data'] as string)
     expect(data.transactionId).toBe('tx-001')
     expect(data.reason).toBe('Produk rusak')

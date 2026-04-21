@@ -9,25 +9,25 @@
  *   Master spreadsheet  — all other non-transaction tabs
  *   Monthly spreadsheet — Transactions, Transaction_Items, Refunds
  */
-import type { ISheetRepository } from './SheetRepository'
+import type { ILocalRepository } from './ILocalRepository'
 
 export interface Repos {
   // Main spreadsheet (owner's personal store registry)
-  stores: ISheetRepository<Record<string, unknown>>
+  stores: ILocalRepository<Record<string, unknown>>
   // Master spreadsheet
-  monthlySheets: ISheetRepository<Record<string, unknown>>
-  categories: ISheetRepository<Record<string, unknown>>
-  products: ISheetRepository<Record<string, unknown>>
-  variants: ISheetRepository<Record<string, unknown>>
-  members: ISheetRepository<Record<string, unknown>>
-  settings: ISheetRepository<Record<string, unknown>>
-  stockLog: ISheetRepository<Record<string, unknown>>
-  purchaseOrders: ISheetRepository<Record<string, unknown>>
-  purchaseOrderItems: ISheetRepository<Record<string, unknown>>
-  customers: ISheetRepository<Record<string, unknown>>
-  auditLog: ISheetRepository<Record<string, unknown>>
+  monthlySheets: ILocalRepository<Record<string, unknown>>
+  categories: ILocalRepository<Record<string, unknown>>
+  products: ILocalRepository<Record<string, unknown>>
+  variants: ILocalRepository<Record<string, unknown>>
+  members: ILocalRepository<Record<string, unknown>>
+  settings: ILocalRepository<Record<string, unknown>>
+  stockLog: ILocalRepository<Record<string, unknown>>
+  purchaseOrders: ILocalRepository<Record<string, unknown>>
+  purchaseOrderItems: ILocalRepository<Record<string, unknown>>
+  customers: ILocalRepository<Record<string, unknown>>
+  auditLog: ILocalRepository<Record<string, unknown>>
   // Monthly spreadsheet
-  transactions: ISheetRepository<Record<string, unknown>>
-  transactionItems: ISheetRepository<Record<string, unknown>>
-  refunds: ISheetRepository<Record<string, unknown>>
+  transactions: ILocalRepository<Record<string, unknown>>
+  transactionItems: ILocalRepository<Record<string, unknown>>
+  refunds: ILocalRepository<Record<string, unknown>>
 }

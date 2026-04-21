@@ -16,9 +16,9 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    batchAppend: vi.fn().mockResolvedValue(undefined),
-    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
-    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    batchInsert: vi.fn().mockResolvedValue(undefined),
+    batchUpdate: vi.fn().mockResolvedValue(undefined),
+    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -87,7 +87,7 @@ describe('saveSettings', () => {
   it('calls batchUpsertByKey with all changed fields', async () => {
     await saveSettings({ business_name: 'New Name', tax_rate: 5 })
 
-    expect(mockRepos.settings.batchUpsertByKey).toHaveBeenCalledWith(
+    expect(mockRepos.settings.batchUpsertBy).toHaveBeenCalledWith(
       'key',
       'value',
       expect.arrayContaining([
@@ -96,13 +96,13 @@ describe('saveSettings', () => {
       ]),
       expect.any(Function),
     )
-    expect(mockRepos.settings.batchUpsertByKey).toHaveBeenCalledTimes(1)
+    expect(mockRepos.settings.batchUpsertBy).toHaveBeenCalledTimes(1)
   })
 
   it('does nothing when no fields provided', async () => {
     await saveSettings({})
 
-    expect(mockRepos.settings.batchUpsertByKey).not.toHaveBeenCalled()
+    expect(mockRepos.settings.batchUpsertBy).not.toHaveBeenCalled()
   })
 })
 
@@ -115,7 +115,7 @@ describe('saveQRISImage', () => {
     const dataUrl = 'data:image/png;base64,abc123'
     await saveQRISImage(dataUrl)
 
-    expect(mockRepos.settings.batchUpsertByKey).toHaveBeenCalledWith(
+    expect(mockRepos.settings.batchUpsertBy).toHaveBeenCalledWith(
       'key',
       'value',
       expect.arrayContaining([{ lookupValue: 'qris_image_url', value: dataUrl }]),
@@ -128,7 +128,7 @@ describe('saveQRISImage', () => {
 
     await saveQRISImage('https://example.com/qris.png')
 
-    expect(mockRepos.settings.batchUpsertByKey).toHaveBeenCalledWith(
+    expect(mockRepos.settings.batchUpsertBy).toHaveBeenCalledWith(
       'key',
       'value',
       expect.arrayContaining([{ lookupValue: 'qris_image_url', value: 'https://example.com/qris.png' }]),
@@ -143,7 +143,7 @@ describe('saveQRISImage', () => {
 
     await saveQRISImage('https://new.com/qr.png')
 
-    expect(mockRepos.settings.batchUpsertByKey).toHaveBeenCalledWith(
+    expect(mockRepos.settings.batchUpsertBy).toHaveBeenCalledWith(
       'key',
       'value',
       expect.arrayContaining([{ lookupValue: 'qris_image_url', value: 'https://new.com/qr.png' }]),

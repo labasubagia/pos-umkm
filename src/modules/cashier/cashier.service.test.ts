@@ -33,9 +33,9 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    batchAppend: vi.fn().mockResolvedValue(undefined),
-    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
-    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    batchInsert: vi.fn().mockResolvedValue(undefined),
+    batchUpdate: vi.fn().mockResolvedValue(undefined),
+    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -258,21 +258,21 @@ describe('commitTransaction', () => {
   it('appends 1 row to Transactions tab', async () => {
     await commitTransaction(items, null, 0, payment, 'user-1', null, masterSpreadsheetId, 1)
 
-    expect(mockRepos.transactions.batchAppend).toHaveBeenCalledTimes(1)
+    expect(mockRepos.transactions.batchInsert).toHaveBeenCalledTimes(1)
   })
 
   it('appends all cart items to Transaction_Items tab in a single call', async () => {
     await commitTransaction(items, null, 0, payment, 'user-1', null, masterSpreadsheetId, 1)
 
-    expect(mockRepos.transactionItems.batchAppend).toHaveBeenCalledTimes(1)
-    const appended = mockRepos.transactionItems.batchAppend.mock.calls[0][0]
+    expect(mockRepos.transactionItems.batchInsert).toHaveBeenCalledTimes(1)
+    const appended = mockRepos.transactionItems.batchInsert.mock.calls[0][0]
     expect(appended).toHaveLength(2)
   })
 
   it('decrements stock for each distinct product', async () => {
     await commitTransaction(items, null, 0, payment, 'user-1', null, masterSpreadsheetId, 1)
 
-    const updates = mockRepos.products.batchUpdateCells.mock.calls[0][0]
+    const updates = mockRepos.products.batchUpdate.mock.calls[0][0]
     expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-1')?.value).toBe(8) // 10 - 2
     expect(updates.find((u: { rowId: string }) => u.rowId === 'prod-2')?.value).toBe(19) // 20 - 1
   })

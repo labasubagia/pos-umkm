@@ -110,7 +110,7 @@ export async function createRefund(
   const refundId = generateId()
 
   // Step 2: Append one row per item to Refunds tab
-  await getRepos().refunds.batchAppend(
+  await getRepos().refunds.batchInsert(
     items.map((item) => ({
       id: generateId(),
       transaction_id: transactionId,
@@ -132,11 +132,11 @@ export async function createRefund(
     return [{ rowId: item.product_id, column: 'stock', value: Number(product['stock']) + item.qty }]
   })
   if (stockUpdates.length > 0) {
-    await getRepos().products.batchUpdateCells(stockUpdates)
+    await getRepos().products.batchUpdate(stockUpdates)
   }
 
   // Step 4: Append Audit_Log entry
-  await getRepos().auditLog.batchAppend([{
+  await getRepos().auditLog.batchInsert([{
     id: generateId(),
     event: 'REFUND',
     data: JSON.stringify({ transactionId, items, reason }),

@@ -116,7 +116,7 @@ export async function updateStore(
   const trimmedName = patch.store_name?.trim()
   if (!trimmedName) return
 
-  await getRepos().stores.batchUpdateCells([
+  await getRepos().stores.batchUpdate([
     { rowId: storeId, column: 'store_name', value: trimmedName },
   ])
 }
@@ -140,7 +140,7 @@ export async function removeOwnedStore(storeId: string): Promise<void> {
     throw new StoreManagementError(`removeOwnedStore: store "${storeId}" not found`)
   }
 
-  await repo.batchUpdateCells([{ rowId: storeId, column: 'deleted_at', value: nowUTC() }])
+  await repo.batchUpdate([{ rowId: storeId, column: 'deleted_at', value: nowUTC() }])
 }
 
 /**

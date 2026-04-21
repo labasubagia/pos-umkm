@@ -416,7 +416,7 @@ export async function createMonthlySheet(year: number, month: number): Promise<s
     const id = await driveClient.createSpreadsheet(name, parentFolderId, [...MONTHLY_TABS])
 
     // Register in the Monthly_Sheets registry tab so all users can resolve the ID.
-    await getRepos().monthlySheets.batchAppend([{
+    await getRepos().monthlySheets.batchInsert([{
       id: generateId(),
       year_month: yearMonth,
       spreadsheetId: id,

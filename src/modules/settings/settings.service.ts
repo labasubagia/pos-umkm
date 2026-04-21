@@ -92,7 +92,7 @@ export async function saveSettings(settings: Partial<BusinessSettings>): Promise
     .map(([key, value]) => ({ lookupValue: key, value: String(value) }))
   if (entries.length === 0) return
 
-  await getRepos().settings.batchUpsertByKey(
+  await getRepos().settings.batchUpsertBy(
     'key',
     'value',
     entries,

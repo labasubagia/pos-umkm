@@ -18,9 +18,9 @@ function mockRepo(overrides = {}) {
     spreadsheetId: 'test-id',
     sheetName: 'mock',
     getAll: vi.fn().mockResolvedValue([]),
-    batchAppend: vi.fn().mockResolvedValue(undefined),
-    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
-    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    batchInsert: vi.fn().mockResolvedValue(undefined),
+    batchUpdate: vi.fn().mockResolvedValue(undefined),
+    batchUpsertBy: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -259,8 +259,8 @@ describe('calculateExpectedCash', () => {
 describe('saveReconciliation', () => {
   it('appends Audit_Log entry with surplus/deficit', async () => {
     await saveReconciliation(100000, 105000, '2026-06-01')
-    expect(mockRepos.auditLog.batchAppend).toHaveBeenCalledOnce()
-    const row = mockRepos.auditLog.batchAppend.mock.calls[0][0][0]
+    expect(mockRepos.auditLog.batchInsert).toHaveBeenCalledOnce()
+    const row = mockRepos.auditLog.batchInsert.mock.calls[0][0][0]
     expect(row['event']).toBe('CASH_RECONCILIATION')
     const data = JSON.parse(row['data'] as string)
     expect(data.expected).toBe(100000)

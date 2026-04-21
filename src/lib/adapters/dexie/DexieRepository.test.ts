@@ -1,41 +1,24 @@
 /**
- * DexieSheetRepository.test.ts — Unit tests for offline-first IndexedDB repo.
+ * DexieRepository.test.ts — Unit tests for offline-first IndexedDB repo.
  *
  * Uses fake-indexeddb to run Dexie in a Node.js test environment without
  * a real browser. Each test starts with a fresh database to avoid state leakage.
  */
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { DexieSheetRepository } from './DexieSheetRepository'
+import { DexieRepository } from './DexieRepository'
 import { getDb, clearDbCache } from './db'
-import type { ISheetRepository } from '../SheetRepository'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const TEST_STORE_ID = 'test-store'
 
-/** Minimal stub that satisfies ISheetRepository<T> */
-function makeRemoteStub<T extends Record<string, unknown>>(): ISheetRepository<T> {
-  return {
-    spreadsheetId: 'remote-id',
-    sheetName:     'Products',
-    getAll:             async () => [],
-    batchAppend:        async () => {},
-    batchUpdateCells:   async () => {},
-    batchUpsertByKey:   async () => {},
-    softDelete:         async () => {},
-    writeHeaders:       async () => {},
-  }
-}
-
 type ProductRow = { id: string; name: string; price: number; deleted_at?: string | null }
 
 function makeRepo(sheetName = 'Products') {
-  return new DexieSheetRepository<ProductRow>(
+  return new DexieRepository<ProductRow>(
     getDb(TEST_STORE_ID),
-    'spreadsheet-1',
-    sheetName,
-    () => makeRemoteStub<ProductRow>(),
+    { spreadsheetId: 'spreadsheet-1', sheetName },
   )
 }
 
@@ -81,13 +64,13 @@ describe('getAll', () => {
   })
 })
 
-// ─── batchAppend ──────────────────────────────────────────────────────────────
+// ─── batchInsert ──────────────────────────────────────────────────────────────
 
-describe('batchAppend', () => {
+describe('batchInsert', () => {
   it('stores rows in IndexedDB', async () => {
     const db = getDb(TEST_STORE_ID)
     const repo = makeRepo()
-    await repo.batchAppend([{ id: 'p1', name: 'Indomie', price: 3500 }])
+    await repo.batchInsert([{ id: 'p1', name: 'Indomie', price: 3500 }])
     const stored = await db.Products.get('p1')
     expect(stored).toMatchObject({ id: 'p1', name: 'Indomie', price: 3500 })
   })
@@ -95,7 +78,7 @@ describe('batchAppend', () => {
   it('auto-generates id when row has none', async () => {
     const db = getDb(TEST_STORE_ID)
     const repo = makeRepo()
-    await repo.batchAppend([{ name: 'Teh Botol', price: 5000 } as ProductRow])
+    await repo.batchInsert([{ name: 'Teh Botol', price: 5000 } as ProductRow])
     const all = await db.Products.toArray()
     expect(all).toHaveLength(1)
     expect(all[0].id).toBeTruthy()
@@ -103,7 +86,7 @@ describe('batchAppend', () => {
 
   it('queues an outbox entry with op=append', async () => {
     const db = getDb(TEST_STORE_ID)
-    await makeRepo().batchAppend([{ id: 'p1', name: 'Es Teh', price: 4000 }])
+    await makeRepo().batchInsert([{ id: 'p1', name: 'Es Teh', price: 4000 }])
     const entries = await db._outbox.toArray()
     expect(entries).toHaveLength(1)
     expect(entries[0].operation.op).toBe('append')
@@ -114,18 +97,18 @@ describe('batchAppend', () => {
 
   it('is a no-op for empty rows array', async () => {
     const db = getDb(TEST_STORE_ID)
-    await makeRepo().batchAppend([])
+    await makeRepo().batchInsert([])
     expect(await db._outbox.count()).toBe(0)
   })
 })
 
-// ─── batchUpdateCells ─────────────────────────────────────────────────────────
+// ─── batchUpdate ──────────────────────────────────────────────────────────────
 
-describe('batchUpdateCells', () => {
+describe('batchUpdate', () => {
   it('updates the column in IndexedDB', async () => {
     const db = getDb(TEST_STORE_ID)
     await db.Products.put({ id: 'p1', name: 'Roti', price: 2000, deleted_at: null })
-    await makeRepo().batchUpdateCells([{ rowId: 'p1', column: 'price', value: 2500 }])
+    await makeRepo().batchUpdate([{ rowId: 'p1', column: 'price', value: 2500 }])
     const updated = await db.Products.get('p1')
     expect(updated?.price).toBe(2500)
   })
@@ -133,7 +116,7 @@ describe('batchUpdateCells', () => {
   it('queues an outbox entry with op=batchUpdateCells', async () => {
     const db = getDb(TEST_STORE_ID)
     await db.Products.put({ id: 'p1', name: 'Roti', price: 2000, deleted_at: null })
-    await makeRepo().batchUpdateCells([{ rowId: 'p1', column: 'price', value: 2500 }])
+    await makeRepo().batchUpdate([{ rowId: 'p1', column: 'price', value: 2500 }])
     const entry = (await db._outbox.toArray())[0]
     expect(entry.operation.op).toBe('batchUpdateCells')
   })
@@ -141,14 +124,14 @@ describe('batchUpdateCells', () => {
   it('skips rows not found locally (race condition guard)', async () => {
     const db = getDb(TEST_STORE_ID)
     // Row doesn't exist in Dexie yet — should not throw
-    await makeRepo().batchUpdateCells([{ rowId: 'missing', column: 'price', value: 1 }])
+    await makeRepo().batchUpdate([{ rowId: 'missing', column: 'price', value: 1 }])
     // Outbox entry is still queued — SyncManager will handle it
     expect(await db._outbox.count()).toBe(1)
   })
 
   it('is a no-op for empty updates array', async () => {
     const db = getDb(TEST_STORE_ID)
-    await makeRepo().batchUpdateCells([])
+    await makeRepo().batchUpdate([])
     expect(await db._outbox.count()).toBe(0)
   })
 })
@@ -182,17 +165,17 @@ describe('softDelete', () => {
   })
 })
 
-// ─── batchUpsertByKey ─────────────────────────────────────────────────────────
+// ─── batchUpsertBy ────────────────────────────────────────────────────────────
 
-describe('batchUpsertByKey', () => {
+describe('batchUpsertBy', () => {
   it('updates existing rows and inserts new ones', async () => {
     const db = getDb(TEST_STORE_ID)
     // Use Settings table — indexed on 'key', matching the real-world usage.
     await db.Settings.put({ id: 's1', key: 'business_name', value: 'Toko Lama', deleted_at: null })
-    const repo = new DexieSheetRepository<Record<string, unknown>>(
-      db, 'spreadsheet-1', 'Settings', () => makeRemoteStub(),
+    const repo = new DexieRepository<Record<string, unknown>>(
+      db, { spreadsheetId: 'spreadsheet-1', sheetName: 'Settings' },
     )
-    await repo.batchUpsertByKey(
+    await repo.batchUpsertBy(
       'key', 'value',
       [
         { lookupValue: 'business_name', value: 'Toko Baru' }, // update
@@ -206,18 +189,5 @@ describe('batchUpsertByKey', () => {
     expect(name?.['value']).toBe('Toko Baru')
     const addr = all.find((r) => r['key'] === 'address')
     expect(addr).toBeTruthy()
-  })
-})
-
-// ─── writeHeaders ─────────────────────────────────────────────────────────────
-
-describe('writeHeaders', () => {
-  it('delegates to the remote repo', async () => {
-    const remote = makeRemoteStub<ProductRow>()
-    let called = false
-    remote.writeHeaders = async (_headers) => { called = true }
-    const repo = new DexieSheetRepository<ProductRow>(getDb(TEST_STORE_ID), 'id', 'Products', () => remote)
-    await repo.writeHeaders(['id', 'name'])
-    expect(called).toBe(true)
   })
 })
