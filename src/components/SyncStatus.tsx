@@ -7,7 +7,7 @@
  *   - A cloud-off icon and error tooltip when the last sync failed
  *   - A cloud-off icon when the device is offline
  *
- * Only rendered when VITE_ADAPTER=google (Dexie offline-first mode).
+ * SyncStatus — shows the offline/syncing/synced status indicator in the NavBar.
  * Reads from useSyncStore — no props needed.
  */
 import { useEffect, useState } from 'react'

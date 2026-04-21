@@ -2,9 +2,7 @@
  * DriveClient — abstracts Google Drive + spreadsheet management operations.
  *
  * Separates Drive-level operations (create spreadsheet, folder management,
- * sharing) from row-level data access (SheetRepository). Two implementations:
- *   - GoogleDriveClient: real Drive API via drive.client.ts
- *   - MockDriveClient: no-op / generates fake IDs for dev/test
+ * sharing) from row-level data access (SheetRepository).
  */
 import * as driveClient from './google/drive/drive.client'
 
@@ -39,22 +37,3 @@ export class GoogleDriveClient implements IDriveClient {
   }
 }
 
-export class MockDriveClient implements IDriveClient {
-  async createSpreadsheet(_name: string, _parentFolderId?: string, _tabs?: string[]): Promise<string> {
-    const id = crypto.randomUUID()
-    localStorage.setItem('mock_masterSpreadsheetId', id)
-    return id
-  }
-
-  async ensureFolder(_path: string[]): Promise<string | null> {
-    return null
-  }
-
-  async shareSpreadsheet(spreadsheetId: string, email: string, role: 'editor' | 'viewer'): Promise<void> {
-    console.debug(`[MockDriveClient] shareSpreadsheet: ${spreadsheetId} → ${email} (${role})`)
-  }
-
-  getSpreadsheetId(key: string): string | null {
-    return localStorage.getItem(key)
-  }
-}

@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom'
+import 'fake-indexeddb/auto'
 
 // Provide a localStorage implementation for the jsdom test environment.
 // jsdom has one but it may not be fully wired up for zustand/middleware persist.

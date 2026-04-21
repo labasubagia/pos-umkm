@@ -9,9 +9,6 @@
  * For a fresh login: signIn() is called, then the user is routed either to
  * /cashier (fast path — spreadsheetId already persisted in Zustand) or /stores
  * (slow path — StorePickerPage resolves the active store).
- *
- * In mock mode (VITE_ADAPTER=mock) restoreSession returns null instantly so
- * the sign-in button is always shown on the first visit.
  */
 import { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'

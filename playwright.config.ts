@@ -8,21 +8,20 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    // Port 5174 is reserved for Playwright — separate from the dev server on 5173
-    // so tests always run against a fresh VITE_ADAPTER=mock build.
+    // Port 5174 is reserved for Playwright — separate from the dev server on 5173.
     baseURL: 'http://localhost:5174',
     trace: 'on-first-retry',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    // { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
   ],
   webServer: {
     command: 'npm run dev -- --port 5174',
     url: 'http://localhost:5174/pos-umkm/',
     reuseExistingServer: !process.env.CI,
     env: {
-      VITE_ADAPTER: 'mock',
+      // VITE_E2E exposes window.__getDb for Dexie seeding in specs.
+      VITE_E2E: 'true',
     },
   },
 })

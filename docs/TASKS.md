@@ -1963,6 +1963,89 @@
 
 ---
 
+## Testing Overhaul
+
+### T078 — Remove VITE_ADAPTER / mock adapter layer
+
+- **Status:** ✅ done
+- **Section:** Testing Overhaul
+- **Depends on:** T077
+- **Test type:** none (cleanup)
+
+**Goal**: Since the app is offline-first (Dexie is the read/write layer), the `MockSheetRepository` / `MockDataAdapter` / `MockAuthAdapter` adapter family is no longer needed for testing. All tests can use the real Dexie layer backed by `fake-indexeddb`.
+
+**Changes**:
+1. Delete `src/lib/adapters/MockSheetRepository.ts`
+2. Delete `src/lib/adapters/mock/` directory (MockAuthAdapter, seed.ts)
+3. Remove `MockDriveClient` from `src/lib/adapters/DriveClient.ts`
+4. Remove `createMockRepos` and `createGoogleRepos` from `src/lib/adapters/repos.ts` (keep `Repos` interface only)
+5. Remove `VITE_ADAPTER` conditional from `src/lib/adapters/index.ts` — always use `GoogleAuthAdapter`, `GoogleDriveClient`, `SyncManager`, `DexieSheetRepository`
+6. Remove `IS_MOCK` from `src/components/AuthInitializer.tsx` (simplify to google-only flow)
+7. Remove `VITE_ADAPTER !== 'google'` check from `src/components/SyncStatus.tsx`
+8. Remove mock-mode comments from `src/modules/auth/LoginPage.tsx` and `AuthProvider.tsx`
+9. Add `import 'fake-indexeddb/auto'` to `src/test-setup.ts` so jsdom unit tests work when `adapters/index.ts` constructs a Dexie instance
+
+**Architecture note**: `VITE_ADAPTER=mock` was needed when tests hit real or mocked network APIs. Offline-first removes that requirement — IndexedDB (fake or real) is the boundary that needs seeding, not a network mock.
+
+**Test cases**:
+- ✅ All 352 existing unit tests pass after mock adapter removal
+- ✅ `adapters/index.ts` imports succeed in jsdom test environment (fake-indexeddb)
+
+---
+
+### T079 — Integration test helper: renderWithDexie
+
+- **Status:** ✅ done
+- **Section:** Testing Overhaul
+- **Depends on:** T078
+- **Test type:** unit
+
+**Goal**: Provide a reusable `renderWithDexie` helper that wraps a component in the full provider stack (QueryClientProvider + MemoryRouter + Zustand auth) with a real Dexie DB backed by `fake-indexeddb`. Tests seed tables directly and assert against real service → Dexie → React Query → UI behavior without mocking the service layer.
+
+**Changes**:
+1. Create `src/test-utils/dexie-test-utils.ts` with `renderWithDexie(ui, { storeId, user, seed, initialPath })` — seeds the Dexie DB, sets Zustand auth state, wraps in providers
+2. Create `src/pages/CashierPage.integration.test.tsx` as proof-of-concept — seeds Products + Categories in Dexie, renders CashierPage, asserts products are shown and a transaction can be completed
+
+**Architecture note**: `fake-indexeddb/auto` is a full in-process IndexedDB implementation compatible with Dexie. No network calls happen — reads come from Dexie, writes go to Dexie outbox (SyncManager not started). This tests the React Query → hook → service → DexieSheetRepository → UI path end-to-end without mocks.
+
+**Test cases** (in CashierPage.integration.test.tsx):
+- ✅ `products seeded in Dexie are shown in the product search panel`
+- ✅ `clicking a product card adds it to the cart and updates the total`
+- ✅ `completing a QRIS payment writes a transaction row to Dexie and shows receipt`
+- ❌ `cart is empty when no products match the search query`
+
+---
+
+### T080 — E2E Playwright Dexie fixture
+
+- **Status:** ✅ done
+- **Section:** Testing Overhaul
+- **Depends on:** T078
+- **Test type:** e2e
+
+**Goal**: Replace the `VITE_ADAPTER=mock` E2E setup (localStorage-backed MockDataAdapter) with a Dexie-backed setup. Auth is injected via localStorage (GoogleAuthAdapter.restoreSession() reads `gsi_*` keys), data is seeded into real IndexedDB via `window.__getDb`, and Google API calls are route-stubbed.
+
+**Changes**:
+1. Add `window.__getDb = getDb` exposure in `src/lib/adapters/dexie/db.ts` when `import.meta.env.VITE_E2E === 'true'`
+2. Create `src/tests/e2e/helpers/route-stubs.ts` — `stubGoogleApis(page)` stubs all `googleapis.com` and `accounts.google.com` routes with `200 {}`
+3. Create `src/tests/e2e/helpers/auth-dexie.ts` — `injectAuthState(page, storeConfig)` uses `page.addInitScript` to write `gsi_access_token`, `gsi_token_expiry`, user profile, and the Zustand `pos-umkm-auth` persist key into localStorage before page load; `signInAsDexie(page, storeConfig)` calls `injectAuthState` then `page.goto(BASE + '/cashier')` and waits for the product search input
+4. Create `src/tests/e2e/helpers/dexie-seed.ts` — `seedDexie(page, storeId, tables)` calls `window.__getDb(storeId).TableName.bulkPut(rows)` via `page.evaluate()`; `reloadAndWait(page, testId)` reloads the page and waits for a given testId to be visible
+5. Update `playwright.config.ts`: remove `VITE_ADAPTER: 'mock'`, add `VITE_E2E: 'true'`
+6. Rewrite `src/tests/e2e/helpers/auth.ts` to be a thin re-export of the Dexie helpers (or delete and update imports)
+7. Rewrite all five E2E spec files to use the new helpers — auth injection + Dexie seeding replaces localStorage mock seeding + mock sign-in click
+
+**Architecture note**: `page.addInitScript()` runs before any page JS, so Zustand rehydrates with the injected auth state on first render. `window.__getDb` is set by `db.ts` during app initialization (guarded by `VITE_E2E`). Route stubs prevent real Google API calls in CI without network credentials.
+
+**E2E spec files**:
+- `src/tests/e2e/smoke.spec.ts` — trivial, no change needed
+- `src/tests/e2e/cashier.flow.spec.ts` — replace `mock_Products`/`mock_Categories` seeding + `signInAsOwner` with `seedDexie` + `signInAsDexie`
+- `src/tests/e2e/inventory.flow.spec.ts` — same pattern
+- `src/tests/e2e/reports.flow.spec.ts` — same pattern
+- `src/tests/e2e/members.flow.spec.ts` — same pattern
+- `src/tests/e2e/store-management.spec.ts` — same pattern
+
+---
+
 ## Appendix: Parallelization Map
 
 The following tasks within each section have no mutual dependencies and can be worked on by different agents simultaneously:
@@ -1983,6 +2066,7 @@ The following tasks within each section have no mutual dependencies and can be w
 | Store Management | T060 first (service), then T061 (UI), then T062 (NavBar sync + switch button), then T063 (remove stale spreadsheet IDs from persistence); T064 (no /cashier redirect) can run in parallel with T063 |
 | State Management | T065 first (install React Query), then T066 (migrate stores); then T067–T071 in parallel (all depend on T066); then T072 (depends on T067–T071) |
 | Store Isolation Fixes | T073 and T074 in parallel (both depend on T072); T075 depends on T073+T074; T076 depends on T074; T077 depends on T075 |
+| Testing Overhaul | T078 first (remove mock adapter); T079 and T080 in parallel (both depend on T078) |
 
 ---
 

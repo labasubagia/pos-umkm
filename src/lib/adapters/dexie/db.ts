@@ -131,3 +131,10 @@ export function getDb(storeId: string): PosUmkmDatabase {
 export function clearDbCache(): void {
   dbCache.clear()
 }
+
+// Expose getDb for E2E Playwright tests so specs can seed IndexedDB directly
+// via `page.evaluate(() => window.__getDb(storeId).Products.bulkPut([...]))`.
+// Guarded by VITE_E2E so it is never present in production builds.
+if (import.meta.env.VITE_E2E === 'true') {
+  ;(window as unknown as Record<string, unknown>)['__getDb'] = getDb
+}

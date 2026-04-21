@@ -1,121 +1,106 @@
 /**
  * E2E specs for Phase 7 — Reports (T038–T042).
  *
- * All tests run with VITE_ADAPTER=mock (default in dev). MockAuthAdapter
- * returns the preset owner user. Data is seeded via page.evaluate() into
- * localStorage before navigating to /reports.
+ * Auth is injected via localStorage. Transaction data is seeded into Dexie
+ * directly so reports can be computed without any Sheets API calls.
  */
 import { test, expect } from '@playwright/test'
-import { signInAsOwner, navigateTo } from './helpers/auth'
+import { injectAuthState, DEFAULT_STORE, BASE } from './helpers/auth-dexie'
+import { seedDexie, reloadAndWait } from './helpers/dexie-seed'
 
-const BASE = '/pos-umkm'
+const STORE = DEFAULT_STORE
+const today = new Date().toISOString().slice(0, 10)
+const now = new Date().toISOString()
 
-async function signInAndSetup(page: Parameters<typeof signInAsOwner>[0]) {
-  // signInAsOwner fast-paths to /cashier via masterSpreadsheetId pre-seed.
-  await signInAsOwner(page)
-}
+const SEED_TRANSACTIONS = [
+  {
+    id: 'e2e-tx-1',
+    created_at: `${today}T08:00:00.000Z`,
+    cashier_id: 'e2e-owner-1',
+    customer_id: null,
+    subtotal: 30000,
+    discount_type: 'none',
+    discount_value: 0,
+    discount_amount: 0,
+    tax: 0,
+    total: 30000,
+    payment_method: 'CASH',
+    cash_received: 30000,
+    change: 0,
+    receipt_number: 'RCP-001',
+    notes: null,
+  },
+  {
+    id: 'e2e-tx-2',
+    created_at: `${today}T10:00:00.000Z`,
+    cashier_id: 'e2e-owner-1',
+    customer_id: null,
+    subtotal: 20000,
+    discount_type: 'none',
+    discount_value: 0,
+    discount_amount: 0,
+    tax: 0,
+    total: 20000,
+    payment_method: 'QRIS',
+    cash_received: 0,
+    change: 0,
+    receipt_number: 'RCP-002',
+    notes: null,
+  },
+]
 
-async function seedReportData(page: Parameters<typeof signInAsOwner>[0]) {
-  const today = new Date().toISOString().slice(0, 10)
-  await page.goto(`${BASE}/`)
-  await page.evaluate((date: string) => {
-    const now = new Date().toISOString()
-    window.localStorage.setItem(
-      'mock_Transactions',
-      JSON.stringify([
-        {
-          id: 'e2e-tx-1',
-          created_at: `${date}T08:00:00.000Z`,
-          cashier_id: 'owner@test.com',
-          customer_id: '',
-          subtotal: 30000,
-          discount_type: 'none',
-          discount_value: 0,
-          discount_amount: 0,
-          tax: 0,
-          total: 30000,
-          payment_method: 'CASH',
-          cash_received: 30000,
-          change: 0,
-          receipt_number: 'RCP-001',
-          notes: '',
-          created_at_local: now,
-        },
-        {
-          id: 'e2e-tx-2',
-          created_at: `${date}T10:00:00.000Z`,
-          cashier_id: 'owner@test.com',
-          customer_id: '',
-          subtotal: 20000,
-          discount_type: 'none',
-          discount_value: 0,
-          discount_amount: 0,
-          tax: 0,
-          total: 20000,
-          payment_method: 'QRIS',
-          cash_received: 0,
-          change: 0,
-          receipt_number: 'RCP-002',
-          notes: '',
-        },
-      ]),
-    )
-    window.localStorage.setItem(
-      'mock_Transaction_Items',
-      JSON.stringify([
-        {
-          id: 'e2e-item-1',
-          transaction_id: 'e2e-tx-1',
-          product_id: 'e2e-prod-1',
-          variant_id: '',
-          name: 'Nasi Goreng',
-          price: 15000,
-          quantity: 2,
-          subtotal: 30000,
-        },
-        {
-          id: 'e2e-item-2',
-          transaction_id: 'e2e-tx-2',
-          product_id: 'e2e-prod-2',
-          variant_id: '',
-          name: 'Es Teh Manis',
-          price: 5000,
-          quantity: 4,
-          subtotal: 20000,
-        },
-      ]),
-    )
-  }, today)
-}
+const SEED_TX_ITEMS = [
+  {
+    id: 'e2e-item-1',
+    transaction_id: 'e2e-tx-1',
+    product_id: 'e2e-prod-1',
+    variant_id: null,
+    name: 'Nasi Goreng',
+    price: 15000,
+    quantity: 2,
+    subtotal: 30000,
+  },
+  {
+    id: 'e2e-item-2',
+    transaction_id: 'e2e-tx-2',
+    product_id: 'e2e-prod-2',
+    variant_id: null,
+    name: 'Es Teh Manis',
+    price: 5000,
+    quantity: 4,
+    subtotal: 20000,
+  },
+]
 
-test('owner can view today\'s sales summary after completing transactions', async ({ page }) => {
-  await seedReportData(page)
-  await signInAndSetup(page)
-  await navigateTo(page, `${BASE}/reports`)
-
-  await page.waitForURL(/\/reports/)
+async function signInToReports(page: Parameters<typeof injectAuthState>[0]) {
+  await injectAuthState(page, STORE)
+  await page.goto(`${BASE}/reports`)
   await page.getByTestId('reports-page').waitFor()
+  await seedDexie(page, STORE.storeId, {
+    Transactions: SEED_TRANSACTIONS,
+    Transaction_Items: SEED_TX_ITEMS,
+  })
+  await reloadAndWait(page, 'reports-page')
+}
 
-  // DailySummary loads on mount — wait for revenue display
+test("owner can view today's sales summary", async ({ page }) => {
+  await signInToReports(page)
+
   await page.getByTestId('daily-summary-container').waitFor()
   await page.getByTestId('btn-load-summary').click()
   await page.getByTestId('summary-revenue').waitFor()
 
   const revenue = await page.getByTestId('summary-revenue').textContent()
-  // Total should be 50000 (30000 + 20000)
+  // 30000 + 20000 = 50000
   expect(revenue).toContain('50.000')
 })
 
 test('owner can filter report by date range and see correct totals', async ({ page }) => {
-  await seedReportData(page)
-  await signInAndSetup(page)
-  await navigateTo(page, `${BASE}/reports`)
+  await signInToReports(page)
 
-  await page.waitForURL(/\/reports/)
   await page.getByTestId('tab-sales').click()
   await page.getByTestId('sales-report-container').waitFor()
 
-  const today = new Date().toISOString().slice(0, 10)
   await page.getByTestId('input-start-date').fill(today)
   await page.getByTestId('input-end-date').fill(today)
   await page.getByTestId('btn-load-report').click()
@@ -125,16 +110,12 @@ test('owner can filter report by date range and see correct totals', async ({ pa
   expect(total).toContain('50.000')
 })
 
-test('owner can complete end-of-day cash reconciliation and discrepancy is logged', async ({ page }) => {
-  await seedReportData(page)
-  await signInAndSetup(page)
-  await navigateTo(page, `${BASE}/reports`)
+test('owner can complete end-of-day cash reconciliation', async ({ page }) => {
+  await signInToReports(page)
 
-  await page.waitForURL(/\/reports/)
   await page.getByTestId('tab-reconciliation').click()
   await page.getByTestId('reconciliation-container').waitFor()
 
-  const today = new Date().toISOString().slice(0, 10)
   await page.getByTestId('input-reconciliation-date').fill(today)
   await page.getByTestId('input-opening-balance').fill('100000')
   await page.getByTestId('input-closing-balance').fill('130000')
@@ -146,6 +127,5 @@ test('owner can complete end-of-day cash reconciliation and discrepancy is logge
   expect(expected).toContain('130.000')
 
   await page.getByTestId('btn-save-reconciliation').click()
-  // After save, the save button disappears
   await expect(page.getByTestId('btn-save-reconciliation')).not.toBeVisible({ timeout: 3000 })
 })

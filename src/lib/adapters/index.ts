@@ -1,34 +1,25 @@
 /**
- * Active adapter selected at build time via VITE_ADAPTER env var.
+ * Adapter layer — always uses the Dexie offline-first adapter (Google Sheets backend).
  *
  * Exports:
  *   getRepos()         — typed per-sheet repositories reading IDs from the auth store.
  *   driveClient        — Drive/spreadsheet management (createSpreadsheet, ensureFolder, shareSpreadsheet).
- *   makeRepo()         — one-off repo for a specific (spreadsheetId, sheetName); use in setup code
- *                        before a fresh ID has been persisted to the auth store.
- *   authAdapter        — authentication adapter.
- *   syncManager        — (google only) drains the offline outbox to Google Sheets.
- *   hydrationService   — (google only) pulls Sheets data into IndexedDB on login.
+ *   makeRepo()         — one-off raw SheetRepository for setup code (writes headers directly to Sheets).
+ *   authAdapter        — Google Identity Services authentication adapter.
+ *   syncManager        — drains the offline outbox to Google Sheets.
+ *   hydrationService   — pulls Sheets data into IndexedDB on login.
  *
  * Feature modules import from here only — never from sub-modules directly.
  *
- * Vite tree-shakes the unused adapter out of the production bundle because
- * the conditional is resolved at build time (import.meta.env is static).
- *
- * Adapter selection:
- *   VITE_ADAPTER=mock   → MockSheetRepository + MockDriveClient + MockAuthAdapter (dev/CI)
- *   VITE_ADAPTER=google → DexieSheetRepository (offline-first) wrapping SheetRepository,
- *                         backed by IndexedDB; outbox drained to Sheets by SyncManager.
+ * Testing: unit tests mock this module via vi.mock(); integration tests use the
+ * real exports backed by fake-indexeddb (imported in test-setup.ts).
  */
 import type { IDriveClient } from './DriveClient'
-import { GoogleDriveClient, MockDriveClient } from './DriveClient'
+import { GoogleDriveClient } from './DriveClient'
 import type { AuthAdapter } from './types'
 import { GoogleAuthAdapter } from './google/GoogleAuthAdapter'
-import { MockAuthAdapter } from './mock/MockAuthAdapter'
 import type { ISheetRepository } from './SheetRepository'
 import { SheetRepository } from './SheetRepository'
-import { MockSheetRepository } from './MockSheetRepository'
-import { createMockRepos } from './repos'
 import type { Repos } from './repos'
 import { ALL_TAB_HEADERS } from '../schema'
 import { DexieSheetRepository } from './dexie/DexieSheetRepository'
@@ -39,18 +30,11 @@ import { getDb, clearDbCache } from './dexie/db'
 // Lazy import to avoid circular dependency (authStore imports from here indirectly via services)
 import { useAuthStore } from '../../store/authStore'
 
-const adapterType = import.meta.env.VITE_ADAPTER ?? 'mock'
+export const authAdapter: AuthAdapter = new GoogleAuthAdapter()
 
-export const authAdapter: AuthAdapter = adapterType === 'google'
-  ? new GoogleAuthAdapter()
-  : new MockAuthAdapter()
+const getToken = (): string => (authAdapter as GoogleAuthAdapter).getAccessToken() ?? ''
 
-const getToken = (): string =>
-  adapterType === 'google' ? (authAdapter as GoogleAuthAdapter).getAccessToken() ?? '' : ''
-
-export const driveClient: IDriveClient = adapterType === 'google'
-  ? new GoogleDriveClient(getToken)
-  : new MockDriveClient()
+export const driveClient: IDriveClient = new GoogleDriveClient(getToken)
 
 /** No-op SyncManager used as the initial value and after logout. */
 const noopSyncManager = {
@@ -66,22 +50,18 @@ const noopHydrationService = {
 } as unknown as HydrationService
 
 /**
- * SyncManager (google adapter only) — drains the IndexedDB outbox to Google Sheets.
+ * SyncManager — drains the IndexedDB outbox to Google Sheets.
  * Mutable so reinitDexieLayer() can replace it when the active store changes.
  */
 // eslint-disable-next-line prefer-const
-export let syncManager: SyncManager = adapterType === 'google'
-  ? new SyncManager(getToken, getDb('__init__'))
-  : noopSyncManager
+export let syncManager: SyncManager = new SyncManager(getToken, getDb('__init__'))
 
 /**
- * HydrationService (google adapter only) — pulls Sheets data into IndexedDB after login.
+ * HydrationService — pulls Sheets data into IndexedDB after login.
  * Mutable so reinitDexieLayer() can replace it when the active store changes.
  */
 // eslint-disable-next-line prefer-const
-export let hydrationService: HydrationService = adapterType === 'google'
-  ? new HydrationService(getToken, getDb('__init__'))
-  : noopHydrationService
+export let hydrationService: HydrationService = new HydrationService(getToken, getDb('__init__'))
 
 /**
  * Re-initializes the Dexie sync layer for the given store.
@@ -90,7 +70,6 @@ export let hydrationService: HydrationService = adapterType === 'google'
  * and starts the new SyncManager.
  */
 export function reinitDexieLayer(storeId: string): void {
-  if (adapterType !== 'google') return
   syncManager.stop()
   const db = getDb(storeId)
   syncManager = new SyncManager(getToken, db)
@@ -103,7 +82,6 @@ export function reinitDexieLayer(storeId: string): void {
  * Call on logout so stale IndexedDB connections and references are released.
  */
 export function resetDexieLayer(): void {
-  if (adapterType !== 'google') return
   syncManager.stop()
   syncManager = noopSyncManager
   hydrationService = noopHydrationService
@@ -112,42 +90,31 @@ export function resetDexieLayer(): void {
 
 /**
  * Returns typed repo instances reading IDs from the current auth store state.
- *
- * Google adapter: returns DexieSheetRepository instances (offline-first).
- *   Reads are served from IndexedDB; writes go to IndexedDB + outbox.
- *   SyncManager drains the outbox to Sheets in the background.
- *
- * Mock adapter: returns MockSheetRepository instances (localStorage, dev/CI).
+ * Reads are served from IndexedDB; writes go to IndexedDB + outbox (drained by SyncManager).
  */
 export function getRepos(): Repos {
-  if (adapterType === 'google') {
-    const { mainSpreadsheetId, spreadsheetId, monthlySpreadsheetId, activeStoreId } = useAuthStore.getState()
-    return createDexieRepos(
-      activeStoreId ?? '__init__',
-      mainSpreadsheetId ?? '',
-      spreadsheetId ?? '',
-      monthlySpreadsheetId ?? '',
-    )
-  }
-  return createMockRepos()
+  const { mainSpreadsheetId, spreadsheetId, monthlySpreadsheetId, activeStoreId } = useAuthStore.getState()
+  return createDexieRepos(
+    activeStoreId ?? '__init__',
+    mainSpreadsheetId ?? '',
+    spreadsheetId ?? '',
+    monthlySpreadsheetId ?? '',
+  )
 }
 
 /**
- * Creates a one-off repo for a specific spreadsheetId + sheetName.
+ * Creates a one-off raw SheetRepository for a specific spreadsheetId + sheetName.
  * Use in setup/initialization code where a freshly-created spreadsheet ID
  * is not yet stored in the auth store.
  *
- * During setup (SetupWizard) the app is always online so we use the raw
- * SheetRepository (no Dexie wrapper) to write headers directly to Sheets.
+ * Uses raw SheetRepository (no Dexie wrapper) to write headers directly to Sheets
+ * during SetupWizard — always requires an active internet connection.
  */
 export function makeRepo<T extends Record<string, unknown>>(
   spreadsheetId: string,
   sheetName: string,
 ): ISheetRepository<T> {
-  if (adapterType === 'google') {
-    return new SheetRepository<T>(spreadsheetId, sheetName, getToken, ALL_TAB_HEADERS[sheetName])
-  }
-  return new MockSheetRepository<T>(sheetName)
+  return new SheetRepository<T>(spreadsheetId, sheetName, getToken, ALL_TAB_HEADERS[sheetName])
 }
 
 // ─── Dexie repo factory ────────────────────────────────────────────────────────
