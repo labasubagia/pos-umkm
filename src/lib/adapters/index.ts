@@ -120,11 +120,9 @@ export function makeRepo<T extends Record<string, unknown>>(
 // ─── Dexie repo factory ────────────────────────────────────────────────────────
 
 /**
- * Wraps each SheetRepository in a DexieSheetRepository so all reads go through
- * IndexedDB and all writes are queued to the _outbox for later sync to Sheets.
- *
- * The `getRemoteRepo` factory is called lazily at sync time (SyncManager creates
- * SheetRepository on the fly) so IDs don't need to be captured at call time.
+ * Creates DexieRepository instances for every sheet in the active store.
+ * Each repo writes to IndexedDB + outbox; after each write it calls
+ * syncManager.triggerSync() for an immediate drain attempt.
  */
 function createDexieRepos(
   storeId: string,
@@ -138,7 +136,7 @@ function createDexieRepos(
     spreadsheetId: string,
     sheetName: string,
   ): DexieRepository<T> {
-    return new DexieRepository<T>(storeDb, { spreadsheetId, sheetName })
+    return new DexieRepository<T>(storeDb, { spreadsheetId, sheetName }, () => syncManager.triggerSync())
   }
 
   return {
@@ -195,5 +193,6 @@ export function getMembersForStore(
   return new DexieRepository<Record<string, unknown>>(
     db,
     { spreadsheetId: masterSpreadsheetId, sheetName: 'Members' },
+    () => syncManager.triggerSync(),
   )
 }

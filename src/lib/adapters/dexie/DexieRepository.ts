@@ -32,10 +32,12 @@ export class DexieRepository<T extends Record<string, unknown>>
   implements ILocalRepository<T> {
   private readonly db: PosUmkmDatabase
   private readonly syncTarget: SyncTarget
+  private readonly onAfterWrite: () => void
 
-  constructor(db: PosUmkmDatabase, syncTarget: SyncTarget) {
+  constructor(db: PosUmkmDatabase, syncTarget: SyncTarget, onAfterWrite: () => void = () => {}) {
     this.db = db
     this.syncTarget = syncTarget
+    this.onAfterWrite = onAfterWrite
   }
 
   // ─── Reads (always from IndexedDB) ──────────────────────────────────────────
@@ -58,6 +60,7 @@ export class DexieRepository<T extends Record<string, unknown>>
       await this.enqueue({ op: 'append', rows: rowsWithIds as Record<string, unknown>[] })
     })
     this.refreshPendingCount()
+    this.onAfterWrite()
   }
 
   async batchUpdate(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void> {
@@ -78,6 +81,7 @@ export class DexieRepository<T extends Record<string, unknown>>
       await this.enqueue({ op: 'batchUpdateCells', updates })
     })
     this.refreshPendingCount()
+    this.onAfterWrite()
   }
 
   /**
@@ -112,6 +116,7 @@ export class DexieRepository<T extends Record<string, unknown>>
       await this.enqueue({ op: 'softDelete', rowId: id })
     })
     this.refreshPendingCount()
+    this.onAfterWrite()
   }
 
   // ─── Internal helpers ────────────────────────────────────────────────────────

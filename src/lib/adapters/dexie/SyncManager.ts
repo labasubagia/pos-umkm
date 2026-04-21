@@ -10,7 +10,7 @@
  *   6. After 5 failures: stop retrying (manual intervention required)
  *
  * Sync is triggered:
- *   - Explicitly by triggerSync() from the app or DexieSheetRepository writes
+ *   - Explicitly by triggerSync() called via DexieRepository.onAfterWrite
  *   - When the browser comes back online (window 'online' event)
  *   - Periodically every POLL_INTERVAL_MS
  *
