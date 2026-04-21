@@ -71,12 +71,25 @@ export class SyncManager {
     }
   }
 
-  /** Public entry point. No-op if offline, already syncing, or rate-limited. */
+  /** Public entry point. No-op if offline, already syncing, rate-limited, or no token. */
   triggerSync(): void {
     if (!navigator.onLine || this.isSyncing || this.rateLimited) return
+    if (!this.getToken()) return
     this.drain().catch((err) => {
       console.error('[SyncManager] Unexpected drain error:', err)
     })
+  }
+
+  /**
+   * Resets all failed outbox entries back to pending so they can be retried.
+   * Call after a successful token refresh to unblock entries that failed due
+   * to an expired token.
+   */
+  async resetFailedEntries(): Promise<void> {
+    await this.db._outbox
+      .where('status').equals('failed')
+      .modify({ status: 'pending', retries: 0, errorMessage: undefined })
+    this.triggerSync()
   }
 
   // ─── Internal ──────────────────────────────────────────────────────────────

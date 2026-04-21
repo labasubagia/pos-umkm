@@ -59,6 +59,8 @@ const LS_USER_NAME = 'gsi_user_name'
 export class GoogleAuthAdapter implements AuthAdapter {
   private currentUser: User | null = null
   private accessToken: string | null = null
+  private tokenExpiry = 0
+  private grantedScope = OWNER_SCOPE
 
   /**
    * Tries to restore a previous session from localStorage without showing an
@@ -85,6 +87,7 @@ export class GoogleAuthAdapter implements AuthAdapter {
     }
 
     this.accessToken = token
+    this.tokenExpiry = expiry
     this.currentUser = { id, email, role: 'owner', name: '' }
     if (name) {
       this.currentUser.name = name
@@ -123,6 +126,8 @@ export class GoogleAuthAdapter implements AuthAdapter {
           const expiry = Date.now() + expiresIn * 1000 - 60_000
 
           this.accessToken = token
+          this.tokenExpiry = expiry
+          this.grantedScope = OWNER_SCOPE
           localStorage.setItem(LS_ACCESS_TOKEN, token)
           localStorage.setItem(LS_TOKEN_EXPIRY, expiry.toString())
 
@@ -150,6 +155,7 @@ export class GoogleAuthAdapter implements AuthAdapter {
   async signOut(): Promise<void> {
     this.currentUser = null
     this.accessToken = null
+    this.tokenExpiry = 0
     this.clearStorage()
   }
 
@@ -159,6 +165,41 @@ export class GoogleAuthAdapter implements AuthAdapter {
 
   getAccessToken(): string | null {
     return this.accessToken
+  }
+
+  /** Returns the Unix ms timestamp when the current token expires (0 if unknown). */
+  getTokenExpiry(): number {
+    return this.tokenExpiry
+  }
+
+  /**
+   * Silently requests a fresh access token using the GIS token client without
+   * showing a popup. Works as long as the user has previously granted consent.
+   * Returns true on success, false if the token client is unavailable or the
+   * user must re-authorise.
+   */
+  silentRefresh(): Promise<boolean> {
+    if (!CLIENT_ID || !window.google) return Promise.resolve(false)
+    return new Promise<boolean>((resolve) => {
+      const tokenClient = window.google!.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID!,
+        scope: this.grantedScope,
+        callback: (response) => {
+          if (response.error || !response.access_token) {
+            resolve(false)
+            return
+          }
+          const expiresIn = response.expires_in ?? 3600
+          const expiry = Date.now() + expiresIn * 1000 - 60_000
+          this.accessToken = response.access_token
+          this.tokenExpiry = expiry
+          localStorage.setItem(LS_ACCESS_TOKEN, response.access_token)
+          localStorage.setItem(LS_TOKEN_EXPIRY, expiry.toString())
+          resolve(true)
+        },
+      })
+      tokenClient.requestAccessToken({ prompt: '' })
+    })
   }
 
   private clearStorage(): void {
