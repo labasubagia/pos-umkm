@@ -39,8 +39,10 @@ export function SyncStatus() {
 
   if (!isOnline) {
     return (
-      <div
+      <button
+        type="button"
         data-testid="sync-status-offline"
+        onClick={handleManualSync}
         className="flex items-center gap-1.5 text-xs text-muted-foreground"
         title="Offline — perubahan disimpan lokal"
       >
@@ -54,20 +56,22 @@ export function SyncStatus() {
             {pendingCount}
           </span>
         )}
-      </div>
+      </button>
     )
   }
 
   if (isSyncing) {
     return (
-      <div
+      <button
+        type="button"
         data-testid="sync-status-syncing"
+        onClick={handleManualSync}
         className="flex items-center gap-1.5 text-xs text-muted-foreground"
         title="Menyinkronkan..."
       >
         <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
         <span className="hidden sm:inline">Sinkronisasi...</span>
-      </div>
+      </button>
     )
   }
 
@@ -113,15 +117,17 @@ export function SyncStatus() {
     )
   }
 
-  // All synced
+  // All synced — still allow manual sync
   return (
-    <div
+    <button
+      type="button"
       data-testid="sync-status-synced"
+      onClick={handleManualSync}
       className="flex items-center gap-1.5 text-xs text-muted-foreground"
       title={lastSyncedAt ? `Tersinkron: ${new Date(lastSyncedAt).toLocaleTimeString('id-ID')}` : 'Tersinkron'}
     >
       <CheckCircle className="h-4 w-4 text-green-500" />
       <span className="hidden sm:inline">Tersinkron</span>
-    </div>
+    </button>
   )
 }
