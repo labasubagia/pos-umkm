@@ -7,5 +7,5 @@ import dayjs from 'dayjs'
  * @param format Optional dayjs format string
  */
 export function formatDate(date: string | Date, format = 'DD MMM YYYY, HH:mm:ss') {
-  return dayjs(date).format(format)
+    return dayjs(date).format(format)
 }
