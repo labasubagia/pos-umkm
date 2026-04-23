@@ -51,10 +51,14 @@ export class SyncManager {
     if (!this.pollTimer) {
       this.pollTimer = setInterval(() => this.triggerSync(), POLL_INTERVAL_MS)
     }
-    // Attempt an immediate drain on startup
-    this.triggerSync()
-    // Refresh pending count so UI is correct after page reload
-    this.refreshPendingCount()
+    // Reset any stale 'syncing' entries left by abrupt shutdowns,
+    // then attempt an immediate drain on startup and refresh pending count.
+    this.db._outbox.where('status').equals('syncing').modify({ status: 'pending' })
+      .catch(() => {/* non-critical */ })
+      .then(() => {
+        this.triggerSync()
+        this.refreshPendingCount()
+      })
   }
 
   stop(): void {
@@ -131,7 +135,9 @@ export class SyncManager {
             this.activateRateLimit()
             break
           }
-          // Non-rate-limit errors: continue with next entry
+
+          // Non-rate-limit errors: log and continue with next entry
+          console.error('[SyncManager]', entry, err)
         }
       }
 
@@ -183,9 +189,11 @@ export class SyncManager {
   }
 
   private refreshPendingCount(): void {
-    this.db._outbox.where('status').anyOf(['pending', 'failed']).count().then((count) => {
+    // Count all entries in the outbox table. Relying on specific status
+    // values can miss stale 'syncing' rows left by abrupt shutdowns.
+    this.db._outbox.count().then((count) => {
       useSyncStore.getState().setPendingCount(count)
-    }).catch(() => {/* non-critical */})
+    }).catch(() => {/* non-critical */ })
   }
 }
 

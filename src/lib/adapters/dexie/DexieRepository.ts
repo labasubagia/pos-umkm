@@ -34,7 +34,7 @@ export class DexieRepository<T extends Record<string, unknown>>
   private readonly syncTarget: SyncTarget
   private readonly onAfterWrite: () => void
 
-  constructor(db: PosUmkmDatabase, syncTarget: SyncTarget, onAfterWrite: () => void = () => {}) {
+  constructor(db: PosUmkmDatabase, syncTarget: SyncTarget, onAfterWrite: () => void = () => { }) {
     this.db = db
     this.syncTarget = syncTarget
     this.onAfterWrite = onAfterWrite
@@ -135,8 +135,11 @@ export class DexieRepository<T extends Record<string, unknown>>
   }
 
   private refreshPendingCount(): void {
-    this.db._outbox.where('status').anyOf(['pending', 'failed']).count().then((count) => {
+    // Use the total outbox count to avoid missing entries with other
+    // transient statuses (e.g. 'syncing') which could cause the UI to
+    // incorrectly show "Tersinkron" while entries still exist.
+    this.db._outbox.count().then((count) => {
       useSyncStore.getState().setPendingCount(count)
-    }).catch(() => {/* non-critical */})
+    }).catch(() => {/* non-critical */ })
   }
 }
