@@ -45,15 +45,15 @@ export const driveClient: IDriveClient = new GoogleDriveClient(getToken)
 
 /** No-op SyncManager used as the initial value and after logout. */
 const noopSyncManager = {
-  start: () => {},
-  stop: () => {},
-  triggerSync: () => {},
+  start: () => { },
+  stop: () => { },
+  triggerSync: () => { },
 } as unknown as SyncManager
 
 /** No-op HydrationService used as the initial value and after logout. */
 const noopHydrationService = {
-  hydrateAll: async () => {},
-  forceHydrate: async () => {},
+  hydrateAll: async () => { },
+  forceHydrate: async () => { },
 } as unknown as HydrationService
 
 /**
@@ -147,21 +147,21 @@ function createDexieRepos(
   }
 
   return {
-    stores:             dexie(mainId,    'Stores'),
-    monthlySheets:      dexie(masterId,  'Monthly_Sheets'),
-    categories:         dexie(masterId,  'Categories'),
-    products:           dexie(masterId,  'Products'),
-    variants:           dexie(masterId,  'Variants'),
-    members:            dexie(masterId,  'Members'),
-    settings:           dexie(masterId,  'Settings'),
-    stockLog:           dexie(masterId,  'Stock_Log'),
-    purchaseOrders:     dexie(masterId,  'Purchase_Orders'),
-    purchaseOrderItems: dexie(masterId,  'Purchase_Order_Items'),
-    customers:          dexie(masterId,  'Customers'),
-    auditLog:           dexie(masterId,  'Audit_Log'),
-    transactions:       dexie(monthlyId, 'Transactions'),
-    transactionItems:   dexie(monthlyId, 'Transaction_Items'),
-    refunds:            dexie(monthlyId, 'Refunds'),
+    stores: dexie(mainId, 'Stores'),
+    monthlySheets: dexie(masterId, 'Monthly_Sheets'),
+    categories: dexie(masterId, 'Categories'),
+    products: dexie(masterId, 'Products'),
+    variants: dexie(masterId, 'Variants'),
+    members: dexie(masterId, 'Members'),
+    settings: dexie(masterId, 'Settings'),
+    stockLog: dexie(masterId, 'Stock_Log'),
+    purchaseOrders: dexie(masterId, 'Purchase_Orders'),
+    purchaseOrderItems: dexie(masterId, 'Purchase_Order_Items'),
+    customers: dexie(masterId, 'Customers'),
+    auditLog: dexie(masterId, 'Audit_Log'),
+    transactions: dexie(monthlyId, 'Transactions'),
+    transactionItems: dexie(monthlyId, 'Transaction_Items'),
+    refunds: dexie(monthlyId, 'Refunds'),
   }
 }
 
