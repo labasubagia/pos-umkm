@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import dayjs from 'dayjs'
+import { formatDate } from '../../lib/formatDate'
 import {
   fetchTransactionsForRange,
   filterTransactions,
@@ -83,7 +83,7 @@ export function SalesReport() {
     exportToExcel(
       rows.map((r) => ({
         'No. Struk': r.receipt_number,
-        Tanggal: dayjs(r.created_at).format('YYYY-MM-DD HH:mm'),
+        Tanggal: formatDate(r.created_at, 'YYYY-MM-DD HH:mm'),
         Kasir: resolveCashier(r.cashier_id),
         Pembayaran: r.payment_method,
         Total: r.total,
@@ -202,7 +202,7 @@ export function SalesReport() {
               {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>{r.receipt_number}</TableCell>
-                  <TableCell>{dayjs(r.created_at).format('YYYY-MM-DD HH:mm')}</TableCell>
+                  <TableCell>{formatDate(r.created_at, 'YYYY-MM-DD HH:mm')}</TableCell>
                   <TableCell>{resolveCashier(r.cashier_id)}</TableCell>
                   <TableCell>{r.payment_method}</TableCell>
                   <TableCell className="text-right">{formatIDR(r.total)}</TableCell>

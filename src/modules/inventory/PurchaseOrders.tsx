@@ -12,6 +12,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../store/authStore'
 import { usePurchaseOrders, PURCHASE_ORDERS_QUERY_KEY } from '../../hooks/usePurchaseOrders'
 import { useProducts, PRODUCTS_QUERY_KEY } from '../../hooks/useProducts'
+import { formatDate } from '../../lib/formatDate'
 import { formatIDR } from '../../lib/formatIDR'
 import {
   fetchPurchaseOrderItems,
@@ -248,7 +249,7 @@ export function PurchaseOrders() {
               <div>
                 <p data-testid={`po-supplier-${order.id}`} className="font-medium">{order.supplier}</p>
                 <p className="text-xs text-gray-500">
-                  {new Date(order.created_at).toLocaleDateString('id-ID')}
+                  {formatDate(order.created_at, 'DD MMM YYYY')}
                 </p>
               </div>
               <div className="flex items-center gap-3">

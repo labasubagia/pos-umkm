@@ -15,6 +15,7 @@ import { CloudOff, CloudUpload, CheckCircle, Loader2 } from 'lucide-react'
 import { useSyncStore } from '../store/syncStore'
 import { syncManager } from '../lib/adapters'
 import { cn } from '../lib/utils'
+import { formatDate } from '../lib/formatDate'
 
 export function SyncStatus() {
   const { pendingCount, isSyncing, lastSyncedAt, lastError } = useSyncStore()
@@ -124,7 +125,7 @@ export function SyncStatus() {
       data-testid="sync-status-synced"
       onClick={handleManualSync}
       className="flex items-center gap-1.5 text-xs text-muted-foreground"
-      title={lastSyncedAt ? `Tersinkron: ${new Date(lastSyncedAt).toLocaleTimeString('id-ID')}` : 'Tersinkron'}
+      title={lastSyncedAt ? `Tersinkron: ${formatDate(lastSyncedAt, 'HH:mm:ss')}` : 'Tersinkron'}
     >
       <CheckCircle className="h-4 w-4 text-green-500" />
       <span className="hidden sm:inline">Tersinkron</span>
