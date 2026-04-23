@@ -44,19 +44,10 @@ export function SyncStatus() {
         type="button"
         data-testid="sync-status-offline"
         onClick={handleManualSync}
-        className="flex items-center gap-1.5 text-xs text-muted-foreground"
+        className="flex items-center text-muted-foreground"
         title="Offline — perubahan disimpan lokal"
       >
-        <CloudOff className="h-4 w-4 text-orange-400" />
-        <span className="hidden sm:inline">Offline</span>
-        {hasPending && (
-          <span
-            data-testid="sync-pending-count"
-            className="rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-medium text-orange-700"
-          >
-            {pendingCount}
-          </span>
-        )}
+        <CloudOff className="h-5 w-5 text-orange-400" />
       </button>
     )
   }
@@ -67,11 +58,10 @@ export function SyncStatus() {
         type="button"
         data-testid="sync-status-syncing"
         onClick={handleManualSync}
-        className="flex items-center gap-1.5 text-xs text-muted-foreground"
+        className="flex items-center text-muted-foreground"
         title="Menyinkronkan..."
       >
-        <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-        <span className="hidden sm:inline">Sinkronisasi...</span>
+        <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
       </button>
     )
   }
@@ -81,17 +71,10 @@ export function SyncStatus() {
       <button
         data-testid="sync-status-error"
         onClick={handleManualSync}
-        className="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-700"
+        className="flex items-center text-red-600 hover:text-red-700"
         title={`Gagal sinkronisasi: ${lastError} — klik untuk coba lagi`}
       >
-        <CloudOff className="h-4 w-4" />
-        <span className="hidden sm:inline">Gagal</span>
-        <span
-          data-testid="sync-pending-count"
-          className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700"
-        >
-          {pendingCount}
-        </span>
+        <CloudOff className="h-5 w-5" />
       </button>
     )
   }
@@ -101,19 +84,10 @@ export function SyncStatus() {
       <button
         data-testid="sync-status-pending"
         onClick={handleManualSync}
-        className={cn(
-          'flex items-center gap-1.5 text-xs text-muted-foreground',
-          'hover:text-foreground transition-colors',
-        )}
+        className={cn('flex items-center text-muted-foreground', 'hover:text-foreground transition-colors')}
         title={`${pendingCount} perubahan menunggu sinkronisasi — klik untuk sinkronisasi sekarang`}
       >
-        <CloudUpload className="h-4 w-4 text-blue-400" />
-        <span
-          data-testid="sync-pending-count"
-          className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
-        >
-          {pendingCount}
-        </span>
+        <CloudUpload className="h-5 w-5 text-blue-400" />
       </button>
     )
   }
@@ -124,11 +98,10 @@ export function SyncStatus() {
       type="button"
       data-testid="sync-status-synced"
       onClick={handleManualSync}
-      className="flex items-center gap-1.5 text-xs text-muted-foreground"
+      className="flex items-center text-muted-foreground"
       title={lastSyncedAt ? `Tersinkron: ${formatDate(lastSyncedAt, 'HH:mm:ss')}` : 'Tersinkron'}
     >
-      <CheckCircle className="h-4 w-4 text-green-500" />
-      <span className="hidden sm:inline">Tersinkron</span>
+      <CheckCircle className="h-5 w-5 text-green-500" />
     </button>
   )
 }

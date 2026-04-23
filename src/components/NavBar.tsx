@@ -140,8 +140,7 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
               data-testid="btn-logout"
               aria-label="Keluar"
             >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden md:inline">Keluar</span>
+              <LogOut className="h-5 w-5" />
             </Button>
           </div>
         )}
