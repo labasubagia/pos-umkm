@@ -34,6 +34,11 @@ export function SalesReport() {
   const [cashierEmailMap, setCashierEmailMap] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const user = useAuthStore((s) => s.user)
+  const monthlySpreadsheetId = useAuthStore((s) => s.monthlySpreadsheetId)
+  const spreadsheetId = useAuthStore((s) => s.spreadsheetId)
+  const isOwner = user?.role === 'owner'
+  const txSheetId = monthlySpreadsheetId ?? spreadsheetId
 
   async function load() {
     setLoading(true)
@@ -170,6 +175,17 @@ export function SalesReport() {
             >
               Cetak
             </Button>
+            {isOwner && txSheetId && (
+              <a
+                data-testid="link-transaction-sheet"
+                href={`https://docs.google.com/spreadsheets/d/${txSheetId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 underline self-center"
+              >
+                Buka Spreadsheet Transaksi
+              </a>
+            )}
           </div>
 
           <Table data-testid="report-results-table">

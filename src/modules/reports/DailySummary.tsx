@@ -29,6 +29,11 @@ export function DailySummary() {
   const [date, setDate] = useState(today)
   const [enabled, setEnabled] = useState(true) // fetch on mount with today's date
   const activeStoreId = useAuthStore((s) => s.activeStoreId)
+  const user = useAuthStore((s) => s.user)
+  const monthlySpreadsheetId = useAuthStore((s) => s.monthlySpreadsheetId)
+  const spreadsheetId = useAuthStore((s) => s.spreadsheetId)
+  const isOwner = user?.role === 'owner'
+  const txSheetId = monthlySpreadsheetId ?? spreadsheetId
 
   const { data: summary, isLoading, error, refetch } = useQuery({
     queryKey: ['daily-summary', activeStoreId, date],
@@ -66,6 +71,20 @@ export function DailySummary() {
           Lihat Laporan
         </Button>
       </div>
+
+      {isOwner && txSheetId && (
+        <div className="no-print">
+          <a
+            data-testid="link-transaction-sheet"
+            href={`https://docs.google.com/spreadsheets/d/${txSheetId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-blue-600 underline"
+          >
+            Buka Spreadsheet Transaksi
+          </a>
+        </div>
+      )}
 
       {errorMsg && (
         <Alert variant="destructive">
