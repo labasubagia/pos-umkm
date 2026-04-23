@@ -27,6 +27,7 @@ export function ProductSearch({ products, variants }: Props) {
   const [query, setQuery] = useState('')
   const [variantProduct, setVariantProduct] = useState<Product | null>(null)
   const addItem = useCartStore((s) => s.addItem)
+  const cartItems = useCartStore((s) => s.items)
 
   const results = searchProducts(query, products)
 
@@ -34,6 +35,15 @@ export function ProductSearch({ products, variants }: Props) {
     if (product.has_variants) {
       setVariantProduct(product)
     } else {
+      const inCart = cartItems.find((i) => i.productId === product.id && !i.variantId)
+      const currentQty = inCart ? inCart.quantity : 0
+      if (product.stock !== undefined && currentQty >= product.stock) {
+        // Minimal user feedback; keep UI changes small for MVP.
+        // Commit-side validation will still prevent oversell.
+        // eslint-disable-next-line no-alert
+        alert('Stok tidak cukup untuk menambahkan produk ini ke keranjang')
+        return
+      }
       addItem({
         productId: product.id,
         name: product.name,
@@ -43,6 +53,13 @@ export function ProductSearch({ products, variants }: Props) {
   }
 
   function handleVariantClick(variant: Variant, product: Product) {
+    const inCart = cartItems.find((i) => i.variantId === variant.id)
+    const currentQty = inCart ? inCart.quantity : 0
+    if (variant.stock !== undefined && currentQty >= variant.stock) {
+      // eslint-disable-next-line no-alert
+      alert('Stok varian tidak cukup untuk menambahkan ini ke keranjang')
+      return
+    }
     addItem({
       productId: product.id,
       variantId: variant.id,

@@ -295,6 +295,57 @@ export async function commitTransaction(
     notes: null,
   }
 
+  // --- Pre-check stock availability using preloaded data when provided ---
+  try {
+    const hasVariantItems = items.some((i) => i.variantId)
+    const hasProductItems = items.some((i) => !i.variantId)
+
+    const [variantRows, productRows] = await Promise.all([
+      hasVariantItems
+        ? (preloadedVariants
+            ? Promise.resolve(preloadedVariants as unknown as Record<string, unknown>[])
+            : getRepos().variants.getAll())
+        : Promise.resolve([]),
+      hasProductItems
+        ? (preloadedProducts
+            ? Promise.resolve(preloadedProducts as unknown as Record<string, unknown>[])
+            : getRepos().products.getAll())
+        : Promise.resolve([]),
+    ])
+
+    const insuffs: string[] = []
+    for (const it of items) {
+      if (it.variantId) {
+        const v = variantRows.find((r) => r['id'] === it.variantId)
+        if (!v) {
+          insuffs.push(`${it.name} (varian) tidak ditemukan`)
+          continue
+        }
+        const cur = Number(v['stock'])
+        if (cur < it.quantity) {
+          insuffs.push(`${it.name}: stok ${cur} < dibutuhkan ${it.quantity}`)
+        }
+      } else {
+        const p = productRows.find((r) => r['id'] === it.productId)
+        if (!p) {
+          insuffs.push(`${it.name} tidak ditemukan`)
+          continue
+        }
+        const cur = Number(p['stock'])
+        if (cur < it.quantity) {
+          insuffs.push(`${it.name}: stok ${cur} < dibutuhkan ${it.quantity}`)
+        }
+      }
+    }
+
+    if (insuffs.length > 0) {
+      throw new CashierError(`Stok tidak mencukupi: ${insuffs.join('; ')}`)
+    }
+  } catch (err) {
+    if (err instanceof CashierError) throw err
+    // If adapter read fails, continue — later decrement step will surface errors.
+  }
+
   // Step 1: Append transaction header
   await getRepos().transactions.batchInsert([{
     id: transactionId,

@@ -8,10 +8,14 @@ import { Trash2 } from 'lucide-react'
 import { useCartStore } from './useCart'
 import { calculateSubtotal } from './cashier.service'
 import { Button } from '../../components/ui/button'
+import { useProducts } from '../../hooks/useProducts'
+import { useVariants } from '../../hooks/useVariants'
 
 export function CartPanel() {
   const items = useCartStore((s) => s.items)
   const setQuantity = useCartStore((s) => s.setQuantity)
+  const { data: products = [] } = useProducts()
+  const { data: variants = [] } = useVariants()
 
   if (items.length === 0) {
     return (
@@ -52,6 +56,13 @@ export function CartPanel() {
               size="icon-sm"
               onClick={() => setQuantity(item.productId, item.quantity + 1, item.variantId)}
               aria-label={`Tambah ${item.name}`}
+              disabled={(() => {
+                // Determine available stock for this cart line
+                const available = item.variantId
+                  ? variants.find((v) => v.id === item.variantId)?.stock ?? 0
+                  : products.find((p) => p.id === item.productId)?.stock ?? 0
+                return item.quantity >= available
+              })()}
             >
               +
             </Button>
