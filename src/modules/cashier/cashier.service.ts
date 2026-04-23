@@ -303,13 +303,13 @@ export async function commitTransaction(
     const [variantRows, productRows] = await Promise.all([
       hasVariantItems
         ? (preloadedVariants
-            ? Promise.resolve(preloadedVariants as unknown as Record<string, unknown>[])
-            : getRepos().variants.getAll())
+          ? Promise.resolve(preloadedVariants as unknown as Record<string, unknown>[])
+          : getRepos().variants.getAll())
         : Promise.resolve([]),
       hasProductItems
         ? (preloadedProducts
-            ? Promise.resolve(preloadedProducts as unknown as Record<string, unknown>[])
-            : getRepos().products.getAll())
+          ? Promise.resolve(preloadedProducts as unknown as Record<string, unknown>[])
+          : getRepos().products.getAll())
         : Promise.resolve([]),
     ])
 
@@ -392,13 +392,13 @@ export async function commitTransaction(
     const [variantRows, productRows] = await Promise.all([
       hasVariantItems
         ? (preloadedVariants
-            ? Promise.resolve(preloadedVariants as unknown as Record<string, unknown>[])
-            : getRepos().variants.getAll())
+          ? Promise.resolve(preloadedVariants as unknown as Record<string, unknown>[])
+          : getRepos().variants.getAll())
         : Promise.resolve([]),
       hasProductItems
         ? (preloadedProducts
-            ? Promise.resolve(preloadedProducts as unknown as Record<string, unknown>[])
-            : getRepos().products.getAll())
+          ? Promise.resolve(preloadedProducts as unknown as Record<string, unknown>[])
+          : getRepos().products.getAll())
         : Promise.resolve([]),
     ])
 
