@@ -25,6 +25,8 @@ import { ALL_TAB_HEADERS } from '../../schema'
 import { useSyncStore } from '../../../store/syncStore'
 import { getDb } from './db'
 import { useAuthStore } from '../../../store/authStore'
+import { authAdapter } from '../index'
+import { useNavigate } from 'react-router-dom'
 
 const MAX_RETRIES = 5
 const POLL_INTERVAL_MS = 30_000
@@ -128,6 +130,13 @@ export class SyncManager {
   }
 
   private async drain(): Promise<void> {
+    // For navigation on logout
+    let navigate: ((to: string, opts?: any) => void) | null = null
+    try {
+      // Try to get navigate if in React context
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      navigate = require('react-router-dom').useNavigate?.() ?? null
+    } catch {}
     this.isSyncing = true
     useSyncStore.getState().setIsSyncing(true)
 
@@ -149,12 +158,23 @@ export class SyncManager {
           useSyncStore.getState().setLastError(null)
         } catch (err) {
           const isRateLimit = isRateLimitError(err)
+          const errStr = String(err)
           await this.db._outbox.update(entry.id!, {
             status: 'failed',
             retries: entry.retries + 1,
-            errorMessage: String(err),
+            errorMessage: errStr,
           })
-          useSyncStore.getState().setLastError(String(err))
+          useSyncStore.getState().setLastError(errStr)
+
+          // Auto-logout on Sheets API 401/UNAUTHENTICATED error
+          if (errStr.includes('401') || errStr.includes('UNAUTHENTICATED')) {
+            // Clear auth and redirect to login
+            await authAdapter.signOut?.()
+            useAuthStore.getState().clearAuth()
+            if (navigate) navigate('/', { replace: true })
+            // Stop further processing
+            break
+          }
 
           if (isRateLimit) {
             // Stop draining and backoff — other entries will retry after cooldown
