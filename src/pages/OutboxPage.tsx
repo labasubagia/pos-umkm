@@ -27,9 +27,12 @@ export default function OutboxPage() {
 
     return (
         <div className="p-4">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 gap-2">
                 <h2 className="text-lg font-semibold">Outbox Sync</h2>
-                <Button onClick={() => { syncManager.triggerSync(); fetchOutbox() }} size="sm">Sync Now</Button>
+                <div className="flex gap-2">
+                    <Button onClick={() => { syncManager.triggerSync(); fetchOutbox() }} size="sm">Sync Now</Button>
+                    <Button variant="secondary" onClick={async () => { await syncManager.resetFailedEntries(); fetchOutbox() }} size="sm">Retry All Failed</Button>
+                </div>
             </div>
             {loading ? (
                 <div>Loading...</div>
