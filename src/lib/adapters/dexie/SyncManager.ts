@@ -23,6 +23,8 @@ import type { PosUmkmDatabase } from './db'
 import type { OutboxEntry, OutboxOperation } from './db'
 import { ALL_TAB_HEADERS } from '../../schema'
 import { useSyncStore } from '../../../store/syncStore'
+import { getDb } from './db'
+import { useAuthStore } from '../../../store/authStore'
 
 const MAX_RETRIES = 5
 const POLL_INTERVAL_MS = 30_000
@@ -53,12 +55,27 @@ export class SyncManager {
     }
     // Reset any stale 'syncing' entries left by abrupt shutdowns,
     // then attempt an immediate drain on startup and refresh pending count.
-    this.db._outbox.where('status').equals('syncing').modify({ status: 'pending' })
-      .catch(() => {/* non-critical */ })
-      .then(() => {
-        this.triggerSync()
-        this.refreshPendingCount()
-      })
+    // Prefer the currently-active store DB when available; fall back to
+    // the instance-bound DB. This avoids showing a zero pending count
+    // when outbox entries are stored in a different DB instance.
+    try {
+      const activeStoreId = useAuthStore.getState().activeStoreId ?? '__init__'
+      const startupDb = getDb(activeStoreId)
+      startupDb._outbox.where('status').equals('syncing').modify({ status: 'pending' })
+        .catch(() => {/* non-critical */ })
+        .then(() => {
+          this.triggerSync()
+          this.refreshPendingCount()
+        })
+    } catch {
+      // Fallback to the instance-bound DB if anything goes wrong
+      this.db._outbox.where('status').equals('syncing').modify({ status: 'pending' })
+        .catch(() => {/* non-critical */ })
+        .then(() => {
+          this.triggerSync()
+          this.refreshPendingCount()
+        })
+    }
   }
 
   stop(): void {
@@ -77,8 +94,15 @@ export class SyncManager {
 
   /** Public entry point. No-op if offline, already syncing, rate-limited, or no token. */
   triggerSync(): void {
-    if (!navigator.onLine || this.isSyncing || this.rateLimited) return
-    if (!this.getToken()) return
+    if (!navigator.onLine || this.isSyncing || this.rateLimited) {
+      console.debug('[SyncManager] triggerSync skipped: offline/isSyncing/rateLimited', { online: navigator.onLine, isSyncing: this.isSyncing, rateLimited: this.rateLimited })
+      return
+    }
+    const token = this.getToken()
+    if (!token) {
+      console.debug('[SyncManager] triggerSync skipped: no access token')
+      return
+    }
     this.drain().catch((err) => {
       console.error('[SyncManager] Unexpected drain error:', err)
     })
@@ -112,6 +136,8 @@ export class SyncManager {
         .where('status').anyOf(['pending', 'failed'])
         .and((entry) => entry.retries < MAX_RETRIES)
         .sortBy('id')
+
+      console.debug('[SyncManager] drain found pending outbox entries', pending.map((p) => ({ id: p.id, mutationId: p.mutationId, sheetName: p.sheetName })))
 
       for (const entry of pending) {
         // Mark as syncing so the UI shows progress
@@ -161,6 +187,8 @@ export class SyncManager {
       this.getToken,
       ALL_TAB_HEADERS[entry.sheetName],
     )
+    console.debug('[SyncManager] applyToSheets repo created', { spreadsheetId: repo.spreadsheetId, sheetName: repo.sheetName })
+    console.debug('[SyncManager] applyToSheets operation', entry.operation)
 
     const op: OutboxOperation = entry.operation
     switch (op.op) {
@@ -189,11 +217,20 @@ export class SyncManager {
   }
 
   private refreshPendingCount(): void {
-    // Count all entries in the outbox table. Relying on specific status
-    // values can miss stale 'syncing' rows left by abrupt shutdowns.
-    this.db._outbox.count().then((count) => {
-      useSyncStore.getState().setPendingCount(count)
-    }).catch(() => {/* non-critical */ })
+    // Count pending entries for the active store to avoid stale counts from
+    // an out-of-date SyncManager DB instance.
+    try {
+      const activeStoreId = useAuthStore.getState().activeStoreId ?? '__init__'
+      const db = getDb(activeStoreId)
+      db._outbox.count().then((count) => {
+        useSyncStore.getState().setPendingCount(count)
+      }).catch(() => {/* non-critical */ })
+    } catch {
+      // Fallback to the instance-bound DB if anything goes wrong
+      this.db._outbox.count().then((count) => {
+        useSyncStore.getState().setPendingCount(count)
+      }).catch(() => {/* non-critical */ })
+    }
   }
 }
 

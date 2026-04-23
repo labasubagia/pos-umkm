@@ -131,6 +131,7 @@ export class DexieRepository<T extends Record<string, unknown>>
       retries: 0,
       createdAt: new Date().toISOString(),
     }
+    console.debug('[DexieRepository] enqueue outbox entry', { spreadsheetId: entry.spreadsheetId, sheetName: entry.sheetName, mutationId: entry.mutationId })
     return this.db._outbox.add(entry)
   }
 

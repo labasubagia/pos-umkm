@@ -32,7 +32,14 @@ import { useAuthStore } from '../../store/authStore'
 
 export const authAdapter: AuthAdapter = new GoogleAuthAdapter()
 
-const getToken = (): string => (authAdapter as GoogleAuthAdapter).getAccessToken() ?? ''
+const getToken = (): string => {
+  // Prefer the in-memory token stored in Zustand (set by AuthInitializer)
+  const tokenFromStore = useAuthStore.getState().accessToken
+  if (tokenFromStore) return tokenFromStore
+  // Fallback to the adapter's token if present
+  const tokenFromAdapter = (authAdapter as GoogleAuthAdapter).getAccessToken?.() ?? ''
+  return tokenFromAdapter
+}
 
 export const driveClient: IDriveClient = new GoogleDriveClient(getToken)
 
