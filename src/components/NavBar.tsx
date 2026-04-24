@@ -133,7 +133,7 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
             <select
               value={activeStoreId ?? ""}
               onChange={(e) => void handleStoreChange(e)}
-              className="text-sm border border-input rounded-md px-2 py-1 bg-background focus:outline-none focus:ring-2 focus:ring-ring max-w-[160px] truncate"
+              className="text-sm border border-input rounded-md px-2 py-1 bg-background focus:outline-none focus:ring-2 focus:ring-ring max-w-40 truncate"
               data-testid="select-store"
               aria-label="Pilih toko"
             >
@@ -173,8 +173,11 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
 
       {/* Sub-nav row — shown when the active section has sub-items */}
       {activeSubItems.length > 0 && (
-        <div className="bg-white border-b" data-testid="subnav">
-          <div className="mx-auto max-w-6xl px-4 flex overflow-x-auto">
+        <div
+          className="bg-white border-b mx-auto max-w-6xl overflow-hidden"
+          data-testid="subnav"
+        >
+          <div className="mx-auto max-w-6xl px-4 flex overflow-y-hidden">
             {activeSubItems.map(({ to, label, testId }) => (
               <NavLink
                 key={to}
