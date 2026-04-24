@@ -46,15 +46,15 @@ export const driveClient: IDriveClient = new GoogleDriveClient(getToken);
 
 /** No-op SyncManager used as the initial value and after logout. */
 const noopSyncManager = {
-  start: () => { },
-  stop: () => { },
-  triggerSync: () => { },
+  start: () => {},
+  stop: () => {},
+  triggerSync: () => {},
 } as unknown as SyncManager;
 
 /** No-op HydrationService used as the initial value and after logout. */
 const noopHydrationService = {
-  hydrateAll: async () => { },
-  forceHydrate: async () => { },
+  hydrateAll: async () => {},
+  forceHydrate: async () => {},
 } as unknown as HydrationService;
 
 /**
@@ -66,8 +66,12 @@ export let syncManager: SyncManager = new SyncManager(
   getToken,
   getDb("__init__"),
 );
+function _getInstanceDbName(obj: unknown): string | undefined {
+  return (obj as { db?: { name?: string } })?.db?.name;
+}
+
 console.info("[adapters] initial syncManager created (db)", {
-  dbName: (syncManager as any)?.['db']?.name ?? "unknown",
+  dbName: _getInstanceDbName(syncManager) ?? "unknown",
 });
 
 /**
@@ -93,7 +97,7 @@ export function reinitDexieLayer(storeId: string): void {
   syncManager = new SyncManager(getToken, db);
   hydrationService = new HydrationService(getToken, db);
   console.info("[adapters] syncManager reinitialized", {
-    dbName: (syncManager as any)?.['db']?.name ?? "unknown",
+    dbName: _getInstanceDbName(syncManager) ?? "unknown",
   });
   syncManager.start();
 }

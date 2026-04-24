@@ -184,15 +184,19 @@ export class SyncManager {
       // `syncManager` is bound to a different Dexie instance than the
       // UI (OutboxPage) is reading.
       try {
-        const activeStoreId = useAuthStore.getState().activeStoreId ?? "__init__";
+        const activeStoreId =
+          useAuthStore.getState().activeStoreId ?? "__init__";
         const activeDb = getDb(activeStoreId);
         console.info("[SyncManager] instance DB vs active store DB", {
-          instanceDbName: (this.db as any)?.name ?? "unknown",
+          instanceDbName: this.db.name ?? "unknown",
           activeStoreId,
-          activeDbName: (activeDb as any)?.name ?? "unknown",
+          activeDbName: activeDb.name ?? "unknown",
         });
       } catch (dbLogErr) {
-        console.warn("[SyncManager] failed to determine active DB info", dbLogErr);
+        console.warn(
+          "[SyncManager] failed to determine active DB info",
+          dbLogErr,
+        );
       }
 
       const activeStoreId = useAuthStore.getState().activeStoreId ?? "__init__";
@@ -260,16 +264,20 @@ export class SyncManager {
             );
             try {
               const { authAdapter } = await import("../index");
-              // authAdapter may not expose silentRefresh (mock adapters), so
-              // check at runtime.
-              const silentRefresh = (authAdapter as any)?.silentRefresh;
+              // Use a typed view of the adapter so we avoid `any` while
+              // still safely probing for optional methods.
+              const maybeAuth = authAdapter as unknown as {
+                silentRefresh?: () => Promise<boolean>;
+                getAccessToken?: () => string | null;
+              };
+              const silentRefresh = maybeAuth.silentRefresh;
               if (typeof silentRefresh === "function") {
                 const ok = await silentRefresh.call(authAdapter);
                 console.info("[SyncManager] silentRefresh result:", ok);
                 if (ok) {
                   // Pull the refreshed token (if the adapter provides it)
                   const refreshedToken =
-                    (authAdapter as any)?.getAccessToken?.() ??
+                    maybeAuth.getAccessToken?.() ??
                     useAuthStore.getState().accessToken;
                   if (refreshedToken) {
                     useAuthStore.getState().setAccessToken(refreshedToken);
