@@ -88,7 +88,9 @@ export function CategoryList() {
       {showAddForm && (
         <div className="rounded border border-gray-200 p-4">
           <CategoryForm
-            onSubmit={(name) => addMutation.mutate(name)}
+            onSubmit={async (name) => {
+              await addMutation.mutateAsync(name);
+            }}
             onCancel={() => setShowAddForm(false)}
             submitLabel="Tambah"
           />
@@ -110,9 +112,9 @@ export function CategoryList() {
               {editingId === cat.id ? (
                 <CategoryForm
                   initialName={cat.name}
-                  onSubmit={(name) =>
-                    updateMutation.mutate({ id: cat.id, name })
-                  }
+                  onSubmit={async (name) => {
+                    await updateMutation.mutateAsync({ id: cat.id, name });
+                  }}
                   onCancel={() => setEditingId(null)}
                   submitLabel="Perbarui"
                 />

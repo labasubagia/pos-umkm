@@ -226,17 +226,15 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
   const created_at = nowUTC();
   const stockData = orderItems.map((item) => {
     const product = products.find(
-      (p) =>
-        (p as Record<string, unknown>).id ===
-        (item as Record<string, unknown>).product_id,
+      (p) => (p as Record<string, unknown>).id === item.product_id,
     );
     if (!product) {
       throw new InventoryError(
-        `Produk dengan id "${(item as Record<string, unknown>).product_id}" tidak ditemukan saat menerima purchase order`,
+        `Produk dengan id "${item.product_id}" tidak ditemukan saat menerima purchase order`,
       );
     }
     const qtyBefore = Number((product as Record<string, unknown>).stock);
-    const qtyAfter = qtyBefore + Number((item as Record<string, unknown>).qty);
+    const qtyAfter = qtyBefore + Number(item.qty);
     return { item, qtyBefore, qtyAfter };
   });
 
@@ -244,14 +242,14 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
   await Promise.all([
     getRepos().products.batchUpdate(
       stockData.map(({ item, qtyAfter }) => ({
-        id: (item as Record<string, unknown>).product_id as string,
+        id: item.product_id as string,
         stock: qtyAfter,
       })),
     ),
     getRepos().stockLog.batchInsert(
       stockData.map(({ item, qtyBefore, qtyAfter }) => ({
         id: generateId(),
-        product_id: (item as Record<string, unknown>).product_id,
+        product_id: item.product_id,
         reason: "purchase_order",
         qty_before: qtyBefore,
         qty_after: qtyAfter,

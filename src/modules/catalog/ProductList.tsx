@@ -112,7 +112,9 @@ export function ProductList() {
         <div className="rounded border border-gray-200 p-4">
           <ProductForm
             categories={categories}
-            onSubmit={(p) => addMutation.mutate(p)}
+            onSubmit={async (p) => {
+              await addMutation.mutateAsync(p);
+            }}
             onCancel={() => setShowAddForm(false)}
             submitLabel="Tambah"
           />
@@ -135,9 +137,12 @@ export function ProductList() {
                 <ProductForm
                   categories={categories}
                   initialProduct={product}
-                  onSubmit={(changes) =>
-                    updateMutation.mutate({ id: product.id, changes })
-                  }
+                  onSubmit={async (changes) => {
+                    await updateMutation.mutateAsync({
+                      id: product.id,
+                      changes,
+                    });
+                  }}
                   onCancel={() => setEditingId(null)}
                   submitLabel="Perbarui"
                 />

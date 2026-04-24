@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "check": "tsc -b",
     "prepare": "husky install",
-    "format": "biome check --write && biome format --write",
-    "lint": "biome lint",
+    "lint": "biome check --write",
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",

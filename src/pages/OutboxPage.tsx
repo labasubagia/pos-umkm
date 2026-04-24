@@ -35,18 +35,12 @@ export default function OutboxPage() {
     // `pendingCount` or `lastSyncedAt` updates. This avoids putting
     // those values into the effect dependency array and triggering
     // unnecessary re-runs.
-    const unsubPending = useSyncStore.subscribe(
-      (s) => s.pendingCount,
-      () => {
-        fetchOutbox();
-      },
-    );
-    const unsubLast = useSyncStore.subscribe(
-      (s) => s.lastSyncedAt,
-      () => {
-        fetchOutbox();
-      },
-    );
+    const unsubPending = useSyncStore.subscribe(() => {
+      fetchOutbox();
+    });
+    const unsubLast = useSyncStore.subscribe(() => {
+      fetchOutbox();
+    });
 
     return () => {
       unsubPending();
