@@ -117,13 +117,10 @@ export class GoogleAuthAdapter implements AuthAdapter {
       const google = window.google;
       const clientId = CLIENT_ID as string;
       if (!google) return resolve({} as User); // satisfy type checker; this should never happen due to the earlier check
-      let popupTimer: ReturnType<typeof setTimeout> | undefined;
       const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: clientId,
         scope: OWNER_SCOPE,
         callback: async (response) => {
-          // Clear the popup timeout (if still active) and handle the response.
-          if (popupTimer) clearTimeout(popupTimer);
           if (response.error || !response.access_token) {
             reject(
               new AdapterError(
@@ -161,22 +158,12 @@ export class GoogleAuthAdapter implements AuthAdapter {
           }
         },
       });
-      // Attempt to open the popup. If the token client does not invoke the
-      // callback within a short window, assume the popup was blocked by the
-      // browser and reject with a helpful error message so callers can show
-      // UI instructing the user to allow popups.
-      // Start a timeout that will reject if we don't get a response.
+      // Open the popup and let the user interact with it. No timeout on user-initiated
+      // flows — the user may need time to type their email, password, or select an account.
+      // If the popup is blocked by the browser, there's no callback anyway.
       try {
-        popupTimer = setTimeout(() => {
-          reject(
-            new AdapterError(
-              "GIS sign-in did not receive a response. The browser may have blocked the popup. Please allow popups and try again.",
-            ),
-          );
-        }, 5000);
         tokenClient.requestAccessToken();
       } catch (reqErr) {
-        if (popupTimer) clearTimeout(popupTimer);
         reject(new AdapterError(String(reqErr)));
       }
     });
