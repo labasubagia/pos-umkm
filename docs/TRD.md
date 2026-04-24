@@ -420,6 +420,8 @@ Every login (first-time and returning) goes through `/stores` (StorePickerPage) 
 
 **Multiple branches:** From the Settings screen, the owner can add branches. Each branch goes through steps 2–9 above. The owner's `main.Stores` tab accumulates one row per branch.
 
+**Store deletion constraint:** The currently active store (matching `activeStoreId` in Zustand) cannot be deleted. The delete button in `StoreManagementPage` is disabled for the active store. The owner must switch to a different store first before deleting the current one.
+
 ### 3.4 Family & Member Access
 
 **Use case:** A family-owned warung where the father (Pak Santoso) is the owner. His wife and children help manage the store and need access to the same data.
