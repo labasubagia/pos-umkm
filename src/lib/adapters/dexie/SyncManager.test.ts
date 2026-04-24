@@ -67,7 +67,7 @@ describe("drain", () => {
       .spyOn(SheetRepository.prototype, "batchAppend")
       .mockResolvedValue(undefined);
     await db._outbox.add(makeEntry());
-    await (manager as any).drain();
+    await manager.drain();
     expect(spy).toHaveBeenCalledOnce();
     expect(await db._outbox.count()).toBe(0);
     spy.mockRestore();
@@ -81,7 +81,7 @@ describe("drain", () => {
       .spyOn(SheetRepository.prototype, "batchAppend")
       .mockResolvedValue(undefined);
     await db._outbox.add(makeEntry());
-    await (manager as any).drain();
+    await manager.drain();
     expect(await db._outbox.count()).toBe(0);
     spy.mockRestore();
   });
@@ -94,7 +94,7 @@ describe("drain", () => {
       .spyOn(SheetRepository.prototype, "batchAppend")
       .mockRejectedValue(new Error("Network error"));
     const id = await db._outbox.add(makeEntry());
-    await (manager as any).drain();
+    await manager.drain();
     const entry = await db._outbox.get(id);
     expect(entry?.status).toBe("failed");
     expect(entry?.retries).toBe(1);
@@ -112,7 +112,7 @@ describe("drain", () => {
       );
     await db._outbox.add(makeEntry());
     await db._outbox.add(makeEntry({ mutationId: crypto.randomUUID() }));
-    await (manager as any).drain();
+    await manager.drain();
     const remaining = await db._outbox.toArray();
     expect(remaining).toHaveLength(2);
     expect(remaining[0].status).toBe("failed");
@@ -128,7 +128,7 @@ describe("drain", () => {
       .spyOn(SheetRepository.prototype, "batchAppend")
       .mockResolvedValue(undefined);
     await db._outbox.add(makeEntry({ status: "failed", retries: 5 }));
-    await (manager as any).drain();
+    await manager.drain();
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
   });
@@ -170,7 +170,7 @@ describe("operation routing", () => {
         },
       }),
     );
-    await (manager as any).drain();
+    await manager.drain();
     expect(spy).toHaveBeenCalledOnce();
     spy.mockRestore();
   });
@@ -187,7 +187,7 @@ describe("operation routing", () => {
         operation: { op: "softDelete", rowId: "p1" },
       }),
     );
-    await (manager as any).drain();
+    await manager.drain();
     expect(spy).toHaveBeenCalledWith("p1");
     spy.mockRestore();
   });

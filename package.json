@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "check": "tsc -b",
     "prepare": "husky install",
-    "lint": "biome check --write",
+    "lint": "biome check --error-on-warnings",
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",

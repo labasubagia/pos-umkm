@@ -170,7 +170,7 @@ export class SyncManager {
     this.triggerSync();
   };
 
-  private async drain(): Promise<void> {
+  public async drain(): Promise<void> {
     // Navigation on logout should use a simple location replace so this
     // module doesn't rely on React hooks (which must be called only inside
     // components). We'll use window.location.replace('/') when available.

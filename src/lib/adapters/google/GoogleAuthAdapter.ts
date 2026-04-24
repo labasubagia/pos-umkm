@@ -227,7 +227,7 @@ export class GoogleAuthAdapter implements AuthAdapter {
       try {
         silentTimer = setTimeout(() => resolve(false), 5000);
         tokenClient.requestAccessToken({ prompt: "" });
-      } catch (reqErr) {
+      } catch (_reqErr) {
         if (silentTimer) clearTimeout(silentTimer);
         resolve(false);
       }
