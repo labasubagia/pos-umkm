@@ -193,7 +193,14 @@ export default function StoreManagementPage() {
                         variant="destructive"
                         size="sm"
                         data-testid={`btn-delete-store-${store.store_id}`}
-                        onClick={() => { setDeleteStoreId(store.store_id); setMutationError(null) }}
+                        disabled={store.store_id === activeStoreId}
+                        title={store.store_id === activeStoreId ? 'Tidak dapat menghapus toko aktif' : 'Hapus toko'}
+                        onClick={() => {
+                          if (store.store_id !== activeStoreId) {
+                            setDeleteStoreId(store.store_id)
+                            setMutationError(null)
+                          }
+                        }}
                       >
                         Hapus
                       </Button>

@@ -136,7 +136,12 @@ export class SyncManager {
       // Try to get navigate if in React context
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       navigate = require('react-router-dom').useNavigate?.() ?? null
-    } catch {}
+    } catch (error) {
+      // This can fail when SyncManager runs outside a valid React Router hook
+      // context. Navigation is optional here, so fall back to null and continue.
+      console.debug('[SyncManager] navigate unavailable outside React context', error)
+      navigate = null
+    }
     this.isSyncing = true
     useSyncStore.getState().setIsSyncing(true)
 
