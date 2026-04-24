@@ -12,6 +12,7 @@
  */
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { authAdapter } from "../../lib/adapters";
 import { useAuthStore } from "../../store/authStore";
@@ -22,6 +23,7 @@ export default function LoginPage() {
   const { isAuthenticated, spreadsheetId, setUser, setSpreadsheetId } =
     useAuth();
   const [signingIn, setSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
 
   // Already authenticated from persisted Zustand state (e.g. refresh, back-navigation).
   // Guard against the case where we're mid sign-in and isAuthenticated just flipped.
@@ -64,11 +66,14 @@ export default function LoginPage() {
 
   async function handleSignIn() {
     setSigningIn(true);
+    setSignInError(null);
     try {
       const user = await authAdapter.signIn();
       onAuthenticated(user, authAdapter.getAccessToken() ?? "");
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       console.error("[LoginPage] sign-in failed:", err);
+      setSignInError(errMsg);
       setSigningIn(false);
     }
   }
@@ -79,6 +84,11 @@ export default function LoginPage() {
       <p className="text-muted-foreground text-center max-w-sm">
         Sistem kasir untuk usaha kecil Indonesia
       </p>
+      {signInError && (
+        <Alert variant="destructive" className="max-w-sm">
+          <AlertDescription>{signInError}</AlertDescription>
+        </Alert>
+      )}
       <Button
         onClick={() => void handleSignIn()}
         data-testid="btn-sign-in"

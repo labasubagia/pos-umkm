@@ -117,10 +117,13 @@ export class GoogleAuthAdapter implements AuthAdapter {
       const google = window.google;
       const clientId = CLIENT_ID as string;
       if (!google) return resolve({} as User); // satisfy type checker; this should never happen due to the earlier check
+      let popupTimer: ReturnType<typeof setTimeout> | undefined;
       const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: clientId,
         scope: OWNER_SCOPE,
         callback: async (response) => {
+          // Clear the popup timeout (if still active) and handle the response.
+          if (popupTimer) clearTimeout(popupTimer);
           if (response.error || !response.access_token) {
             reject(
               new AdapterError(
@@ -158,7 +161,24 @@ export class GoogleAuthAdapter implements AuthAdapter {
           }
         },
       });
-      tokenClient.requestAccessToken();
+      // Attempt to open the popup. If the token client does not invoke the
+      // callback within a short window, assume the popup was blocked by the
+      // browser and reject with a helpful error message so callers can show
+      // UI instructing the user to allow popups.
+      // Start a timeout that will reject if we don't get a response.
+      try {
+        popupTimer = setTimeout(() => {
+          reject(
+            new AdapterError(
+              "GIS sign-in did not receive a response. The browser may have blocked the popup. Please allow popups and try again.",
+            ),
+          );
+        }, 5000);
+        tokenClient.requestAccessToken();
+      } catch (reqErr) {
+        if (popupTimer) clearTimeout(popupTimer);
+        reject(new AdapterError(String(reqErr)));
+      }
     });
   }
 
@@ -195,10 +215,12 @@ export class GoogleAuthAdapter implements AuthAdapter {
       const google = window.google;
       const clientId = CLIENT_ID as string;
       if (!google) return resolve(false); // satisfy type checker; this should never happen due to the earlier check
+      let silentTimer: ReturnType<typeof setTimeout> | undefined;
       const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: clientId,
         scope: this.grantedScope,
         callback: (response) => {
+          if (silentTimer) clearTimeout(silentTimer);
           if (response.error || !response.access_token) {
             resolve(false);
             return;
@@ -212,7 +234,16 @@ export class GoogleAuthAdapter implements AuthAdapter {
           resolve(true);
         },
       });
-      tokenClient.requestAccessToken({ prompt: "" });
+
+      // Silent request — do not show UI. If the client does not respond within
+      // a short window, resolve false so callers can fall back to a user flow.
+      try {
+        silentTimer = setTimeout(() => resolve(false), 5000);
+        tokenClient.requestAccessToken({ prompt: "" });
+      } catch (reqErr) {
+        if (silentTimer) clearTimeout(silentTimer);
+        resolve(false);
+      }
     });
   }
 

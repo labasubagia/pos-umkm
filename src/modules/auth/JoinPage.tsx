@@ -48,7 +48,8 @@ export default function JoinPage() {
       setSpreadsheetId(sid);
       navigate("/cashier");
     } catch (err) {
-      setError(`Gagal bergabung: ${String(err)}`);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
