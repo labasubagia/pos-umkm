@@ -34,6 +34,11 @@ export function SyncStatus() {
   }, []);
 
   const handleManualSync = () => {
+    console.log("[SyncStatus] manual sync clicked", {
+      pendingCount,
+      isSyncing,
+      lastError,
+    });
     syncManager.triggerSync();
   };
 

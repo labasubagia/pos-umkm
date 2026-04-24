@@ -46,15 +46,15 @@ export const driveClient: IDriveClient = new GoogleDriveClient(getToken);
 
 /** No-op SyncManager used as the initial value and after logout. */
 const noopSyncManager = {
-  start: () => {},
-  stop: () => {},
-  triggerSync: () => {},
+  start: () => { },
+  stop: () => { },
+  triggerSync: () => { },
 } as unknown as SyncManager;
 
 /** No-op HydrationService used as the initial value and after logout. */
 const noopHydrationService = {
-  hydrateAll: async () => {},
-  forceHydrate: async () => {},
+  hydrateAll: async () => { },
+  forceHydrate: async () => { },
 } as unknown as HydrationService;
 
 /**
@@ -66,6 +66,9 @@ export let syncManager: SyncManager = new SyncManager(
   getToken,
   getDb("__init__"),
 );
+console.info("[adapters] initial syncManager created (db)", {
+  dbName: (syncManager as any)?.['db']?.name ?? "unknown",
+});
 
 /**
  * HydrationService — pulls Sheets data into IndexedDB after login.
@@ -84,10 +87,14 @@ export let hydrationService: HydrationService = new HydrationService(
  * and starts the new SyncManager.
  */
 export function reinitDexieLayer(storeId: string): void {
+  console.info("[adapters] reinitDexieLayer called", { storeId });
   syncManager.stop();
   const db = getDb(storeId);
   syncManager = new SyncManager(getToken, db);
   hydrationService = new HydrationService(getToken, db);
+  console.info("[adapters] syncManager reinitialized", {
+    dbName: (syncManager as any)?.['db']?.name ?? "unknown",
+  });
   syncManager.start();
 }
 
