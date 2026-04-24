@@ -78,14 +78,14 @@ const SEED_TX_ITEMS = [
 
 async function signInToReports(page: Parameters<typeof injectAuthState>[0]) {
   await injectAuthState(page, STORE);
-  await page.goto(`${BASE}/reports`);
-  await page.getByTestId("reports-page").waitFor();
+  await page.goto(`${BASE}/${STORE.storeId}/reports/daily-summary`);
+  await page.getByTestId("daily-summary-container").waitFor();
   await waitForHydration(page);
   await seedDexie(page, STORE.storeId, {
     Transactions: SEED_TRANSACTIONS,
     Transaction_Items: SEED_TX_ITEMS,
   });
-  await reloadAndWait(page, "reports-page");
+  await reloadAndWait(page, "daily-summary-container");
 }
 
 test("owner can view today's sales summary", async ({ page }) => {
@@ -105,7 +105,7 @@ test("owner can filter report by date range and see correct totals", async ({
 }) => {
   await signInToReports(page);
 
-  await page.getByTestId("tab-sales").click();
+  await page.getByTestId("subnav-reports-sales").click();
   await page.getByTestId("sales-report-container").waitFor();
 
   await page.getByTestId("input-start-date").fill(today);
@@ -120,7 +120,7 @@ test("owner can filter report by date range and see correct totals", async ({
 test("owner can complete end-of-day cash reconciliation", async ({ page }) => {
   await signInToReports(page);
 
-  await page.getByTestId("tab-reconciliation").click();
+  await page.getByTestId("subnav-reports-cash-reconciliation").click();
   await page.getByTestId("reconciliation-container").waitFor();
 
   await page.getByTestId("input-reconciliation-date").fill(today);

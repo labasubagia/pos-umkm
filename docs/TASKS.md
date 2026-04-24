@@ -1434,11 +1434,11 @@
 
   **Scope of affected pages** (all pages that load data in a `useEffect` on mount):
   - `CashierPage` — `loadCatalog()`
-  - `CatalogPage` — `loadCatalog()`
-  - `InventoryPage` / `StockOpname` / `PurchaseOrders` — `loadInventory()`
-  - `CustomersPage` — `loadCustomers()`
-  - `ReportsPage` — `loadReports()`
-  - `SettingsPage` — `loadSettings()`
+  - Module components in `catalog/` — `loadCatalog()`
+  - Module components in `inventory/` (`StockOpname`, `PurchaseOrders`) — `loadInventory()`
+  - `CustomersListPage` (in `customers/`) — `loadCustomers()`
+  - Module components in `reports/` — `loadReports()`
+  - Module components in `settings/` — `loadSettings()`
 
 - **Deliverables:**
   - `src/store/syncStore.ts` updated:
@@ -1610,20 +1610,20 @@
 
 ---
 
-### T064 — Remove /cashier Redirect on NavBar Store Switch
+### T064 — Navigate to /:storeId/cashier on NavBar Store Switch
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Section:** Store Management
 - **Depends on:** T062
 - **Test type:** unit
 
-**Problem**: `NavBar.handleStoreChange()` calls `navigate('/cashier', { replace: true })` after switching stores. This forces the user away from whatever page they were on (e.g., reports, catalog, settings) every time they switch stores.
+**Problem (resolved)**: Route migration to `/:storeId` requires that switching stores updates the URL to include the new store's ID. Without this, the URL becomes stale and deep-linking breaks.
 
-**Proposed fix**: Remove the `navigate('/cashier')` call from `handleStoreChange`. After `activateStore()` and `setStores()` complete, the current route stays active. AppShell's `useEffect` will detect the store change and re-hydrate Dexie automatically, so the current page re-renders with the new store's data.
+**Implemented fix**: `NavBar.handleStoreChange()` calls `navigate(`/${storeId}/cashier`)` after `activateStore()` and `setStoreSession()` complete. AppShell reads `useParams<{ storeId }>()` and calls `setActiveStoreId` whenever the URL `:storeId` differs from Zustand state, making the URL the authoritative source for the active store.
 
 **Test cases**:
-- ✅ `switching store via NavBar calls activateStore and setStores`
-- ✅ `switching store via NavBar does NOT navigate to /cashier`
+- ✅ `switching store via NavBar calls activateStore and setStoreSession`
+- ✅ `switching store navigates to /:storeId/cashier for the new store`
 - ❌ `selecting the already-active store does nothing`
 
 ---

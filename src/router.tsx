@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { PageLayout } from "./components/PageLayout";
 import JoinPage from "./modules/auth/JoinPage";
@@ -7,14 +7,24 @@ import { ProtectedRoute } from "./modules/auth/ProtectedRoute";
 import { RoleRoute } from "./modules/auth/RoleRoute";
 import SetupWizard from "./modules/auth/SetupWizard";
 import StorePickerPage from "./modules/auth/StorePickerPage";
+import { CategoryList } from "./modules/catalog/CategoryList";
+import { CSVImport } from "./modules/catalog/CSVImport";
+import { ProductList } from "./modules/catalog/ProductList";
+import { CustomersListPage } from "./modules/customers/CustomersListPage";
+import { RefundFlow } from "./modules/customers/RefundFlow";
+import { PurchaseOrders } from "./modules/inventory/PurchaseOrders";
+import { StockOpname } from "./modules/inventory/StockOpname";
+import { CashReconciliation } from "./modules/reports/CashReconciliation";
+import { DailySummary } from "./modules/reports/DailySummary";
+import { GrossProfitReport } from "./modules/reports/GrossProfitReport";
+import { SalesReport } from "./modules/reports/SalesReport";
+import { BusinessProfile } from "./modules/settings/BusinessProfile";
+import { MemberManagement } from "./modules/settings/MemberManagement";
+import { QRISConfig } from "./modules/settings/QRISConfig";
 import CashierPage from "./pages/CashierPage";
-import CatalogPage from "./pages/CatalogPage";
-import CustomersPage from "./pages/CustomersPage";
-import InventoryPage from "./pages/InventoryPage";
 import LandingPage from "./pages/LandingPage";
 import NotFoundPage from "./pages/NotFoundPage";
-import ReportsPage from "./pages/ReportsPage";
-import SettingsPage from "./pages/SettingsPage";
+import OutboxPage from "./pages/OutboxPage";
 import StoreManagementPage from "./pages/StoreManagementPage";
 
 export const router = createBrowserRouter(
@@ -44,66 +54,191 @@ export const router = createBrowserRouter(
       ),
     },
 
-    // Protected routes — rendered inside AppShell (shows NavBar)
+    // Protected routes — scoped to a specific store via /:storeId in the URL.
     {
+      path: "/:storeId",
       element: (
         <ProtectedRoute>
           <AppShell />
         </ProtectedRoute>
       ),
       children: [
-        // All authenticated roles
-        { path: "/cashier", element: <CashierPage /> },
+        // Index — redirect bare /:storeId to the cashier screen
+        { index: true, element: <Navigate to="cashier" replace /> },
 
-        // Manager+ and owner — wrapped in PageLayout for consistent padding/max-width
+        // Cashier — all authenticated roles, no PageLayout (full-bleed)
+        { path: "cashier", element: <CashierPage /> },
+
+        // All remaining pages use PageLayout for consistent padding/max-width
         {
           element: <PageLayout />,
           children: [
+            // ── Catalog ──────────────────────────────────────────────────────
             {
-              path: "/catalog",
+              path: "catalog",
               element: (
                 <RoleRoute minRole="manager">
-                  <CatalogPage />
+                  <Navigate to="products" replace />
                 </RoleRoute>
               ),
             },
             {
-              path: "/customers",
+              path: "catalog/products",
               element: (
                 <RoleRoute minRole="manager">
-                  <CustomersPage />
+                  <ProductList />
                 </RoleRoute>
               ),
             },
             {
-              path: "/inventory",
+              path: "catalog/categories",
               element: (
                 <RoleRoute minRole="manager">
-                  <InventoryPage />
+                  <CategoryList />
                 </RoleRoute>
               ),
             },
             {
-              path: "/reports",
+              path: "catalog/import-csv",
               element: (
                 <RoleRoute minRole="manager">
-                  <ReportsPage />
+                  <CSVImport />
+                </RoleRoute>
+              ),
+            },
+
+            // ── Inventory ────────────────────────────────────────────────────
+            {
+              path: "inventory",
+              element: (
+                <RoleRoute minRole="manager">
+                  <Navigate to="stock-opname" replace />
                 </RoleRoute>
               ),
             },
             {
-              path: "/settings",
+              path: "inventory/stock-opname",
+              element: (
+                <RoleRoute minRole="manager">
+                  <StockOpname />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: "inventory/purchase-order",
+              element: (
+                <RoleRoute minRole="manager">
+                  <PurchaseOrders />
+                </RoleRoute>
+              ),
+            },
+
+            // ── Customers ────────────────────────────────────────────────────
+            {
+              path: "customers",
+              element: (
+                <RoleRoute minRole="manager">
+                  <CustomersListPage />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: "customers/refund",
+              element: (
+                <RoleRoute minRole="manager">
+                  <RefundFlow />
+                </RoleRoute>
+              ),
+            },
+
+            // ── Reports ──────────────────────────────────────────────────────
+            {
+              path: "reports",
+              element: (
+                <RoleRoute minRole="manager">
+                  <Navigate to="daily-summary" replace />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: "reports/daily-summary",
+              element: (
+                <RoleRoute minRole="manager">
+                  <DailySummary />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: "reports/sales",
+              element: (
+                <RoleRoute minRole="manager">
+                  <SalesReport />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: "reports/gross-profit",
+              element: (
+                <RoleRoute minRole="manager">
+                  <GrossProfitReport />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: "reports/cash-reconciliation",
+              element: (
+                <RoleRoute minRole="manager">
+                  <CashReconciliation />
+                </RoleRoute>
+              ),
+            },
+
+            // ── Settings ─────────────────────────────────────────────────────
+            {
+              path: "settings",
               element: (
                 <RoleRoute minRole="owner">
-                  <SettingsPage />
+                  <Navigate to="business-profile" replace />
                 </RoleRoute>
               ),
             },
             {
-              path: "/settings/stores",
+              path: "settings/business-profile",
+              element: (
+                <RoleRoute minRole="owner">
+                  <BusinessProfile />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: "settings/member-management",
+              element: (
+                <RoleRoute minRole="owner">
+                  <MemberManagement />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: "settings/store-management",
               element: (
                 <RoleRoute minRole="owner">
                   <StoreManagementPage />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: "settings/qris-config",
+              element: (
+                <RoleRoute minRole="owner">
+                  <QRISConfig />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: "settings/outbox",
+              element: (
+                <RoleRoute minRole="owner">
+                  <OutboxPage />
                 </RoleRoute>
               ),
             },

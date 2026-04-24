@@ -33,7 +33,8 @@ export async function waitForHydration(
   _storeId?: string,
 ): Promise<void> {
   await page.waitForFunction(
-    () => Boolean((window as Record<string, unknown>).__lastHydratedAt),
+    () =>
+      Boolean((window as unknown as Record<string, unknown>).__lastHydratedAt),
     undefined,
     { timeout: 15000 },
   );
@@ -72,10 +73,13 @@ export async function seedDexie(
 }
 
 /**
- * Reloads the page and waits for a given testId to become visible.
- * Use after seedDexie() to trigger React Query to re-read from Dexie.
+ * Reloads the page and waits for a given testId to become visible, then waits
+ * for HydrationService to complete its cycle. This ensures that after reload
+ * the hydration cycle has finished (and skipped all tables due to fresh _syncMeta)
+ * and queryClient.invalidateQueries() has fired before any assertions run.
  */
 export async function reloadAndWait(page: Page, testId: string): Promise<void> {
   await page.reload();
   await page.getByTestId(testId).waitFor();
+  await waitForHydration(page);
 }

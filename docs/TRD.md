@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.11                              |
+| Version     | 2.13                              |
 | Status      | Draft                             |
 | Date        | April 2026                        |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -166,7 +166,9 @@ src/
 │   │   ├── inventory.service.ts
 │   │   └── inventory.test.ts
 │   ├── customers/       # Customer management
-│   │   ├── CustomerList.tsx
+│   │   ├── CustomersListPage.tsx   # Route component for customers/ sub-route
+│   │   ├── CustomerSearch.tsx
+│   │   ├── RefundFlow.tsx
 │   │   ├── useCustomers.ts
 │   │   ├── customers.service.ts
 │   │   └── customers.test.ts
@@ -210,6 +212,16 @@ src/
 │   ├── AppShell.tsx     # Authenticated page layout: NavBar + Outlet + BottomNav; starts SyncManager
 │   ├── SyncStatus.tsx   # NavBar sync badge: offline/pending/syncing/error/synced states
 │   └── ui/              # shadcn/ui primitives (Button, Modal, etc.)
+├── pages/               # Cross-module orchestrators and non-module pages only
+│   │                    # Rule: import from modules/ for single-module routes;
+│   │                    #       use pages/ only when a page composes multiple modules
+│   │                    #       or has no owning feature module.
+│   ├── CashierPage.tsx          # Composes cashier + customers + cart (multi-module)
+│   ├── LandingPage.tsx          # Public landing (no module)
+│   ├── NotFoundPage.tsx         # 404 (no module)
+│   ├── OutboxPage.tsx           # Sync outbox viewer (cross-cutting)
+│   ├── SetupPage.tsx            # Setup redirect shim (no module)
+│   └── StoreManagementPage.tsx  # Settings sub-page (store CRUD; settings module scope)
 ├── hooks/               # Shared React hooks — all React Query data hooks live here
 │   │                    # (useStores, useCategories, useProducts, useVariants,
 │   │                    #  useCustomers, useMembers, useSettings, useStockOpname,
@@ -233,6 +245,7 @@ src/
 - All React Query hooks include `activeStoreId` as part of the query key so switching stores automatically invalidates and refetches cached data.
 - After `HydrationService.hydrateAll()` completes in `AppShell`, `queryClient.invalidateQueries()` is called to refetch all active queries from freshly-populated IndexedDB.
 - Pure functions (formatters, validators, calculations) live in `lib/` and are unit-testable without DOM or API.
+- **Route import rule:** `src/router.tsx` imports route components directly from `src/modules/` for single-module routes. `src/pages/` is reserved for multi-module orchestrators (`CashierPage`) and pages with no owning module (`LandingPage`, `NotFoundPage`, `OutboxPage`, `StoreManagementPage`). There are no empty page-shell files — if a route needs only one module's component, the module component is used directly.
 
 ### 2.6 Application Layout — AppShell, NavBar & BottomNav
 
@@ -241,7 +254,7 @@ Authenticated pages share a common layout provided by `AppShell`, which is mount
 ```
 router.tsx
 └── <ProtectedRoute>
-    └── <AppShell>               ← layout route (no path of its own)
+    └── <AppShell>               ← layout route at path "/:storeId"
         ├── <NavBar />           ← top bar; rendered on all screen sizes
         ├── <main pb-16 md:pb-0> ← page-specific content via <Outlet />
         └── <BottomNav />        ← fixed bottom; only visible below md (md:hidden)
@@ -261,16 +274,24 @@ router.tsx
 
 Navigation links are filtered at render time using the same `ROLE_RANK` hierarchy as `RoleRoute`.
 
-| Route | Label | Min role | Icon |
-|---|---|---|---|
-| `/cashier` | Kasir | cashier | ShoppingCart |
-| `/catalog` | Katalog | manager | Package |
-| `/inventory` | Inventori | manager | Archive |
-| `/customers` | Pelanggan | manager | Users |
-| `/reports` | Laporan | manager | BarChart2 |
-| `/settings` | Pengaturan | owner | Settings |
+All routes are nested under the `/:storeId` path segment (e.g. `/pos-umkm/<storeId>/cashier`). The Vite `base` is `/pos-umkm/` and the React Router `basename` is also `/pos-umkm`, so the browser URL for a route like `cashier` in store `abc` is `/pos-umkm/abc/cashier`.
 
-Public routes (`/`, `/login`, `/join`) and the setup wizard (`/setup`) are **outside** the `AppShell` layout route and do not show any navigation.
+| Route | Full URL example | Label | Min role | Icon |
+|---|---|---|---|---|
+| `cashier` | `/pos-umkm/:storeId/cashier` | Kasir | cashier | ShoppingCart |
+| `catalog` | `/pos-umkm/:storeId/catalog` → redirects to `catalog/products` | Katalog | manager | Package |
+| `catalog/products` | `/pos-umkm/:storeId/catalog/products` | Katalog (Produk tab) | manager | Package |
+| `catalog/categories` | `/pos-umkm/:storeId/catalog/categories` | Katalog (Kategori tab) | manager | Package |
+| `inventory` | `/pos-umkm/:storeId/inventory` | Inventori | manager | Archive |
+| `customers` | `/pos-umkm/:storeId/customers` | Pelanggan | manager | Users |
+| `reports` | `/pos-umkm/:storeId/reports` | Laporan | manager | BarChart2 |
+| `settings` | `/pos-umkm/:storeId/settings` | Pengaturan | owner | Settings |
+
+`NavBar` and `BottomNav` both use **relative `to`** values (no leading `/`) so links resolve within the current `/:storeId` parent. The active-route highlight for `catalog` uses React Router's default prefix matching — it remains highlighted on `catalog/products` and `catalog/categories`.
+
+`AppShell` reads `useParams<{ storeId: string }>()` and calls `setActiveStoreId` whenever the URL `:storeId` differs from the Zustand store — the URL is the **authoritative source** for the active store.
+
+Public routes (`/`, `/login`, `/join`) and the onboarding routes (`/setup`, `/stores`) are **outside** the `/:storeId` layout route and do not show any navigation.
 
 **Mobile-first CashierPage layout:**
 
@@ -357,7 +378,7 @@ ISheetRepository<T>          — used by sync layer only
 6. All `SheetRepository` calls include `Authorization: Bearer <token>` header
 7. When the token expires, GIS silently refreshes it (`prompt: 'none'`) as long as the browser session is active
 8. After successful auth, `LoginPage` checks for a cached `masterSpreadsheetId` in `localStorage`:
-   - **Fast path (returning user):** `masterSpreadsheetId` found → restores adapter routing → navigates to `/cashier`
+   - **Fast path (returning user):** `masterSpreadsheetId` and `activeStoreId` found → restores adapter routing → navigates to `/<storeId>/cashier`
    - **Slow path (new session):** no cached ID → navigates to `/stores` (StorePickerPage)
 
 ### 3.2 Google OAuth Scopes
@@ -382,7 +403,7 @@ Every login (first-time and returning) goes through `/stores` (StorePickerPage) 
 
 **Based on store count:**
 - **0 stores (first-time owner):** navigates to `/setup` (SetupWizard)
-- **1 store:** auto-activates the store and navigates to `/cashier`
+- **1 store:** auto-activates the store and navigates to `/<storeId>/cashier`
 - **2+ stores:** shows a store picker UI; user selects a branch or adds a new one
 
 **When navigating to /setup (SetupWizard):**

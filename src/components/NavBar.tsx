@@ -12,7 +12,7 @@
 
 import { LogOut, Store } from "lucide-react";
 import type { ReactNode } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useStores } from "../hooks/useStores";
 import { authAdapter, resetDexieLayer, syncManager } from "../lib/adapters";
 import type { Role } from "../lib/adapters/types";
@@ -39,12 +39,29 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
   const { user, role, activeStoreId, clearAuth, setStoreSession } = useAuth();
   const { data: stores = [] } = useStores();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { storeId } = useParams<{ storeId: string }>();
 
   const visibleItems = NAV_ITEMS.filter(
     (item) => role && ROLE_RANK[role] >= ROLE_RANK[item.minRole],
   );
 
   const showStorePicker = role === "owner" && stores.length >= 2;
+
+  // Determine the active top-level section so we can show its sub-nav items.
+  // The URL is the authoritative source; strip the /:storeId prefix to get the
+  // relative path (e.g. "catalog/products") and match against NAV_ITEMS[].to.
+  const storeBase = storeId ? `/${storeId}/` : "/";
+  const relPath = location.pathname.startsWith(storeBase)
+    ? location.pathname.slice(storeBase.length)
+    : location.pathname.slice(1); // fallback: strip leading slash
+  const activeNavItem = visibleItems.find(
+    ({ to }) => relPath === to || relPath.startsWith(`${to}/`),
+  );
+  const activeSubItems = (activeNavItem?.children ?? []).filter(
+    ({ minRole: itemMinRole }) =>
+      role && ROLE_RANK[role] >= ROLE_RANK[itemMinRole],
+  );
 
   async function handleSignOut() {
     syncManager.triggerSync();
@@ -67,7 +84,8 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
         session.monthlySpreadsheetId,
         storeId,
       );
-      // Stay on the current page — AppShell re-hydrates Dexie for the new store.
+      // Navigate to the new store's cashier — updates the URL so :storeId matches.
+      navigate(`/${storeId}/cashier`);
     } catch {
       // Silent — store picker reverts visually on next render
     }
@@ -75,6 +93,7 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
 
   return (
     <header className="shrink-0" data-testid="navbar">
+      {/* Primary nav row */}
       <div className="bg-white border-b mx-auto max-w-6xl h-14 md:h-16 flex items-center px-4 gap-2">
         {/* Logo / app name */}
         <span
@@ -90,7 +109,7 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
           data-testid="navbar-nav"
         >
           {visibleItems.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} data-testid={`nav-${to.slice(1)}`}>
+            <NavLink key={to} to={to} data-testid={`nav-${to}`}>
               {({ isActive }) => (
                 <Button variant={isActive ? "secondary" : "ghost"} size="sm">
                   <Icon className="h-4 w-4 shrink-0" />
@@ -151,6 +170,35 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
           </div>
         )}
       </div>
+
+      {/* Sub-nav row — shown when the active section has sub-items */}
+      {activeSubItems.length > 0 && (
+        <div className="bg-white border-b" data-testid="subnav">
+          <div className="mx-auto max-w-6xl px-4 flex overflow-x-auto">
+            {activeSubItems.map(({ to, label, testId }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end
+                data-testid={testId}
+                className="whitespace-nowrap"
+              >
+                {({ isActive }) => (
+                  <span
+                    className={`block px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                      isActive
+                        ? "border-blue-600 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                )}
+              </NavLink>
+            ))}
+          </div>
+        </div>
+      )}
     </header>
   );
 }

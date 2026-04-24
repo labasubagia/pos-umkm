@@ -22,7 +22,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useParams } from "react-router-dom";
 import {
   hydrationService,
   reinitDexieLayer,
@@ -39,8 +39,18 @@ export function AppShell() {
     mainSpreadsheetId,
     monthlySpreadsheetId,
     activeStoreId,
+    setActiveStoreId,
   } = useAuthStore();
   const queryClient = useQueryClient();
+  const { storeId: urlStoreId } = useParams<{ storeId: string }>();
+
+  // URL is authoritative: sync :storeId from the URL into the Zustand store
+  // so all hooks that read activeStoreId stay consistent with the browser URL.
+  useEffect(() => {
+    if (urlStoreId && urlStoreId !== activeStoreId) {
+      setActiveStoreId(urlStoreId);
+    }
+  }, [urlStoreId, activeStoreId, setActiveStoreId]);
 
   // Track the last storeId for which we called reinitDexieLayer so we only
   // reinit when the active store actually changes (not on every monthly rollover).

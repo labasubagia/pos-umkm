@@ -46,7 +46,10 @@ export default function JoinPage() {
       const token = authAdapter.getAccessToken() ?? "";
       setUser(userWithRole, role, token);
       setSpreadsheetId(sid);
-      navigate("/cashier");
+      // Navigate to /stores so StorePickerPage resolves the active store and
+      // sets the correct :storeId in the URL (member may not know their storeId
+      // from the invite link alone).
+      navigate("/stores");
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       setError(errMsg);

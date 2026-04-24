@@ -43,19 +43,19 @@ const SEED_STORES = [
 ];
 
 async function _openStoresTab(page: Parameters<typeof injectAuthState>[0]) {
-  await navigateTo(page, `${BASE}/settings`);
-  await page.getByTestId("btn-tab-stores").click();
+  await navigateTo(page, `${BASE}/${STORE.storeId}/settings`);
+
   await page.getByRole("heading", { name: /kelola toko/i }).waitFor();
 }
 
 async function signInToSettings(page: Parameters<typeof injectAuthState>[0]) {
   await injectAuthState(page, STORE);
-  await page.goto(`${BASE}/settings`);
-  await page.getByTestId("btn-tab-stores").waitFor();
+  await page.goto(`${BASE}/${STORE.storeId}/settings/store-management`);
+  await page.getByTestId("btn-add-store").waitFor();
   await waitForHydration(page);
   await seedDexie(page, STORE.storeId, { Stores: SEED_STORES });
-  await reloadAndWait(page, "btn-tab-stores");
-  await page.getByTestId("btn-tab-stores").click();
+  await reloadAndWait(page, "btn-add-store");
+
   await page.getByRole("heading", { name: /kelola toko/i }).waitFor();
 }
 
@@ -162,15 +162,15 @@ test.describe("Store Management", () => {
     ];
 
     await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/settings`);
-    await page.getByTestId("btn-tab-stores").waitFor();
+    await page.goto(`${BASE}/${STORE.storeId}/settings/store-management`);
+    await page.getByTestId("btn-add-store").waitFor();
     await waitForHydration(page);
     // Seed Stores in the active store's DB, and Members in store-b's DB
     // (removeAccessToStore uses getMembersForStore which opens the target store's DB)
     await seedDexie(page, STORE.storeId, { Stores: SEED_STORES });
     await seedDexie(page, "store-b", { Members: storeMembers });
-    await reloadAndWait(page, "btn-tab-stores");
-    await page.getByTestId("btn-tab-stores").click();
+    await reloadAndWait(page, "btn-add-store");
+
     await page.getByRole("heading", { name: /kelola toko/i }).waitFor();
 
     await page.getByTestId("btn-leave-store-store-b").click();

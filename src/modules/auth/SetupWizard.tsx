@@ -25,7 +25,7 @@ const TIMEZONES = [
 
 export default function SetupWizard() {
   const navigate = useNavigate();
-  const { setSpreadsheetId, user } = useAuth();
+  const { setStoreSession, user } = useAuth();
   const [businessName, setBusinessName] = useState("");
   const [timezone, setTimezone] = useState("Asia/Jakarta");
   const [ppnEnabled, setPpnEnabled] = useState(false);
@@ -41,7 +41,7 @@ export default function SetupWizard() {
     setLoading(true);
     setError(null);
     try {
-      const { masterSpreadsheetId } = await runStoreSetup(
+      const { masterSpreadsheetId, monthlySpreadsheetId } = await runStoreSetup(
         businessName.trim(),
         user?.email ?? "",
       );
@@ -58,8 +58,15 @@ export default function SetupWizard() {
         settingsRows.map((s) => ({ ...s, updated_at: ts })),
       );
 
-      setSpreadsheetId(masterSpreadsheetId);
-      navigate("/cashier");
+      // runStoreSetup writes activeStoreId to localStorage — read it back so
+      // we can atomically update the Zustand store and navigate to the URL.
+      const storeId = localStorage.getItem("activeStoreId") ?? "";
+      setStoreSession(masterSpreadsheetId, monthlySpreadsheetId, storeId);
+      if (storeId) {
+        navigate(`/${storeId}/cashier`);
+      } else {
+        navigate("/stores");
+      }
     } catch (err) {
       setError(`Setup gagal: ${String(err)}`);
     } finally {

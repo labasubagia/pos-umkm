@@ -38,7 +38,7 @@ export function BottomNav() {
         <NavLink
           key={to}
           to={to}
-          data-testid={`bottom-nav-${to.slice(1)}`}
+          data-testid={`bottom-nav-${to}`}
           className="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors min-w-0"
         >
           {({ isActive }) => (
