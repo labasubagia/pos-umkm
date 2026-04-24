@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "prepare": "husky install",
     "format": "biome check --write && biome format --write",
     "lint": "biome lint",
     "preview": "vite preview",
@@ -61,6 +62,14 @@
     "tailwindcss": "^4.2.2",
     "typescript": "~6.0.2",
     "vite": "^8.0.4",
-    "vitest": "^4.1.4"
+    "vitest": "^4.1.4",
+    "husky": "^8.0.0",
+    "lint-staged": "^14.0.0"
+  }
+  ,"lint-staged": {
+    "*.{js,jsx,ts,tsx,css,md,json}": [
+      "npm run format",
+      "npm run lint"
+    ]
   }
 }
