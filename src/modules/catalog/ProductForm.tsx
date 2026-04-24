@@ -3,20 +3,20 @@
  * Accepts categories list to populate the category selector.
  */
 
-import { useState } from 'react'
-import type { Category, NewProduct } from './catalog.service'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Checkbox } from '../../components/ui/checkbox'
-import { Alert, AlertDescription } from '../../components/ui/alert'
+import { useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Button } from "../../components/ui/button";
+import { Checkbox } from "../../components/ui/checkbox";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import type { Category, NewProduct } from "./catalog.service";
 
 interface Props {
-  categories: Category[]
-  initialProduct?: Partial<NewProduct>
-  onSubmit: (product: NewProduct) => Promise<void>
-  onCancel: () => void
-  submitLabel?: string
+  categories: Category[];
+  initialProduct?: Partial<NewProduct>;
+  onSubmit: (product: NewProduct) => Promise<void>;
+  onCancel: () => void;
+  submitLabel?: string;
 }
 
 export function ProductForm({
@@ -24,36 +24,44 @@ export function ProductForm({
   initialProduct = {},
   onSubmit,
   onCancel,
-  submitLabel = 'Simpan',
+  submitLabel = "Simpan",
 }: Props) {
-  const [name, setName] = useState(initialProduct.name ?? '')
-  const [sku, setSku] = useState(initialProduct.sku ?? '')
-  const [price, setPrice] = useState(String(initialProduct.price ?? ''))
-  const [stock, setStock] = useState(String(initialProduct.stock ?? '0'))
-  const [categoryId, setCategoryId] = useState(initialProduct.category_id ?? '')
-  const [hasVariants, setHasVariants] = useState(initialProduct.has_variants ?? false)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [name, setName] = useState(initialProduct.name ?? "");
+  const [sku, setSku] = useState(initialProduct.sku ?? "");
+  const [price, setPrice] = useState(String(initialProduct.price ?? ""));
+  const [stock, setStock] = useState(String(initialProduct.stock ?? "0"));
+  const [categoryId, setCategoryId] = useState(
+    initialProduct.category_id ?? "",
+  );
+  const [hasVariants, setHasVariants] = useState(
+    initialProduct.has_variants ?? false,
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
 
     if (!name.trim()) {
-      setError('Nama produk tidak boleh kosong')
-      return
+      setError("Nama produk tidak boleh kosong");
+      return;
     }
-    const priceNum = parseInt(price, 10)
-    if (!Number.isInteger(priceNum) || priceNum <= 0 || String(priceNum) !== price.trim()) {
-      setError('Harga harus bilangan bulat positif')
-      return
+    const priceNum = parseInt(price, 10);
+    if (
+      !Number.isInteger(priceNum) ||
+      priceNum <= 0 ||
+      String(priceNum) !== price.trim()
+    ) {
+      setError("Harga harus bilangan bulat positif");
+      return;
     }
     if (!categoryId) {
-      setError('Pilih kategori terlebih dahulu')
-      return
+      setError("Pilih kategori terlebih dahulu");
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
     try {
       await onSubmit({
         name: name.trim(),
@@ -62,11 +70,11 @@ export function ProductForm({
         stock: parseInt(stock, 10) || 0,
         category_id: categoryId,
         has_variants: hasVariants,
-      })
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -168,10 +176,14 @@ export function ProductForm({
         <Button type="button" variant="outline" onClick={onCancel}>
           Batal
         </Button>
-        <Button type="submit" disabled={loading} data-testid="btn-product-submit">
-          {loading ? 'Menyimpan…' : submitLabel}
+        <Button
+          type="submit"
+          disabled={loading}
+          data-testid="btn-product-submit"
+        >
+          {loading ? "Menyimpan…" : submitLabel}
         </Button>
       </div>
     </form>
-  )
+  );
 }

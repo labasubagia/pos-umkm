@@ -4,5 +4,5 @@ export default function NotFoundPage() {
       <h1 className="text-4xl font-bold text-muted-foreground">404</h1>
       <p className="text-lg text-muted-foreground">Halaman tidak ditemukan</p>
     </div>
-  )
+  );
 }

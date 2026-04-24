@@ -9,26 +9,26 @@
  * For a fresh login: signIn() is called, then the user is routed either to
  * /cashier (fast path — spreadsheetId already persisted in Zustand) or /stores
  * (slow path — StorePickerPage resolves the active store).
- *
- * In mock mode (VITE_ADAPTER=mock) restoreSession returns null instantly so
- * the sign-in button is always shown on the first visit.
  */
-import { useState } from 'react'
-import { useNavigate, Navigate } from 'react-router-dom'
-import { useAuth } from './useAuth'
-import { authAdapter } from '../../lib/adapters'
-import { useAuthStore } from '../../store/authStore'
-import { Button } from '../../components/ui/button'
+import { useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Button } from "../../components/ui/button";
+import { authAdapter } from "../../lib/adapters";
+import { useAuthStore } from "../../store/authStore";
+import { useAuth } from "./useAuth";
 
 export default function LoginPage() {
-  const navigate = useNavigate()
-  const { isAuthenticated, spreadsheetId, setUser, setSpreadsheetId } = useAuth()
-  const [signingIn, setSigningIn] = useState(false)
+  const navigate = useNavigate();
+  const { isAuthenticated, spreadsheetId, setUser, setSpreadsheetId } =
+    useAuth();
+  const [signingIn, setSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
 
   // Already authenticated from persisted Zustand state (e.g. refresh, back-navigation).
   // Guard against the case where we're mid sign-in and isAuthenticated just flipped.
   if (isAuthenticated && !signingIn) {
-    return <Navigate to="/cashier" replace />
+    return <Navigate to="/cashier" replace />;
   }
 
   /**
@@ -39,29 +39,42 @@ export default function LoginPage() {
    * Slow path: navigate to /stores so StorePickerPage can resolve the store.
    */
   function onAuthenticated(user: Parameters<typeof setUser>[0], token: string) {
-    setUser(user, user.role, token)
+    setUser(user, user.role, token);
 
-    const masterId = spreadsheetId ?? localStorage.getItem('masterSpreadsheetId')
+    const masterId =
+      spreadsheetId ?? localStorage.getItem("masterSpreadsheetId");
     if (masterId) {
-      setSpreadsheetId(masterId)
-      const now = new Date()
-      const mm = String(now.getMonth() + 1).padStart(2, '0')
-      const monthlyId = localStorage.getItem(`txSheet_${now.getFullYear()}-${mm}`)
-      if (monthlyId) useAuthStore.getState().setMonthlySpreadsheetId(monthlyId)
-      navigate('/cashier')
+      setSpreadsheetId(masterId);
+      const now = new Date();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const restoredStoreId =
+        useAuthStore.getState().activeStoreId ??
+        localStorage.getItem("activeStoreId") ??
+        "";
+      // Use store-scoped key (txSheet_<storeId>_YYYY-MM). Fall back to legacy
+      // unscoped key (txSheet_YYYY-MM) for sessions created before T073.
+      const monthlyId =
+        localStorage.getItem(
+          `txSheet_${restoredStoreId}_${now.getFullYear()}-${mm}`,
+        ) ?? localStorage.getItem(`txSheet_${now.getFullYear()}-${mm}`);
+      if (monthlyId) useAuthStore.getState().setMonthlySpreadsheetId(monthlyId);
+      navigate("/cashier");
     } else {
-      navigate('/stores')
+      navigate("/stores");
     }
   }
 
   async function handleSignIn() {
-    setSigningIn(true)
+    setSigningIn(true);
+    setSignInError(null);
     try {
-      const user = await authAdapter.signIn()
-      onAuthenticated(user, authAdapter.getAccessToken() ?? '')
+      const user = await authAdapter.signIn();
+      onAuthenticated(user, authAdapter.getAccessToken() ?? "");
     } catch (err) {
-      console.error('[LoginPage] sign-in failed:', err)
-      setSigningIn(false)
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error("[LoginPage] sign-in failed:", err);
+      setSignInError(errMsg);
+      setSigningIn(false);
     }
   }
 
@@ -71,9 +84,18 @@ export default function LoginPage() {
       <p className="text-muted-foreground text-center max-w-sm">
         Sistem kasir untuk usaha kecil Indonesia
       </p>
-      <Button onClick={() => void handleSignIn()} data-testid="btn-sign-in" disabled={signingIn}>
-        {signingIn ? 'Memproses…' : 'Masuk dengan Google'}
+      {signInError && (
+        <Alert variant="destructive" className="max-w-sm">
+          <AlertDescription>{signInError}</AlertDescription>
+        </Alert>
+      )}
+      <Button
+        onClick={() => void handleSignIn()}
+        data-testid="btn-sign-in"
+        disabled={signingIn}
+      >
+        {signingIn ? "Memproses…" : "Masuk dengan Google"}
       </Button>
     </div>
-  )
+  );
 }

@@ -1,80 +1,88 @@
 /**
  * BusinessProfile — Form for editing business settings.
  *
- * Loads settings on mount. On save, calls saveSettings with changed fields only.
- * If business_name changed, also syncs the new name to the main spreadsheet's
- * Stores tab and to the Zustand stores list so the NavBar reflects it immediately.
+ * Loads settings via useSettings() (React Query). On save, calls saveSettings
+ * and invalidates the settings query. If business_name changed, also syncs
+ * to the main spreadsheet and invalidates the stores query.
  */
-import { useState, useEffect, useRef } from 'react'
-import { getSettings, saveSettings, type BusinessSettings } from './settings.service'
-import { updateStoreName } from '../auth/setup.service'
-import { useAuth } from '../auth/useAuth'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Alert, AlertDescription } from '../../components/ui/alert'
 
-const TIMEZONES = ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'] as const
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { SETTINGS_QUERY_KEY, useSettings } from "../../hooks/useSettings";
+import { STORES_QUERY_KEY } from "../../hooks/useStores";
+import { useAuthStore } from "../../store/authStore";
+import { updateStoreName } from "../auth/setup.service";
+import { useAuth } from "../auth/useAuth";
+import { type BusinessSettings, saveSettings } from "./settings.service";
+
+const TIMEZONES = ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"] as const;
 
 export default function BusinessProfile() {
-  const { activeStoreId, spreadsheetId, updateActiveStoreName } = useAuth()
-  const [initialName, setInitialName] = useState('')
+  const { activeStoreId, spreadsheetId } = useAuth();
+  const zustandActiveStoreId = useAuthStore((s) => s.activeStoreId);
+  const queryClient = useQueryClient();
+  const { data: settings, isLoading } = useSettings();
+
   const [form, setForm] = useState<BusinessSettings>({
-    business_name: '',
-    timezone: 'Asia/Jakarta',
+    business_name: "",
+    timezone: "Asia/Jakarta",
     tax_rate: 11,
-    receipt_footer: '',
-    qris_image_url: '',
-  })
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const initialized = useRef(false)
+    receipt_footer: "",
+    qris_image_url: "",
+  });
+  const [initialName, setInitialName] = useState("");
+  const [success, setSuccess] = useState(false);
 
+  // Populate form when settings load
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    void getSettings().then((s) => {
-      setForm(s)
-      setInitialName(s.business_name)
-      setLoading(false)
-    })
-  }, [])
+    if (settings) {
+      setForm(settings);
+      setInitialName(settings.business_name);
+    }
+  }, [settings]);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    const { name, value } = e.target
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      await saveSettings(form);
+      if (
+        form.business_name !== initialName &&
+        activeStoreId &&
+        spreadsheetId
+      ) {
+        await updateStoreName(activeStoreId, form.business_name);
+        void queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY });
+        setInitialName(form.business_name);
+      }
+      void queryClient.invalidateQueries({
+        queryKey: SETTINGS_QUERY_KEY(zustandActiveStoreId),
+      });
+    },
+    onSuccess: () => setSuccess(true),
+    onError: () => setSuccess(false),
+  });
+
+  function handleChange(
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) {
+    const { name, value } = e.target;
     setForm((prev) => ({
       ...prev,
-      [name]: name === 'tax_rate' ? parseInt(value, 10) : value,
-    }))
+      [name]: name === "tax_rate" ? parseInt(value, 10) : value,
+    }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    setSuccess(false)
-    setError(null)
-    try {
-      await saveSettings(form)
-
-      // If the business name changed, sync it to main spreadsheet's Stores tab
-      // and to Zustand so the NavBar store picker reflects the new name immediately.
-      if (form.business_name !== initialName && activeStoreId && spreadsheetId) {
-        await updateStoreName(activeStoreId, form.business_name)
-        updateActiveStoreName(form.business_name)
-        setInitialName(form.business_name)
-      }
-
-      setSuccess(true)
-    } catch (err) {
-      setError(String(err))
-    } finally {
-      setSaving(false)
-    }
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSuccess(false);
+    saveMutation.mutate();
   }
 
-  if (loading) return <p className="p-4 text-sm text-gray-500">Memuat pengaturan…</p>
+  if (isLoading)
+    return <p className="p-4 text-sm text-gray-500">Memuat pengaturan…</p>;
 
   return (
     <form
@@ -140,19 +148,26 @@ export default function BusinessProfile() {
       </div>
 
       {success && (
-        <Alert className="border-green-500 bg-green-50 text-green-800" data-testid="profile-save-success">
+        <Alert
+          className="border-green-500 bg-green-50 text-green-800"
+          data-testid="profile-save-success"
+        >
           <AlertDescription>Pengaturan berhasil disimpan.</AlertDescription>
         </Alert>
       )}
-      {error && (
+      {saveMutation.isError && (
         <Alert variant="destructive" data-testid="profile-save-error">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{String(saveMutation.error)}</AlertDescription>
         </Alert>
       )}
 
-      <Button data-testid="btn-save-profile" type="submit" disabled={saving}>
-        {saving ? 'Menyimpan…' : 'Simpan'}
+      <Button
+        data-testid="btn-save-profile"
+        type="submit"
+        disabled={saveMutation.isPending}
+      >
+        {saveMutation.isPending ? "Menyimpan…" : "Simpan"}
       </Button>
     </form>
-  )
+  );
 }

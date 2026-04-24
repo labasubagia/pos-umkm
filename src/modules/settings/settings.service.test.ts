@@ -1,34 +1,34 @@
 /**
  * T043 + T044 — settings.service unit tests
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as adapters from "../../lib/adapters";
 import {
-  getSettings,
-  saveSettings,
-  saveQRISImage,
   getQRISImage,
+  getSettings,
   SettingsError,
-} from './settings.service'
-import * as adapters from '../../lib/adapters'
+  saveQRISImage,
+  saveSettings,
+} from "./settings.service";
 
 function mockRepo(overrides = {}) {
   return {
-    spreadsheetId: 'test-id',
-    sheetName: 'mock',
+    spreadsheetId: "test-id",
+    sheetName: "mock",
     getAll: vi.fn().mockResolvedValue([]),
-    batchAppend: vi.fn().mockResolvedValue(undefined),
-    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
-    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    batchInsert: vi.fn().mockResolvedValue(undefined),
+    batchUpdate: vi.fn().mockResolvedValue(undefined),
+    batchUpsert: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
-  }
+  };
 }
 
-let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>;
 
 beforeEach(() => {
-  vi.restoreAllMocks()
+  vi.restoreAllMocks();
   mockRepos = {
     categories: mockRepo(),
     products: mockRepo(),
@@ -45,135 +45,162 @@ beforeEach(() => {
     stores: mockRepo(),
     monthlySheets: mockRepo(),
     auditLog: mockRepo(),
-  }
-  vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
-})
+  };
+  vi.spyOn(adapters, "getRepos").mockReturnValue(
+    mockRepos as ReturnType<typeof adapters.getRepos>,
+  );
+});
 
 // ── T043 ──────────────────────────────────────────────────────────────────────
 
-describe('getSettings', () => {
-  it('correctly maps all key-value rows to typed BusinessSettings object', async () => {
+describe("getSettings", () => {
+  it("correctly maps all key-value rows to typed BusinessSettings object", async () => {
     mockRepos.settings.getAll.mockResolvedValue([
-      { id: '1', key: 'business_name', value: 'Warung Pak Santoso', updated_at: '' },
-      { id: '2', key: 'timezone', value: 'Asia/Makassar', updated_at: '' },
-      { id: '3', key: 'tax_rate', value: '11', updated_at: '' },
-      { id: '4', key: 'receipt_footer', value: 'Terima kasih!', updated_at: '' },
-      { id: '5', key: 'qris_image_url', value: 'https://example.com/qr.png', updated_at: '' },
-    ])
+      {
+        id: "1",
+        key: "business_name",
+        value: "Warung Pak Santoso",
+        updated_at: "",
+      },
+      { id: "2", key: "timezone", value: "Asia/Makassar", updated_at: "" },
+      { id: "3", key: "tax_rate", value: "11", updated_at: "" },
+      {
+        id: "4",
+        key: "receipt_footer",
+        value: "Terima kasih!",
+        updated_at: "",
+      },
+      {
+        id: "5",
+        key: "qris_image_url",
+        value: "https://example.com/qr.png",
+        updated_at: "",
+      },
+    ]);
 
-    const settings = await getSettings()
+    const settings = await getSettings();
 
-    expect(settings.business_name).toBe('Warung Pak Santoso')
-    expect(settings.timezone).toBe('Asia/Makassar')
-    expect(settings.tax_rate).toBe(11)
-    expect(settings.receipt_footer).toBe('Terima kasih!')
-    expect(settings.qris_image_url).toBe('https://example.com/qr.png')
-  })
+    expect(settings.business_name).toBe("Warung Pak Santoso");
+    expect(settings.timezone).toBe("Asia/Makassar");
+    expect(settings.tax_rate).toBe(11);
+    expect(settings.receipt_footer).toBe("Terima kasih!");
+    expect(settings.qris_image_url).toBe("https://example.com/qr.png");
+  });
 
-  it('returns default values when Settings tab is empty', async () => {
-    mockRepos.settings.getAll.mockResolvedValue([])
+  it("returns default values when Settings tab is empty", async () => {
+    mockRepos.settings.getAll.mockResolvedValue([]);
 
-    const settings = await getSettings()
+    const settings = await getSettings();
 
-    expect(settings.business_name).toBe('POS UMKM')
-    expect(settings.timezone).toBe('Asia/Jakarta')
-    expect(settings.tax_rate).toBe(11)
-    expect(settings.receipt_footer).toBe('Terima kasih sudah berbelanja!')
-    expect(settings.qris_image_url).toBe('')
-  })
-})
+    expect(settings.business_name).toBe("POS UMKM");
+    expect(settings.timezone).toBe("Asia/Jakarta");
+    expect(settings.tax_rate).toBe(11);
+    expect(settings.receipt_footer).toBe("Terima kasih sudah berbelanja!");
+    expect(settings.qris_image_url).toBe("");
+  });
+});
 
-describe('saveSettings', () => {
-  it('calls batchUpsertByKey with all changed fields', async () => {
-    await saveSettings({ business_name: 'New Name', tax_rate: 5 })
+describe("saveSettings", () => {
+  it("calls batchUpsert with rows containing all changed fields", async () => {
+    mockRepos.settings.getAll.mockResolvedValue([]);
 
-    expect(mockRepos.settings.batchUpsertByKey).toHaveBeenCalledWith(
-      'key',
-      'value',
+    await saveSettings({ business_name: "New Name", tax_rate: 5 });
+
+    expect(mockRepos.settings.batchUpsert).toHaveBeenCalledWith(
       expect.arrayContaining([
-        { lookupValue: 'business_name', value: 'New Name' },
-        { lookupValue: 'tax_rate', value: '5' },
+        expect.objectContaining({ key: "business_name", value: "New Name" }),
+        expect.objectContaining({ key: "tax_rate", value: "5" }),
       ]),
-      expect.any(Function),
-    )
-    expect(mockRepos.settings.batchUpsertByKey).toHaveBeenCalledTimes(1)
-  })
+    );
+    expect(mockRepos.settings.batchUpsert).toHaveBeenCalledTimes(1);
+  });
 
-  it('does nothing when no fields provided', async () => {
-    await saveSettings({})
+  it("does nothing when no fields provided", async () => {
+    await saveSettings({});
 
-    expect(mockRepos.settings.batchUpsertByKey).not.toHaveBeenCalled()
-  })
-})
+    expect(mockRepos.settings.batchUpsert).not.toHaveBeenCalled();
+  });
+});
 
 // ── T044 ──────────────────────────────────────────────────────────────────────
 
-describe('saveQRISImage', () => {
-  it('stores a data URL in the Settings tab', async () => {
-    mockRepos.settings.getAll.mockResolvedValue([])
+describe("saveQRISImage", () => {
+  it("stores a data URL in the Settings tab", async () => {
+    mockRepos.settings.getAll.mockResolvedValue([]);
 
-    const dataUrl = 'data:image/png;base64,abc123'
-    await saveQRISImage(dataUrl)
+    const dataUrl = "data:image/png;base64,abc123";
+    await saveQRISImage(dataUrl);
 
-    expect(mockRepos.settings.batchUpsertByKey).toHaveBeenCalledWith(
-      'key',
-      'value',
-      expect.arrayContaining([{ lookupValue: 'qris_image_url', value: dataUrl }]),
-      expect.any(Function),
-    )
-  })
+    expect(mockRepos.settings.batchUpsert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "qris_image_url", value: dataUrl }),
+      ]),
+    );
+  });
 
-  it('stores an https URL in the Settings tab', async () => {
-    mockRepos.settings.getAll.mockResolvedValue([])
+  it("stores an https URL in the Settings tab", async () => {
+    mockRepos.settings.getAll.mockResolvedValue([]);
 
-    await saveQRISImage('https://example.com/qris.png')
+    await saveQRISImage("https://example.com/qris.png");
 
-    expect(mockRepos.settings.batchUpsertByKey).toHaveBeenCalledWith(
-      'key',
-      'value',
-      expect.arrayContaining([{ lookupValue: 'qris_image_url', value: 'https://example.com/qris.png' }]),
-      expect.any(Function),
-    )
-  })
+    expect(mockRepos.settings.batchUpsert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "qris_image_url",
+          value: "https://example.com/qris.png",
+        }),
+      ]),
+    );
+  });
 
-  it('updates existing row if qris_image_url key already exists', async () => {
+  it("updates existing row if qris_image_url key already exists", async () => {
     mockRepos.settings.getAll.mockResolvedValue([
-      { id: 'row-1', key: 'qris_image_url', value: 'old-url', updated_at: '' },
-    ])
+      { id: "row-1", key: "qris_image_url", value: "old-url", updated_at: "" },
+    ]);
 
-    await saveQRISImage('https://new.com/qr.png')
+    await saveQRISImage("https://new.com/qr.png");
 
-    expect(mockRepos.settings.batchUpsertByKey).toHaveBeenCalledWith(
-      'key',
-      'value',
-      expect.arrayContaining([{ lookupValue: 'qris_image_url', value: 'https://new.com/qr.png' }]),
-      expect.any(Function),
-    )
-  })
+    expect(mockRepos.settings.batchUpsert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "row-1",
+          key: "qris_image_url",
+          value: "https://new.com/qr.png",
+        }),
+      ]),
+    );
+  });
 
-  it('throws SettingsError if value is not a valid URL or data URL', async () => {
-    await expect(saveQRISImage('not-a-url')).rejects.toThrow(SettingsError)
-    await expect(saveQRISImage('ftp://old-protocol.com/img.png')).rejects.toThrow(SettingsError)
-    await expect(saveQRISImage('')).rejects.toThrow(SettingsError)
-  })
-})
+  it("throws SettingsError if value is not a valid URL or data URL", async () => {
+    await expect(saveQRISImage("not-a-url")).rejects.toThrow(SettingsError);
+    await expect(
+      saveQRISImage("ftp://old-protocol.com/img.png"),
+    ).rejects.toThrow(SettingsError);
+    await expect(saveQRISImage("")).rejects.toThrow(SettingsError);
+  });
+});
 
-describe('getQRISImage', () => {
-  it('returns stored QRIS image value', async () => {
+describe("getQRISImage", () => {
+  it("returns stored QRIS image value", async () => {
     mockRepos.settings.getAll.mockResolvedValue([
-      { id: '1', key: 'qris_image_url', value: 'https://cdn.example.com/qr.png', updated_at: '' },
-    ])
+      {
+        id: "1",
+        key: "qris_image_url",
+        value: "https://cdn.example.com/qr.png",
+        updated_at: "",
+      },
+    ]);
 
-    const url = await getQRISImage()
+    const url = await getQRISImage();
 
-    expect(url).toBe('https://cdn.example.com/qr.png')
-  })
+    expect(url).toBe("https://cdn.example.com/qr.png");
+  });
 
-  it('returns empty string when not configured', async () => {
-    mockRepos.settings.getAll.mockResolvedValue([])
+  it("returns empty string when not configured", async () => {
+    mockRepos.settings.getAll.mockResolvedValue([]);
 
-    const url = await getQRISImage()
+    const url = await getQRISImage();
 
-    expect(url).toBe('')
-  })
-})
+    expect(url).toBe("");
+  });
+});

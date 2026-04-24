@@ -1,31 +1,32 @@
-import { createBrowserRouter } from 'react-router-dom'
-import LandingPage from './pages/LandingPage'
-import CashierPage from './pages/CashierPage'
-import CatalogPage from './pages/CatalogPage'
-import CustomersPage from './pages/CustomersPage'
-import InventoryPage from './pages/InventoryPage'
-import ReportsPage from './pages/ReportsPage'
-import SettingsPage from './pages/SettingsPage'
-import NotFoundPage from './pages/NotFoundPage'
-import LoginPage from './modules/auth/LoginPage'
-import SetupWizard from './modules/auth/SetupWizard'
-import StorePickerPage from './modules/auth/StorePickerPage'
-import JoinPage from './modules/auth/JoinPage'
-import { ProtectedRoute } from './modules/auth/ProtectedRoute'
-import { RoleRoute } from './modules/auth/RoleRoute'
-import { AppShell } from './components/AppShell'
-import { PageLayout } from './components/PageLayout'
+import { createBrowserRouter } from "react-router-dom";
+import { AppShell } from "./components/AppShell";
+import { PageLayout } from "./components/PageLayout";
+import JoinPage from "./modules/auth/JoinPage";
+import LoginPage from "./modules/auth/LoginPage";
+import { ProtectedRoute } from "./modules/auth/ProtectedRoute";
+import { RoleRoute } from "./modules/auth/RoleRoute";
+import SetupWizard from "./modules/auth/SetupWizard";
+import StorePickerPage from "./modules/auth/StorePickerPage";
+import CashierPage from "./pages/CashierPage";
+import CatalogPage from "./pages/CatalogPage";
+import CustomersPage from "./pages/CustomersPage";
+import InventoryPage from "./pages/InventoryPage";
+import LandingPage from "./pages/LandingPage";
+import NotFoundPage from "./pages/NotFoundPage";
+import ReportsPage from "./pages/ReportsPage";
+import SettingsPage from "./pages/SettingsPage";
+import StoreManagementPage from "./pages/StoreManagementPage";
 
 export const router = createBrowserRouter(
   [
     // Public routes (no nav bar)
-    { path: '/', element: <LandingPage /> },
-    { path: '/login', element: <LoginPage /> },
-    { path: '/join', element: <JoinPage /> },
+    { path: "/", element: <LandingPage /> },
+    { path: "/login", element: <LoginPage /> },
+    { path: "/join", element: <JoinPage /> },
 
     // Setup wizard — authenticated but no persistent nav (onboarding flow)
     {
-      path: '/setup',
+      path: "/setup",
       element: (
         <ProtectedRoute>
           <SetupWizard />
@@ -35,7 +36,7 @@ export const router = createBrowserRouter(
 
     // Store picker — authenticated, resolves the active store after every login
     {
-      path: '/stores',
+      path: "/stores",
       element: (
         <ProtectedRoute>
           <StorePickerPage />
@@ -52,14 +53,14 @@ export const router = createBrowserRouter(
       ),
       children: [
         // All authenticated roles
-        { path: '/cashier', element: <CashierPage /> },
+        { path: "/cashier", element: <CashierPage /> },
 
         // Manager+ and owner — wrapped in PageLayout for consistent padding/max-width
         {
           element: <PageLayout />,
           children: [
             {
-              path: '/catalog',
+              path: "/catalog",
               element: (
                 <RoleRoute minRole="manager">
                   <CatalogPage />
@@ -67,7 +68,7 @@ export const router = createBrowserRouter(
               ),
             },
             {
-              path: '/customers',
+              path: "/customers",
               element: (
                 <RoleRoute minRole="manager">
                   <CustomersPage />
@@ -75,7 +76,7 @@ export const router = createBrowserRouter(
               ),
             },
             {
-              path: '/inventory',
+              path: "/inventory",
               element: (
                 <RoleRoute minRole="manager">
                   <InventoryPage />
@@ -83,7 +84,7 @@ export const router = createBrowserRouter(
               ),
             },
             {
-              path: '/reports',
+              path: "/reports",
               element: (
                 <RoleRoute minRole="manager">
                   <ReportsPage />
@@ -91,10 +92,18 @@ export const router = createBrowserRouter(
               ),
             },
             {
-              path: '/settings',
+              path: "/settings",
               element: (
                 <RoleRoute minRole="owner">
                   <SettingsPage />
+                </RoleRoute>
+              ),
+            },
+            {
+              path: "/settings/stores",
+              element: (
+                <RoleRoute minRole="owner">
+                  <StoreManagementPage />
                 </RoleRoute>
               ),
             },
@@ -103,8 +112,7 @@ export const router = createBrowserRouter(
       ],
     },
 
-    { path: '*', element: <NotFoundPage /> },
+    { path: "*", element: <NotFoundPage /> },
   ],
-  { basename: '/pos-umkm' },
-)
-
+  { basename: "/pos-umkm" },
+);

@@ -1,72 +1,83 @@
-import { useEffect, useRef, useState } from 'react'
-import { ShoppingBag, ShoppingCart } from 'lucide-react'
-import { useAuthStore } from '../store/authStore'
-import { useCatalogStore } from '../modules/catalog/useCatalog'
-import { useCartStore } from '../modules/cashier/useCart'
-import { ProductSearch } from '../modules/cashier/ProductSearch'
-import { CartPanel } from '../modules/cashier/CartPanel'
-import { DiscountInput } from '../modules/cashier/DiscountInput'
-import { PaymentModal } from '../modules/cashier/PaymentModal'
-import { ReceiptModal } from '../modules/cashier/ReceiptModal'
-import { HeldCartsPanel } from '../modules/cashier/HeldCartsPanel'
-import { CustomerSearch } from '../modules/customers/CustomerSearch'
-import type { Customer } from '../modules/customers/customers.service'
+import { useQueryClient } from "@tanstack/react-query";
+import { ShoppingBag, ShoppingCart } from "lucide-react";
+import { useState } from "react";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import { PRODUCTS_QUERY_KEY, useProducts } from "../hooks/useProducts";
+import { useQRISImage } from "../hooks/useQRISImage";
+import { useVariants, VARIANTS_QUERY_KEY } from "../hooks/useVariants";
+import { CartPanel } from "../modules/cashier/CartPanel";
+import type {
+  PaymentInfo,
+  Transaction,
+  TransactionItem,
+} from "../modules/cashier/cashier.service";
 import {
-  calculateSubtotal,
   applyDiscount,
+  CashierError,
+  calculateSubtotal,
   calculateTax,
   calculateTotal,
   commitTransaction,
   ensureMonthlySheetExists,
-  CashierError,
-} from '../modules/cashier/cashier.service'
-import { getQRISImageUrl } from '../modules/settings/settings.service'
-import type { Transaction, TransactionItem, PaymentInfo } from '../modules/cashier/cashier.service'
-import { Button } from '../components/ui/button'
-import { Alert, AlertDescription } from '../components/ui/alert'
+} from "../modules/cashier/cashier.service";
+import { DiscountInput } from "../modules/cashier/DiscountInput";
+import { HeldCartsPanel } from "../modules/cashier/HeldCartsPanel";
+import { PaymentModal } from "../modules/cashier/PaymentModal";
+import { ProductSearch } from "../modules/cashier/ProductSearch";
+import { ReceiptModal } from "../modules/cashier/ReceiptModal";
+import { useCartStore } from "../modules/cashier/useCart";
+import { CustomerSearch } from "../modules/customers/CustomerSearch";
+import type { Customer } from "../modules/customers/customers.service";
+import { useAuthStore } from "../store/authStore";
 
-const TAX_RATE = 0 // PPN disabled by default; owner can enable in Settings (post-MVP)
+const TAX_RATE = 0; // PPN disabled by default; owner can enable in Settings (post-MVP)
 
-type MobileView = 'products' | 'cart'
+type MobileView = "products" | "cart";
 
 export default function CashierPage() {
-  const { user, spreadsheetId } = useAuthStore()
-  const { products, variants, loadCatalog } = useCatalogStore()
-  const { items, discount, resetCart, holdCart } = useCartStore()
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [showPayment, setShowPayment] = useState(false)
-  const [showHeld, setShowHeld] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [qrisImageUrl, setQrisImageUrl] = useState('')
-  const [completedTransaction, setCompletedTransaction] = useState<{ tx: Transaction; txItems: TransactionItem[] } | null>(null)
-  const [txError, setTxError] = useState('')
-  const [receiptSeq, setReceiptSeq] = useState(1)
-  const [mobileView, setMobileView] = useState<MobileView>('products')
+  const { user, spreadsheetId } = useAuthStore();
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const queryClient = useQueryClient();
+  const { data: products = [] } = useProducts();
+  const { data: variants = [] } = useVariants();
+  const { data: qrisImageUrl = "" } = useQRISImage();
+  const { items, discount, resetCart, holdCart } = useCartStore();
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    null,
+  );
+  const [showPayment, setShowPayment] = useState(false);
+  const [showHeld, setShowHeld] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [completedTransaction, setCompletedTransaction] = useState<{
+    tx: Transaction;
+    txItems: TransactionItem[];
+  } | null>(null);
+  const [txError, setTxError] = useState("");
+  const [receiptSeq, setReceiptSeq] = useState(1);
+  const [mobileView, setMobileView] = useState<MobileView>("products");
 
-  const initialized = useRef(false)
-
-  useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    loadCatalog()
-    getQRISImageUrl().then(setQrisImageUrl).catch(() => {})
-  }, [loadCatalog])
-
-  const subtotal = calculateSubtotal(items)
+  const subtotal = calculateSubtotal(items);
   const discountAmount = discount
-    ? (() => { try { return applyDiscount(subtotal, discount) } catch { return 0 } })()
-    : 0
-  const tax = calculateTax(subtotal - discountAmount, TAX_RATE)
-  const total = calculateTotal(subtotal, discountAmount, tax)
+    ? (() => {
+        try {
+          return applyDiscount(subtotal, discount);
+        } catch {
+          return 0;
+        }
+      })()
+    : 0;
+  const tax = calculateTax(subtotal - discountAmount, TAX_RATE);
+  const total = calculateTotal(subtotal, discountAmount, tax);
 
   async function handlePaymentConfirm(payment: PaymentInfo) {
-    if (!user || !spreadsheetId || submitting) return
-    setTxError('')
-    setSubmitting(true)
+    if (!user || !spreadsheetId || submitting) return;
+    setTxError("");
+    setSubmitting(true);
     try {
       // Ensure the monthly transaction sheet exists before writing to it.
       // Creates it (with headers) on the first transaction of each month.
-      await ensureMonthlySheetExists(spreadsheetId)
+      await ensureMonthlySheetExists(spreadsheetId);
       const tx = await commitTransaction(
         items,
         discount,
@@ -78,9 +89,20 @@ export default function CashierPage() {
         receiptSeq,
         products,
         variants,
-      )
-      setReceiptSeq((s) => s + 1)
-      setSelectedCustomer(null)
+      );
+      setReceiptSeq((s) => s + 1);
+      setSelectedCustomer(null);
+
+      // Invalidate product/variant caches so stock decrements are reflected
+      // immediately when the user navigates to catalog or cashier.
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: PRODUCTS_QUERY_KEY(activeStoreId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: VARIANTS_QUERY_KEY(activeStoreId),
+        }),
+      ]);
 
       // Build TransactionItem list for receipt (derived from cart + tx id)
       const txItems: TransactionItem[] = items.map((item, i) => ({
@@ -92,47 +114,49 @@ export default function CashierPage() {
         price: item.price,
         quantity: item.quantity,
         subtotal: item.price * item.quantity,
-      }))
+      }));
 
-      setCompletedTransaction({ tx, txItems })
-      setShowPayment(false)
-      resetCart()
-      setMobileView('products')
+      setCompletedTransaction({ tx, txItems });
+      setShowPayment(false);
+      resetCart();
+      setMobileView("products");
     } catch (err) {
       if (err instanceof CashierError) {
-        setTxError(err.message)
+        setTxError(err.message);
       } else {
-        setTxError('Terjadi kesalahan saat memproses transaksi')
+        setTxError("Terjadi kesalahan saat memproses transaksi");
       }
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
   }
 
-  const cartItemCount = items.reduce((sum, i) => sum + i.quantity, 0)
+  const cartItemCount = items.reduce((sum, i) => sum + i.quantity, 0);
 
   return (
     <div className="flex flex-1 overflow-hidden flex-col md:flex-row mx-auto max-w-6xl w-full">
       {/* Mobile view toggle tabs — only visible on < md */}
       <div className="flex border-b bg-white shrink-0 md:hidden">
         <button
+          type="button"
           className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${
-            mobileView === 'products'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-500'
+            mobileView === "products"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500"
           }`}
-          onClick={() => setMobileView('products')}
+          onClick={() => setMobileView("products")}
           data-testid="btn-tab-products"
         >
           Produk
         </button>
         <button
+          type="button"
           className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${
-            mobileView === 'cart'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-500'
+            mobileView === "cart"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500"
           }`}
-          onClick={() => setMobileView('cart')}
+          onClick={() => setMobileView("cart")}
           data-testid="btn-tab-cart"
         >
           <ShoppingCart className="h-4 w-4" />
@@ -148,7 +172,7 @@ export default function CashierPage() {
       {/* Left — product search */}
       <div
         className={`flex-1 overflow-hidden flex flex-col p-3 md:p-4 ${
-          mobileView === 'products' ? 'flex' : 'hidden md:flex'
+          mobileView === "products" ? "flex" : "hidden md:flex"
         }`}
       >
         <ProductSearch products={products} variants={variants} />
@@ -157,7 +181,7 @@ export default function CashierPage() {
       {/* Right — cart + actions */}
       <div
         className={`md:w-80 bg-white md:border-l flex flex-col md:shadow-lg ${
-          mobileView === 'cart' ? 'flex flex-1' : 'hidden md:flex'
+          mobileView === "cart" ? "flex flex-1" : "hidden md:flex"
         }`}
       >
         <div className="flex items-center justify-between p-3 border-b shrink-0">
@@ -207,23 +231,25 @@ export default function CashierPage() {
         <div className="p-3 border-t bg-gray-50 shrink-0">
           <div className="flex justify-between text-sm mb-1">
             <span className="text-gray-500">Subtotal</span>
-            <span>Rp {subtotal.toLocaleString('id-ID')}</span>
+            <span>Rp {subtotal.toLocaleString("id-ID")}</span>
           </div>
           {discountAmount > 0 && (
             <div className="flex justify-between text-sm mb-1 text-green-600">
               <span>Diskon</span>
-              <span>-Rp {discountAmount.toLocaleString('id-ID')}</span>
+              <span>-Rp {discountAmount.toLocaleString("id-ID")}</span>
             </div>
           )}
           {tax > 0 && (
             <div className="flex justify-between text-sm mb-1 text-gray-500">
               <span>PPN {TAX_RATE}%</span>
-              <span>Rp {tax.toLocaleString('id-ID')}</span>
+              <span>Rp {tax.toLocaleString("id-ID")}</span>
             </div>
           )}
           <div className="flex justify-between font-bold text-base mt-2 mb-3">
             <span>Total</span>
-            <span className="text-blue-700">Rp {total.toLocaleString('id-ID')}</span>
+            <span className="text-blue-700">
+              Rp {total.toLocaleString("id-ID")}
+            </span>
           </div>
 
           {txError && (
@@ -235,7 +261,13 @@ export default function CashierPage() {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() => { try { holdCart() } catch (e) { setTxError((e as Error).message) } }}
+              onClick={() => {
+                try {
+                  holdCart();
+                } catch (e) {
+                  setTxError((e as Error).message);
+                }
+              }}
               disabled={items.length === 0 || submitting}
               className="flex-1"
               data-testid="btn-hold-cart"
@@ -248,7 +280,9 @@ export default function CashierPage() {
               className="flex-[2]"
               data-testid="btn-pay"
             >
-              {submitting ? 'Memproses…' : `Bayar Rp ${total.toLocaleString('id-ID')}`}
+              {submitting
+                ? "Memproses…"
+                : `Bayar Rp ${total.toLocaleString("id-ID")}`}
             </Button>
           </div>
         </div>
@@ -260,7 +294,9 @@ export default function CashierPage() {
           qrisImageUrl={qrisImageUrl}
           taxRate={TAX_RATE}
           onConfirm={handlePaymentConfirm}
-          onClose={() => { if (!submitting) setShowPayment(false) }}
+          onClose={() => {
+            if (!submitting) setShowPayment(false);
+          }}
           loading={submitting}
         />
       )}
@@ -276,6 +312,5 @@ export default function CashierPage() {
         />
       )}
     </div>
-  )
+  );
 }
-

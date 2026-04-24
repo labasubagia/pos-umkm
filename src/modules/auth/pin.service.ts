@@ -9,10 +9,10 @@
  * DataAdapter so it persists across sessions and devices.
  */
 
-import bcrypt from 'bcryptjs'
-import { getRepos } from '../../lib/adapters'
+import bcrypt from "bcryptjs";
+import { getRepos } from "../../lib/adapters";
 
-const BCRYPT_ROUNDS = 10
+const BCRYPT_ROUNDS = 10;
 
 /**
  * Hashes a plain-text PIN using bcrypt.
@@ -21,7 +21,7 @@ const BCRYPT_ROUNDS = 10
  * computationally expensive enough to deter brute-force.
  */
 export async function hashPIN(pin: string): Promise<string> {
-  return bcrypt.hash(pin, BCRYPT_ROUNDS)
+  return bcrypt.hash(pin, BCRYPT_ROUNDS);
 }
 
 /**
@@ -29,8 +29,8 @@ export async function hashPIN(pin: string): Promise<string> {
  * Returns true only if the PIN matches the hash exactly.
  */
 export async function verifyPIN(pin: string, hash: string): Promise<boolean> {
-  if (!pin) return false
-  return bcrypt.compare(pin, hash)
+  if (!pin) return false;
+  return bcrypt.compare(pin, hash);
 }
 
 /**
@@ -38,9 +38,6 @@ export async function verifyPIN(pin: string, hash: string): Promise<boolean> {
  * Stores in the `pin_hash` column via DataAdapter so the call works
  * with both Mock (localStorage) and Google (Sheets API) adapters.
  */
-export async function savePINHash(
-  userId: string,
-  hash: string,
-): Promise<void> {
-  await getRepos().members.batchUpdateCells([{ rowId: userId, column: 'pin_hash', value: hash }])
+export async function savePINHash(userId: string, hash: string): Promise<void> {
+  await getRepos().members.batchUpdate([{ id: userId, pin_hash: hash }]);
 }

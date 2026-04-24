@@ -70,7 +70,7 @@ Use exactly one of these types:
 | `docs` | Documentation changes only (`.md` files, inline comments) |
 | `chore` | Maintenance: dependency bumps, config tweaks, build scripts |
 | `ci` | Changes to GitHub Actions workflows or CI configuration |
-| `style` | Formatting only — no logic change (Prettier, ESLint auto-fix) |
+| `style` | Formatting only — no logic change (Biome auto-fix) |
 | `perf` | Performance improvement with measurable impact |
 | `revert` | Reverts a previous commit (reference the reverted hash in body) |
 

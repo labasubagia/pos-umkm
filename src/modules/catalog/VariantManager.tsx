@@ -1,77 +1,90 @@
 /**
  * VariantManager.tsx — Manages variants for a product that has has_variants=true.
  * Shows existing variants and allows adding/deleting them.
+ *
+ * Data comes from useVariants() (React Query). Mutations invalidate the query.
  */
 
-import { useState } from 'react'
-import { useCatalogStore } from './useCatalog'
-import { addVariant, deleteVariant } from './catalog.service'
-import type { Product } from './catalog.service'
-import { formatIDR } from '../../lib/formatters'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Alert, AlertDescription } from '../../components/ui/alert'
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { useVariants, VARIANTS_QUERY_KEY } from "../../hooks/useVariants";
+import { formatIDR } from "../../lib/formatters";
+import { useAuthStore } from "../../store/authStore";
+import type { Product } from "./catalog.service";
+import { addVariant, deleteVariant } from "./catalog.service";
 
 interface Props {
-  product: Product
+  product: Product;
 }
 
 export function VariantManager({ product }: Props) {
-  const { variants, addVariantToStore, removeVariantFromStore } = useCatalogStore()
+  const queryClient = useQueryClient();
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const { data: variants = [] } = useVariants();
 
-  const productVariants = variants.filter((v) => v.product_id === product.id)
+  const productVariants = variants.filter((v) => v.product_id === product.id);
 
-  const [optionName, setOptionName] = useState('')
-  const [optionValue, setOptionValue] = useState('')
-  const [price, setPrice] = useState('')
-  const [stock, setStock] = useState('0')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [optionName, setOptionName] = useState("");
+  const [optionValue, setOptionValue] = useState("");
+  const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("0");
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    const priceNum = parseInt(price, 10)
-    if (!Number.isInteger(priceNum) || priceNum <= 0) {
-      setError('Harga harus bilangan bulat positif')
-      return
-    }
-    if (!optionValue.trim()) {
-      setError('Nilai varian tidak boleh kosong')
-      return
-    }
-    setLoading(true)
-    try {
-      const variant = await addVariant(
+  const invalidate = () =>
+    queryClient.invalidateQueries({
+      queryKey: VARIANTS_QUERY_KEY(activeStoreId),
+    });
+
+  const addMutation = useMutation({
+    mutationFn: () => {
+      const priceNum = parseInt(price, 10);
+      if (!Number.isInteger(priceNum) || priceNum <= 0)
+        throw new Error("Harga harus bilangan bulat positif");
+      if (!optionValue.trim())
+        throw new Error("Nilai varian tidak boleh kosong");
+      return addVariant(
         product.id,
         optionName.trim(),
         optionValue.trim(),
         priceNum,
         parseInt(stock, 10) || 0,
-      )
-      addVariantToStore(variant)
-      setOptionName('')
-      setOptionValue('')
-      setPrice('')
-      setStock('0')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setLoading(false)
-    }
-  }
+      );
+    },
+    onSuccess: () => {
+      setOptionName("");
+      setOptionValue("");
+      setPrice("");
+      setStock("0");
+      setError(null);
+      void invalidate();
+    },
+    onError: (err: Error) => setError(err.message),
+  });
 
-  async function handleDelete(variantId: string) {
-    await deleteVariant(variantId)
-    removeVariantFromStore(variantId)
+  const deleteMutation = useMutation({
+    mutationFn: (variantId: string) => deleteVariant(variantId),
+    onSuccess: () => void invalidate(),
+    onError: (err: Error) => setError(err.message),
+  });
+
+  function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    addMutation.mutate();
   }
 
   return (
     <div className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">Varian — {product.name}</h2>
 
-      <form onSubmit={handleAdd} className="rounded border border-gray-200 p-4 flex flex-col gap-3">
+      <form
+        onSubmit={handleAdd}
+        className="rounded border border-gray-200 p-4 flex flex-col gap-3"
+      >
         <h3 className="text-sm font-medium">Tambah Varian</h3>
         <div className="flex gap-3">
           <div className="flex-1 space-y-1.5">
@@ -122,14 +135,16 @@ export function VariantManager({ product }: Props) {
           </Alert>
         )}
         <div className="flex justify-end">
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Menambahkan…' : 'Tambah Varian'}
+          <Button type="submit" disabled={addMutation.isPending}>
+            {addMutation.isPending ? "Menambahkan…" : "Tambah Varian"}
           </Button>
         </div>
       </form>
 
       {productVariants.length === 0 ? (
-        <p className="text-sm text-gray-500">Belum ada varian untuk produk ini.</p>
+        <p className="text-sm text-gray-500">
+          Belum ada varian untuk produk ini.
+        </p>
       ) : (
         <ul className="flex flex-col gap-2">
           {productVariants.map((v) => (
@@ -148,7 +163,7 @@ export function VariantManager({ product }: Props) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleDelete(v.id)}
+                onClick={() => deleteMutation.mutate(v.id)}
                 className="text-red-600 hover:text-red-700"
               >
                 Hapus
@@ -158,5 +173,5 @@ export function VariantManager({ product }: Props) {
         </ul>
       )}
     </div>
-  )
+  );
 }

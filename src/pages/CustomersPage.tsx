@@ -8,20 +8,31 @@
  * Accessible to manager+ roles (enforced at router level via RoleRoute).
  */
 
-import { useState } from 'react'
-import { CustomerSearch } from '../modules/customers/CustomerSearch'
-import { RefundFlow } from '../modules/customers/RefundFlow'
-import type { Customer } from '../modules/customers/customers.service'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
+import { useState } from "react";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import { CustomerSearch } from "../modules/customers/CustomerSearch";
+import type { Customer } from "../modules/customers/customers.service";
+import { RefundFlow } from "../modules/customers/RefundFlow";
 
 export default function CustomersPage() {
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    null,
+  );
 
   return (
     <Tabs defaultValue="customers" className="gap-0">
       <TabsList variant="line" className="w-full mb-4">
-        <TabsTrigger value="customers" data-testid="tab-customers">Pelanggan</TabsTrigger>
-        <TabsTrigger value="refund" data-testid="tab-refund">Refund / Retur</TabsTrigger>
+        <TabsTrigger value="customers" data-testid="tab-customers">
+          Pelanggan
+        </TabsTrigger>
+        <TabsTrigger value="refund" data-testid="tab-refund">
+          Refund / Retur
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="customers">
@@ -34,12 +45,17 @@ export default function CustomersPage() {
               className="rounded-lg border border-blue-100 bg-blue-50 p-4"
               data-testid="selected-customer-info"
             >
-              <p className="font-medium text-blue-800" data-testid="selected-customer-name">
+              <p
+                className="font-medium text-blue-800"
+                data-testid="selected-customer-name"
+              >
                 {selectedCustomer.name}
               </p>
               <p className="text-sm text-blue-600">{selectedCustomer.phone}</p>
               {selectedCustomer.email && (
-                <p className="text-sm text-blue-500">{selectedCustomer.email}</p>
+                <p className="text-sm text-blue-500">
+                  {selectedCustomer.email}
+                </p>
               )}
             </div>
           )}
@@ -52,5 +68,5 @@ export default function CustomersPage() {
         </div>
       </TabsContent>
     </Tabs>
-  )
+  );
 }

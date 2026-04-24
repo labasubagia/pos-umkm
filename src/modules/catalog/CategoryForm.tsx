@@ -3,42 +3,47 @@
  * Used in both "add" (no initialName) and "edit" (initialName provided) modes.
  */
 
-import { useState } from 'react'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Alert, AlertDescription } from '../../components/ui/alert'
+import { useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 
 interface Props {
-  initialName?: string
-  onSubmit: (name: string) => Promise<void>
-  onCancel: () => void
-  submitLabel?: string
+  initialName?: string;
+  onSubmit: (name: string) => Promise<void>;
+  onCancel: () => void;
+  submitLabel?: string;
 }
 
-export function CategoryForm({ initialName = '', onSubmit, onCancel, submitLabel = 'Simpan' }: Props) {
-  const [name, setName] = useState(initialName)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+export function CategoryForm({
+  initialName = "",
+  onSubmit,
+  onCancel,
+  submitLabel = "Simpan",
+}: Props) {
+  const [name, setName] = useState(initialName);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
     if (!name.trim()) {
-      setError('Nama kategori tidak boleh kosong')
-      return
+      setError("Nama kategori tidak boleh kosong");
+      return;
     }
     if (name.trim().length > 100) {
-      setError('Nama kategori maksimal 100 karakter')
-      return
+      setError("Nama kategori maksimal 100 karakter");
+      return;
     }
-    setLoading(true)
+    setLoading(true);
     try {
-      await onSubmit(name.trim())
+      await onSubmit(name.trim());
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -65,10 +70,14 @@ export function CategoryForm({ initialName = '', onSubmit, onCancel, submitLabel
         <Button type="button" variant="outline" onClick={onCancel}>
           Batal
         </Button>
-        <Button type="submit" disabled={loading} data-testid="btn-category-submit">
-          {loading ? 'Menyimpan…' : submitLabel}
+        <Button
+          type="submit"
+          disabled={loading}
+          data-testid="btn-category-submit"
+        >
+          {loading ? "Menyimpan…" : submitLabel}
         </Button>
       </div>
     </form>
-  )
+  );
 }

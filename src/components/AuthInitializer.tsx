@@ -1,22 +1,17 @@
 /**
- * AuthInitializer — restores OAuth token + data adapter routing on every page load.
+ * AuthInitializer — restores OAuth token on every page load.
  *
- * Zustand `persist` middleware rehydrates user, role, stores, isAuthenticated,
- * and spreadsheetId from localStorage. Two things it cannot restore:
+ * Zustand `persist` middleware rehydrates user, role, isAuthenticated,
+ * spreadsheetId, and activeStoreId from localStorage. Two things it cannot restore:
  *
  *   1. accessToken — intentionally excluded for XSS safety. Restored by
  *      calling authAdapter.restoreSession() in a useEffect.
- *   2. In-memory adapter routing — dataAdapter keeps its spreadsheetId in
- *      memory and loses it on refresh.
+ *   2. In-memory adapter routing — getRepos() now reads IDs from Zustand
+ *      on every call, so there is nothing to restore here.
  *
  * Adapter routing is restored SYNCHRONOUSLY before children render so that
  * page-level effects (e.g. CashierPage loading products) can make API calls
  * immediately without racing against this component's useEffect.
- *
- * Behaviour matrix:
- *   - Valid session   → setAccessToken(); adapter already wired synchronously.
- *   - Expired session + Google → clearAuth() → ProtectedRoute → landing page.
- *   - Expired session + mock  → keep persisted state (dev convenience).
  *
  * Renders children immediately — ProtectedRoute guards protected pages via
  * isAuthenticated from the persisted store.
@@ -25,53 +20,80 @@
  * GoogleAuthAdapter.restoreSession() reads localStorage only (no network call,
  * no await). Calling it synchronously in the render body — before returning
  * children — ensures getToken() returns a valid token when child useEffects
- * fire their first API call after page refresh. The useEffect below handles
- * Zustand sync + expired-session redirect separately.
+ * fire their first API call after page refresh.
+ *
+ * Proactive token refresh:
+ * After restoring a session, a setTimeout fires 5 minutes before expiry and
+ * silently requests a fresh token (no popup). On success it resets any outbox
+ * entries that failed due to the expired token and reschedules for the new
+ * token's lifetime. On failure it clears auth so the user is sent back to
+ * the login page.
  */
-import { useEffect, useRef, type ReactNode } from 'react'
-import { authAdapter } from '../lib/adapters'
-import { useAuth } from '../modules/auth/useAuth'
-
-const IS_MOCK = import.meta.env.VITE_ADAPTER !== 'google'
+import { type ReactNode, useEffect, useRef } from "react";
+import { authAdapter, resetDexieLayer, syncManager } from "../lib/adapters";
+import type { GoogleAuthAdapter } from "../lib/adapters/google/GoogleAuthAdapter";
+import { useAuth } from "../modules/auth/useAuth";
+import { useAuthStore } from "../store/authStore";
 
 interface Props {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function AuthInitializer({ children }: Props) {
-  const { isAuthenticated, setAccessToken, clearAuth } = useAuth()
-
-  // ── Adapter IDs are now read from Zustand by getRepos() on every call ─────────
-  // No need to imperatively wire the adapter — getRepos() reads spreadsheetId
-  // and monthlySpreadsheetId from the auth store at call time.
+  const { setAccessToken, clearAuth } = useAuth();
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Synchronous token restoration ───────────────────────────────────────────
-  // restoreSession() reads localStorage only (no await), so calling it in the
-  // render body is safe. This ensures authAdapter.getAccessToken() returns a
-  // valid token when child useEffects fire their first API call after a page
-  // refresh — avoiding the 403 "unregistered caller" race condition.
-  if (!IS_MOCK && !authAdapter.getAccessToken()) {
-    void authAdapter.restoreSession()
+  if (!authAdapter.getAccessToken()) {
+    void authAdapter.restoreSession();
   }
 
-  // ── Async Zustand sync + expiry check ──────────────────────────────────────
-  const sessionRestored = useRef(false)
+  // ── Async Zustand sync + expiry check + proactive refresh ──────────────────
+  const sessionRestored = useRef(false);
   useEffect(() => {
-    if (sessionRestored.current) return
-    sessionRestored.current = true
-    void authAdapter.restoreSession().then((user) => {
-      if (user) {
-        // Session is valid — inject token so Google API calls are authorised.
-        const token = authAdapter.getAccessToken()
-        if (token) setAccessToken(token)
-      } else if (isAuthenticated && !IS_MOCK) {
-        // Google token expired / revoked — wipe persisted auth.
-        clearAuth()
-      }
-      // Mock: restoreSession always returns null; leave persisted state intact
-      // so developers stay logged in across hot-reloads.
-    })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (sessionRestored.current) return;
+    sessionRestored.current = true;
 
-  return <>{children}</>
+    const gAuth = authAdapter as GoogleAuthAdapter;
+
+    const planRefresh = () => {
+      const expiry = gAuth.getTokenExpiry();
+      if (!expiry) return;
+      // Refresh 5 minutes before the token expires; enforce a 30 s floor so we
+      // don't spin if expiry is already very close.
+      const delay = Math.max(expiry - Date.now() - 5 * 60_000, 30_000);
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = setTimeout(async () => {
+        const ok = await gAuth.silentRefresh();
+        if (ok) {
+          const token = gAuth.getAccessToken();
+          if (token) setAccessToken(token);
+          // Unblock any outbox entries that failed due to an expired token.
+          await syncManager.resetFailedEntries();
+          planRefresh(); // reschedule for the new token's lifetime
+        } else if (useAuthStore.getState().isAuthenticated) {
+          resetDexieLayer();
+          clearAuth();
+        }
+      }, delay);
+    };
+
+    void gAuth.restoreSession().then((user) => {
+      if (user) {
+        const token = gAuth.getAccessToken();
+        if (token) setAccessToken(token);
+        planRefresh();
+      } else if (useAuthStore.getState().isAuthenticated) {
+        // Google token expired / revoked — wipe persisted auth and release DBs.
+        resetDexieLayer();
+        clearAuth();
+      }
+    });
+
+    return () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    };
+  }, [setAccessToken, clearAuth]);
+
+  return <>{children}</>;
 }

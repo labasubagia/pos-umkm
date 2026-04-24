@@ -1,36 +1,26 @@
 /**
  * PurchaseOrders.tsx — Purchase order management UI.
  *
- * Displays the list of purchase orders and a form to create new ones.
- * The owner can mark a pending order as "received" to increment stock.
+ * Orders come from usePurchaseOrders() (React Query).
+ * Products for the form come from useProducts() (React Query).
+ * Mutations invalidate the relevant queries.
  *
  * T035 deliverable.
  */
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { formatIDR } from '../../lib/formatIDR'
-import {
-  fetchPurchaseOrders,
-  fetchPurchaseOrderItems,
-  createPurchaseOrder,
-  receivePurchaseOrder,
-  InventoryError,
-  type PurchaseOrder,
-  type PurchaseOrderItem,
-  type PurchaseOrderItemRow,
-} from './inventory.service'
-import { fetchProducts } from '../catalog/catalog.service'
-import type { Product } from '../catalog/catalog.service'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Alert, AlertDescription } from '../../components/ui/alert'
-import { Badge } from '../../components/ui/badge'
+
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '../../components/ui/dialog'
+} from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import {
   Table,
   TableBody,
@@ -38,60 +28,106 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../components/ui/table'
+} from "../../components/ui/table";
+import { PRODUCTS_QUERY_KEY, useProducts } from "../../hooks/useProducts";
+import {
+  PURCHASE_ORDERS_QUERY_KEY,
+  usePurchaseOrders,
+} from "../../hooks/usePurchaseOrders";
+import { formatDate } from "../../lib/formatDate";
+import { formatIDR } from "../../lib/formatIDR";
+import { generateId } from "../../lib/uuid";
+import { useAuthStore } from "../../store/authStore";
+import {
+  createPurchaseOrder,
+  fetchPurchaseOrderItems,
+  type PurchaseOrder,
+  type PurchaseOrderItem,
+  type PurchaseOrderItemRow,
+  receivePurchaseOrder,
+} from "./inventory.service";
 
 export function PurchaseOrders() {
-  const [orders, setOrders] = useState<PurchaseOrder[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient();
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const {
+    data: orders = [],
+    isLoading,
+    error: fetchError,
+  } = usePurchaseOrders();
+  const { data: products = [] } = useProducts();
 
   // New order form state
-  const [showForm, setShowForm] = useState(false)
-  const [products, setProducts] = useState<Product[]>([])
-  const [supplier, setSupplier] = useState('')
-  const [formItems, setFormItems] = useState<PurchaseOrderItem[]>([
-    { product_id: '', product_name: '', qty: 1, cost_price: 0 },
-  ])
-  const [submitting, setSubmitting] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
+  const [showForm, setShowForm] = useState(false);
+  const [supplier, setSupplier] = useState("");
+  const [formItems, setFormItems] = useState<
+    (PurchaseOrderItem & { _uid: string })[]
+  >([
+    {
+      product_id: "",
+      product_name: "",
+      qty: 1,
+      cost_price: 0,
+      _uid: generateId(),
+    },
+  ]);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Detail view state
-  const [detailOrder, setDetailOrder] = useState<PurchaseOrder | null>(null)
-  const [detailItems, setDetailItems] = useState<PurchaseOrderItemRow[]>([])
-  const [receivingId, setReceivingId] = useState<string | null>(null)
+  const [detailOrder, setDetailOrder] = useState<PurchaseOrder | null>(null);
+  const [detailItems, setDetailItems] = useState<PurchaseOrderItemRow[]>([]);
+  const [receivingId, setReceivingId] = useState<string | null>(null);
 
-  const loadOrders = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await fetchPurchaseOrders()
-      setOrders(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal memuat purchase order')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const invalidateOrders = () =>
+    queryClient.invalidateQueries({
+      queryKey: PURCHASE_ORDERS_QUERY_KEY(activeStoreId),
+    });
+  const invalidateProducts = () =>
+    queryClient.invalidateQueries({
+      queryKey: PRODUCTS_QUERY_KEY(activeStoreId),
+    });
 
-  const initialized = useRef(false)
+  const createMutation = useMutation({
+    mutationFn: () => {
+      if (!supplier.trim()) throw new Error("Nama supplier wajib diisi");
+      const validItems = formItems.filter((i) => i.product_id);
+      if (validItems.length === 0)
+        throw new Error("Tambahkan minimal 1 produk ke purchase order");
+      return createPurchaseOrder(supplier, validItems);
+    },
+    onSuccess: () => {
+      setShowForm(false);
+      setFormError(null);
+      void invalidateOrders();
+    },
+    onError: (err: Error) => setFormError(err.message),
+  });
 
-  useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    loadOrders()
-  }, [loadOrders])
+  const receiveMutation = useMutation({
+    mutationFn: (orderId: string) => receivePurchaseOrder(orderId),
+    onMutate: (orderId) => setReceivingId(orderId),
+    onSuccess: () => {
+      setDetailOrder(null);
+      setReceivingId(null);
+      void invalidateOrders();
+      void invalidateProducts();
+    },
+    onError: (_err) => setReceivingId(null),
+  });
 
-  async function openForm() {
-    try {
-      const prods = await fetchProducts()
-      setProducts(prods)
-    } catch {
-      setProducts([])
-    }
-    setSupplier('')
-    setFormItems([{ product_id: '', product_name: '', qty: 1, cost_price: 0 }])
-    setFormError(null)
-    setShowForm(true)
+  function openForm() {
+    setSupplier("");
+    setFormItems([
+      {
+        product_id: "",
+        product_name: "",
+        qty: 1,
+        cost_price: 0,
+        _uid: generateId(),
+      },
+    ]);
+    setFormError(null);
+    setShowForm(true);
   }
 
   function handleItemChange(
@@ -100,78 +136,39 @@ export function PurchaseOrders() {
     value: string | number,
   ) {
     setFormItems((prev) => {
-      const next = [...prev]
-      if (field === 'product_id') {
-        const product = products.find((p) => p.id === value)
+      const next = [...prev];
+      if (field === "product_id") {
+        const product = products.find((p) => p.id === value);
         next[index] = {
           ...next[index],
           product_id: value as string,
-          product_name: product?.name ?? '',
-        }
+          product_name: product?.name ?? "",
+        };
       } else {
-        next[index] = { ...next[index], [field]: value }
+        next[index] = { ...next[index], [field]: value };
       }
-      return next
-    })
-  }
-
-  function addItem() {
-    setFormItems((prev) => [...prev, { product_id: '', product_name: '', qty: 1, cost_price: 0 }])
-  }
-
-  function removeItem(index: number) {
-    setFormItems((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  async function handleSubmitOrder() {
-    setFormError(null)
-    if (!supplier.trim()) {
-      setFormError('Nama supplier wajib diisi')
-      return
-    }
-    const validItems = formItems.filter((i) => i.product_id)
-    if (validItems.length === 0) {
-      setFormError('Tambahkan minimal 1 produk ke purchase order')
-      return
-    }
-    setSubmitting(true)
-    try {
-      await createPurchaseOrder(supplier, validItems)
-      setShowForm(false)
-      await loadOrders()
-    } catch (err) {
-      setFormError(err instanceof InventoryError ? err.message : 'Gagal membuat purchase order')
-    } finally {
-      setSubmitting(false)
-    }
+      return next;
+    });
   }
 
   async function openDetail(order: PurchaseOrder) {
-    setDetailOrder(order)
+    setDetailOrder(order);
     try {
-      const items = await fetchPurchaseOrderItems(order.id)
-      setDetailItems(items)
+      const items = await fetchPurchaseOrderItems(order.id);
+      setDetailItems(items);
     } catch {
-      setDetailItems([])
+      setDetailItems([]);
     }
   }
 
-  async function handleReceive(orderId: string) {
-    setReceivingId(orderId)
-    setError(null)
-    try {
-      await receivePurchaseOrder(orderId)
-      setDetailOrder(null)
-      await loadOrders()
-    } catch (err) {
-      setError(err instanceof InventoryError ? err.message : 'Gagal menerima purchase order')
-    } finally {
-      setReceivingId(null)
-    }
-  }
+  const errorMsg = fetchError instanceof Error ? fetchError.message : null;
 
-  if (loading) {
-    return <p data-testid="po-loading" className="text-sm text-gray-500">Memuat purchase order…</p>
+  if (isLoading) {
+    return (
+      <p data-testid="po-loading" className="text-sm text-gray-500">
+        Memuat purchase order…
+      </p>
+    );
   }
 
   return (
@@ -184,9 +181,9 @@ export function PurchaseOrders() {
         </Button>
       </div>
 
-      {error && (
+      {errorMsg && (
         <Alert variant="destructive" className="mb-3" data-testid="po-error">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{errorMsg}</AlertDescription>
         </Alert>
       )}
 
@@ -212,15 +209,16 @@ export function PurchaseOrders() {
           <div className="mb-3 space-y-2">
             {formItems.map((item, idx) => (
               <div
-                key={idx}
+                key={item._uid}
                 data-testid={`po-item-row-${idx}`}
                 className="flex items-center gap-2"
               >
-                {/* Keep native <select> — E2E tests use .selectOption() on these elements */}
                 <select
                   data-testid={`select-po-product-${idx}`}
                   value={item.product_id}
-                  onChange={(e) => handleItemChange(idx, 'product_id', e.target.value)}
+                  onChange={(e) =>
+                    handleItemChange(idx, "product_id", e.target.value)
+                  }
                   className="flex-1 rounded-lg border border-input bg-transparent px-2 py-1 text-sm"
                 >
                   <option value="">— Pilih Produk —</option>
@@ -234,7 +232,13 @@ export function PurchaseOrders() {
                   type="number"
                   min={1}
                   value={item.qty}
-                  onChange={(e) => handleItemChange(idx, 'qty', parseInt(e.target.value, 10) || 1)}
+                  onChange={(e) =>
+                    handleItemChange(
+                      idx,
+                      "qty",
+                      parseInt(e.target.value, 10) || 1,
+                    )
+                  }
                   data-testid={`input-po-qty-${idx}`}
                   placeholder="Qty"
                   className="w-20"
@@ -244,7 +248,11 @@ export function PurchaseOrders() {
                   min={0}
                   value={item.cost_price}
                   onChange={(e) =>
-                    handleItemChange(idx, 'cost_price', parseInt(e.target.value, 10) || 0)
+                    handleItemChange(
+                      idx,
+                      "cost_price",
+                      parseInt(e.target.value, 10) || 0,
+                    )
                   }
                   data-testid={`input-po-cost-${idx}`}
                   placeholder="Harga modal"
@@ -252,8 +260,11 @@ export function PurchaseOrders() {
                 />
                 {formItems.length > 1 && (
                   <button
+                    type="button"
                     data-testid={`btn-remove-po-item-${idx}`}
-                    onClick={() => removeItem(idx)}
+                    onClick={() =>
+                      setFormItems((prev) => prev.filter((_, i) => i !== idx))
+                    }
                     className="text-red-500 hover:text-red-700"
                     aria-label="Hapus item"
                   >
@@ -265,15 +276,31 @@ export function PurchaseOrders() {
           </div>
 
           <button
+            type="button"
             data-testid="btn-add-po-item"
-            onClick={addItem}
+            onClick={() =>
+              setFormItems((prev) => [
+                ...prev,
+                {
+                  product_id: "",
+                  product_name: "",
+                  qty: 1,
+                  cost_price: 0,
+                  _uid: generateId(),
+                },
+              ])
+            }
             className="mb-3 text-sm text-blue-600 hover:underline"
           >
             + Tambah Item
           </button>
 
           {formError && (
-            <Alert variant="destructive" className="mb-2" data-testid="po-form-error">
+            <Alert
+              variant="destructive"
+              className="mb-2"
+              data-testid="po-form-error"
+            >
               <AlertDescription>{formError}</AlertDescription>
             </Alert>
           )}
@@ -281,10 +308,10 @@ export function PurchaseOrders() {
           <div className="flex gap-2">
             <Button
               data-testid="btn-submit-po"
-              onClick={handleSubmitOrder}
-              disabled={submitting}
+              onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending}
             >
-              {submitting ? 'Menyimpan…' : 'Simpan PO'}
+              {createMutation.isPending ? "Menyimpan…" : "Simpan PO"}
             </Button>
             <Button
               variant="outline"
@@ -318,23 +345,21 @@ export function PurchaseOrders() {
                   {order.supplier}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {new Date(order.created_at).toLocaleDateString('id-ID')}
+                  {formatDate(order.created_at, "DD MMM YYYY")}
                 </p>
               </div>
-
               <div className="flex items-center gap-3">
                 <Badge
                   variant="outline"
                   data-testid={`po-status-${order.id}`}
                   className={
-                    order.status === 'received'
-                      ? 'bg-green-100 text-green-700 border-green-200'
-                      : 'bg-yellow-100 text-yellow-700 border-yellow-200'
+                    order.status === "received"
+                      ? "bg-green-100 text-green-700 border-green-200"
+                      : "bg-yellow-100 text-yellow-700 border-yellow-200"
                   }
                 >
-                  {order.status === 'received' ? 'Diterima' : 'Pending'}
+                  {order.status === "received" ? "Diterima" : "Pending"}
                 </Badge>
-
                 <Button
                   variant="ghost"
                   size="sm"
@@ -343,16 +368,15 @@ export function PurchaseOrders() {
                 >
                   Detail
                 </Button>
-
-                {order.status === 'pending' && (
+                {order.status === "pending" && (
                   <Button
                     size="sm"
                     data-testid={`btn-receive-po-${order.id}`}
-                    onClick={() => handleReceive(order.id)}
+                    onClick={() => receiveMutation.mutate(order.id)}
                     disabled={receivingId === order.id}
                     className="bg-green-600 hover:bg-green-700"
                   >
-                    {receivingId === order.id ? 'Memproses…' : 'Terima'}
+                    {receivingId === order.id ? "Memproses…" : "Terima"}
                   </Button>
                 )}
               </div>
@@ -363,12 +387,16 @@ export function PurchaseOrders() {
 
       {/* ── Detail Modal ───────────────────────────────────────────────── */}
       {detailOrder && (
-        <Dialog open={true} onOpenChange={(open) => { if (!open) setDetailOrder(null) }}>
+        <Dialog
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setDetailOrder(null);
+          }}
+        >
           <DialogContent className="max-w-lg" data-testid="po-detail-modal">
             <DialogHeader>
               <DialogTitle>Detail PO — {detailOrder.supplier}</DialogTitle>
             </DialogHeader>
-
             <Table>
               <TableHeader>
                 <TableRow>
@@ -379,28 +407,34 @@ export function PurchaseOrders() {
               </TableHeader>
               <TableBody>
                 {detailItems.map((item) => (
-                  <TableRow key={item.id} data-testid={`po-detail-item-${item.id}`}>
+                  <TableRow
+                    key={item.id}
+                    data-testid={`po-detail-item-${item.id}`}
+                  >
                     <TableCell>{item.product_name}</TableCell>
                     <TableCell className="text-right">{item.qty}</TableCell>
-                    <TableCell className="text-right">{formatIDR(item.cost_price)}</TableCell>
+                    <TableCell className="text-right">
+                      {formatIDR(item.cost_price)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-
-            {detailOrder.status === 'pending' && (
+            {detailOrder.status === "pending" && (
               <Button
                 data-testid={`btn-receive-po-detail-${detailOrder.id}`}
-                onClick={() => handleReceive(detailOrder.id)}
+                onClick={() => receiveMutation.mutate(detailOrder.id)}
                 disabled={receivingId === detailOrder.id}
                 className="w-full bg-green-600 hover:bg-green-700"
               >
-                {receivingId === detailOrder.id ? 'Memproses…' : 'Terima & Tambah Stok'}
+                {receivingId === detailOrder.id
+                  ? "Memproses…"
+                  : "Terima & Tambah Stok"}
               </Button>
             )}
           </DialogContent>
         </Dialog>
       )}
     </div>
-  )
+  );
 }

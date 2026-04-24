@@ -10,30 +10,30 @@
  *   Customers: id, name, phone, email, created_at, deleted_at
  */
 
-import { getRepos } from '../../lib/adapters'
-import { nowUTC } from '../../lib/formatters'
-import { generateId } from '../../lib/uuid'
-import { validatePhone } from '../../lib/validators'
+import { getRepos } from "../../lib/adapters";
+import { nowUTC } from "../../lib/formatters";
+import { generateId } from "../../lib/uuid";
+import { validatePhone } from "../../lib/validators";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
 export interface Customer {
-  id: string
-  name: string
-  phone: string
-  email?: string
-  created_at: string
-  deleted_at?: string | null
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  created_at: string;
+  deleted_at?: string | null;
 }
 
 // ─── Custom errors ─────────────────────────────────────────────────────────────
 
 export class CustomerError extends Error {
-  readonly cause?: unknown
+  readonly cause?: unknown;
   constructor(message: string, cause?: unknown) {
-    super(message)
-    this.name = 'CustomerError'
-    this.cause = cause
+    super(message);
+    this.name = "CustomerError";
+    this.cause = cause;
   }
 }
 
@@ -44,17 +44,20 @@ export class CustomerError extends Error {
  * The adapter's getSheet already filters rows where deleted_at is set.
  */
 export async function fetchCustomers(): Promise<Customer[]> {
-  const rows = await getRepos().customers.getAll()
+  const rows = await getRepos().customers.getAll();
   return rows
-    .filter((r) => r['name'])
+    .filter((r) => (r as Record<string, unknown>).name)
     .map((r) => ({
-      id: r['id'] as string,
-      name: r['name'] as string,
-      phone: r['phone'] as string,
-      email: (r['email'] as string | undefined) ?? undefined,
-      created_at: r['created_at'] as string,
-      deleted_at: (r['deleted_at'] as string | null) ?? null,
-    }))
+      id: (r as Record<string, unknown>).id as string,
+      name: (r as Record<string, unknown>).name as string,
+      phone: (r as Record<string, unknown>).phone as string,
+      email:
+        ((r as Record<string, unknown>).email as string | undefined) ??
+        undefined,
+      created_at: (r as Record<string, unknown>).created_at as string,
+      deleted_at:
+        ((r as Record<string, unknown>).deleted_at as string | null) ?? null,
+    }));
 }
 
 /**
@@ -67,29 +70,37 @@ export async function addCustomer(
   phone: string,
   email?: string,
 ): Promise<Customer> {
-  const phoneValidation = validatePhone(phone)
+  const phoneValidation = validatePhone(phone);
   if (!phoneValidation.valid) {
-    throw new CustomerError(phoneValidation.error ?? 'Nomor telepon tidak valid')
+    throw new CustomerError(
+      phoneValidation.error ?? "Nomor telepon tidak valid",
+    );
   }
 
   // Check for duplicate phone in existing customers
-  const existing = await getRepos().customers.getAll()
-  const duplicate = existing.find((r) => r['name'] && r['phone'] === phone)
+  const existing = await getRepos().customers.getAll();
+  const duplicate = existing.find(
+    (r) =>
+      (r as Record<string, unknown>).name &&
+      (r as Record<string, unknown>).phone === phone,
+  );
   if (duplicate) {
-    throw new CustomerError(`Nomor telepon ${phone} sudah terdaftar`)
+    throw new CustomerError(`Nomor telepon ${phone} sudah terdaftar`);
   }
 
-  const id = generateId()
-  const created_at = nowUTC()
-  await getRepos().customers.batchAppend([{
-    id,
-    name: name.trim(),
-    phone,
-    email: email ?? '',
-    created_at,
-    deleted_at: null,
-  }])
-  return { id, name: name.trim(), phone, email, created_at, deleted_at: null }
+  const id = generateId();
+  const created_at = nowUTC();
+  await getRepos().customers.batchInsert([
+    {
+      id,
+      name: name.trim(),
+      phone,
+      email: email ?? "",
+      created_at,
+      deleted_at: null,
+    },
+  ]);
+  return { id, name: name.trim(), phone, email, created_at, deleted_at: null };
 }
 
 /**
@@ -99,13 +110,8 @@ export async function addCustomer(
  */
 export async function updateCustomer(
   id: string,
-  changes: Partial<Pick<Customer, 'name' | 'phone' | 'email'>>,
+  changes: Partial<Pick<Customer, "name" | "phone" | "email">>,
 ): Promise<void> {
-  const updates = (Object.entries(changes) as [string, unknown][]).map(([col, val]) => ({
-    rowId: id,
-    column: col,
-    value: val,
-  }))
-  if (updates.length === 0) return
-  await getRepos().customers.batchUpdateCells(updates)
+  if (Object.keys(changes).length === 0) return;
+  await getRepos().customers.batchUpdate([{ id, ...changes }]);
 }

@@ -1,28 +1,32 @@
 /**
  * T018 — auth.service unit tests
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { resolveUserRole, isFirstTimeOwner, UnauthorizedError } from './auth.service'
-import * as adapters from '../../lib/adapters'
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as adapters from "../../lib/adapters";
+import {
+  isFirstTimeOwner,
+  resolveUserRole,
+  UnauthorizedError,
+} from "./auth.service";
 
 function mockRepo(overrides = {}) {
   return {
-    spreadsheetId: 'test-id',
-    sheetName: 'mock',
+    spreadsheetId: "test-id",
+    sheetName: "mock",
     getAll: vi.fn().mockResolvedValue([]),
-    batchAppend: vi.fn().mockResolvedValue(undefined),
-    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
-    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    batchInsert: vi.fn().mockResolvedValue(undefined),
+    batchUpdate: vi.fn().mockResolvedValue(undefined),
+    batchUpsert: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
-  }
+  };
 }
 
-let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>;
 
 beforeEach(() => {
-  vi.restoreAllMocks()
+  vi.restoreAllMocks();
   mockRepos = {
     categories: mockRepo(),
     products: mockRepo(),
@@ -39,59 +43,70 @@ beforeEach(() => {
     stores: mockRepo(),
     monthlySheets: mockRepo(),
     auditLog: mockRepo(),
-  }
-  vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
-})
+  };
+  vi.spyOn(adapters, "getRepos").mockReturnValue(
+    mockRepos as ReturnType<typeof adapters.getRepos>,
+  );
+});
 
-describe('resolveUserRole', () => {
+describe("resolveUserRole", () => {
   it('returns "cashier" for a known member email', async () => {
     mockRepos.members.getAll.mockResolvedValue([
-      { id: 'u1', email: 'cashier@test.com', role: 'cashier', deleted_at: null },
-    ])
+      {
+        id: "u1",
+        email: "cashier@test.com",
+        role: "cashier",
+        deleted_at: null,
+      },
+    ]);
 
-    const role = await resolveUserRole('cashier@test.com')
+    const role = await resolveUserRole("cashier@test.com");
 
-    expect(role).toBe('cashier')
-  })
+    expect(role).toBe("cashier");
+  });
 
   it('returns "owner" for the store owner email', async () => {
     mockRepos.members.getAll.mockResolvedValue([
-      { id: 'u1', email: 'owner@test.com', role: 'owner', deleted_at: null },
-    ])
+      { id: "u1", email: "owner@test.com", role: "owner", deleted_at: null },
+    ]);
 
-    const role = await resolveUserRole('owner@test.com')
+    const role = await resolveUserRole("owner@test.com");
 
-    expect(role).toBe('owner')
-  })
+    expect(role).toBe("owner");
+  });
 
-  it('throws UnauthorizedError if email not in Members tab', async () => {
-    mockRepos.members.getAll.mockResolvedValue([])
+  it("throws UnauthorizedError if email not in Members tab", async () => {
+    mockRepos.members.getAll.mockResolvedValue([]);
 
-    await expect(resolveUserRole('stranger@test.com')).rejects.toThrow(UnauthorizedError)
-  })
+    await expect(resolveUserRole("stranger@test.com")).rejects.toThrow(
+      UnauthorizedError,
+    );
+  });
 
-  it('throws if member has been revoked (deleted_at set)', async () => {
+  it("throws if member has been revoked (deleted_at set)", async () => {
     // getAll already filters soft-deleted rows, so revoked members are absent
     mockRepos.members.getAll.mockResolvedValue([
       // only non-deleted rows returned by adapter
-    ])
+    ]);
 
-    await expect(resolveUserRole('revoked@test.com')).rejects.toThrow(UnauthorizedError)
-  })
-})
+    await expect(resolveUserRole("revoked@test.com")).rejects.toThrow(
+      UnauthorizedError,
+    );
+  });
+});
 
-describe('isFirstTimeOwner', () => {
-  it('returns true when Members tab has no rows', async () => {
-    mockRepos.members.getAll.mockResolvedValue([])
+describe("isFirstTimeOwner", () => {
+  it("returns true when Members tab has no rows", async () => {
+    mockRepos.members.getAll.mockResolvedValue([]);
 
-    expect(await isFirstTimeOwner()).toBe(true)
-  })
+    expect(await isFirstTimeOwner()).toBe(true);
+  });
 
-  it('returns false when Members tab has at least one row', async () => {
+  it("returns false when Members tab has at least one row", async () => {
     mockRepos.members.getAll.mockResolvedValue([
-      { id: 'u1', email: 'owner@test.com', role: 'owner' },
-    ])
+      { id: "u1", email: "owner@test.com", role: "owner" },
+    ]);
 
-    expect(await isFirstTimeOwner()).toBe(false)
-  })
-})
+    expect(await isFirstTimeOwner()).toBe(false);
+  });
+});

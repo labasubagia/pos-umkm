@@ -1,60 +1,60 @@
-import { useState } from 'react'
+import { useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { getRepos } from "../../lib/adapters";
+import { formatIDR } from "../../lib/formatters";
 import {
-  fetchTransactionsForRange,
   calculateGrossProfit,
+  fetchTransactionsForRange,
   type ProfitSummary,
   ReportError,
-} from './reports.service'
-import { getRepos } from '../../lib/adapters'
-import { formatIDR } from '../../lib/formatters'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Alert, AlertDescription } from '../../components/ui/alert'
-import { Card, CardContent } from '../../components/ui/card'
+} from "./reports.service";
 
 export function GrossProfitReport() {
-  const today = new Date().toISOString().slice(0, 10)
-  const [startDate, setStartDate] = useState(today)
-  const [endDate, setEndDate] = useState(today)
-  const [result, setResult] = useState<ProfitSummary | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const today = new Date().toISOString().slice(0, 10);
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
+  const [result, setResult] = useState<ProfitSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function load() {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
       const [transactions, itemRows, productRows] = await Promise.all([
         fetchTransactionsForRange(startDate, endDate),
         getRepos().transactionItems.getAll(),
         getRepos().products.getAll(),
-      ])
+      ]);
 
       const items = itemRows.map((r) => ({
-        id: String(r['id']),
-        transaction_id: String(r['transaction_id']),
-        product_id: String(r['product_id']),
-        name: String(r['name']),
-        price: Number(r['price']),
-        quantity: Number(r['quantity']),
-        subtotal: Number(r['subtotal']),
-      }))
+        id: String(r.id),
+        transaction_id: String(r.transaction_id),
+        product_id: String(r.product_id),
+        name: String(r.name),
+        price: Number(r.price),
+        quantity: Number(r.quantity),
+        subtotal: Number(r.subtotal),
+      }));
 
       const products = productRows.map((r) => ({
-        id: String(r['id']),
-        cost_price: Number(r['cost_price'] ?? 0),
-      }))
+        id: String(r.id),
+        cost_price: Number(r.cost_price ?? 0),
+      }));
 
-      setResult(calculateGrossProfit(transactions, items, products))
+      setResult(calculateGrossProfit(transactions, items, products));
     } catch (err) {
       if (err instanceof ReportError) {
-        setError(err.message)
+        setError(err.message);
       } else {
-        setError('Terjadi kesalahan saat memuat laporan')
+        setError("Terjadi kesalahan saat memuat laporan");
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -82,11 +82,7 @@ export function GrossProfitReport() {
             className="w-auto"
           />
         </div>
-        <Button
-          data-testid="btn-load-profit"
-          onClick={load}
-          disabled={loading}
-        >
+        <Button data-testid="btn-load-profit" onClick={load} disabled={loading}>
           Lihat Laporan
         </Button>
       </div>
@@ -102,7 +98,10 @@ export function GrossProfitReport() {
           <Card>
             <CardContent className="pt-4">
               <p className="text-sm text-gray-500">Total Pendapatan</p>
-              <p data-testid="profit-total-revenue" className="text-lg font-bold">
+              <p
+                data-testid="profit-total-revenue"
+                className="text-lg font-bold"
+              >
                 {formatIDR(result.total_revenue)}
               </p>
             </CardContent>
@@ -134,5 +133,5 @@ export function GrossProfitReport() {
         </div>
       )}
     </div>
-  )
+  );
 }

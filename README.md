@@ -30,7 +30,7 @@ Buka [http://localhost:5173/pos-umkm/](http://localhost:5173/pos-umkm/) di brows
 | `npm run dev` | Jalankan server pengembangan (Vite HMR) |
 | `npm run build` | Build produksi ke folder `dist/` |
 | `npm run preview` | Preview build produksi secara lokal |
-| `npm run lint` | Jalankan ESLint |
+| `biome check` | Jalankan pemeriksaan format & lint Biome |
 | `npm test` | Jalankan unit test (Vitest) |
 | `npm run test:e2e` | Jalankan end-to-end test (Playwright) |
 

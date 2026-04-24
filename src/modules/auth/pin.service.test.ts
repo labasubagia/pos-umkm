@@ -1,63 +1,64 @@
 /**
  * T020 — pin.service + usePinLock unit tests
  */
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
-import { hashPIN, verifyPIN } from './pin.service'
-import { usePinLock } from './usePinLock'
-import * as adapters from '../../lib/adapters'
+
+import { act, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as adapters from "../../lib/adapters";
+import { hashPIN, verifyPIN } from "./pin.service";
+import { usePinLock } from "./usePinLock";
 
 function mockRepo(overrides = {}) {
   return {
-    spreadsheetId: 'test-id',
-    sheetName: 'mock',
+    spreadsheetId: "test-id",
+    sheetName: "mock",
     getAll: vi.fn().mockResolvedValue([]),
-    batchAppend: vi.fn().mockResolvedValue(undefined),
-    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
-    batchUpsertByKey: vi.fn().mockResolvedValue(undefined),
+    batchInsert: vi.fn().mockResolvedValue(undefined),
+    batchUpdate: vi.fn().mockResolvedValue(undefined),
+    batchUpsert: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
-  }
+  };
 }
 
-let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>;
 
 // ─── pin.service ─────────────────────────────────────────────────────────────
 
-describe('hashPIN', () => {
-  it('returns a bcrypt hash string', async () => {
-    const hash = await hashPIN('1234')
-    expect(hash).toMatch(/^\$2[aby]\$/)
-  })
-})
+describe("hashPIN", () => {
+  it("returns a bcrypt hash string", async () => {
+    const hash = await hashPIN("1234");
+    expect(hash).toMatch(/^\$2[aby]\$/);
+  });
+});
 
-describe('verifyPIN', () => {
-  it('returns true for correct PIN against its hash', async () => {
-    const hash = await hashPIN('5678')
-    expect(await verifyPIN('5678', hash)).toBe(true)
-  })
+describe("verifyPIN", () => {
+  it("returns true for correct PIN against its hash", async () => {
+    const hash = await hashPIN("5678");
+    expect(await verifyPIN("5678", hash)).toBe(true);
+  });
 
-  it('returns false for wrong PIN', async () => {
-    const hash = await hashPIN('5678')
-    expect(await verifyPIN('0000', hash)).toBe(false)
-  })
+  it("returns false for wrong PIN", async () => {
+    const hash = await hashPIN("5678");
+    expect(await verifyPIN("0000", hash)).toBe(false);
+  });
 
-  it('returns false for empty PIN', async () => {
-    const hash = await hashPIN('5678')
-    expect(await verifyPIN('', hash)).toBe(false)
-  })
-})
+  it("returns false for empty PIN", async () => {
+    const hash = await hashPIN("5678");
+    expect(await verifyPIN("", hash)).toBe(false);
+  });
+});
 
 // ─── usePinLock ──────────────────────────────────────────────────────────────
 
-describe('usePinLock', () => {
-  let pinHash: string
+describe("usePinLock", () => {
+  let pinHash: string;
 
   beforeEach(async () => {
-    vi.useFakeTimers()
-    pinHash = await hashPIN('1234')
-    vi.restoreAllMocks()
+    vi.useFakeTimers();
+    pinHash = await hashPIN("1234");
+    vi.restoreAllMocks();
     mockRepos = {
       categories: mockRepo(),
       products: mockRepo(),
@@ -74,70 +75,68 @@ describe('usePinLock', () => {
       stores: mockRepo(),
       monthlySheets: mockRepo(),
       auditLog: mockRepo(),
-    }
-    vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
-  })
+    };
+    vi.spyOn(adapters, "getRepos").mockReturnValue(
+      mockRepos as ReturnType<typeof adapters.getRepos>,
+    );
+  });
 
   afterEach(() => {
-    vi.useRealTimers()
-  })
+    vi.useRealTimers();
+  });
 
-  it('locks after idle period elapses', async () => {
-    const { result } = renderHook(() =>
-      usePinLock({ pinHash, idleMs: 1000 }),
-    )
+  it("locks after idle period elapses", async () => {
+    const { result } = renderHook(() => usePinLock({ pinHash, idleMs: 1000 }));
 
-    expect(result.current.isLocked).toBe(false)
+    expect(result.current.isLocked).toBe(false);
 
     act(() => {
-      vi.advanceTimersByTime(1001)
-    })
+      vi.advanceTimersByTime(1001);
+    });
 
-    expect(result.current.isLocked).toBe(true)
-  })
+    expect(result.current.isLocked).toBe(true);
+  });
 
-  it('resets timer on user interaction', () => {
-    const { result } = renderHook(() =>
-      usePinLock({ pinHash, idleMs: 1000 }),
-    )
+  it("resets timer on user interaction", () => {
+    const { result } = renderHook(() => usePinLock({ pinHash, idleMs: 1000 }));
 
     act(() => {
-      vi.advanceTimersByTime(800)
-      result.current.resetTimer()
-      vi.advanceTimersByTime(800)
-    })
+      vi.advanceTimersByTime(800);
+      result.current.resetTimer();
+      vi.advanceTimersByTime(800);
+    });
 
     // 800 + 800 = 1600ms total, but timer was reset at 800ms so only 800ms elapsed after reset
-    expect(result.current.isLocked).toBe(false)
-  })
+    expect(result.current.isLocked).toBe(false);
+  });
 
-  it('unlocks on correct PIN', async () => {
-    const { result } = renderHook(() =>
-      usePinLock({ pinHash, idleMs: 1000 }),
-    )
+  it("unlocks on correct PIN", async () => {
+    const { result } = renderHook(() => usePinLock({ pinHash, idleMs: 1000 }));
 
-    act(() => { vi.advanceTimersByTime(1001) })
-    expect(result.current.isLocked).toBe(true)
-
-    await act(async () => {
-      await result.current.unlock('1234')
-    })
-
-    expect(result.current.isLocked).toBe(false)
-  })
-
-  it('does not unlock on wrong PIN', async () => {
-    const { result } = renderHook(() =>
-      usePinLock({ pinHash, idleMs: 1000 }),
-    )
-
-    act(() => { vi.advanceTimersByTime(1001) })
-    expect(result.current.isLocked).toBe(true)
+    act(() => {
+      vi.advanceTimersByTime(1001);
+    });
+    expect(result.current.isLocked).toBe(true);
 
     await act(async () => {
-      await result.current.unlock('9999')
-    })
+      await result.current.unlock("1234");
+    });
 
-    expect(result.current.isLocked).toBe(true)
-  })
-})
+    expect(result.current.isLocked).toBe(false);
+  });
+
+  it("does not unlock on wrong PIN", async () => {
+    const { result } = renderHook(() => usePinLock({ pinHash, idleMs: 1000 }));
+
+    act(() => {
+      vi.advanceTimersByTime(1001);
+    });
+    expect(result.current.isLocked).toBe(true);
+
+    await act(async () => {
+      await result.current.unlock("9999");
+    });
+
+    expect(result.current.isLocked).toBe(true);
+  });
+});

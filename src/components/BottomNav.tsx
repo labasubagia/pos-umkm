@@ -12,18 +12,21 @@
  * to avoid duplicate testids in the DOM at desktop viewports where both
  * exist but BottomNav is hidden via display:none).
  */
-import { NavLink } from 'react-router-dom'
-import { useAuth } from '../modules/auth/useAuth'
-import { NAV_ITEMS } from './nav.constants'
+import { NavLink } from "react-router-dom";
+import { useAuth } from "../modules/auth/useAuth";
+import { NAV_ITEMS } from "./nav.constants";
 
-const ROLE_RANK = { cashier: 1, manager: 2, owner: 3 } as const
+const ROLE_RANK = { cashier: 1, manager: 2, owner: 3 } as const;
 
 export function BottomNav() {
-  const { role } = useAuth()
+  const { role } = useAuth();
 
   const visibleItems = NAV_ITEMS.filter(
-    (item) => role && ROLE_RANK[role as keyof typeof ROLE_RANK] >= ROLE_RANK[item.minRole as keyof typeof ROLE_RANK],
-  )
+    (item) =>
+      role &&
+      ROLE_RANK[role as keyof typeof ROLE_RANK] >=
+        ROLE_RANK[item.minRole as keyof typeof ROLE_RANK],
+  );
 
   return (
     <nav
@@ -41,10 +44,10 @@ export function BottomNav() {
           {({ isActive }) => (
             <>
               <Icon
-                className={`h-5 w-5 shrink-0 ${isActive ? 'text-blue-600' : 'text-gray-500'}`}
+                className={`h-5 w-5 shrink-0 ${isActive ? "text-blue-600" : "text-gray-500"}`}
               />
               <span
-                className={`truncate max-w-full px-0.5 ${isActive ? 'text-blue-600' : 'text-gray-500'}`}
+                className={`truncate max-w-full px-0.5 ${isActive ? "text-blue-600" : "text-gray-500"}`}
               >
                 {label}
               </span>
@@ -53,5 +56,5 @@ export function BottomNav() {
         </NavLink>
       ))}
     </nav>
-  )
+  );
 }

@@ -8,14 +8,11 @@
  *   4. On confirm, bulkImportProducts writes all rows + store is refreshed
  */
 
-import { useRef, useState } from 'react'
-import { parseProductCSV, validateImportRows, bulkImportProducts } from './csv.service'
-import type { ParsedProduct, RowValidationResult } from './csv.service'
-import { useCatalogStore } from './useCatalog'
-import { formatIDR } from '../../lib/formatters'
-import { Button } from '../../components/ui/button'
-import { Alert, AlertDescription } from '../../components/ui/alert'
-import { Badge } from '../../components/ui/badge'
+import { useQueryClient } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
 import {
   Table,
   TableBody,
@@ -23,51 +20,67 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../components/ui/table'
+} from "../../components/ui/table";
+import { CATEGORIES_QUERY_KEY } from "../../hooks/useCategories";
+import { PRODUCTS_QUERY_KEY } from "../../hooks/useProducts";
+import { formatIDR } from "../../lib/formatters";
+import { useAuthStore } from "../../store/authStore";
+import type { ParsedProduct, RowValidationResult } from "./csv.service";
+import {
+  bulkImportProducts,
+  parseProductCSV,
+  validateImportRows,
+} from "./csv.service";
 
 export function CSVImport() {
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [rows, setRows] = useState<ParsedProduct[]>([])
-  const [results, setResults] = useState<RowValidationResult[]>([])
-  const [importError, setImportError] = useState<string | null>(null)
-  const [importing, setImporting] = useState(false)
-  const [successCount, setSuccessCount] = useState<number | null>(null)
-  const { loadCatalog } = useCatalogStore()
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [rows, setRows] = useState<ParsedProduct[]>([]);
+  const [results, setResults] = useState<RowValidationResult[]>([]);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [successCount, setSuccessCount] = useState<number | null>(null);
+  const queryClient = useQueryClient();
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setImportError(null)
-    setSuccessCount(null)
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError(null);
+    setSuccessCount(null);
     try {
-      const parsed = await parseProductCSV(file)
-      const validation = validateImportRows(parsed)
-      setRows(parsed)
-      setResults(validation)
+      const parsed = await parseProductCSV(file);
+      const validation = validateImportRows(parsed);
+      setRows(parsed);
+      setResults(validation);
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : String(err))
+      setImportError(err instanceof Error ? err.message : String(err));
     }
   }
 
   async function handleImport() {
-    setImportError(null)
-    setImporting(true)
+    setImportError(null);
+    setImporting(true);
     try {
-      await bulkImportProducts(rows)
-      setSuccessCount(rows.length)
-      setRows([])
-      setResults([])
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      await loadCatalog()
+      await bulkImportProducts(rows);
+      setSuccessCount(rows.length);
+      setRows([]);
+      setResults([]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      await queryClient.invalidateQueries({
+        queryKey: PRODUCTS_QUERY_KEY(activeStoreId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: CATEGORIES_QUERY_KEY(activeStoreId),
+      });
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : String(err))
+      setImportError(err instanceof Error ? err.message : String(err));
     } finally {
-      setImporting(false)
+      setImporting(false);
     }
   }
 
-  const hasErrors = results.some((r) => !r.valid)
-  const canImport = rows.length > 0 && !hasErrors
+  const hasErrors = results.some((r) => !r.valid);
+  const canImport = rows.length > 0 && !hasErrors;
 
   return (
     <div className="flex flex-col gap-4">
@@ -110,7 +123,9 @@ export function CSVImport() {
 
       {successCount !== null && (
         <Alert className="border-green-500 bg-green-50 text-green-800">
-          <AlertDescription>{successCount} produk berhasil diimport.</AlertDescription>
+          <AlertDescription>
+            {successCount} produk berhasil diimport.
+          </AlertDescription>
         </Alert>
       )}
 
@@ -129,18 +144,25 @@ export function CSVImport() {
               </TableHeader>
               <TableBody>
                 {results.map((r, i) => (
-                  <TableRow key={i} className={r.valid ? '' : 'bg-red-50'}>
+                  <TableRow key={r.row} className={r.valid ? "" : "bg-red-50"}>
                     <TableCell>{r.row}</TableCell>
-                    <TableCell>{rows[i]?.name || '—'}</TableCell>
+                    <TableCell>{rows[i]?.name || "—"}</TableCell>
                     <TableCell>
-                      {rows[i]?.price ? formatIDR(rows[i].price) : '—'}
+                      {rows[i]?.price ? formatIDR(rows[i].price) : "—"}
                     </TableCell>
-                    <TableCell>{rows[i]?.stock ?? '—'}</TableCell>
+                    <TableCell>{rows[i]?.stock ?? "—"}</TableCell>
                     <TableCell>
                       {r.valid ? (
-                        <Badge variant="outline" className="text-green-700 border-green-300">✓ Valid</Badge>
+                        <Badge
+                          variant="outline"
+                          className="text-green-700 border-green-300"
+                        >
+                          ✓ Valid
+                        </Badge>
                       ) : (
-                        <span className="text-red-700 text-xs">✗ {r.error}</span>
+                        <span className="text-red-700 text-xs">
+                          ✗ {r.error}
+                        </span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -150,15 +172,12 @@ export function CSVImport() {
           </div>
 
           <div className="flex justify-end">
-            <Button
-              onClick={handleImport}
-              disabled={!canImport || importing}
-            >
-              {importing ? 'Mengimport…' : `Import ${rows.length} Produk`}
+            <Button onClick={handleImport} disabled={!canImport || importing}>
+              {importing ? "Mengimport…" : `Import ${rows.length} Produk`}
             </Button>
           </div>
         </>
       )}
     </div>
-  )
+  );
 }

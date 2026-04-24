@@ -17,37 +17,37 @@
  *   Audit_Log (Master Sheet): id, event, data, created_at
  */
 
-import { getRepos } from '../../lib/adapters'
-import { nowUTC } from '../../lib/formatters'
-import { generateId } from '../../lib/uuid'
-import type { Transaction } from '../cashier/cashier.service'
+import { getRepos } from "../../lib/adapters";
+import { nowUTC } from "../../lib/formatters";
+import { generateId } from "../../lib/uuid";
+import type { Transaction } from "../cashier/cashier.service";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
 export interface RefundItem {
-  product_id: string
-  product_name: string
-  qty: number
-  unit_price: number
+  product_id: string;
+  product_name: string;
+  qty: number;
+  unit_price: number;
 }
 
 export interface Refund {
-  id: string
-  transaction_id: string
-  items: RefundItem[]
-  total_amount: number
-  reason: string
-  created_at: string
+  id: string;
+  transaction_id: string;
+  items: RefundItem[];
+  total_amount: number;
+  reason: string;
+  created_at: string;
 }
 
 // ─── Custom errors ─────────────────────────────────────────────────────────────
 
 export class RefundError extends Error {
-  readonly cause?: unknown
+  readonly cause?: unknown;
   constructor(message: string, cause?: unknown) {
-    super(message)
-    this.name = 'RefundError'
-    this.cause = cause
+    super(message);
+    this.name = "RefundError";
+    this.cause = cause;
   }
 }
 
@@ -57,29 +57,43 @@ export class RefundError extends Error {
  * Fetches a transaction by ID from the 'Transactions' sheet.
  * Throws RefundError if not found (transaction may be in a different monthly sheet).
  */
-export async function fetchTransaction(transactionId: string): Promise<Transaction> {
-  const rows = await getRepos().transactions.getAll()
-  const row = rows.find((r) => r['id'] === transactionId)
+export async function fetchTransaction(
+  transactionId: string,
+): Promise<Transaction> {
+  const rows = await getRepos().transactions.getAll();
+  const row = rows.find(
+    (r) => (r as Record<string, unknown>).id === transactionId,
+  );
   if (!row) {
-    throw new RefundError(`Transaksi dengan id "${transactionId}" tidak ditemukan`)
+    throw new RefundError(
+      `Transaksi dengan id "${transactionId}" tidak ditemukan`,
+    );
   }
   return {
-    id: row['id'] as string,
-    created_at: row['created_at'] as string,
-    cashier_id: row['cashier_id'] as string,
-    customer_id: (row['customer_id'] as string | null) ?? null,
-    subtotal: Number(row['subtotal']),
-    discount_type: (row['discount_type'] as 'flat' | 'percent' | null) ?? null,
-    discount_value: Number(row['discount_value']),
-    discount_amount: Number(row['discount_amount']),
-    tax: Number(row['tax']),
-    total: Number(row['total']),
-    payment_method: row['payment_method'] as 'CASH' | 'QRIS' | 'SPLIT',
-    cash_received: Number(row['cash_received']),
-    change: Number(row['change']),
-    receipt_number: row['receipt_number'] as string,
-    notes: (row['notes'] as string | null) ?? null,
-  }
+    id: (row as Record<string, unknown>).id as string,
+    created_at: (row as Record<string, unknown>).created_at as string,
+    cashier_id: (row as Record<string, unknown>).cashier_id as string,
+    customer_id:
+      ((row as Record<string, unknown>).customer_id as string | null) ?? null,
+    subtotal: Number((row as Record<string, unknown>).subtotal),
+    discount_type:
+      ((row as Record<string, unknown>).discount_type as
+        | "flat"
+        | "percent"
+        | null) ?? null,
+    discount_value: Number((row as Record<string, unknown>).discount_value),
+    discount_amount: Number((row as Record<string, unknown>).discount_amount),
+    tax: Number((row as Record<string, unknown>).tax),
+    total: Number((row as Record<string, unknown>).total),
+    payment_method: (row as Record<string, unknown>).payment_method as
+      | "CASH"
+      | "QRIS"
+      | "SPLIT",
+    cash_received: Number((row as Record<string, unknown>).cash_received),
+    change: Number((row as Record<string, unknown>).change),
+    receipt_number: (row as Record<string, unknown>).receipt_number as string,
+    notes: ((row as Record<string, unknown>).notes as string | null) ?? null,
+  };
 }
 
 /**
@@ -98,19 +112,22 @@ export async function createRefund(
   reason: string,
 ): Promise<Refund> {
   // Step 1: Load transaction and validate refund amount
-  const transaction = await fetchTransaction(transactionId)
-  const refundTotal = items.reduce((sum, item) => sum + item.qty * item.unit_price, 0)
+  const transaction = await fetchTransaction(transactionId);
+  const refundTotal = items.reduce(
+    (sum, item) => sum + item.qty * item.unit_price,
+    0,
+  );
   if (refundTotal > transaction.total) {
     throw new RefundError(
       `Jumlah refund (${refundTotal}) melebihi total transaksi asal (${transaction.total})`,
-    )
+    );
   }
 
-  const created_at = nowUTC()
-  const refundId = generateId()
+  const created_at = nowUTC();
+  const refundId = generateId();
 
   // Step 2: Append one row per item to Refunds tab
-  await getRepos().refunds.batchAppend(
+  await getRepos().refunds.batchInsert(
     items.map((item) => ({
       id: generateId(),
       transaction_id: transactionId,
@@ -121,27 +138,36 @@ export async function createRefund(
       reason,
       created_at,
     })),
-  )
+  );
 
   // Step 3: Re-increment stock for each returned product
   // Read Products once, compute all new stocks, batch-write in one round-trip.
-  const products = await getRepos().products.getAll()
+  const products = await getRepos().products.getAll();
   const stockUpdates = items.flatMap((item) => {
-    const product = products.find((p) => p['id'] === item.product_id)
-    if (!product) return []
-    return [{ rowId: item.product_id, column: 'stock', value: Number(product['stock']) + item.qty }]
-  })
+    const product = products.find(
+      (p) => (p as Record<string, unknown>).id === item.product_id,
+    );
+    if (!product) return [];
+    return [
+      {
+        id: item.product_id,
+        stock: Number((product as Record<string, unknown>).stock) + item.qty,
+      },
+    ];
+  });
   if (stockUpdates.length > 0) {
-    await getRepos().products.batchUpdateCells(stockUpdates)
+    await getRepos().products.batchUpdate(stockUpdates);
   }
 
   // Step 4: Append Audit_Log entry
-  await getRepos().auditLog.batchAppend([{
-    id: generateId(),
-    event: 'REFUND',
-    data: JSON.stringify({ transactionId, items, reason }),
-    created_at,
-  }])
+  await getRepos().auditLog.batchInsert([
+    {
+      id: generateId(),
+      event: "REFUND",
+      data: JSON.stringify({ transactionId, items, reason }),
+      created_at,
+    },
+  ]);
 
   return {
     id: refundId,
@@ -150,5 +176,5 @@ export async function createRefund(
     total_amount: refundTotal,
     reason,
     created_at,
-  }
+  };
 }

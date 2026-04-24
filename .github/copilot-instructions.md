@@ -19,7 +19,7 @@ This is a **product and planning repository** for **POS UMKM** — a web-based P
 
 - **`docs/PRD.md`** (v1.3) — Product Requirements Document. Business/product-focused: what the product does, for whom, and why. No implementation specifics.
 - **`docs/TRD.md`** (v2.1) — Technical Requirements Document. How the product is built: stack, protocols, APIs, infrastructure, offline architecture, security implementation.
-- **`docs/TASKS.md`** — Implementation task list for AI coding agents. 47 tasks across 8 phases with TDD test cases, Playwright E2E specs, depends_on fields, and status tracking.
+- **`docs/TASKS.md`** — Implementation task list for AI coding agents. 61 tasks across 11 feature sections with TDD test cases, Playwright E2E specs, depends_on fields, and status tracking.
 - **`docs/COMMITS.md`** — Git commit message guide. Conventional Commits format, scope list, anti-patterns, TDD commit sequence, and required trailers.
 
 Keep these concerns separated — product decisions go in PRD, implementation decisions go in TRD, and execution tracking goes in TASKS.
@@ -60,32 +60,34 @@ Keep these concerns separated — product decisions go in PRD, implementation de
 
 ## TASKS Structure
 
-`docs/TASKS.md` is the implementation task list for AI coding agents. It contains **47 tasks across 8 phases**.
+`docs/TASKS.md` is the implementation task list for AI coding agents. It contains **61 tasks across 11 feature sections**.
 
 ### Task Format
 
 Each task contains:
 - **Status** — ⬜ `todo` / 🔄 `in-progress` / ✅ `done` / 🚫 `blocked`
-- **Phase** — which phase it belongs to
+- **Section** — which feature section it belongs to
 - **Depends on** — task IDs that must be `done` before this task can start
 - **Test type** — `none` (scaffold) / `unit` / `unit + e2e`
 - **Architecture note** — why this approach was chosen over alternatives
 - **Test cases** — named ✅ positive and ❌ negative cases to implement (TDD)
 - **E2E spec** — Playwright file path and test name (for business flow tasks)
 
-### Phase Summary
+### Section Summary
 
-| Phase | Tasks | Description |
+| Section | Tasks | Description |
 |---|---|---|
-| 0 — Scaffold | T001–T009 | Project init, tooling, CI, folder structure (no tests) |
-| 1 — Core Lib | T010–T013 | Sheets API client, UUID, IDR formatter, validators |
-| 2 — Auth | T014–T020 | Google Login, master sheet setup, member invite, PIN lock |
-| 3 — Catalog | T021–T024 | Categories, products, variants, CSV import |
-| 4 — Cashier | T025–T033 | Cart, search, payments, discounts, receipt |
-| 5 — Inventory | T034–T035 | Stock opname, purchase orders |
-| 6 — Customers | T036–T037 | Customer management, refunds |
-| 7 — Reports | T038–T042 | Sales summary, date-range, profit, reconciliation, export |
-| 8 — Settings | T043–T044 | Business profile, QRIS config |
+| Scaffold | T001–T009, T048–T050 | Project init, tooling, CI, folder structure, shadcn/ui, mobile-first (no tests) |
+| Core Library | T010–T013, T045–T047 | Sheets API client, UUID, IDR formatter, validators, DataAdapter interface + impls |
+| Authentication | T014–T020 | Google Login, master sheet setup, member invite, PIN lock |
+| Catalog | T021–T024 | Categories, products, variants, CSV import |
+| Cashier | T025–T033 | Cart, search, payments, discounts, receipt |
+| Inventory | T034–T035 | Stock opname, purchase orders |
+| Customers | T036–T037 | Customer management, refunds |
+| Reports | T038–T042 | Sales summary, date-range, profit, reconciliation, export |
+| Settings | T043–T044 | Business profile, QRIS config |
+| Offline-First | T051–T059 | Dexie.js IndexedDB layer, SyncManager, HydrationService, multi-store partitioning |
+| Store Management | T060–T061 | Add/edit/remove owned stores; leave non-owned stores |
 
 ### Agent Workflow
 
@@ -95,7 +97,7 @@ Each task contains:
 4. Write failing tests first (TDD), then implement, then verify tests pass
 5. Change status to ✅ `done` after all tests pass
 
-Phases 3–7 are independent of each other and can be worked on in parallel by different agents once Phase 2 is complete.
+Sections Catalog through Settings are independent of each other and can be worked on in parallel by different agents once Authentication is complete.
 
 
 

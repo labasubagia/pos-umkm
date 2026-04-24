@@ -7,12 +7,18 @@
  * stateless and independently testable. Error translation from
  * SheetsApiError → AdapterError happens here so GoogleDataAdapter stays thin.
  */
-import { sheetsAppend, sheetsUpdate, sheetsBatchGet, sheetsBatchUpdate } from './sheets.client'
-import { SheetsApiError } from './sheets.types'
-import { AdapterError } from '../../types'
-import { generateId } from '../../../uuid'
 
-const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
+import { generateId } from "../../../uuid";
+import { AdapterError } from "../../types";
+import {
+  sheetsAppend,
+  sheetsBatchGet,
+  sheetsBatchUpdate,
+  sheetsUpdate,
+} from "./sheets.client";
+import { SheetsApiError } from "./sheets.types";
+
+const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
 /**
  * Fetches all rows from the sheet, maps header columns to object keys,
@@ -24,29 +30,39 @@ export async function getSheet(
   token: string,
 ): Promise<Record<string, unknown>[]> {
   try {
-    const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      throw new SheetsApiError(res.status, `Sheets API error ${res.status}: ${body}`)
+      const body = await res.text().catch(() => "");
+      throw new SheetsApiError(
+        res.status,
+        `Sheets API error ${res.status}: ${body}`,
+      );
     }
-    const data = await res.json()
-    const rows: (string | number | boolean)[][] = data.values ?? []
-    if (rows.length < 1) return []
-    const headers = rows[0] as string[]
+    const data = await res.json();
+    const rows: (string | number | boolean)[][] = data.values ?? [];
+    if (rows.length < 1) return [];
+    const headers = rows[0] as string[];
     return rows
       .slice(1)
       .map((row) => {
-        const obj: Record<string, unknown> = {}
-        headers.forEach((h, i) => { obj[h] = row[i] ?? null })
-        return obj
+        const obj: Record<string, unknown> = {};
+        headers.forEach((h, i) => {
+          obj[h] = row[i] ?? null;
+        });
+        return obj;
       })
-      .filter((r) => !r['deleted_at'])
+      .filter((r) => !r.deleted_at);
   } catch (err) {
     if (err instanceof SheetsApiError) {
-      throw new AdapterError(`getSheet failed for "${sheetName}": ${err.message}`, err)
+      throw new AdapterError(
+        `getSheet failed for "${sheetName}": ${err.message}`,
+        err,
+      );
     }
-    throw err
+    throw err;
   }
 }
 
@@ -61,19 +77,26 @@ export async function writeHeaders(
   headers: string[],
   token: string,
 ): Promise<void> {
-  const range = `${sheetName}!1:1`
-  const encodedRange = `${encodeURIComponent(sheetName)}!1:1`
+  const range = `${sheetName}!1:1`;
+  const encodedRange = `${encodeURIComponent(sheetName)}!1:1`;
   const res = await fetch(
     `${SHEETS_BASE}/${spreadsheetId}/values/${encodedRange}?valueInputOption=RAW`,
     {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ range, majorDimension: 'ROWS', values: [headers] }),
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        range,
+        majorDimension: "ROWS",
+        values: [headers],
+      }),
     },
-  )
+  );
   if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new AdapterError(`writeHeaders failed for "${sheetName}": ${body}`)
+    const body = await res.text().catch(() => "");
+    throw new AdapterError(`writeHeaders failed for "${sheetName}": ${body}`);
   }
 }
 
@@ -92,32 +115,42 @@ export async function batchAppendRows(
   token: string,
   knownHeaders?: string[],
 ): Promise<void> {
-  if (rows.length === 0) return
+  if (rows.length === 0) return;
   try {
-    let headers: string[] = knownHeaders ?? []
+    let headers: string[] = knownHeaders ?? [];
     if (headers.length === 0) {
-      const headerUrl = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`
-      const headerRes = await fetch(headerUrl, { headers: { Authorization: `Bearer ${token}` } })
+      const headerUrl = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+      const headerRes = await fetch(headerUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (headerRes.ok) {
-        const headerData = await headerRes.json()
-        headers = (headerData.values?.[0] ?? []) as string[]
+        const headerData = await headerRes.json();
+        headers = (headerData.values?.[0] ?? []) as string[];
       }
     }
 
     const valueRows = rows.map((row) => {
-      const rowWithId = row['id'] ? row : { id: generateId(), ...row }
+      const rowWithId = row.id ? row : { id: generateId(), ...row };
       if (headers.length > 0) {
-        return headers.map((h) => rowWithId[h] ?? null)
+        return headers.map((h) => rowWithId[h] ?? null);
       }
-      return Object.values(rowWithId)
-    })
+      return Object.values(rowWithId);
+    });
 
-    await sheetsAppend(spreadsheetId, sheetName, valueRows as (string | number | boolean)[][], token)
+    await sheetsAppend(
+      spreadsheetId,
+      sheetName,
+      valueRows as (string | number | boolean)[][],
+      token,
+    );
   } catch (err) {
     if (err instanceof SheetsApiError) {
-      throw new AdapterError(`batchAppendRows failed for "${sheetName}": ${err.message}`, err)
+      throw new AdapterError(
+        `batchAppendRows failed for "${sheetName}": ${err.message}`,
+        err,
+      );
     }
-    throw err
+    throw err;
   }
 }
 
@@ -134,29 +167,44 @@ export async function updateCell(
   token: string,
 ): Promise<void> {
   try {
-    const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    if (!res.ok) throw new SheetsApiError(res.status, `Failed to fetch sheet "${sheetName}"`)
-    const data = await res.json()
-    const rows: string[][] = data.values ?? []
-    if (rows.length < 2) throw new AdapterError(`updateCell: sheet "${sheetName}" has no data rows`)
+    const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok)
+      throw new SheetsApiError(
+        res.status,
+        `Failed to fetch sheet "${sheetName}"`,
+      );
+    const data = await res.json();
+    const rows: string[][] = data.values ?? [];
+    if (rows.length < 2)
+      throw new AdapterError(
+        `updateCell: sheet "${sheetName}" has no data rows`,
+      );
 
-    const headers = rows[0]
-    const colIndex = headers.indexOf(column)
-    if (colIndex === -1) throw new AdapterError(`updateCell: column "${column}" not found in "${sheetName}"`)
+    const headers = rows[0];
+    const colIndex = headers.indexOf(column);
+    if (colIndex === -1)
+      throw new AdapterError(
+        `updateCell: column "${column}" not found in "${sheetName}"`,
+      );
 
-    const dataRowIndex = rows.slice(1).findIndex((r) => r[0] === rowId)
-    if (dataRowIndex === -1) throw new AdapterError(`updateCell: row "${rowId}" not found in "${sheetName}"`)
+    const dataRowIndex = rows.slice(1).findIndex((r) => r[0] === rowId);
+    if (dataRowIndex === -1)
+      throw new AdapterError(
+        `updateCell: row "${rowId}" not found in "${sheetName}"`,
+      );
 
-    const sheetRowNumber = dataRowIndex + 2 // +1 for header, +1 for 1-based
-    const range = `${sheetName}!${columnToLetter(colIndex)}${sheetRowNumber}`
-    await sheetsUpdate(spreadsheetId, range, [[value as string]], token)
+    const sheetRowNumber = dataRowIndex + 2; // +1 for header, +1 for 1-based
+    const range = `${sheetName}!${columnToLetter(colIndex)}${sheetRowNumber}`;
+    await sheetsUpdate(spreadsheetId, range, [[value as string]], token);
   } catch (err) {
-    if (err instanceof AdapterError) throw err
+    if (err instanceof AdapterError) throw err;
     if (err instanceof SheetsApiError) {
-      throw new AdapterError(`updateCell failed: ${err.message}`, err)
+      throw new AdapterError(`updateCell failed: ${err.message}`, err);
     }
-    throw err
+    throw err;
   }
 }
 
@@ -167,18 +215,25 @@ export async function softDelete(
   rowId: string,
   token: string,
 ): Promise<void> {
-  await updateCell(spreadsheetId, sheetName, rowId, 'deleted_at', new Date().toISOString(), token)
+  await updateCell(
+    spreadsheetId,
+    sheetName,
+    rowId,
+    "deleted_at",
+    new Date().toISOString(),
+    token,
+  );
 }
 
 /** Converts a 0-based column index to a spreadsheet column letter (0 → A, 1 → B, …). */
 function columnToLetter(index: number): string {
-  let result = ''
-  let n = index
+  let result = "";
+  let n = index;
   while (n >= 0) {
-    result = String.fromCharCode((n % 26) + 65) + result
-    n = Math.floor(n / 26) - 1
+    result = String.fromCharCode((n % 26) + 65) + result;
+    n = Math.floor(n / 26) - 1;
   }
-  return result
+  return result;
 }
 
 /**
@@ -199,7 +254,7 @@ export async function batchUpdateCells(
   updates: Array<{ rowId: string; column: string; value: unknown }>,
   token: string,
 ): Promise<void> {
-  if (updates.length === 0) return
+  if (updates.length === 0) return;
   try {
     // Fetch only the header row and the ID column (column A) — avoids
     // loading all cell data for sheets with many columns or rows.
@@ -207,35 +262,48 @@ export async function batchUpdateCells(
       spreadsheetId,
       [`${sheetName}!1:1`, `${sheetName}!A:A`],
       token,
-    )
-    const headers = (batchRes.valueRanges[0].values?.[0] ?? []) as string[]
-    const idColumn = (batchRes.valueRanges[1].values ?? []) as string[][]
+    );
+    const headers = (batchRes.valueRanges[0].values?.[0] ?? []) as string[];
+    const idColumn = (batchRes.valueRanges[1].values ?? []) as string[][];
     // idColumn[0] is the header cell ("id"); slice it off to get data rows.
-    const idRows = idColumn.slice(1)
+    const idRows = idColumn.slice(1);
 
-    if (idRows.length === 0) throw new AdapterError(`batchUpdateCells: sheet "${sheetName}" has no data rows`)
+    if (idRows.length === 0)
+      throw new AdapterError(
+        `batchUpdateCells: sheet "${sheetName}" has no data rows`,
+      );
 
     // Build lookup maps once — O(1) per update instead of O(n) findIndex/indexOf.
-    const colIndexByName = new Map(headers.map((h, i) => [h, i]))
-    const sheetRowByRowId = new Map(idRows.map((r, i) => [r[0], i + 2])) // +1 header, +1 one-based
+    const colIndexByName = new Map(headers.map((h, i) => [h, i]));
+    const sheetRowByRowId = new Map(idRows.map((r, i) => [r[0], i + 2])); // +1 header, +1 one-based
 
-    const rangeUpdates: Array<{ range: string; values: (string | number | boolean)[][] }> = []
+    const rangeUpdates: Array<{
+      range: string;
+      values: (string | number | boolean)[][];
+    }> = [];
     for (const { rowId, column, value } of updates) {
-      const colIndex = colIndexByName.get(column)
-      if (colIndex === undefined) throw new AdapterError(`batchUpdateCells: column "${column}" not found in "${sheetName}"`)
-      const sheetRowNumber = sheetRowByRowId.get(rowId)
-      if (sheetRowNumber === undefined) throw new AdapterError(`batchUpdateCells: row "${rowId}" not found in "${sheetName}"`)
+      const colIndex = colIndexByName.get(column);
+      if (colIndex === undefined)
+        throw new AdapterError(
+          `batchUpdateCells: column "${column}" not found in "${sheetName}"`,
+        );
+      const sheetRowNumber = sheetRowByRowId.get(rowId);
+      if (sheetRowNumber === undefined)
+        throw new AdapterError(
+          `batchUpdateCells: row "${rowId}" not found in "${sheetName}"`,
+        );
       rangeUpdates.push({
         range: `${sheetName}!${columnToLetter(colIndex)}${sheetRowNumber}`,
         values: [[value as string]],
-      })
+      });
     }
 
-    await sheetsBatchUpdate(spreadsheetId, rangeUpdates, token)
+    await sheetsBatchUpdate(spreadsheetId, rangeUpdates, token);
   } catch (err) {
-    if (err instanceof AdapterError) throw err
-    if (err instanceof SheetsApiError) throw new AdapterError(`batchUpdateCells failed: ${err.message}`, err)
-    throw err
+    if (err instanceof AdapterError) throw err;
+    if (err instanceof SheetsApiError)
+      throw new AdapterError(`batchUpdateCells failed: ${err.message}`, err);
+    throw err;
   }
 }
 
@@ -258,47 +326,73 @@ export async function batchUpsertByKey(
   makeNewRow: (lookupValue: string, value: unknown) => Record<string, unknown>,
   token: string,
 ): Promise<void> {
-  if (entries.length === 0) return
+  if (entries.length === 0) return;
   try {
-    const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-    if (!res.ok) throw new SheetsApiError(res.status, `Failed to fetch sheet "${sheetName}"`)
-    const data = await res.json()
-    const rows: string[][] = data.values ?? []
+    const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok)
+      throw new SheetsApiError(
+        res.status,
+        `Failed to fetch sheet "${sheetName}"`,
+      );
+    const data = await res.json();
+    const rows: string[][] = data.values ?? [];
 
-    const headers = rows.length > 0 ? rows[0] : []
-    const dataRows = rows.slice(1)
-    const lookupColIndex = headers.indexOf(lookupColumn)
-    const updateColIndex = headers.indexOf(updateColumn)
+    const headers = rows.length > 0 ? rows[0] : [];
+    const dataRows = rows.slice(1);
+    const lookupColIndex = headers.indexOf(lookupColumn);
+    const updateColIndex = headers.indexOf(updateColumn);
 
-    const rangeUpdates: Array<{ range: string; values: (string | number | boolean)[][] }> = []
-    const toAppend: Array<{ lookupValue: string; value: unknown }> = []
+    const rangeUpdates: Array<{
+      range: string;
+      values: (string | number | boolean)[][];
+    }> = [];
+    const toAppend: Array<{ lookupValue: string; value: unknown }> = [];
 
     for (const entry of entries) {
-      const dataRowIndex = lookupColIndex >= 0
-        ? dataRows.findIndex((r) => r[lookupColIndex] === entry.lookupValue)
-        : -1
+      const dataRowIndex =
+        lookupColIndex >= 0
+          ? dataRows.findIndex((r) => r[lookupColIndex] === entry.lookupValue)
+          : -1;
 
-      if (dataRowIndex === -1 || lookupColIndex === -1 || updateColIndex === -1) {
-        toAppend.push(entry)
+      if (
+        dataRowIndex === -1 ||
+        lookupColIndex === -1 ||
+        updateColIndex === -1
+      ) {
+        toAppend.push(entry);
       } else {
-        const sheetRowNumber = dataRowIndex + 2
+        const sheetRowNumber = dataRowIndex + 2;
         rangeUpdates.push({
           range: `${sheetName}!${columnToLetter(updateColIndex)}${sheetRowNumber}`,
           values: [[entry.value as string]],
-        })
+        });
       }
     }
 
     if (rangeUpdates.length > 0) {
-      await sheetsBatchUpdate(spreadsheetId, rangeUpdates, token)
+      await sheetsBatchUpdate(spreadsheetId, rangeUpdates, token);
     }
     for (const { lookupValue, value } of toAppend) {
-      await sheetsAppend(spreadsheetId, sheetName, [Object.values(makeNewRow(lookupValue, value)) as (string | number | boolean)[]], token)
+      await sheetsAppend(
+        spreadsheetId,
+        sheetName,
+        [
+          Object.values(makeNewRow(lookupValue, value)) as (
+            | string
+            | number
+            | boolean
+          )[],
+        ],
+        token,
+      );
     }
   } catch (err) {
-    if (err instanceof AdapterError) throw err
-    if (err instanceof SheetsApiError) throw new AdapterError(`batchUpsertByKey failed: ${err.message}`, err)
-    throw err
+    if (err instanceof AdapterError) throw err;
+    if (err instanceof SheetsApiError)
+      throw new AdapterError(`batchUpsertByKey failed: ${err.message}`, err);
+    throw err;
   }
 }
