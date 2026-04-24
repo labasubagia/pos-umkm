@@ -65,8 +65,8 @@
     "vitest": "^4.1.4",
     "husky": "^8.0.0",
     "lint-staged": "^14.0.0"
-  }
-  ,"lint-staged": {
+  },
+  "lint-staged": {
     "*.{js,jsx,ts,tsx,css,md,json}": [
       "npm run format",
       "npm run lint"
