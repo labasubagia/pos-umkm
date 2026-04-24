@@ -18,16 +18,17 @@ import type {
   SheetsBatchGetResponse,
   SheetsBatchUpdateResponse,
   SheetValues,
-} from './sheets.types'
-import { SheetsApiError } from './sheets.types'
+} from "./sheets.types";
+import { SheetsApiError } from "./sheets.types";
 
-const BASE_URL = 'https://sheets.googleapis.com/v4/spreadsheets'
-const MAX_RETRIES = 3
-const BASE_DELAY_MS = 500
+const BASE_URL = "https://sheets.googleapis.com/v4/spreadsheets";
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 500;
 
 function authHeader(token: string): Record<string, string> {
-  if (!token) throw new SheetsApiError(401, 'sheetsClient: token must not be empty')
-  return { Authorization: `Bearer ${token}` }
+  if (!token)
+    throw new SheetsApiError(401, "sheetsClient: token must not be empty");
+  return { Authorization: `Bearer ${token}` };
 }
 
 /**
@@ -39,21 +40,24 @@ async function fetchWithRetry(
   options: RequestInit,
   attempt = 0,
 ): Promise<Response> {
-  const res = await fetch(url, options)
+  const res = await fetch(url, options);
 
   if (res.status === 429 && attempt < MAX_RETRIES) {
     // Exponential backoff: 500ms, 1000ms, 2000ms
-    const delay = BASE_DELAY_MS * Math.pow(2, attempt)
-    await new Promise((resolve) => setTimeout(resolve, delay))
-    return fetchWithRetry(url, options, attempt + 1)
+    const delay = BASE_DELAY_MS * 2 ** attempt;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    return fetchWithRetry(url, options, attempt + 1);
   }
 
   if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new SheetsApiError(res.status, `Sheets API error ${res.status}: ${body}`)
+    const body = await res.text().catch(() => "");
+    throw new SheetsApiError(
+      res.status,
+      `Sheets API error ${res.status}: ${body}`,
+    );
   }
 
-  return res
+  return res;
 }
 
 /**
@@ -66,12 +70,12 @@ export async function sheetsGet(
   range: string,
   token: string,
 ): Promise<SheetValues> {
-  const url = `${BASE_URL}/${spreadsheetId}/values/${encodeURIComponent(range)}`
-  const res = await fetchWithRetry(url, { headers: authHeader(token) })
-  const data: SheetsGetResponse = await res.json()
-  const values = data.values ?? []
+  const url = `${BASE_URL}/${spreadsheetId}/values/${encodeURIComponent(range)}`;
+  const res = await fetchWithRetry(url, { headers: authHeader(token) });
+  const data: SheetsGetResponse = await res.json();
+  const values = data.values ?? [];
   // Strip header row (row 1); return data rows only
-  return values.slice(1)
+  return values.slice(1);
 }
 
 /**
@@ -83,13 +87,13 @@ export async function sheetsAppend(
   rows: SheetValues,
   token: string,
 ): Promise<SheetsAppendResponse> {
-  const url = `${BASE_URL}/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`
+  const url = `${BASE_URL}/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
   const res = await fetchWithRetry(url, {
-    method: 'POST',
-    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { ...authHeader(token), "Content-Type": "application/json" },
     body: JSON.stringify({ values: rows }),
-  })
-  return res.json() as Promise<SheetsAppendResponse>
+  });
+  return res.json() as Promise<SheetsAppendResponse>;
 }
 
 /**
@@ -101,13 +105,13 @@ export async function sheetsUpdate(
   values: SheetValues,
   token: string,
 ): Promise<SheetsUpdateResponse> {
-  const url = `${BASE_URL}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`
+  const url = `${BASE_URL}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
   const res = await fetchWithRetry(url, {
-    method: 'PUT',
-    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    method: "PUT",
+    headers: { ...authHeader(token), "Content-Type": "application/json" },
     body: JSON.stringify({ values }),
-  })
-  return res.json() as Promise<SheetsUpdateResponse>
+  });
+  return res.json() as Promise<SheetsUpdateResponse>;
 }
 
 /**
@@ -119,10 +123,10 @@ export async function sheetsBatchGet(
   ranges: string[],
   token: string,
 ): Promise<SheetsBatchGetResponse> {
-  const params = ranges.map((r) => `ranges=${encodeURIComponent(r)}`).join('&')
-  const url = `${BASE_URL}/${spreadsheetId}/values:batchGet?${params}`
-  const res = await fetchWithRetry(url, { headers: authHeader(token) })
-  return res.json() as Promise<SheetsBatchGetResponse>
+  const params = ranges.map((r) => `ranges=${encodeURIComponent(r)}`).join("&");
+  const url = `${BASE_URL}/${spreadsheetId}/values:batchGet?${params}`;
+  const res = await fetchWithRetry(url, { headers: authHeader(token) });
+  return res.json() as Promise<SheetsBatchGetResponse>;
 }
 
 /**
@@ -135,14 +139,14 @@ export async function sheetsBatchUpdate(
   updates: Array<{ range: string; values: SheetValues }>,
   token: string,
 ): Promise<SheetsBatchUpdateResponse> {
-  const url = `${BASE_URL}/${spreadsheetId}/values:batchUpdate`
+  const url = `${BASE_URL}/${spreadsheetId}/values:batchUpdate`;
   const res = await fetchWithRetry(url, {
-    method: 'POST',
-    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { ...authHeader(token), "Content-Type": "application/json" },
     body: JSON.stringify({
-      valueInputOption: 'RAW',
+      valueInputOption: "RAW",
       data: updates,
     }),
-  })
-  return res.json() as Promise<SheetsBatchUpdateResponse>
+  });
+  return res.json() as Promise<SheetsBatchUpdateResponse>;
 }

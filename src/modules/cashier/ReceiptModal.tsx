@@ -4,26 +4,26 @@
  * Renders the receipt text and provides a "Share via WhatsApp" button.
  * The cashier can also just close the modal without sharing.
  */
-import { Share2, CheckCircle } from 'lucide-react'
-import { generateReceiptText, generateWhatsAppLink } from './receipt.service'
-import type { Transaction, TransactionItem } from './cashier.service'
-import { Button } from '../../components/ui/button'
+import { Share2, CheckCircle } from "lucide-react";
+import { generateReceiptText, generateWhatsAppLink } from "./receipt.service";
+import type { Transaction, TransactionItem } from "./cashier.service";
+import { Button } from "../../components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '../../components/ui/dialog'
-import { ScrollArea } from '../../components/ui/scroll-area'
+} from "../../components/ui/dialog";
+import { ScrollArea } from "../../components/ui/scroll-area";
 
 interface Props {
-  transaction: Transaction
-  items: TransactionItem[]
-  businessName: string
-  receiptFooter?: string
-  timezone: string
-  customerPhone?: string
-  onClose: () => void
+  transaction: Transaction;
+  items: TransactionItem[];
+  businessName: string;
+  receiptFooter?: string;
+  timezone: string;
+  customerPhone?: string;
+  onClose: () => void;
 }
 
 export function ReceiptModal({
@@ -32,20 +32,28 @@ export function ReceiptModal({
   businessName,
   receiptFooter,
   timezone,
-  customerPhone = '',
+  customerPhone = "",
   onClose,
 }: Props) {
   const receiptText = generateReceiptText(transaction, items, {
     businessName,
     receiptFooter,
     timezone,
-  })
+  });
 
-  const waLink = generateWhatsAppLink(customerPhone, receiptText)
+  const waLink = generateWhatsAppLink(customerPhone, receiptText);
 
   return (
-    <Dialog open={true} onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="max-w-sm flex flex-col max-h-[90vh]" showCloseButton={false}>
+    <Dialog
+      open={true}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        className="max-w-sm flex flex-col max-h-[90vh]"
+        showCloseButton={false}
+      >
         <DialogHeader>
           <DialogTitle>
             <span className="flex items-center gap-2 text-green-600">
@@ -57,7 +65,10 @@ export function ReceiptModal({
 
         {/* Receipt preview */}
         <ScrollArea className="flex-1 max-h-64">
-          <pre className="text-xs font-mono whitespace-pre-wrap bg-gray-50 rounded-lg p-3 border" data-testid="receipt-preview">
+          <pre
+            className="text-xs font-mono whitespace-pre-wrap bg-gray-50 rounded-lg p-3 border"
+            data-testid="receipt-preview"
+          >
             {receiptText}
           </pre>
         </ScrollArea>
@@ -85,5 +96,5 @@ export function ReceiptModal({
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

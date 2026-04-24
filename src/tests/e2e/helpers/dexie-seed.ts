@@ -12,9 +12,9 @@
  *   5. page.reload()                         — _syncMeta is fresh → hydration skips
  *   6. assert UI                             — seeded data persists through reload
  */
-import { type Page } from '@playwright/test'
+import type { Page } from "@playwright/test";
 
-type TableRows = Record<string, unknown[]>
+type TableRows = Record<string, unknown[]>;
 
 /**
  * Waits for HydrationService to finish hydrating all tables.
@@ -28,12 +28,15 @@ type TableRows = Record<string, unknown[]>
  * Using a synchronous window flag instead of async IndexedDB polling ensures
  * Playwright's waitForFunction evaluates the condition reliably on every poll.
  */
-export async function waitForHydration(page: Page, _storeId?: string): Promise<void> {
+export async function waitForHydration(
+  page: Page,
+  _storeId?: string,
+): Promise<void> {
   await page.waitForFunction(
-    () => Boolean((window as Record<string, unknown>)['__lastHydratedAt']),
+    () => Boolean((window as Record<string, unknown>)["__lastHydratedAt"]),
     undefined,
     { timeout: 15000 },
-  )
+  );
 }
 
 /**
@@ -50,15 +53,22 @@ export async function seedDexie(
 ): Promise<void> {
   await page.evaluate(
     async ({ storeId, tables }) => {
-      const db = (window as unknown as Record<string, (id: string) => Record<string, { bulkPut: (rows: unknown[]) => Promise<void> }>>)['__getDb'](storeId)
+      const db = (
+        window as unknown as Record<
+          string,
+          (
+            id: string,
+          ) => Record<string, { bulkPut: (rows: unknown[]) => Promise<void> }>
+        >
+      )["__getDb"](storeId);
       for (const [tableName, rows] of Object.entries(tables)) {
         if (rows.length > 0) {
-          await db[tableName].bulkPut(rows)
+          await db[tableName].bulkPut(rows);
         }
       }
     },
     { storeId, tables },
-  )
+  );
 }
 
 /**
@@ -66,6 +76,6 @@ export async function seedDexie(
  * Use after seedDexie() to trigger React Query to re-read from Dexie.
  */
 export async function reloadAndWait(page: Page, testId: string): Promise<void> {
-  await page.reload()
-  await page.getByTestId(testId).waitFor()
+  await page.reload();
+  await page.getByTestId(testId).waitFor();
 }

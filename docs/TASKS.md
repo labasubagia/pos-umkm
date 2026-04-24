@@ -155,14 +155,14 @@
 - **Section:** Scaffold
 - **Depends on:** T001
 - **Test type:** none
-- **Architecture note:** The folder structure enforces the modular boundary at the filesystem level. Each module folder is self-contained. An ESLint rule (`import/no-internal-modules`) should be configured to prevent cross-module internal imports at lint time, catching violations before code review.
+- **Architecture note:** The folder structure enforces the modular boundary at the filesystem level. Each module folder is self-contained. A lint rule (`import/no-internal-modules`) should be configured (via Biome or equivalent) to prevent cross-module internal imports at lint time, catching violations before code review.
 - **Deliverables:**
   - Create all module folders with `index.ts` barrel files:
     `src/modules/{auth,catalog,cashier,inventory,customers,reports,settings}/`
   - `src/lib/{formatters.ts,validators.ts,uuid.ts}`
   - `src/tests/e2e/` with spec file stubs
-  - ESLint configured with `@typescript-eslint` + `import` plugin
-  - `.eslintrc.ts` rule: warn on cross-module internal imports
+  - Linting configured (Biome) with an import rule to prevent cross-module internal imports
+  - Biome / lint rule: warn on cross-module internal imports
 
 ---
 

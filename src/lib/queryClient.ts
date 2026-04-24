@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient } from "@tanstack/react-query";
 
 /**
  * Shared QueryClient instance.
@@ -17,4 +17,4 @@ export const queryClient = new QueryClient({
       gcTime: 5 * 60 * 1000,
     },
   },
-})
+});

@@ -8,14 +8,14 @@
  * Uses DataAdapter so it works with both Mock and Google adapters.
  */
 
-import { getRepos } from '../../lib/adapters'
-import type { Role } from '../../lib/adapters/types'
+import { getRepos } from "../../lib/adapters";
+import type { Role } from "../../lib/adapters/types";
 
 /** Thrown when a user's email is not found in (or has been revoked from) the Members tab. */
 export class UnauthorizedError extends Error {
   constructor(message: string) {
-    super(message)
-    this.name = 'UnauthorizedError'
+    super(message);
+    this.name = "UnauthorizedError";
   }
 }
 
@@ -24,20 +24,18 @@ export class UnauthorizedError extends Error {
  * Throws UnauthorizedError if the email is not found or has been revoked.
  */
 export async function resolveUserRole(email: string): Promise<Role> {
-  const members = await getRepos().members.getAll()
+  const members = await getRepos().members.getAll();
 
   // getSheet already filters out deleted rows, but double-check deleted_at for safety
-  const user = members.find(
-    (u) => u['email'] === email && !u['deleted_at'],
-  )
+  const user = members.find((u) => u["email"] === email && !u["deleted_at"]);
 
   if (!user) {
     throw new UnauthorizedError(
       `resolveUserRole: email "${email}" is not authorized to access this store`,
-    )
+    );
   }
 
-  return user['role'] as Role
+  return user["role"] as Role;
 }
 
 /**
@@ -45,6 +43,6 @@ export async function resolveUserRole(email: string): Promise<Role> {
  * the store yet. Used to route to /setup on first login.
  */
 export async function isFirstTimeOwner(): Promise<boolean> {
-  const members = await getRepos().members.getAll()
-  return members.length === 0
+  const members = await getRepos().members.getAll();
+  return members.length === 0;
 }

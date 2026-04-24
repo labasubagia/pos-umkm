@@ -15,8 +15,8 @@
  * By keeping all GIS-specific code in this file, future migration to a
  * different auth provider only requires replacing this adapter.
  */
-import type { AuthAdapter, User } from '../types'
-import { AdapterError } from '../types'
+import type { AuthAdapter, User } from "../types";
+import { AdapterError } from "../types";
 
 declare global {
   interface Window {
@@ -24,43 +24,43 @@ declare global {
       accounts: {
         oauth2: {
           initTokenClient(config: {
-            client_id: string
-            scope: string
+            client_id: string;
+            scope: string;
             callback: (response: {
-              access_token?: string
-              expires_in?: number
-              error?: string
-            }) => void
-          }): { requestAccessToken(options?: { prompt?: string }): void }
-        }
+              access_token?: string;
+              expires_in?: number;
+              error?: string;
+            }) => void;
+          }): { requestAccessToken(options?: { prompt?: string }): void };
+        };
         id: {
           initialize(config: {
-            client_id: string
-            callback: (response: { credential: string }) => void
-          }): void
-          prompt(): void
-        }
-      }
-    }
+            client_id: string;
+            callback: (response: { credential: string }) => void;
+          }): void;
+          prompt(): void;
+        };
+      };
+    };
   }
 }
 
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 const OWNER_SCOPE =
-  'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets'
+  "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets";
 
 // localStorage keys — prefixed to avoid clashes with other apps on the same origin.
-const LS_ACCESS_TOKEN = 'gsi_access_token'
-const LS_TOKEN_EXPIRY = 'gsi_token_expiry'
-const LS_USER_ID = 'gsi_user_id'
-const LS_USER_EMAIL = 'gsi_user_email'
-const LS_USER_NAME = 'gsi_user_name'
+const LS_ACCESS_TOKEN = "gsi_access_token";
+const LS_TOKEN_EXPIRY = "gsi_token_expiry";
+const LS_USER_ID = "gsi_user_id";
+const LS_USER_EMAIL = "gsi_user_email";
+const LS_USER_NAME = "gsi_user_name";
 
 export class GoogleAuthAdapter implements AuthAdapter {
-  private currentUser: User | null = null
-  private accessToken: string | null = null
-  private tokenExpiry = 0
-  private grantedScope = OWNER_SCOPE
+  private currentUser: User | null = null;
+  private accessToken: string | null = null;
+  private tokenExpiry = 0;
+  private grantedScope = OWNER_SCOPE;
 
   /**
    * Tries to restore a previous session from localStorage without showing an
@@ -69,30 +69,30 @@ export class GoogleAuthAdapter implements AuthAdapter {
    * to the login page.
    */
   async restoreSession(): Promise<User | null> {
-    const token = localStorage.getItem(LS_ACCESS_TOKEN)
-    const expiry = Number(localStorage.getItem(LS_TOKEN_EXPIRY) ?? '0')
+    const token = localStorage.getItem(LS_ACCESS_TOKEN);
+    const expiry = Number(localStorage.getItem(LS_TOKEN_EXPIRY) ?? "0");
 
     if (!token || Date.now() >= expiry) {
-      this.clearStorage()
-      return null
+      this.clearStorage();
+      return null;
     }
 
     // Restore cached user profile — avoids a userinfo network round-trip.
-    const id = localStorage.getItem(LS_USER_ID)
-    const email = localStorage.getItem(LS_USER_EMAIL)
-    const name = localStorage.getItem(LS_USER_NAME)
+    const id = localStorage.getItem(LS_USER_ID);
+    const email = localStorage.getItem(LS_USER_EMAIL);
+    const name = localStorage.getItem(LS_USER_NAME);
     if (!id || !email) {
-      this.clearStorage()
-      return null
+      this.clearStorage();
+      return null;
     }
 
-    this.accessToken = token
-    this.tokenExpiry = expiry
-    this.currentUser = { id, email, role: 'owner', name: '' }
+    this.accessToken = token;
+    this.tokenExpiry = expiry;
+    this.currentUser = { id, email, role: "owner", name: "" };
     if (name) {
-      this.currentUser.name = name
+      this.currentUser.name = name;
     }
-    return this.currentUser
+    return this.currentUser;
   }
 
   /**
@@ -103,10 +103,14 @@ export class GoogleAuthAdapter implements AuthAdapter {
    */
   async signIn(): Promise<User> {
     if (!CLIENT_ID) {
-      throw new AdapterError('GoogleAuthAdapter: VITE_GOOGLE_CLIENT_ID env var is not set')
+      throw new AdapterError(
+        "GoogleAuthAdapter: VITE_GOOGLE_CLIENT_ID env var is not set",
+      );
     }
     if (!window.google) {
-      throw new AdapterError('GoogleAuthAdapter: Google Identity Services script not loaded')
+      throw new AdapterError(
+        "GoogleAuthAdapter: Google Identity Services script not loaded",
+      );
     }
 
     return new Promise<User>((resolve, reject) => {
@@ -115,61 +119,65 @@ export class GoogleAuthAdapter implements AuthAdapter {
         scope: OWNER_SCOPE,
         callback: async (response) => {
           if (response.error || !response.access_token) {
-            reject(new AdapterError(`GIS sign-in failed: ${response.error ?? 'no token'}`))
-            return
+            reject(
+              new AdapterError(
+                `GIS sign-in failed: ${response.error ?? "no token"}`,
+              ),
+            );
+            return;
           }
 
-          const token = response.access_token
+          const token = response.access_token;
           // GIS returns expires_in in seconds; subtract 1 min buffer to avoid
           // using a token that is about to expire mid-request.
-          const expiresIn = response.expires_in ?? 3600
-          const expiry = Date.now() + expiresIn * 1000 - 60_000
+          const expiresIn = response.expires_in ?? 3600;
+          const expiry = Date.now() + expiresIn * 1000 - 60_000;
 
-          this.accessToken = token
-          this.tokenExpiry = expiry
-          this.grantedScope = OWNER_SCOPE
-          localStorage.setItem(LS_ACCESS_TOKEN, token)
-          localStorage.setItem(LS_TOKEN_EXPIRY, expiry.toString())
+          this.accessToken = token;
+          this.tokenExpiry = expiry;
+          this.grantedScope = OWNER_SCOPE;
+          localStorage.setItem(LS_ACCESS_TOKEN, token);
+          localStorage.setItem(LS_TOKEN_EXPIRY, expiry.toString());
 
           try {
-            const user = await fetchGoogleUserInfo(token)
-            this.currentUser = user
-            localStorage.setItem(LS_USER_ID, user.id)
-            localStorage.setItem(LS_USER_EMAIL, user.email)
+            const user = await fetchGoogleUserInfo(token);
+            this.currentUser = user;
+            localStorage.setItem(LS_USER_ID, user.id);
+            localStorage.setItem(LS_USER_EMAIL, user.email);
             if (user.name) {
-              localStorage.setItem(LS_USER_NAME, user.name)
+              localStorage.setItem(LS_USER_NAME, user.name);
             } else {
-              localStorage.removeItem(LS_USER_NAME)
+              localStorage.removeItem(LS_USER_NAME);
             }
-            resolve(user)
+            resolve(user);
           } catch (err) {
-            reject(err)
+            reject(err);
           }
         },
-      })
-      tokenClient.requestAccessToken()
-    })
+      });
+      tokenClient.requestAccessToken();
+    });
   }
 
   /** Clears the in-memory token, user, and all localStorage keys. */
   async signOut(): Promise<void> {
-    this.currentUser = null
-    this.accessToken = null
-    this.tokenExpiry = 0
-    this.clearStorage()
+    this.currentUser = null;
+    this.accessToken = null;
+    this.tokenExpiry = 0;
+    this.clearStorage();
   }
 
   getCurrentUser(): User | null {
-    return this.currentUser
+    return this.currentUser;
   }
 
   getAccessToken(): string | null {
-    return this.accessToken
+    return this.accessToken;
   }
 
   /** Returns the Unix ms timestamp when the current token expires (0 if unknown). */
   getTokenExpiry(): number {
-    return this.tokenExpiry
+    return this.tokenExpiry;
   }
 
   /**
@@ -179,35 +187,35 @@ export class GoogleAuthAdapter implements AuthAdapter {
    * user must re-authorise.
    */
   silentRefresh(): Promise<boolean> {
-    if (!CLIENT_ID || !window.google) return Promise.resolve(false)
+    if (!CLIENT_ID || !window.google) return Promise.resolve(false);
     return new Promise<boolean>((resolve) => {
       const tokenClient = window.google!.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID!,
         scope: this.grantedScope,
         callback: (response) => {
           if (response.error || !response.access_token) {
-            resolve(false)
-            return
+            resolve(false);
+            return;
           }
-          const expiresIn = response.expires_in ?? 3600
-          const expiry = Date.now() + expiresIn * 1000 - 60_000
-          this.accessToken = response.access_token
-          this.tokenExpiry = expiry
-          localStorage.setItem(LS_ACCESS_TOKEN, response.access_token)
-          localStorage.setItem(LS_TOKEN_EXPIRY, expiry.toString())
-          resolve(true)
+          const expiresIn = response.expires_in ?? 3600;
+          const expiry = Date.now() + expiresIn * 1000 - 60_000;
+          this.accessToken = response.access_token;
+          this.tokenExpiry = expiry;
+          localStorage.setItem(LS_ACCESS_TOKEN, response.access_token);
+          localStorage.setItem(LS_TOKEN_EXPIRY, expiry.toString());
+          resolve(true);
         },
-      })
-      tokenClient.requestAccessToken({ prompt: '' })
-    })
+      });
+      tokenClient.requestAccessToken({ prompt: "" });
+    });
   }
 
   private clearStorage(): void {
-    localStorage.removeItem(LS_ACCESS_TOKEN)
-    localStorage.removeItem(LS_TOKEN_EXPIRY)
-    localStorage.removeItem(LS_USER_ID)
-    localStorage.removeItem(LS_USER_EMAIL)
-    localStorage.removeItem(LS_USER_NAME)
+    localStorage.removeItem(LS_ACCESS_TOKEN);
+    localStorage.removeItem(LS_TOKEN_EXPIRY);
+    localStorage.removeItem(LS_USER_ID);
+    localStorage.removeItem(LS_USER_EMAIL);
+    localStorage.removeItem(LS_USER_NAME);
   }
 }
 
@@ -216,17 +224,17 @@ export class GoogleAuthAdapter implements AuthAdapter {
  * Used after receiving an access token to populate the User object.
  */
 async function fetchGoogleUserInfo(token: string): Promise<User> {
-  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+  const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
     headers: { Authorization: `Bearer ${token}` },
-  })
+  });
   if (!res.ok) {
-    throw new AdapterError(`Failed to fetch user info: HTTP ${res.status}`)
+    throw new AdapterError(`Failed to fetch user info: HTTP ${res.status}`);
   }
-  const data = await res.json()
+  const data = await res.json();
   return {
     id: data.sub as string,
     email: data.email as string,
     name: data.name as string,
-    role: 'owner' as const, // default; actual role is read from Master Sheet post-sign-in
-  }
+    role: "owner" as const, // default; actual role is read from Master Sheet post-sign-in
+  };
 }

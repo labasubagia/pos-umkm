@@ -20,7 +20,8 @@
     page-break-inside: auto;
   }
 
-  th, td {
+  th,
+  td {
     border: 1px solid #000;
     padding: 4pt 8pt;
     text-align: left;
@@ -31,7 +32,9 @@
     page-break-after: auto;
   }
 
-  h1, h2, h3 {
+  h1,
+  h2,
+  h3 {
     page-break-after: avoid;
   }
 }

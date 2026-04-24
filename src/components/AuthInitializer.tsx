@@ -29,71 +29,71 @@
  * token's lifetime. On failure it clears auth so the user is sent back to
  * the login page.
  */
-import { useEffect, useRef, type ReactNode } from 'react'
-import { authAdapter, resetDexieLayer, syncManager } from '../lib/adapters'
-import { GoogleAuthAdapter } from '../lib/adapters/google/GoogleAuthAdapter'
-import { useAuth } from '../modules/auth/useAuth'
-import { useAuthStore } from '../store/authStore'
+import { useEffect, useRef, type ReactNode } from "react";
+import { authAdapter, resetDexieLayer, syncManager } from "../lib/adapters";
+import type { GoogleAuthAdapter } from "../lib/adapters/google/GoogleAuthAdapter";
+import { useAuth } from "../modules/auth/useAuth";
+import { useAuthStore } from "../store/authStore";
 
 interface Props {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function AuthInitializer({ children }: Props) {
-  const { setAccessToken, clearAuth } = useAuth()
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { setAccessToken, clearAuth } = useAuth();
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Synchronous token restoration ───────────────────────────────────────────
   if (!authAdapter.getAccessToken()) {
-    void authAdapter.restoreSession()
+    void authAdapter.restoreSession();
   }
 
   // ── Async Zustand sync + expiry check + proactive refresh ──────────────────
-  const sessionRestored = useRef(false)
+  const sessionRestored = useRef(false);
   useEffect(() => {
-    if (sessionRestored.current) return
-    sessionRestored.current = true
+    if (sessionRestored.current) return;
+    sessionRestored.current = true;
 
-    const gAuth = authAdapter as GoogleAuthAdapter
+    const gAuth = authAdapter as GoogleAuthAdapter;
 
     const planRefresh = () => {
-      const expiry = gAuth.getTokenExpiry()
-      if (!expiry) return
+      const expiry = gAuth.getTokenExpiry();
+      if (!expiry) return;
       // Refresh 5 minutes before the token expires; enforce a 30 s floor so we
       // don't spin if expiry is already very close.
-      const delay = Math.max(expiry - Date.now() - 5 * 60_000, 30_000)
-      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
+      const delay = Math.max(expiry - Date.now() - 5 * 60_000, 30_000);
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
       refreshTimerRef.current = setTimeout(async () => {
-        const ok = await gAuth.silentRefresh()
+        const ok = await gAuth.silentRefresh();
         if (ok) {
-          const token = gAuth.getAccessToken()
-          if (token) setAccessToken(token)
+          const token = gAuth.getAccessToken();
+          if (token) setAccessToken(token);
           // Unblock any outbox entries that failed due to an expired token.
-          await syncManager.resetFailedEntries()
-          planRefresh() // reschedule for the new token's lifetime
+          await syncManager.resetFailedEntries();
+          planRefresh(); // reschedule for the new token's lifetime
         } else if (useAuthStore.getState().isAuthenticated) {
-          resetDexieLayer()
-          clearAuth()
+          resetDexieLayer();
+          clearAuth();
         }
-      }, delay)
-    }
+      }, delay);
+    };
 
     void gAuth.restoreSession().then((user) => {
       if (user) {
-        const token = gAuth.getAccessToken()
-        if (token) setAccessToken(token)
-        planRefresh()
+        const token = gAuth.getAccessToken();
+        if (token) setAccessToken(token);
+        planRefresh();
       } else if (useAuthStore.getState().isAuthenticated) {
         // Google token expired / revoked — wipe persisted auth and release DBs.
-        resetDexieLayer()
-        clearAuth()
+        resetDexieLayer();
+        clearAuth();
       }
-    })
+    });
 
     return () => {
-      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    };
+  }, []);
 
-  return <>{children}</>
+  return <>{children}</>;
 }

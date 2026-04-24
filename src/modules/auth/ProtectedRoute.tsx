@@ -4,20 +4,20 @@
  * Wrap any route that requires a signed-in user with this component.
  * Role-specific access control is handled by RoleRoute (T019).
  */
-import { type ReactNode } from 'react'
-import { Navigate } from 'react-router-dom'
-import { useAuth } from './useAuth'
+import type { ReactNode } from "react";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "./useAuth";
 
 interface ProtectedRouteProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/" replace />;
   }
 
-  return <>{children}</>
+  return <>{children}</>;
 }

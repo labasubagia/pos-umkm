@@ -15,33 +15,37 @@
  * but the invite logic touches the Users sheet (master data).
  */
 
-import { getRepos, driveClient } from '../../lib/adapters'
-import type { Role } from '../../lib/adapters/types'
-import { validateEmail } from '../../lib/validators'
-import { nowUTC } from '../../lib/formatters'
-import { generateId } from '../../lib/uuid'
+import { getRepos, driveClient } from "../../lib/adapters";
+import type { Role } from "../../lib/adapters/types";
+import { validateEmail } from "../../lib/validators";
+import { nowUTC } from "../../lib/formatters";
+import { generateId } from "../../lib/uuid";
 
-const VALID_ROLES: Role[] = ['owner', 'manager', 'cashier']
+const VALID_ROLES: Role[] = ["owner", "manager", "cashier"];
 
 /** The base URL of the deployed app (configurable via env var; defaults to current origin). */
 function appBaseUrl(): string {
-  return (import.meta.env.VITE_APP_URL as string | undefined) ?? globalThis.location?.origin ?? ''
+  return (
+    (import.meta.env.VITE_APP_URL as string | undefined) ??
+    globalThis.location?.origin ??
+    ""
+  );
 }
 
 export interface Member {
-  id: string
-  google_user_id: string
-  email: string
-  name: string
-  role: Role
-  invited_at: string
-  deleted_at: string | null
+  id: string;
+  google_user_id: string;
+  email: string;
+  name: string;
+  role: Role;
+  invited_at: string;
+  deleted_at: string | null;
 }
 
 export class MemberError extends Error {
   constructor(message: string) {
-    super(message)
-    this.name = 'MemberError'
+    super(message);
+    this.name = "MemberError";
   }
 }
 
@@ -57,30 +61,36 @@ export async function inviteMember(
   masterSpreadsheetId: string,
 ): Promise<Member> {
   if (!validateEmail(email).valid) {
-    throw new MemberError(`inviteMember: invalid email "${email}"`)
+    throw new MemberError(`inviteMember: invalid email "${email}"`);
   }
   if (!VALID_ROLES.includes(role)) {
-    throw new MemberError(`inviteMember: role must be one of ${VALID_ROLES.join(', ')}`)
+    throw new MemberError(
+      `inviteMember: role must be one of ${VALID_ROLES.join(", ")}`,
+    );
   }
 
   try {
-    await driveClient.shareSpreadsheet(masterSpreadsheetId, email, 'editor')
+    await driveClient.shareSpreadsheet(masterSpreadsheetId, email, "editor");
   } catch (err) {
-    throw new MemberError(`inviteMember: Drive API share failed — ${String(err)}`)
+    throw new MemberError(
+      `inviteMember: Drive API share failed — ${String(err)}`,
+    );
   }
 
   const member: Member = {
     id: generateId(),
-    google_user_id: '',
+    google_user_id: "",
     email,
-    name: '',
+    name: "",
     role,
     invited_at: nowUTC(),
     deleted_at: null,
-  }
+  };
 
-  await getRepos().members.batchInsert([member as unknown as Record<string, unknown>])
-  return member
+  await getRepos().members.batchInsert([
+    member as unknown as Record<string, unknown>,
+  ]);
+  return member;
 }
 
 /**
@@ -88,7 +98,7 @@ export async function inviteMember(
  * The member opens this link in their browser to join the store.
  */
 export function generateStoreLink(spreadsheetId: string): string {
-  return `${appBaseUrl()}/join?sid=${encodeURIComponent(spreadsheetId)}`
+  return `${appBaseUrl()}/join?sid=${encodeURIComponent(spreadsheetId)}`;
 }
 
 /**
@@ -97,25 +107,28 @@ export function generateStoreLink(spreadsheetId: string): string {
  * in Google Drive if they want to fully revoke folder access.
  */
 export async function revokeMember(userId: string): Promise<void> {
-  await getRepos().members.softDelete(userId)
+  await getRepos().members.softDelete(userId);
 }
 
 /**
  * Returns all active (non-deleted) members from the Members tab.
  */
 export async function listMembers(): Promise<Member[]> {
-  const rows = await getRepos().members.getAll()
+  const rows = await getRepos().members.getAll();
   return rows
-    .filter((r) => !r['deleted_at'] && typeof r['email'] === 'string' && r['email'] !== '')
+    .filter(
+      (r) =>
+        !r["deleted_at"] && typeof r["email"] === "string" && r["email"] !== "",
+    )
     .map((r) => ({
-      id: r['id'] as string,
-      google_user_id: (r['google_user_id'] as string) ?? '',
-      email: r['email'] as string,
-      name: (r['name'] as string) ?? '',
-      role: r['role'] as Role,
-      invited_at: r['invited_at'] as string,
+      id: r["id"] as string,
+      google_user_id: (r["google_user_id"] as string) ?? "",
+      email: r["email"] as string,
+      name: (r["name"] as string) ?? "",
+      role: r["role"] as Role,
+      invited_at: r["invited_at"] as string,
       deleted_at: null,
-    }))
+    }));
 }
 
 /**
@@ -123,9 +136,14 @@ export async function listMembers(): Promise<Member[]> {
  * Called on each sign-in so the ID stays current even if it changes.
  * No-op if no active row is found for the given email.
  */
-export async function recordGoogleUserId(email: string, googleUserId: string): Promise<void> {
-  const rows = await getRepos().members.getAll()
-  const existing = rows.find((r) => r['email'] === email && !r['deleted_at'])
-  if (!existing) return
-  await getRepos().members.batchUpdate([{ id: existing['id'] as string, google_user_id: googleUserId }])
+export async function recordGoogleUserId(
+  email: string,
+  googleUserId: string,
+): Promise<void> {
+  const rows = await getRepos().members.getAll();
+  const existing = rows.find((r) => r["email"] === email && !r["deleted_at"]);
+  if (!existing) return;
+  await getRepos().members.batchUpdate([
+    { id: existing["id"] as string, google_user_id: googleUserId },
+  ]);
 }

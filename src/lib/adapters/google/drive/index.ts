@@ -1,1 +1,5 @@
-export { createSpreadsheet, ensureFolder, shareSpreadsheet } from './drive.client'
+export {
+  createSpreadsheet,
+  ensureFolder,
+  shareSpreadsheet,
+} from "./drive.client";

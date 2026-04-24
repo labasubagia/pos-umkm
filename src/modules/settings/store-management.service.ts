@@ -10,22 +10,26 @@
  * service itself does not restrict by ownership — it trusts the caller.
  */
 
-import { getRepos, localCachePut, getMembersForStore } from '../../lib/adapters'
-import { nowUTC } from '../../lib/formatters'
-import { useAuthStore } from '../../store/authStore'
+import {
+  getRepos,
+  localCachePut,
+  getMembersForStore,
+} from "../../lib/adapters";
+import { nowUTC } from "../../lib/formatters";
+import { useAuthStore } from "../../store/authStore";
 import {
   createMasterSpreadsheet,
   initializeMasterSheets,
   getMainSpreadsheetId,
   type StoreRecord,
-} from '../auth/setup.service'
+} from "../auth/setup.service";
 
 // ─── Error class ──────────────────────────────────────────────────────────────
 
 export class StoreManagementError extends Error {
   constructor(message: string) {
-    super(message)
-    this.name = 'StoreManagementError'
+    super(message);
+    this.name = "StoreManagementError";
   }
 }
 
@@ -33,22 +37,25 @@ export class StoreManagementError extends Error {
 
 /** Returns mainSpreadsheetId or throws if the user is not logged in. */
 function requireMainId(): string {
-  const id = getMainSpreadsheetId()
-  if (!id) throw new StoreManagementError('mainSpreadsheetId not set; user must be logged in')
-  return id
+  const id = getMainSpreadsheetId();
+  if (!id)
+    throw new StoreManagementError(
+      "mainSpreadsheetId not set; user must be logged in",
+    );
+  return id;
 }
 
 /** Maps a raw Stores-tab row to a typed StoreRecord. */
 function toStoreRecord(r: Record<string, unknown>): StoreRecord {
   return {
-    store_id: String(r['store_id']),
-    store_name: String(r['store_name'] ?? ''),
-    master_spreadsheet_id: String(r['master_spreadsheet_id']),
-    drive_folder_id: String(r['drive_folder_id'] ?? ''),
-    owner_email: String(r['owner_email'] ?? ''),
-    my_role: String(r['my_role'] ?? 'owner'),
-    joined_at: String(r['joined_at'] ?? ''),
-  }
+    store_id: String(r["store_id"]),
+    store_name: String(r["store_name"] ?? ""),
+    master_spreadsheet_id: String(r["master_spreadsheet_id"]),
+    drive_folder_id: String(r["drive_folder_id"] ?? ""),
+    owner_email: String(r["owner_email"] ?? ""),
+    my_role: String(r["my_role"] ?? "owner"),
+    joined_at: String(r["joined_at"] ?? ""),
+  };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -60,11 +67,11 @@ function toStoreRecord(r: Record<string, unknown>): StoreRecord {
  * normalizes Stores rows to include `id = store_id` so Dexie lookups work.
  */
 export async function listStores(): Promise<StoreRecord[]> {
-  requireMainId()
-  const rows = await getRepos().stores.getAll()
+  requireMainId();
+  const rows = await getRepos().stores.getAll();
   return rows
-    .filter((r) => r['store_id'] && r['master_spreadsheet_id'])
-    .map(toStoreRecord)
+    .filter((r) => r["store_id"] && r["master_spreadsheet_id"])
+    .map(toStoreRecord);
 }
 
 /**
@@ -78,14 +85,19 @@ export async function listStores(): Promise<StoreRecord[]> {
  * already appended to Sheets via the raw SheetRepository).
  */
 export async function createStore(name: string): Promise<StoreRecord> {
-  const trimmedName = name.trim()
-  if (!trimmedName) throw new StoreManagementError('createStore: store name cannot be empty')
+  const trimmedName = name.trim();
+  if (!trimmedName)
+    throw new StoreManagementError("createStore: store name cannot be empty");
 
-  const ownerEmail = useAuthStore.getState().user?.email ?? ''
-  const mainId = requireMainId()
+  const ownerEmail = useAuthStore.getState().user?.email ?? "";
+  const mainId = requireMainId();
 
-  const { masterId, storeId, driveFolderId } = await createMasterSpreadsheet(trimmedName, ownerEmail, mainId)
-  await initializeMasterSheets(masterId)
+  const { masterId, storeId, driveFolderId } = await createMasterSpreadsheet(
+    trimmedName,
+    ownerEmail,
+    mainId,
+  );
+  await initializeMasterSheets(masterId);
 
   const record: StoreRecord = {
     store_id: storeId,
@@ -93,16 +105,16 @@ export async function createStore(name: string): Promise<StoreRecord> {
     master_spreadsheet_id: masterId,
     drive_folder_id: driveFolderId,
     owner_email: ownerEmail,
-    my_role: 'owner',
+    my_role: "owner",
     joined_at: nowUTC(),
-  }
+  };
 
   // Insert into local Dexie cache without queueing an outbox entry — the remote
   // write already happened inside createMasterSpreadsheet.
   // id = storeId so that batchUpdateCells / softDelete can look up by primary key.
-  await localCachePut('Stores', [{ ...record, id: storeId }])
+  await localCachePut("Stores", [{ ...record, id: storeId }]);
 
-  return record
+  return record;
 }
 
 /**
@@ -111,14 +123,14 @@ export async function createStore(name: string): Promise<StoreRecord> {
  */
 export async function updateStore(
   storeId: string,
-  patch: Partial<Pick<StoreRecord, 'store_name'>>,
+  patch: Partial<Pick<StoreRecord, "store_name">>,
 ): Promise<void> {
-  const trimmedName = patch.store_name?.trim()
-  if (!trimmedName) return
+  const trimmedName = patch.store_name?.trim();
+  if (!trimmedName) return;
 
   await getRepos().stores.batchUpdate([
     { id: storeId, store_name: trimmedName },
-  ])
+  ]);
 }
 
 /**
@@ -131,16 +143,18 @@ export async function updateStore(
  * Throws StoreManagementError if storeId is not found in main.Stores.
  */
 export async function removeOwnedStore(storeId: string): Promise<void> {
-  const repo = getRepos().stores
+  const repo = getRepos().stores;
 
   // Verify the store exists before stamping — avoids silent no-ops.
-  const rows = await repo.getAll()
-  const exists = rows.some((r) => r['store_id'] === storeId)
+  const rows = await repo.getAll();
+  const exists = rows.some((r) => r["store_id"] === storeId);
   if (!exists) {
-    throw new StoreManagementError(`removeOwnedStore: store "${storeId}" not found`)
+    throw new StoreManagementError(
+      `removeOwnedStore: store "${storeId}" not found`,
+    );
   }
 
-  await repo.batchUpdate([{ id: storeId, deleted_at: nowUTC() }])
+  await repo.batchUpdate([{ id: storeId, deleted_at: nowUTC() }]);
 }
 
 /**
@@ -152,23 +166,30 @@ export async function removeOwnedStore(storeId: string): Promise<void> {
  *
  * Throws StoreManagementError if the caller is not found in Members.
  */
-export async function removeAccessToStore(masterSpreadsheetId: string): Promise<void> {
-  const callerEmail = useAuthStore.getState().user?.email
-  if (!callerEmail) throw new StoreManagementError('removeAccessToStore: user not authenticated')
+export async function removeAccessToStore(
+  masterSpreadsheetId: string,
+): Promise<void> {
+  const callerEmail = useAuthStore.getState().user?.email;
+  if (!callerEmail)
+    throw new StoreManagementError(
+      "removeAccessToStore: user not authenticated",
+    );
 
   // Resolve the target storeId from the cached Stores list.
-  const stores = await listStores()
-  const targetStore = stores.find((s) => s.master_spreadsheet_id === masterSpreadsheetId)
-  const targetStoreId = targetStore?.store_id ?? masterSpreadsheetId
+  const stores = await listStores();
+  const targetStore = stores.find(
+    (s) => s.master_spreadsheet_id === masterSpreadsheetId,
+  );
+  const targetStoreId = targetStore?.store_id ?? masterSpreadsheetId;
 
-  const membersRepo = getMembersForStore(targetStoreId, masterSpreadsheetId)
-  const members = await membersRepo.getAll()
-  const myRow = members.find((r) => r['email'] === callerEmail)
+  const membersRepo = getMembersForStore(targetStoreId, masterSpreadsheetId);
+  const members = await membersRepo.getAll();
+  const myRow = members.find((r) => r["email"] === callerEmail);
   if (!myRow) {
     throw new StoreManagementError(
       `removeAccessToStore: caller "${callerEmail}" not found in Members`,
-    )
+    );
   }
 
-  await membersRepo.softDelete(String(myRow['id']))
+  await membersRepo.softDelete(String(myRow["id"]));
 }

@@ -5,5 +5,5 @@
  * (Chrome 92+, Firefox 95+, Safari 15.4+) — no polyfill needed.
  */
 export function generateId(): string {
-  return crypto.randomUUID()
+  return crypto.randomUUID();
 }

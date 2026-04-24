@@ -4,7 +4,7 @@
  * Auth injection is now done via auth-dexie.ts. This file only contains the
  * navigateTo SPA-navigation helper, kept for backward compatibility.
  */
-import { type Page } from '@playwright/test'
+import type { Page } from "@playwright/test";
 
 /**
  * Navigate within the SPA without a hard reload, preserving in-memory
@@ -13,7 +13,7 @@ import { type Page } from '@playwright/test'
  */
 export async function navigateTo(page: Page, path: string): Promise<void> {
   await page.evaluate((p) => {
-    window.history.pushState({}, '', p)
-    window.dispatchEvent(new PopStateEvent('popstate'))
-  }, path)
+    window.history.pushState({}, "", p);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, path);
 }

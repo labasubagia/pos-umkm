@@ -5,4 +5,4 @@
  * (`modules/auth/useAuth`) rather than referencing the store directly.
  * This keeps the auth module self-contained.
  */
-export { useAuthStore as useAuth } from '../../store/authStore'
+export { useAuthStore as useAuth } from "../../store/authStore";

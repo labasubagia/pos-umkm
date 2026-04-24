@@ -10,33 +10,33 @@
  * SyncStatus — shows the offline/syncing/synced status indicator in the NavBar.
  * Reads from useSyncStore — no props needed.
  */
-import { useEffect, useState } from 'react'
-import { CloudOff, CloudUpload, CheckCircle, Loader2 } from 'lucide-react'
-import { useSyncStore } from '../store/syncStore'
-import { syncManager } from '../lib/adapters'
-import { cn } from '../lib/utils'
-import { formatDate } from '../lib/formatDate'
+import { useEffect, useState } from "react";
+import { CloudOff, CloudUpload, CheckCircle, Loader2 } from "lucide-react";
+import { useSyncStore } from "../store/syncStore";
+import { syncManager } from "../lib/adapters";
+import { cn } from "../lib/utils";
+import { formatDate } from "../lib/formatDate";
 
 export function SyncStatus() {
-  const { pendingCount, isSyncing, lastSyncedAt, lastError } = useSyncStore()
-  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const { pendingCount, isSyncing, lastSyncedAt, lastError } = useSyncStore();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
-    const onOnline = () => setIsOnline(true)
-    const onOffline = () => setIsOnline(false)
-    window.addEventListener('online', onOnline)
-    window.addEventListener('offline', onOffline)
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
     return () => {
-      window.removeEventListener('online', onOnline)
-      window.removeEventListener('offline', onOffline)
-    }
-  }, [])
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
 
   const handleManualSync = () => {
-    syncManager.triggerSync()
-  }
+    syncManager.triggerSync();
+  };
 
-  const hasPending = pendingCount > 0
+  const hasPending = pendingCount > 0;
 
   if (!isOnline) {
     return (
@@ -49,7 +49,7 @@ export function SyncStatus() {
       >
         <CloudOff className="h-5 w-5 text-orange-400" />
       </button>
-    )
+    );
   }
 
   if (isSyncing) {
@@ -63,7 +63,7 @@ export function SyncStatus() {
       >
         <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
       </button>
-    )
+    );
   }
 
   if (lastError && hasPending) {
@@ -76,7 +76,7 @@ export function SyncStatus() {
       >
         <CloudOff className="h-5 w-5" />
       </button>
-    )
+    );
   }
 
   if (hasPending) {
@@ -84,12 +84,15 @@ export function SyncStatus() {
       <button
         data-testid="sync-status-pending"
         onClick={handleManualSync}
-        className={cn('flex items-center text-muted-foreground', 'hover:text-foreground transition-colors')}
+        className={cn(
+          "flex items-center text-muted-foreground",
+          "hover:text-foreground transition-colors",
+        )}
         title={`${pendingCount} perubahan menunggu sinkronisasi — klik untuk sinkronisasi sekarang`}
       >
         <CloudUpload className="h-5 w-5 text-blue-400" />
       </button>
-    )
+    );
   }
 
   // All synced — still allow manual sync
@@ -99,9 +102,13 @@ export function SyncStatus() {
       data-testid="sync-status-synced"
       onClick={handleManualSync}
       className="flex items-center text-muted-foreground"
-      title={lastSyncedAt ? `Tersinkron: ${formatDate(lastSyncedAt, 'HH:mm:ss')}` : 'Tersinkron'}
+      title={
+        lastSyncedAt
+          ? `Tersinkron: ${formatDate(lastSyncedAt, "HH:mm:ss")}`
+          : "Tersinkron"
+      }
     >
       <CheckCircle className="h-5 w-5 text-green-500" />
     </button>
-  )
+  );
 }

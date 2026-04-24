@@ -1,8 +1,8 @@
 /**
  * catalog.service tests — covers T021 (Categories), T022 (Products), T023 (Variants).
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import * as adapters from '../../lib/adapters'
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import * as adapters from "../../lib/adapters";
 import {
   fetchCategories,
   addCategory,
@@ -18,12 +18,12 @@ import {
   deleteVariant,
   decrementVariantStock,
   CatalogError,
-} from './catalog.service'
+} from "./catalog.service";
 
 function mockRepo(overrides = {}) {
   return {
-    spreadsheetId: 'test-id',
-    sheetName: 'mock',
+    spreadsheetId: "test-id",
+    sheetName: "mock",
     getAll: vi.fn().mockResolvedValue([]),
     batchInsert: vi.fn().mockResolvedValue(undefined),
     batchUpdate: vi.fn().mockResolvedValue(undefined),
@@ -31,13 +31,13 @@ function mockRepo(overrides = {}) {
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
     ...overrides,
-  }
+  };
 }
 
-let mockRepos: Record<string, ReturnType<typeof mockRepo>>
+let mockRepos: Record<string, ReturnType<typeof mockRepo>>;
 
 beforeEach(() => {
-  vi.restoreAllMocks()
+  vi.restoreAllMocks();
   mockRepos = {
     categories: mockRepo(),
     products: mockRepo(),
@@ -54,260 +54,301 @@ beforeEach(() => {
     stores: mockRepo(),
     monthlySheets: mockRepo(),
     auditLog: mockRepo(),
-  }
-  vi.spyOn(adapters, 'getRepos').mockReturnValue(mockRepos as ReturnType<typeof adapters.getRepos>)
-})
+  };
+  vi.spyOn(adapters, "getRepos").mockReturnValue(
+    mockRepos as ReturnType<typeof adapters.getRepos>,
+  );
+});
 
 // ─── T021 — Categories ───────────────────────────────────────────────────────
 
-describe('fetchCategories', () => {
-  it('returns parsed list excluding soft-deleted rows', async () => {
+describe("fetchCategories", () => {
+  it("returns parsed list excluding soft-deleted rows", async () => {
     mockRepos.categories.getAll.mockResolvedValue([
-      { id: 'cat-1', name: 'Makanan', created_at: '2026-01-01T00:00:00.000Z', deleted_at: null },
-      { id: 'cat-2', name: 'Minuman', created_at: '2026-01-01T00:00:00.000Z', deleted_at: null },
-    ])
+      {
+        id: "cat-1",
+        name: "Makanan",
+        created_at: "2026-01-01T00:00:00.000Z",
+        deleted_at: null,
+      },
+      {
+        id: "cat-2",
+        name: "Minuman",
+        created_at: "2026-01-01T00:00:00.000Z",
+        deleted_at: null,
+      },
+    ]);
 
-    const result = await fetchCategories()
+    const result = await fetchCategories();
 
-    expect(result).toHaveLength(2)
-    expect(result[0].name).toBe('Makanan')
-    expect(result[1].name).toBe('Minuman')
-  })
+    expect(result).toHaveLength(2);
+    expect(result[0].name).toBe("Makanan");
+    expect(result[1].name).toBe("Minuman");
+  });
 
-  it('excludes sentinel rows without a name', async () => {
+  it("excludes sentinel rows without a name", async () => {
     mockRepos.categories.getAll.mockResolvedValue([
-      { id: 'init', _initialized: true, created_at: '2026-01-01T00:00:00.000Z' },
-      { id: 'cat-1', name: 'Makanan', created_at: '2026-01-01T00:00:00.000Z' },
-    ])
+      {
+        id: "init",
+        _initialized: true,
+        created_at: "2026-01-01T00:00:00.000Z",
+      },
+      { id: "cat-1", name: "Makanan", created_at: "2026-01-01T00:00:00.000Z" },
+    ]);
 
-    const result = await fetchCategories()
+    const result = await fetchCategories();
 
-    expect(result).toHaveLength(1)
-    expect(result[0].name).toBe('Makanan')
-  })
-})
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("Makanan");
+  });
+});
 
-describe('addCategory', () => {
-  it('appends correct row with generated UUID', async () => {
-    const result = await addCategory('Snack')
+describe("addCategory", () => {
+  it("appends correct row with generated UUID", async () => {
+    const result = await addCategory("Snack");
 
-    expect(mockRepos.categories.batchInsert).toHaveBeenCalledOnce()
-    const row = mockRepos.categories.batchInsert.mock.calls[0][0][0]
-    expect(row['name']).toBe('Snack')
-    expect(typeof row['id']).toBe('string')
-    expect(row['id']).toBeTruthy()
-    expect(result.name).toBe('Snack')
-  })
+    expect(mockRepos.categories.batchInsert).toHaveBeenCalledOnce();
+    const row = mockRepos.categories.batchInsert.mock.calls[0][0][0];
+    expect(row["name"]).toBe("Snack");
+    expect(typeof row["id"]).toBe("string");
+    expect(row["id"]).toBeTruthy();
+    expect(result.name).toBe("Snack");
+  });
 
-  it('throws if name is empty', async () => {
-    await expect(addCategory('')).rejects.toThrow(CatalogError)
-    await expect(addCategory('  ')).rejects.toThrow(CatalogError)
-  })
+  it("throws if name is empty", async () => {
+    await expect(addCategory("")).rejects.toThrow(CatalogError);
+    await expect(addCategory("  ")).rejects.toThrow(CatalogError);
+  });
 
-  it('throws if name exceeds 100 characters', async () => {
-    const longName = 'a'.repeat(101)
-    await expect(addCategory(longName)).rejects.toThrow(CatalogError)
-  })
-})
+  it("throws if name exceeds 100 characters", async () => {
+    const longName = "a".repeat(101);
+    await expect(addCategory(longName)).rejects.toThrow(CatalogError);
+  });
+});
 
-describe('updateCategory', () => {
-  it('updates name cell of correct row', async () => {
-    await updateCategory('cat-1', 'Makanan Berat')
+describe("updateCategory", () => {
+  it("updates name cell of correct row", async () => {
+    await updateCategory("cat-1", "Makanan Berat");
 
-    expect(mockRepos.categories.batchUpdate).toHaveBeenCalledWith([{ id: 'cat-1', name: 'Makanan Berat' }])
-  })
-})
+    expect(mockRepos.categories.batchUpdate).toHaveBeenCalledWith([
+      { id: "cat-1", name: "Makanan Berat" },
+    ]);
+  });
+});
 
-describe('deleteCategory', () => {
-  it('sets deleted_at on correct row when no products reference it', async () => {
-    mockRepos.products.getAll.mockResolvedValue([])
+describe("deleteCategory", () => {
+  it("sets deleted_at on correct row when no products reference it", async () => {
+    mockRepos.products.getAll.mockResolvedValue([]);
 
-    await deleteCategory('cat-1')
+    await deleteCategory("cat-1");
 
-    expect(mockRepos.categories.softDelete).toHaveBeenCalledWith('cat-1')
-  })
+    expect(mockRepos.categories.softDelete).toHaveBeenCalledWith("cat-1");
+  });
 
-  it('throws if category has associated products', async () => {
+  it("throws if category has associated products", async () => {
     mockRepos.products.getAll.mockResolvedValue([
-      { id: 'prod-1', category_id: 'cat-1', name: 'Nasi Goreng' },
-    ])
+      { id: "prod-1", category_id: "cat-1", name: "Nasi Goreng" },
+    ]);
 
-    await expect(deleteCategory('cat-1')).rejects.toThrow(CatalogError)
-  })
-})
+    await expect(deleteCategory("cat-1")).rejects.toThrow(CatalogError);
+  });
+});
 
 // ─── T022 — Products ─────────────────────────────────────────────────────────
 
-describe('fetchProducts', () => {
-  it('returns all non-deleted products', async () => {
+describe("fetchProducts", () => {
+  it("returns all non-deleted products", async () => {
     mockRepos.products.getAll.mockResolvedValue([
       {
-        id: 'p-1',
-        category_id: 'cat-1',
-        name: 'Nasi Goreng',
-        sku: 'NASGOR',
-        price: '15000',
-        stock: '50',
+        id: "p-1",
+        category_id: "cat-1",
+        name: "Nasi Goreng",
+        sku: "NASGOR",
+        price: "15000",
+        stock: "50",
         has_variants: false,
-        created_at: '2026-01-01T00:00:00.000Z',
+        created_at: "2026-01-01T00:00:00.000Z",
       },
-    ])
+    ]);
 
-    const result = await fetchProducts()
+    const result = await fetchProducts();
 
-    expect(result).toHaveLength(1)
-    expect(result[0].price).toBe(15000)
-    expect(result[0].stock).toBe(50)
-    expect(result[0].has_variants).toBe(false)
-  })
-})
+    expect(result).toHaveLength(1);
+    expect(result[0].price).toBe(15000);
+    expect(result[0].stock).toBe(50);
+    expect(result[0].has_variants).toBe(false);
+  });
+});
 
-describe('addProduct', () => {
-  it('appends row with all required fields', async () => {
+describe("addProduct", () => {
+  it("appends row with all required fields", async () => {
     const result = await addProduct({
-      category_id: 'cat-1',
-      name: 'Nasi Goreng',
+      category_id: "cat-1",
+      name: "Nasi Goreng",
       price: 15000,
       stock: 50,
-      sku: 'NASGOR',
-    })
+      sku: "NASGOR",
+    });
 
-    expect(mockRepos.products.batchInsert).toHaveBeenCalledOnce()
-    const row = mockRepos.products.batchInsert.mock.calls[0][0][0]
-    expect(row['name']).toBe('Nasi Goreng')
-    expect(row['price']).toBe(15000)
-    expect(result.id).toBeTruthy()
-  })
+    expect(mockRepos.products.batchInsert).toHaveBeenCalledOnce();
+    const row = mockRepos.products.batchInsert.mock.calls[0][0][0];
+    expect(row["name"]).toBe("Nasi Goreng");
+    expect(row["price"]).toBe(15000);
+    expect(result.id).toBeTruthy();
+  });
 
-  it('throws if price is not a positive integer', async () => {
-    await expect(addProduct({ category_id: 'cat-1', name: 'X', price: 0 })).rejects.toThrow(CatalogError)
-    await expect(addProduct({ category_id: 'cat-1', name: 'X', price: -100 })).rejects.toThrow(CatalogError)
-    await expect(addProduct({ category_id: 'cat-1', name: 'X', price: 1.5 })).rejects.toThrow(CatalogError)
-  })
+  it("throws if price is not a positive integer", async () => {
+    await expect(
+      addProduct({ category_id: "cat-1", name: "X", price: 0 }),
+    ).rejects.toThrow(CatalogError);
+    await expect(
+      addProduct({ category_id: "cat-1", name: "X", price: -100 }),
+    ).rejects.toThrow(CatalogError);
+    await expect(
+      addProduct({ category_id: "cat-1", name: "X", price: 1.5 }),
+    ).rejects.toThrow(CatalogError);
+  });
 
-  it('throws if name is empty', async () => {
-    await expect(addProduct({ category_id: 'cat-1', name: '', price: 1000 })).rejects.toThrow(CatalogError)
-  })
-})
+  it("throws if name is empty", async () => {
+    await expect(
+      addProduct({ category_id: "cat-1", name: "", price: 1000 }),
+    ).rejects.toThrow(CatalogError);
+  });
+});
 
-describe('updateProduct', () => {
-  it('updates only changed fields', async () => {
-    await updateProduct('prod-1', { name: 'Nasi Goreng Spesial', price: 18000 })
+describe("updateProduct", () => {
+  it("updates only changed fields", async () => {
+    await updateProduct("prod-1", {
+      name: "Nasi Goreng Spesial",
+      price: 18000,
+    });
 
     expect(mockRepos.products.batchUpdate).toHaveBeenCalledWith([
-      { id: 'prod-1', name: 'Nasi Goreng Spesial', price: 18000 },
-    ])
-  })
-})
+      { id: "prod-1", name: "Nasi Goreng Spesial", price: 18000 },
+    ]);
+  });
+});
 
-describe('deleteProduct', () => {
-  it('sets deleted_at', async () => {
-    await deleteProduct('prod-1')
+describe("deleteProduct", () => {
+  it("sets deleted_at", async () => {
+    await deleteProduct("prod-1");
 
-    expect(mockRepos.products.softDelete).toHaveBeenCalledWith('prod-1')
-  })
-})
+    expect(mockRepos.products.softDelete).toHaveBeenCalledWith("prod-1");
+  });
+});
 
-describe('decrementStock', () => {
-  it('reads current stock, computes new value, writes updated cell', async () => {
+describe("decrementStock", () => {
+  it("reads current stock, computes new value, writes updated cell", async () => {
     mockRepos.products.getAll.mockResolvedValue([
-      { id: 'prod-1', name: 'Nasi Goreng', stock: '10' },
-    ])
+      { id: "prod-1", name: "Nasi Goreng", stock: "10" },
+    ]);
 
-    await decrementStock('prod-1', 3)
+    await decrementStock("prod-1", 3);
 
-    expect(mockRepos.products.batchUpdate).toHaveBeenCalledWith([{ id: 'prod-1', stock: 7 }])
-  })
+    expect(mockRepos.products.batchUpdate).toHaveBeenCalledWith([
+      { id: "prod-1", stock: 7 },
+    ]);
+  });
 
-  it('throws if resulting stock would go below 0', async () => {
+  it("throws if resulting stock would go below 0", async () => {
     mockRepos.products.getAll.mockResolvedValue([
-      { id: 'prod-1', name: 'Nasi Goreng', stock: '2' },
-    ])
+      { id: "prod-1", name: "Nasi Goreng", stock: "2" },
+    ]);
 
-    await expect(decrementStock('prod-1', 5)).rejects.toThrow(CatalogError)
-  })
-})
+    await expect(decrementStock("prod-1", 5)).rejects.toThrow(CatalogError);
+  });
+});
 
 // ─── T023 — Variants ─────────────────────────────────────────────────────────
 
-describe('fetchVariants', () => {
-  it('returns all variants for a given product_id', async () => {
+describe("fetchVariants", () => {
+  it("returns all variants for a given product_id", async () => {
     mockRepos.variants.getAll.mockResolvedValue([
       {
-        id: 'v-1',
-        product_id: 'prod-1',
-        option_name: 'Ukuran',
-        option_value: 'M',
-        price: '25000',
-        stock: '10',
-        created_at: '2026-01-01T00:00:00.000Z',
+        id: "v-1",
+        product_id: "prod-1",
+        option_name: "Ukuran",
+        option_value: "M",
+        price: "25000",
+        stock: "10",
+        created_at: "2026-01-01T00:00:00.000Z",
       },
       {
-        id: 'v-2',
-        product_id: 'prod-2',
-        option_name: 'Ukuran',
-        option_value: 'L',
-        price: '30000',
-        stock: '5',
-        created_at: '2026-01-01T00:00:00.000Z',
+        id: "v-2",
+        product_id: "prod-2",
+        option_name: "Ukuran",
+        option_value: "L",
+        price: "30000",
+        stock: "5",
+        created_at: "2026-01-01T00:00:00.000Z",
       },
-    ])
+    ]);
 
-    const all = await fetchVariants()
-    const forProd1 = all.filter((v) => v.product_id === 'prod-1')
+    const all = await fetchVariants();
+    const forProd1 = all.filter((v) => v.product_id === "prod-1");
 
-    expect(forProd1).toHaveLength(1)
-    expect(forProd1[0].option_value).toBe('M')
-    expect(forProd1[0].price).toBe(25000)
-  })
-})
+    expect(forProd1).toHaveLength(1);
+    expect(forProd1[0].option_value).toBe("M");
+    expect(forProd1[0].price).toBe(25000);
+  });
+});
 
-describe('addVariant', () => {
-  it('appends row linked to correct product_id', async () => {
-    const result = await addVariant('prod-1', 'Ukuran', 'L', 30000, 10)
+describe("addVariant", () => {
+  it("appends row linked to correct product_id", async () => {
+    const result = await addVariant("prod-1", "Ukuran", "L", 30000, 10);
 
-    expect(mockRepos.variants.batchInsert).toHaveBeenCalledOnce()
-    const row = mockRepos.variants.batchInsert.mock.calls[0][0][0]
-    expect(row['product_id']).toBe('prod-1')
-    expect(row['option_value']).toBe('L')
-    expect(result.price).toBe(30000)
-  })
+    expect(mockRepos.variants.batchInsert).toHaveBeenCalledOnce();
+    const row = mockRepos.variants.batchInsert.mock.calls[0][0][0];
+    expect(row["product_id"]).toBe("prod-1");
+    expect(row["option_value"]).toBe("L");
+    expect(result.price).toBe(30000);
+  });
 
-  it('throws if price is non-positive', async () => {
-    await expect(addVariant('prod-1', 'Ukuran', 'L', 0, 5)).rejects.toThrow(CatalogError)
-    await expect(addVariant('prod-1', 'Ukuran', 'L', -100, 5)).rejects.toThrow(CatalogError)
-  })
+  it("throws if price is non-positive", async () => {
+    await expect(addVariant("prod-1", "Ukuran", "L", 0, 5)).rejects.toThrow(
+      CatalogError,
+    );
+    await expect(addVariant("prod-1", "Ukuran", "L", -100, 5)).rejects.toThrow(
+      CatalogError,
+    );
+  });
 
-  it('throws if optionValue is empty', async () => {
-    await expect(addVariant('prod-1', 'Ukuran', '', 5000, 5)).rejects.toThrow(CatalogError)
-    await expect(addVariant('prod-1', 'Ukuran', '  ', 5000, 5)).rejects.toThrow(CatalogError)
-  })
-})
+  it("throws if optionValue is empty", async () => {
+    await expect(addVariant("prod-1", "Ukuran", "", 5000, 5)).rejects.toThrow(
+      CatalogError,
+    );
+    await expect(addVariant("prod-1", "Ukuran", "  ", 5000, 5)).rejects.toThrow(
+      CatalogError,
+    );
+  });
+});
 
-describe('deleteVariant', () => {
-  it('soft-deletes the variant', async () => {
-    await deleteVariant('v-1')
+describe("deleteVariant", () => {
+  it("soft-deletes the variant", async () => {
+    await deleteVariant("v-1");
 
-    expect(mockRepos.variants.softDelete).toHaveBeenCalledWith('v-1')
-  })
-})
+    expect(mockRepos.variants.softDelete).toHaveBeenCalledWith("v-1");
+  });
+});
 
-describe('decrementVariantStock', () => {
-  it('updates stock on correct variant row', async () => {
+describe("decrementVariantStock", () => {
+  it("updates stock on correct variant row", async () => {
     mockRepos.variants.getAll.mockResolvedValue([
-      { id: 'v-1', product_id: 'prod-1', option_value: 'M', stock: '8' },
-    ])
+      { id: "v-1", product_id: "prod-1", option_value: "M", stock: "8" },
+    ]);
 
-    await decrementVariantStock('v-1', 3)
+    await decrementVariantStock("v-1", 3);
 
-    expect(mockRepos.variants.batchUpdate).toHaveBeenCalledWith([{ id: 'v-1', stock: 5 }])
-  })
+    expect(mockRepos.variants.batchUpdate).toHaveBeenCalledWith([
+      { id: "v-1", stock: 5 },
+    ]);
+  });
 
-  it('throws if resulting stock would go below 0', async () => {
+  it("throws if resulting stock would go below 0", async () => {
     mockRepos.variants.getAll.mockResolvedValue([
-      { id: 'v-1', product_id: 'prod-1', option_value: 'M', stock: '2' },
-    ])
+      { id: "v-1", product_id: "prod-1", option_value: "M", stock: "2" },
+    ]);
 
-    await expect(decrementVariantStock('v-1', 5)).rejects.toThrow(CatalogError)
-  })
-})
+    await expect(decrementVariantStock("v-1", 5)).rejects.toThrow(CatalogError);
+  });
+});

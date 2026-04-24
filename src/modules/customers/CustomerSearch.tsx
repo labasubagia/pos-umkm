@@ -5,20 +5,20 @@
  * client-side to avoid per-keystroke API calls.
  */
 
-import { useState } from 'react'
-import { useCustomers } from '../../hooks/useCustomers'
-import type { Customer } from './customers.service'
-import { Input } from '../../components/ui/input'
-import { Button } from '../../components/ui/button'
+import { useState } from "react";
+import { useCustomers } from "../../hooks/useCustomers";
+import type { Customer } from "./customers.service";
+import { Input } from "../../components/ui/input";
+import { Button } from "../../components/ui/button";
 
 interface CustomerSearchProps {
-  onSelect: (customer: Customer | null) => void
+  onSelect: (customer: Customer | null) => void;
 }
 
 export function CustomerSearch({ onSelect }: CustomerSearchProps) {
-  const { data: customers = [], isLoading } = useCustomers()
-  const [query, setQuery] = useState('')
-  const [selected, setSelected] = useState<Customer | null>(null)
+  const { data: customers = [], isLoading } = useCustomers();
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<Customer | null>(null);
 
   const filtered = query.trim()
     ? customers.filter(
@@ -26,21 +26,21 @@ export function CustomerSearch({ onSelect }: CustomerSearchProps) {
           c.name.toLowerCase().includes(query.trim().toLowerCase()) ||
           c.phone.includes(query.trim()),
       )
-    : []
+    : [];
 
-  const hasResults = filtered.length > 0
-  const showAddButton = query.trim().length > 0 && !hasResults
+  const hasResults = filtered.length > 0;
+  const showAddButton = query.trim().length > 0 && !hasResults;
 
   function handleSelect(customer: Customer) {
-    setSelected(customer)
-    setQuery(customer.name)
-    onSelect(customer)
+    setSelected(customer);
+    setQuery(customer.name);
+    onSelect(customer);
   }
 
   function handleClear() {
-    setSelected(null)
-    setQuery('')
-    onSelect(null)
+    setSelected(null);
+    setQuery("");
+    onSelect(null);
   }
 
   return (
@@ -51,10 +51,10 @@ export function CustomerSearch({ onSelect }: CustomerSearchProps) {
           placeholder="Cari pelanggan (nama / telepon)..."
           value={query}
           onChange={(e) => {
-            setQuery(e.target.value)
+            setQuery(e.target.value);
             if (selected) {
-              setSelected(null)
-              onSelect(null)
+              setSelected(null);
+              onSelect(null);
             }
           }}
           data-testid="customer-search-input"
@@ -104,7 +104,7 @@ export function CustomerSearch({ onSelect }: CustomerSearchProps) {
         </ul>
       )}
     </div>
-  )
+  );
 }
 
-export default CustomerSearch
+export default CustomerSearch;

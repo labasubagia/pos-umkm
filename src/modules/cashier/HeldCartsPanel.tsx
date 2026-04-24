@@ -4,23 +4,23 @@
  * Shows held carts with item count and time. Tapping a row restores it
  * (replaces the current active cart).
  */
-import { ShoppingBag, Clock } from 'lucide-react'
-import { useCartStore } from './useCart'
-import { formatDateTime } from '../../lib/formatters'
-import { Button } from '../../components/ui/button'
+import { ShoppingBag, Clock } from "lucide-react";
+import { useCartStore } from "./useCart";
+import { formatDateTime } from "../../lib/formatters";
+import { Button } from "../../components/ui/button";
 
 export function HeldCartsPanel() {
-  const heldCarts = useCartStore((s) => s.heldCarts)
-  const retrieveCart = useCartStore((s) => s.retrieveCart)
-  const holdCart = useCartStore((s) => s.holdCart)
-  const items = useCartStore((s) => s.items)
+  const heldCarts = useCartStore((s) => s.heldCarts);
+  const retrieveCart = useCartStore((s) => s.retrieveCart);
+  const holdCart = useCartStore((s) => s.holdCart);
+  const items = useCartStore((s) => s.items);
 
   if (heldCarts.length === 0) {
     return (
       <p className="text-sm text-gray-400 text-center py-4">
         Tidak ada keranjang yang ditahan
       </p>
-    )
+    );
   }
 
   return (
@@ -31,11 +31,7 @@ export function HeldCartsPanel() {
           Keranjang Tertahan ({heldCarts.length})
         </h3>
         {items.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => holdCart()}
-          >
+          <Button variant="ghost" size="sm" onClick={() => holdCart()}>
             Tahan Saat Ini
           </Button>
         )}
@@ -52,12 +48,12 @@ export function HeldCartsPanel() {
             <span className="font-medium">{cart.items.length} produk</span>
             <span className="flex items-center gap-1 text-xs text-gray-400">
               <Clock className="h-3 w-3" />
-              {formatDateTime(cart.heldAt, 'Asia/Jakarta')}
+              {formatDateTime(cart.heldAt, "Asia/Jakarta")}
             </span>
           </div>
           <span className="text-blue-600 font-semibold text-xs">Ambil</span>
         </button>
       ))}
     </div>
-  )
+  );
 }

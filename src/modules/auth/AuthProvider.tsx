@@ -8,12 +8,12 @@
  *
  * Children are always rendered — auth state is controlled via useAuth store.
  */
-import { type ReactNode } from 'react'
+import type { ReactNode } from "react";
 
 interface AuthProviderProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  return <>{children}</>
+  return <>{children}</>;
 }

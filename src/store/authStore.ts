@@ -1,26 +1,26 @@
-import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
-import type { Role, User } from '../lib/adapters/types'
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import type { Role, User } from "../lib/adapters/types";
 
 interface AuthState {
-  user: User | null
-  role: Role | null
+  user: User | null;
+  role: Role | null;
   /** In-memory only — never written to localStorage to prevent XSS token theft. */
-  accessToken: string | null
+  accessToken: string | null;
   /** Master spreadsheet ID for the active store (persisted). */
-  spreadsheetId: string | null
+  spreadsheetId: string | null;
   /** Main spreadsheet ID — one per Google account, shared across all stores (persisted). */
-  mainSpreadsheetId: string | null
+  mainSpreadsheetId: string | null;
   /** Current month's transaction spreadsheet ID (persisted). */
-  monthlySpreadsheetId: string | null
-  isAuthenticated: boolean
-  activeStoreId: string | null
-  setUser: (user: User, role: Role, accessToken: string) => void
-  setAccessToken: (token: string) => void
-  setSpreadsheetId: (id: string) => void
-  setMainSpreadsheetId: (id: string) => void
-  setMonthlySpreadsheetId: (id: string) => void
-  setActiveStoreId: (id: string | null) => void
+  monthlySpreadsheetId: string | null;
+  isAuthenticated: boolean;
+  activeStoreId: string | null;
+  setUser: (user: User, role: Role, accessToken: string) => void;
+  setAccessToken: (token: string) => void;
+  setSpreadsheetId: (id: string) => void;
+  setMainSpreadsheetId: (id: string) => void;
+  setMonthlySpreadsheetId: (id: string) => void;
+  setActiveStoreId: (id: string | null) => void;
   /**
    * Atomically updates spreadsheetId, monthlySpreadsheetId, and activeStoreId
    * in a single Zustand set() call — preventing AppShell from seeing partial
@@ -31,8 +31,8 @@ interface AuthState {
     spreadsheetId: string,
     monthlySpreadsheetId: string | null,
     activeStoreId: string,
-  ) => void
-  clearAuth: () => void
+  ) => void;
+  clearAuth: () => void;
 }
 
 /**
@@ -80,7 +80,7 @@ export const useAuthStore = create<AuthState>()(
         }),
     }),
     {
-      name: 'pos-umkm-auth',
+      name: "pos-umkm-auth",
       storage: createJSONStorage(() => localStorage),
       // Exclude accessToken from persistence — restored at runtime by AuthInitializer.
       partialize: (state) => ({
@@ -94,4 +94,4 @@ export const useAuthStore = create<AuthState>()(
       }),
     },
   ),
-)
+);

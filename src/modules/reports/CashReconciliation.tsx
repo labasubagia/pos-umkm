@@ -1,66 +1,70 @@
-import { useState } from 'react'
+import { useState } from "react";
 import {
   fetchTransactionsForRange,
   calculateExpectedCash,
   saveReconciliation,
   ReportError,
-} from './reports.service'
-import { formatIDR } from '../../lib/formatters'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Alert, AlertDescription } from '../../components/ui/alert'
-import { Card, CardContent } from '../../components/ui/card'
+} from "./reports.service";
+import { formatIDR } from "../../lib/formatters";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Card, CardContent } from "../../components/ui/card";
 
 export function CashReconciliation() {
-  const today = new Date().toISOString().slice(0, 10)
-  const [openingBalance, setOpeningBalance] = useState('')
-  const [closingBalance, setClosingBalance] = useState('')
-  const [date, setDate] = useState(today)
-  const [expected, setExpected] = useState<number | null>(null)
-  const [actual, setActual] = useState<number | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const today = new Date().toISOString().slice(0, 10);
+  const [openingBalance, setOpeningBalance] = useState("");
+  const [closingBalance, setClosingBalance] = useState("");
+  const [date, setDate] = useState(today);
+  const [expected, setExpected] = useState<number | null>(null);
+  const [actual, setActual] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   async function calculate() {
-    setLoading(true)
-    setError(null)
-    setSaved(false)
+    setLoading(true);
+    setError(null);
+    setSaved(false);
     try {
-      const transactions = await fetchTransactionsForRange(date, date)
-      const dayTxs = transactions.filter((t) => t.created_at.startsWith(date))
-      const exp = calculateExpectedCash(Number(openingBalance) || 0, dayTxs, [])
-      const act = Number(closingBalance) || 0
-      setExpected(exp)
-      setActual(act)
+      const transactions = await fetchTransactionsForRange(date, date);
+      const dayTxs = transactions.filter((t) => t.created_at.startsWith(date));
+      const exp = calculateExpectedCash(
+        Number(openingBalance) || 0,
+        dayTxs,
+        [],
+      );
+      const act = Number(closingBalance) || 0;
+      setExpected(exp);
+      setActual(act);
     } catch (err) {
       if (err instanceof ReportError) {
-        setError(err.message)
+        setError(err.message);
       } else {
-        setError('Terjadi kesalahan')
+        setError("Terjadi kesalahan");
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   async function save() {
-    if (expected === null || actual === null) return
-    setError(null)
+    if (expected === null || actual === null) return;
+    setError(null);
     try {
-      await saveReconciliation(expected, actual, date)
-      setSaved(true)
+      await saveReconciliation(expected, actual, date);
+      setSaved(true);
     } catch (err) {
       if (err instanceof ReportError) {
-        setError(err.message)
+        setError(err.message);
       } else {
-        setError('Terjadi kesalahan saat menyimpan')
+        setError("Terjadi kesalahan saat menyimpan");
       }
     }
   }
 
-  const diff = expected !== null && actual !== null ? actual - expected : null
+  const diff = expected !== null && actual !== null ? actual - expected : null;
 
   return (
     <div data-testid="reconciliation-container" className="p-4 space-y-4">
@@ -120,7 +124,10 @@ export function CashReconciliation() {
             <Card>
               <CardContent className="pt-4">
                 <p className="text-sm text-gray-500">Kas Diharapkan</p>
-                <p data-testid="reconciliation-expected" className="text-lg font-bold">
+                <p
+                  data-testid="reconciliation-expected"
+                  className="text-lg font-bold"
+                >
                   {formatIDR(expected)}
                 </p>
               </CardContent>
@@ -128,7 +135,10 @@ export function CashReconciliation() {
             <Card>
               <CardContent className="pt-4">
                 <p className="text-sm text-gray-500">Kas Aktual</p>
-                <p data-testid="reconciliation-actual" className="text-lg font-bold">
+                <p
+                  data-testid="reconciliation-actual"
+                  className="text-lg font-bold"
+                >
                   {formatIDR(actual)}
                 </p>
               </CardContent>
@@ -138,10 +148,11 @@ export function CashReconciliation() {
                 <p className="text-sm text-gray-500">Selisih</p>
                 <p
                   data-testid="reconciliation-diff"
-                  className={`text-lg font-bold ${diff >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                  className={`text-lg font-bold ${diff >= 0 ? "text-green-600" : "text-red-600"}`}
                 >
-                  {diff >= 0 ? '+' : ''}{formatIDR(Math.abs(diff))}
-                  {diff >= 0 ? ' (Surplus)' : ' (Defisit)'}
+                  {diff >= 0 ? "+" : ""}
+                  {formatIDR(Math.abs(diff))}
+                  {diff >= 0 ? " (Surplus)" : " (Defisit)"}
                 </p>
               </CardContent>
             </Card>
@@ -158,11 +169,13 @@ export function CashReconciliation() {
           )}
           {saved && (
             <Alert className="border-green-500 bg-green-50 text-green-800">
-              <AlertDescription>Rekonsiliasi berhasil disimpan.</AlertDescription>
+              <AlertDescription>
+                Rekonsiliasi berhasil disimpan.
+              </AlertDescription>
             </Alert>
           )}
         </div>
       )}
     </div>
-  )
+  );
 }

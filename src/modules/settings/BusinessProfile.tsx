@@ -5,74 +5,83 @@
  * and invalidates the settings query. If business_name changed, also syncs
  * to the main spreadsheet and invalidates the stores query.
  */
-import { useState, useEffect } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useSettings, SETTINGS_QUERY_KEY } from '../../hooks/useSettings'
-import { saveSettings, type BusinessSettings } from './settings.service'
-import { updateStoreName } from '../auth/setup.service'
-import { useAuth } from '../auth/useAuth'
-import { useAuthStore } from '../../store/authStore'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Alert, AlertDescription } from '../../components/ui/alert'
-import { STORES_QUERY_KEY } from '../../hooks/useStores'
+import { useState, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSettings, SETTINGS_QUERY_KEY } from "../../hooks/useSettings";
+import { saveSettings, type BusinessSettings } from "./settings.service";
+import { updateStoreName } from "../auth/setup.service";
+import { useAuth } from "../auth/useAuth";
+import { useAuthStore } from "../../store/authStore";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { STORES_QUERY_KEY } from "../../hooks/useStores";
 
-const TIMEZONES = ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'] as const
+const TIMEZONES = ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"] as const;
 
 export default function BusinessProfile() {
-  const { activeStoreId, spreadsheetId } = useAuth()
-  const zustandActiveStoreId = useAuthStore((s) => s.activeStoreId)
-  const queryClient = useQueryClient()
-  const { data: settings, isLoading } = useSettings()
+  const { activeStoreId, spreadsheetId } = useAuth();
+  const zustandActiveStoreId = useAuthStore((s) => s.activeStoreId);
+  const queryClient = useQueryClient();
+  const { data: settings, isLoading } = useSettings();
 
   const [form, setForm] = useState<BusinessSettings>({
-    business_name: '',
-    timezone: 'Asia/Jakarta',
+    business_name: "",
+    timezone: "Asia/Jakarta",
     tax_rate: 11,
-    receipt_footer: '',
-    qris_image_url: '',
-  })
-  const [initialName, setInitialName] = useState('')
-  const [success, setSuccess] = useState(false)
+    receipt_footer: "",
+    qris_image_url: "",
+  });
+  const [initialName, setInitialName] = useState("");
+  const [success, setSuccess] = useState(false);
 
   // Populate form when settings load
   useEffect(() => {
     if (settings) {
-      setForm(settings)
-      setInitialName(settings.business_name)
+      setForm(settings);
+      setInitialName(settings.business_name);
     }
-  }, [settings])
+  }, [settings]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      await saveSettings(form)
-      if (form.business_name !== initialName && activeStoreId && spreadsheetId) {
-        await updateStoreName(activeStoreId, form.business_name)
-        void queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY })
-        setInitialName(form.business_name)
+      await saveSettings(form);
+      if (
+        form.business_name !== initialName &&
+        activeStoreId &&
+        spreadsheetId
+      ) {
+        await updateStoreName(activeStoreId, form.business_name);
+        void queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY });
+        setInitialName(form.business_name);
       }
-      void queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY(zustandActiveStoreId) })
+      void queryClient.invalidateQueries({
+        queryKey: SETTINGS_QUERY_KEY(zustandActiveStoreId),
+      });
     },
     onSuccess: () => setSuccess(true),
     onError: () => setSuccess(false),
-  })
+  });
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    const { name, value } = e.target
+  function handleChange(
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) {
+    const { name, value } = e.target;
     setForm((prev) => ({
       ...prev,
-      [name]: name === 'tax_rate' ? parseInt(value, 10) : value,
-    }))
+      [name]: name === "tax_rate" ? parseInt(value, 10) : value,
+    }));
   }
 
   function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setSuccess(false)
-    saveMutation.mutate()
+    e.preventDefault();
+    setSuccess(false);
+    saveMutation.mutate();
   }
 
-  if (isLoading) return <p className="p-4 text-sm text-gray-500">Memuat pengaturan…</p>
+  if (isLoading)
+    return <p className="p-4 text-sm text-gray-500">Memuat pengaturan…</p>;
 
   return (
     <form
@@ -138,7 +147,10 @@ export default function BusinessProfile() {
       </div>
 
       {success && (
-        <Alert className="border-green-500 bg-green-50 text-green-800" data-testid="profile-save-success">
+        <Alert
+          className="border-green-500 bg-green-50 text-green-800"
+          data-testid="profile-save-success"
+        >
           <AlertDescription>Pengaturan berhasil disimpan.</AlertDescription>
         </Alert>
       )}
@@ -148,9 +160,13 @@ export default function BusinessProfile() {
         </Alert>
       )}
 
-      <Button data-testid="btn-save-profile" type="submit" disabled={saveMutation.isPending}>
-        {saveMutation.isPending ? 'Menyimpan…' : 'Simpan'}
+      <Button
+        data-testid="btn-save-profile"
+        type="submit"
+        disabled={saveMutation.isPending}
+      >
+        {saveMutation.isPending ? "Menyimpan…" : "Simpan"}
       </Button>
     </form>
-  )
+  );
 }

@@ -5,73 +5,86 @@
  * Data comes from useVariants() (React Query). Mutations invalidate the query.
  */
 
-import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useAuthStore } from '../../store/authStore'
-import { useVariants, VARIANTS_QUERY_KEY } from '../../hooks/useVariants'
-import { addVariant, deleteVariant } from './catalog.service'
-import type { Product } from './catalog.service'
-import { formatIDR } from '../../lib/formatters'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Alert, AlertDescription } from '../../components/ui/alert'
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuthStore } from "../../store/authStore";
+import { useVariants, VARIANTS_QUERY_KEY } from "../../hooks/useVariants";
+import { addVariant, deleteVariant } from "./catalog.service";
+import type { Product } from "./catalog.service";
+import { formatIDR } from "../../lib/formatters";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 
 interface Props {
-  product: Product
+  product: Product;
 }
 
 export function VariantManager({ product }: Props) {
-  const queryClient = useQueryClient()
-  const activeStoreId = useAuthStore((s) => s.activeStoreId)
-  const { data: variants = [] } = useVariants()
+  const queryClient = useQueryClient();
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const { data: variants = [] } = useVariants();
 
-  const productVariants = variants.filter((v) => v.product_id === product.id)
+  const productVariants = variants.filter((v) => v.product_id === product.id);
 
-  const [optionName, setOptionName] = useState('')
-  const [optionValue, setOptionValue] = useState('')
-  const [price, setPrice] = useState('')
-  const [stock, setStock] = useState('0')
-  const [error, setError] = useState<string | null>(null)
+  const [optionName, setOptionName] = useState("");
+  const [optionValue, setOptionValue] = useState("");
+  const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("0");
+  const [error, setError] = useState<string | null>(null);
 
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: VARIANTS_QUERY_KEY(activeStoreId) })
+    queryClient.invalidateQueries({
+      queryKey: VARIANTS_QUERY_KEY(activeStoreId),
+    });
 
   const addMutation = useMutation({
     mutationFn: () => {
-      const priceNum = parseInt(price, 10)
-      if (!Number.isInteger(priceNum) || priceNum <= 0) throw new Error('Harga harus bilangan bulat positif')
-      if (!optionValue.trim()) throw new Error('Nilai varian tidak boleh kosong')
-      return addVariant(product.id, optionName.trim(), optionValue.trim(), priceNum, parseInt(stock, 10) || 0)
+      const priceNum = parseInt(price, 10);
+      if (!Number.isInteger(priceNum) || priceNum <= 0)
+        throw new Error("Harga harus bilangan bulat positif");
+      if (!optionValue.trim())
+        throw new Error("Nilai varian tidak boleh kosong");
+      return addVariant(
+        product.id,
+        optionName.trim(),
+        optionValue.trim(),
+        priceNum,
+        parseInt(stock, 10) || 0,
+      );
     },
     onSuccess: () => {
-      setOptionName('')
-      setOptionValue('')
-      setPrice('')
-      setStock('0')
-      setError(null)
-      void invalidate()
+      setOptionName("");
+      setOptionValue("");
+      setPrice("");
+      setStock("0");
+      setError(null);
+      void invalidate();
     },
     onError: (err: Error) => setError(err.message),
-  })
+  });
 
   const deleteMutation = useMutation({
     mutationFn: (variantId: string) => deleteVariant(variantId),
     onSuccess: () => void invalidate(),
     onError: (err: Error) => setError(err.message),
-  })
+  });
 
   function handleAdd(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    addMutation.mutate()
+    e.preventDefault();
+    setError(null);
+    addMutation.mutate();
   }
 
   return (
     <div className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">Varian — {product.name}</h2>
 
-      <form onSubmit={handleAdd} className="rounded border border-gray-200 p-4 flex flex-col gap-3">
+      <form
+        onSubmit={handleAdd}
+        className="rounded border border-gray-200 p-4 flex flex-col gap-3"
+      >
         <h3 className="text-sm font-medium">Tambah Varian</h3>
         <div className="flex gap-3">
           <div className="flex-1 space-y-1.5">
@@ -123,13 +136,15 @@ export function VariantManager({ product }: Props) {
         )}
         <div className="flex justify-end">
           <Button type="submit" disabled={addMutation.isPending}>
-            {addMutation.isPending ? 'Menambahkan…' : 'Tambah Varian'}
+            {addMutation.isPending ? "Menambahkan…" : "Tambah Varian"}
           </Button>
         </div>
       </form>
 
       {productVariants.length === 0 ? (
-        <p className="text-sm text-gray-500">Belum ada varian untuk produk ini.</p>
+        <p className="text-sm text-gray-500">
+          Belum ada varian untuk produk ini.
+        </p>
       ) : (
         <ul className="flex flex-col gap-2">
           {productVariants.map((v) => (
@@ -158,5 +173,5 @@ export function VariantManager({ product }: Props) {
         </ul>
       )}
     </div>
-  )
+  );
 }

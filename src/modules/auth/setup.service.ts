@@ -11,10 +11,10 @@
  * adapters — no direct Sheets API calls from this file.
  */
 
-import { getRepos, driveClient, makeRepo } from '../../lib/adapters'
-import { generateId } from '../../lib/uuid'
-import { nowUTC } from '../../lib/formatters'
-import { useAuthStore } from '../../store/authStore'
+import { getRepos, driveClient, makeRepo } from "../../lib/adapters";
+import { generateId } from "../../lib/uuid";
+import { nowUTC } from "../../lib/formatters";
+import { useAuthStore } from "../../store/authStore";
 import {
   MAIN_TABS,
   MASTER_TABS,
@@ -22,7 +22,7 @@ import {
   MAIN_TAB_HEADERS,
   MASTER_TAB_HEADERS,
   MONTHLY_TAB_HEADERS,
-} from '../../lib/schema'
+} from "../../lib/schema";
 
 // Re-export so existing callers that imported from this module continue to work.
 export {
@@ -32,7 +32,7 @@ export {
   MAIN_TAB_HEADERS,
   MASTER_TAB_HEADERS,
   MONTHLY_TAB_HEADERS,
-}
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,45 +41,48 @@ export {
  * This is the shape returned by listStores() and consumed by activateStore().
  */
 export interface StoreRecord {
-  store_id: string
-  store_name: string
-  master_spreadsheet_id: string
-  drive_folder_id: string
-  owner_email: string
-  my_role: string
-  joined_at: string
+  store_id: string;
+  store_name: string;
+  master_spreadsheet_id: string;
+  drive_folder_id: string;
+  owner_email: string;
+  my_role: string;
+  joined_at: string;
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
 /** Returns the zero-padded month string, e.g. "04" for April. */
 function mm(month: number): string {
-  return String(month).padStart(2, '0')
+  return String(month).padStart(2, "0");
 }
 
 /** Custom error for setup failures. */
 export class SetupError extends Error {
-  readonly cause?: unknown
+  readonly cause?: unknown;
 
   constructor(message: string, cause?: unknown) {
-    super(message)
-    this.name = 'SetupError'
-    this.cause = cause
+    super(message);
+    this.name = "SetupError";
+    this.cause = cause;
   }
 }
 
 /** Returns the mainSpreadsheetId from Zustand (persisted), falling back to the
  *  legacy direct localStorage key for users migrating from pre-Zustand sessions. */
 export function getMainSpreadsheetId(): string | null {
-  return useAuthStore.getState().mainSpreadsheetId ?? localStorage.getItem('mainSpreadsheetId')
+  return (
+    useAuthStore.getState().mainSpreadsheetId ??
+    localStorage.getItem("mainSpreadsheetId")
+  );
 }
 
 /** Persists the mainSpreadsheetId to Zustand (which persists to localStorage via
  *  the `pos-umkm-auth` key). Also writes the legacy direct key so old code paths
  *  and any backward-compat reads continue to work during the transition period. */
 export function saveMainSpreadsheetId(id: string): void {
-  useAuthStore.getState().setMainSpreadsheetId(id)
-  localStorage.setItem('mainSpreadsheetId', id) // legacy fallback key
+  useAuthStore.getState().setMainSpreadsheetId(id);
+  localStorage.setItem("mainSpreadsheetId", id); // legacy fallback key
 }
 
 /**
@@ -87,8 +90,8 @@ export function saveMainSpreadsheetId(id: string): void {
  * direct localStorage key. Called from runStoreSetup after creating a new store.
  */
 export function saveSpreadsheetId(spreadsheetId: string): void {
-  useAuthStore.getState().setSpreadsheetId(spreadsheetId)
-  localStorage.setItem('masterSpreadsheetId', spreadsheetId) // legacy fallback key
+  useAuthStore.getState().setSpreadsheetId(spreadsheetId);
+  localStorage.setItem("masterSpreadsheetId", spreadsheetId); // legacy fallback key
 }
 
 /**
@@ -101,15 +104,15 @@ export function saveSpreadsheetId(spreadsheetId: string): void {
  * and legacy code paths write to localStorage independently.
  */
 export function clearSetupStorage(): void {
-  localStorage.removeItem('mainSpreadsheetId')
-  localStorage.removeItem('masterSpreadsheetId')
-  localStorage.removeItem('activeStoreId')
-  localStorage.removeItem('storeFolderId')
+  localStorage.removeItem("mainSpreadsheetId");
+  localStorage.removeItem("masterSpreadsheetId");
+  localStorage.removeItem("activeStoreId");
+  localStorage.removeItem("storeFolderId");
   // Clear all monthly transaction sheet cache keys — both store-scoped
   // (txSheet_<storeId>_YYYY-MM) and legacy unscoped (txSheet_YYYY-MM) formats.
   Object.keys(localStorage)
-    .filter((k) => k.startsWith('txSheet_'))
-    .forEach((k) => localStorage.removeItem(k))
+    .filter((k) => k.startsWith("txSheet_"))
+    .forEach((k) => localStorage.removeItem(k));
 }
 
 /**
@@ -118,8 +121,12 @@ export function clearSetupStorage(): void {
  * Key is scoped to storeId to prevent multi-store collisions.
  * Example: txSheet_abc123_2026-04
  */
-export function monthlySheetKey(storeId: string, year: number, month: number): string {
-  return `txSheet_${storeId}_${year}-${mm(month)}`
+export function monthlySheetKey(
+  storeId: string,
+  year: number,
+  month: number,
+): string {
+  return `txSheet_${storeId}_${year}-${mm(month)}`;
 }
 
 // ─── Main Spreadsheet ─────────────────────────────────────────────────────────
@@ -130,17 +137,21 @@ export function monthlySheetKey(storeId: string, year: number, month: number): s
  * Called once per Google account — subsequent logins read from it.
  * Writes the Stores tab header row immediately after creation.
  */
-export async function createMainSpreadsheet(ownerEmail = ''): Promise<string> {
+export async function createMainSpreadsheet(ownerEmail = ""): Promise<string> {
   try {
-    let parentFolderId: string | undefined
-    const fid = await driveClient.ensureFolder(['apps', 'pos_umkm'])
-    if (fid) parentFolderId = fid
-    const mainId = await driveClient.createSpreadsheet('main', parentFolderId, [...MAIN_TABS])
-    await makeRepo(mainId, 'Stores').writeHeaders(MAIN_TAB_HEADERS['Stores'] ?? [])
-    void ownerEmail // reserved for future row insertion on member join flow
-    return mainId
+    let parentFolderId: string | undefined;
+    const fid = await driveClient.ensureFolder(["apps", "pos_umkm"]);
+    if (fid) parentFolderId = fid;
+    const mainId = await driveClient.createSpreadsheet("main", parentFolderId, [
+      ...MAIN_TABS,
+    ]);
+    await makeRepo(mainId, "Stores").writeHeaders(
+      MAIN_TAB_HEADERS["Stores"] ?? [],
+    );
+    void ownerEmail; // reserved for future row insertion on member join flow
+    return mainId;
   } catch (err) {
-    throw new SetupError(`createMainSpreadsheet failed: ${String(err)}`, err)
+    throw new SetupError(`createMainSpreadsheet failed: ${String(err)}`, err);
   }
 }
 
@@ -149,19 +160,21 @@ export async function createMainSpreadsheet(ownerEmail = ''): Promise<string> {
  * Temporarily routes the adapter to mainSpreadsheetId, then leaves it pointing
  * at main — callers that activate a store must call setSpreadsheetId(masterId).
  */
-export async function listStores(mainSpreadsheetId: string): Promise<StoreRecord[]> {
-  const rows = await makeRepo(mainSpreadsheetId, 'Stores').getAll()
+export async function listStores(
+  mainSpreadsheetId: string,
+): Promise<StoreRecord[]> {
+  const rows = await makeRepo(mainSpreadsheetId, "Stores").getAll();
   return rows
-    .filter((r) => r['store_id'] && r['master_spreadsheet_id'])
+    .filter((r) => r["store_id"] && r["master_spreadsheet_id"])
     .map((r) => ({
-      store_id: String(r['store_id']),
-      store_name: String(r['store_name'] ?? ''),
-      master_spreadsheet_id: String(r['master_spreadsheet_id']),
-      drive_folder_id: String(r['drive_folder_id'] ?? ''),
-      owner_email: String(r['owner_email'] ?? ''),
-      my_role: String(r['my_role'] ?? 'owner'),
-      joined_at: String(r['joined_at'] ?? ''),
-    }))
+      store_id: String(r["store_id"]),
+      store_name: String(r["store_name"] ?? ""),
+      master_spreadsheet_id: String(r["master_spreadsheet_id"]),
+      drive_folder_id: String(r["drive_folder_id"] ?? ""),
+      owner_email: String(r["owner_email"] ?? ""),
+      my_role: String(r["my_role"] ?? "owner"),
+      joined_at: String(r["joined_at"] ?? ""),
+    }));
 }
 
 /**
@@ -183,16 +196,25 @@ export async function updateStoreName(
   storeId: string,
   newName: string,
 ): Promise<void> {
-  const mainId = getMainSpreadsheetId()
-  if (!mainId) throw new SetupError('updateStoreName: mainSpreadsheetId not found')
+  const mainId = getMainSpreadsheetId();
+  if (!mainId)
+    throw new SetupError("updateStoreName: mainSpreadsheetId not found");
 
   try {
-    await makeRepo(mainId, 'Stores').batchUpdateCells([{ rowId: storeId, column: 'store_name', value: newName }])
+    await makeRepo(mainId, "Stores").batchUpdateCells([
+      { rowId: storeId, column: "store_name", value: newName },
+    ]);
   } catch (err) {
-    if (err instanceof Error && err.name === 'AdapterError' && err.message.includes('not found')) {
-      throw new SetupError(`updateStoreName: store ${storeId} not found in main.Stores`)
+    if (
+      err instanceof Error &&
+      err.name === "AdapterError" &&
+      err.message.includes("not found")
+    ) {
+      throw new SetupError(
+        `updateStoreName: store ${storeId} not found in main.Stores`,
+      );
     }
-    throw err
+    throw err;
   }
 }
 
@@ -211,25 +233,25 @@ export async function updateStoreName(
  * (1 store), or shows the picker (2+ stores).
  */
 export async function findOrCreateMain(
-  ownerEmail = '',
+  ownerEmail = "",
 ): Promise<{ mainSpreadsheetId: string; stores: StoreRecord[] }> {
   try {
-    let mainId = getMainSpreadsheetId()
+    let mainId = getMainSpreadsheetId();
 
     if (!mainId) {
       // Cache miss — use Drive to find the existing file or create a new one.
       // createMainSpreadsheet calls createSpreadsheet with a parentFolderId so
       // the "find or create" search in drive.client.ts is triggered: if
       // apps/pos_umkm/main already exists, its ID is returned (not a new file).
-      mainId = await createMainSpreadsheet(ownerEmail)
-      saveMainSpreadsheetId(mainId)
+      mainId = await createMainSpreadsheet(ownerEmail);
+      saveMainSpreadsheetId(mainId);
     }
 
     // Always read stores — whether mainId came from cache or from Drive.
-    const stores = await listStores(mainId)
-    return { mainSpreadsheetId: mainId, stores }
+    const stores = await listStores(mainId);
+    return { mainSpreadsheetId: mainId, stores };
   } catch (err) {
-    throw new SetupError(`findOrCreateMain failed: ${String(err)}`, err)
+    throw new SetupError(`findOrCreateMain failed: ${String(err)}`, err);
   }
 }
 
@@ -247,19 +269,19 @@ export async function findOrCreateMain(
  * gracefully with an empty-state message rather than crashing.
  */
 export async function activateStore(store: StoreRecord): Promise<{
-  spreadsheetId: string
-  monthlySpreadsheetId: string | null
+  spreadsheetId: string;
+  monthlySpreadsheetId: string | null;
 }> {
-  const { master_spreadsheet_id: masterId, store_id: storeId } = store
+  const { master_spreadsheet_id: masterId, store_id: storeId } = store;
 
   // activeStoreId must be in localStorage synchronously — createMonthlySheet()
   // reads it during this same call to determine the Drive folder path.
-  localStorage.setItem('activeStoreId', storeId)
+  localStorage.setItem("activeStoreId", storeId);
 
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
-  const yearMonth = `${year}-${mm(month)}`
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const yearMonth = `${year}-${mm(month)}`;
 
   // Read Monthly_Sheets directly from the master spreadsheet via a raw
   // SheetRepository (makeRepo), bypassing the Dexie cache. At this point
@@ -267,28 +289,31 @@ export async function activateStore(store: StoreRecord): Promise<{
   // AppShell's useEffect after the Zustand state update), so getRepos()
   // would read from the *previous* store's IndexedDB and return the wrong
   // monthly spreadsheet ID, causing cross-store data contamination.
-  let monthlyId: string | null = null
+  let monthlyId: string | null = null;
   try {
-    const rows = await makeRepo(masterId, 'Monthly_Sheets').getAll()
-    const row = rows.find((r) => (r as Record<string, unknown>)['year_month'] === yearMonth)
-    monthlyId = ((row as Record<string, unknown>)?.['spreadsheetId'] as string) ?? null
+    const rows = await makeRepo(masterId, "Monthly_Sheets").getAll();
+    const row = rows.find(
+      (r) => (r as Record<string, unknown>)["year_month"] === yearMonth,
+    );
+    monthlyId =
+      ((row as Record<string, unknown>)?.["spreadsheetId"] as string) ?? null;
   } catch {
     // Monthly_Sheets tab may not yet exist (pre-setup); treat as no entry.
   }
 
   if (!monthlyId) {
     try {
-      monthlyId = await createMonthlySheet(year, month)
-      await initializeMonthlySheets(monthlyId)
+      monthlyId = await createMonthlySheet(year, month);
+      await initializeMonthlySheets(monthlyId);
     } catch {
       // Cashiers lack the drive scope to create monthly sheets.
       // The monthly sheet must be pre-created by an owner or manager.
-      return { spreadsheetId: masterId, monthlySpreadsheetId: null }
+      return { spreadsheetId: masterId, monthlySpreadsheetId: null };
     }
   }
 
-  localStorage.setItem(monthlySheetKey(storeId, year, month), monthlyId)
-  return { spreadsheetId: masterId, monthlySpreadsheetId: monthlyId }
+  localStorage.setItem(monthlySheetKey(storeId, year, month), monthlyId);
+  return { spreadsheetId: masterId, monthlySpreadsheetId: monthlyId };
 }
 
 // ─── Master Spreadsheet ───────────────────────────────────────────────────────
@@ -313,38 +338,49 @@ export async function activateStore(store: StoreRecord): Promise<{
  */
 export async function createMasterSpreadsheet(
   businessName: string,
-  ownerEmail = '',
+  ownerEmail = "",
   mainSpreadsheetId: string,
 ): Promise<{ masterId: string; storeId: string; driveFolderId: string }> {
   try {
-    const storeId = generateId()
+    const storeId = generateId();
 
     // ── 1. Create store folder ────────────────────────────────────────────────
-    let storeFolderId: string | undefined
-    const fid = await driveClient.ensureFolder(['apps', 'pos_umkm', 'stores', storeId])
-    if (fid) storeFolderId = fid
+    let storeFolderId: string | undefined;
+    const fid = await driveClient.ensureFolder([
+      "apps",
+      "pos_umkm",
+      "stores",
+      storeId,
+    ]);
+    if (fid) storeFolderId = fid;
 
     // ── 2. Create master spreadsheet ──────────────────────────────────────────
-    const masterId = await driveClient.createSpreadsheet('master', storeFolderId, [...MASTER_TABS])
+    const masterId = await driveClient.createSpreadsheet(
+      "master",
+      storeFolderId,
+      [...MASTER_TABS],
+    );
 
     // ── 3. Register new store in main.Stores ──────────────────────────────────
-    await makeRepo(mainSpreadsheetId, 'Stores').batchAppend([{
-      store_id: storeId,
-      store_name: businessName,
-      master_spreadsheet_id: masterId,
-      drive_folder_id: storeFolderId ?? '',
-      owner_email: ownerEmail,
-      my_role: 'owner',
-      joined_at: nowUTC(),
-    }])
+    await makeRepo(mainSpreadsheetId, "Stores").batchAppend([
+      {
+        store_id: storeId,
+        store_name: businessName,
+        master_spreadsheet_id: masterId,
+        drive_folder_id: storeFolderId ?? "",
+        owner_email: ownerEmail,
+        my_role: "owner",
+        joined_at: nowUTC(),
+      },
+    ]);
 
     // Persist store context so monthly sheets and other services can locate the folder.
-    localStorage.setItem('activeStoreId', storeId)
-    if (storeFolderId) localStorage.setItem('storeFolderId', storeFolderId)
+    localStorage.setItem("activeStoreId", storeId);
+    if (storeFolderId) localStorage.setItem("storeFolderId", storeFolderId);
 
-    return { masterId, storeId, driveFolderId: storeFolderId ?? '' }
+    return { masterId, storeId, driveFolderId: storeFolderId ?? "" };
   } catch (err) {
-    throw new SetupError(`createMasterSpreadsheet failed: ${String(err)}`, err)
+    throw new SetupError(`createMasterSpreadsheet failed: ${String(err)}`, err);
   }
 }
 
@@ -354,13 +390,17 @@ export async function createMasterSpreadsheet(
  * can map object keys to the correct column positions in subsequent appendRow calls.
  * In MockDataAdapter this is a no-op — the mock uses object keys directly.
  */
-export async function initializeMasterSheets(spreadsheetId: string): Promise<void> {
+export async function initializeMasterSheets(
+  spreadsheetId: string,
+): Promise<void> {
   if (!spreadsheetId) {
-    throw new SetupError('initializeMasterSheets: spreadsheetId is required')
+    throw new SetupError("initializeMasterSheets: spreadsheetId is required");
   }
   await Promise.all(
-    MASTER_TABS.map((tab) => makeRepo(spreadsheetId, tab).writeHeaders(MASTER_TAB_HEADERS[tab] ?? [])),
-  )
+    MASTER_TABS.map((tab) =>
+      makeRepo(spreadsheetId, tab).writeHeaders(MASTER_TAB_HEADERS[tab] ?? []),
+    ),
+  );
 }
 
 // ─── Monthly Spreadsheet ──────────────────────────────────────────────────────
@@ -376,15 +416,15 @@ export async function initializeMasterSheets(spreadsheetId: string): Promise<voi
  * a Drive folder listing call.
  */
 export async function getCurrentMonthSheetId(): Promise<string | null> {
-  const now = new Date()
-  const yearMonth = `${now.getFullYear()}-${mm(now.getMonth() + 1)}`
+  const now = new Date();
+  const yearMonth = `${now.getFullYear()}-${mm(now.getMonth() + 1)}`;
   try {
-    const rows = await getRepos().monthlySheets.getAll()
-    const row = rows.find((r) => r['year_month'] === yearMonth)
-    return (row?.['spreadsheetId'] as string) ?? null
+    const rows = await getRepos().monthlySheets.getAll();
+    const row = rows.find((r) => r["year_month"] === yearMonth);
+    return (row?.["spreadsheetId"] as string) ?? null;
   } catch {
     // Monthly_Sheets tab may not yet exist (pre-setup); treat as no entry.
-    return null
+    return null;
   }
 }
 
@@ -396,36 +436,48 @@ export async function getCurrentMonthSheetId(): Promise<string | null> {
  * tab so that any user (including cashiers without Drive API access) can resolve
  * the spreadsheetId from a simple Sheets API read.
  */
-export async function createMonthlySheet(year: number, month: number): Promise<string> {
+export async function createMonthlySheet(
+  year: number,
+  month: number,
+): Promise<string> {
   try {
-    const yearMonth = `${year}-${mm(month)}`
-    const name = `transaction_${yearMonth}`
+    const yearMonth = `${year}-${mm(month)}`;
+    const name = `transaction_${yearMonth}`;
 
-    let parentFolderId: string | undefined
-    const storeId = localStorage.getItem('activeStoreId')
+    let parentFolderId: string | undefined;
+    const storeId = localStorage.getItem("activeStoreId");
     if (storeId) {
       const folderId = await driveClient.ensureFolder([
-        'apps', 'pos_umkm', 'stores', storeId, 'transactions', String(year),
-      ])
-      if (folderId) parentFolderId = folderId
+        "apps",
+        "pos_umkm",
+        "stores",
+        storeId,
+        "transactions",
+        String(year),
+      ]);
+      if (folderId) parentFolderId = folderId;
     } else {
       // Fallback: use the store folder directly (pre-existing sessions without activeStoreId)
-      parentFolderId = localStorage.getItem('storeFolderId') ?? undefined
+      parentFolderId = localStorage.getItem("storeFolderId") ?? undefined;
     }
 
-    const id = await driveClient.createSpreadsheet(name, parentFolderId, [...MONTHLY_TABS])
+    const id = await driveClient.createSpreadsheet(name, parentFolderId, [
+      ...MONTHLY_TABS,
+    ]);
 
     // Register in the Monthly_Sheets registry tab so all users can resolve the ID.
-    await getRepos().monthlySheets.batchInsert([{
-      id: generateId(),
-      year_month: yearMonth,
-      spreadsheetId: id,
-      created_at: nowUTC(),
-    }])
+    await getRepos().monthlySheets.batchInsert([
+      {
+        id: generateId(),
+        year_month: yearMonth,
+        spreadsheetId: id,
+        created_at: nowUTC(),
+      },
+    ]);
 
-    return id
+    return id;
   } catch (err) {
-    throw new SetupError(`createMonthlySheet failed: ${String(err)}`, err)
+    throw new SetupError(`createMonthlySheet failed: ${String(err)}`, err);
   }
 }
 
@@ -435,13 +487,17 @@ export async function createMonthlySheet(year: number, month: number): Promise<s
  * routes to the monthly spreadsheet and not the master.
  * In MockDataAdapter this is a no-op.
  */
-export async function initializeMonthlySheets(spreadsheetId: string): Promise<void> {
+export async function initializeMonthlySheets(
+  spreadsheetId: string,
+): Promise<void> {
   if (!spreadsheetId) {
-    throw new SetupError('initializeMonthlySheets: spreadsheetId is required')
+    throw new SetupError("initializeMonthlySheets: spreadsheetId is required");
   }
   await Promise.all(
-    MONTHLY_TABS.map((tab) => makeRepo(spreadsheetId, tab).writeHeaders(MONTHLY_TAB_HEADERS[tab] ?? [])),
-  )
+    MONTHLY_TABS.map((tab) =>
+      makeRepo(spreadsheetId, tab).writeHeaders(MONTHLY_TAB_HEADERS[tab] ?? []),
+    ),
+  );
 }
 
 // ─── Setup Orchestrators ──────────────────────────────────────────────────────
@@ -465,28 +521,32 @@ export async function initializeMonthlySheets(spreadsheetId: string): Promise<vo
  */
 export async function runStoreSetup(
   businessName: string,
-  ownerEmail = '',
+  ownerEmail = "",
 ): Promise<{ masterSpreadsheetId: string; monthlySpreadsheetId: string }> {
-  const mainId = getMainSpreadsheetId()
+  const mainId = getMainSpreadsheetId();
   if (!mainId) {
     throw new SetupError(
-      'runStoreSetup: mainSpreadsheetId not found in localStorage. Call findOrCreateMain() first.',
-    )
+      "runStoreSetup: mainSpreadsheetId not found in localStorage. Call findOrCreateMain() first.",
+    );
   }
 
-  const { masterId: masterSpreadsheetId, storeId: newStoreId } = await createMasterSpreadsheet(businessName, ownerEmail, mainId)
-  await initializeMasterSheets(masterSpreadsheetId)
-  saveSpreadsheetId(masterSpreadsheetId)
+  const { masterId: masterSpreadsheetId, storeId: newStoreId } =
+    await createMasterSpreadsheet(businessName, ownerEmail, mainId);
+  await initializeMasterSheets(masterSpreadsheetId);
+  saveSpreadsheetId(masterSpreadsheetId);
 
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
-  const monthlySpreadsheetId = await createMonthlySheet(year, month)
-  useAuthStore.getState().setMonthlySpreadsheetId(monthlySpreadsheetId)
-  await initializeMonthlySheets(monthlySpreadsheetId)
-  localStorage.setItem(monthlySheetKey(newStoreId, year, month), monthlySpreadsheetId)
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const monthlySpreadsheetId = await createMonthlySheet(year, month);
+  useAuthStore.getState().setMonthlySpreadsheetId(monthlySpreadsheetId);
+  await initializeMonthlySheets(monthlySpreadsheetId);
+  localStorage.setItem(
+    monthlySheetKey(newStoreId, year, month),
+    monthlySpreadsheetId,
+  );
 
-  return { masterSpreadsheetId, monthlySpreadsheetId }
+  return { masterSpreadsheetId, monthlySpreadsheetId };
 }
 
 /**
@@ -499,11 +559,11 @@ export async function runStoreSetup(
  */
 export async function runFirstTimeSetup(
   businessName: string,
-  ownerEmail = '',
+  ownerEmail = "",
 ): Promise<{ masterSpreadsheetId: string; monthlySpreadsheetId: string }> {
-  const { mainSpreadsheetId } = await findOrCreateMain(ownerEmail)
-  saveMainSpreadsheetId(mainSpreadsheetId)
-  return runStoreSetup(businessName, ownerEmail)
+  const { mainSpreadsheetId } = await findOrCreateMain(ownerEmail);
+  saveMainSpreadsheetId(mainSpreadsheetId);
+  return runStoreSetup(businessName, ownerEmail);
 }
 
 /**
@@ -511,15 +571,20 @@ export async function runFirstTimeSetup(
  * Active members are rows where deleted_at is falsy.
  * Called after creating a new monthly sheet so all members can access it.
  */
-export async function shareSheetWithAllMembers(spreadsheetId: string): Promise<void> {
-  const members = await getRepos().members.getAll()
+export async function shareSheetWithAllMembers(
+  spreadsheetId: string,
+): Promise<void> {
+  const members = await getRepos().members.getAll();
   const activeMembers = members.filter(
-    (u) => !u['deleted_at'] && u['email'] && u['email'] !== '',
-  )
+    (u) => !u["deleted_at"] && u["email"] && u["email"] !== "",
+  );
   await Promise.all(
     activeMembers.map((u) =>
-      driveClient.shareSpreadsheet(spreadsheetId, u['email'] as string, 'editor'),
+      driveClient.shareSpreadsheet(
+        spreadsheetId,
+        u["email"] as string,
+        "editor",
+      ),
     ),
-  )
+  );
 }
-

@@ -19,59 +19,78 @@
  *   invalidateQueries() after the user has already switched to a different store.
  *   Only the most-recent hydration call is allowed to trigger invalidation.
  */
-import { useEffect, useRef } from 'react'
-import { Outlet } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
-import { NavBar } from './NavBar'
-import { BottomNav } from './BottomNav'
-import { SyncStatus } from './SyncStatus'
-import { reinitDexieLayer, hydrationService, syncManager } from '../lib/adapters'
-import { useAuthStore } from '../store/authStore'
+import { useEffect, useRef } from "react";
+import { Outlet } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { NavBar } from "./NavBar";
+import { BottomNav } from "./BottomNav";
+import { SyncStatus } from "./SyncStatus";
+import {
+  reinitDexieLayer,
+  hydrationService,
+  syncManager,
+} from "../lib/adapters";
+import { useAuthStore } from "../store/authStore";
 
 export function AppShell() {
-  const { spreadsheetId, mainSpreadsheetId, monthlySpreadsheetId, activeStoreId } = useAuthStore()
-  const queryClient = useQueryClient()
+  const {
+    spreadsheetId,
+    mainSpreadsheetId,
+    monthlySpreadsheetId,
+    activeStoreId,
+  } = useAuthStore();
+  const queryClient = useQueryClient();
 
   // Track the last storeId for which we called reinitDexieLayer so we only
   // reinit when the active store actually changes (not on every monthly rollover).
-  const lastInitStoreId = useRef<string | null>(null)
+  const lastInitStoreId = useRef<string | null>(null);
 
   // Generation counter: incremented on every effect run. Compared inside the
   // .then() callback — if the generation no longer matches, the hydration result
   // is for a store we've already left and must be discarded (T074).
-  const hydrateGen = useRef(0)
+  const hydrateGen = useRef(0);
 
   useEffect(() => {
-    if (!spreadsheetId || !mainSpreadsheetId || !activeStoreId) return
+    if (!spreadsheetId || !mainSpreadsheetId || !activeStoreId) return;
 
     // Reinit the per-store Dexie layer only when the active store changes.
     // This ensures hydrationService always targets the correct IndexedDB before
     // hydrateAll() is called.
     if (activeStoreId !== lastInitStoreId.current) {
-      syncManager.triggerSync()
-      reinitDexieLayer(activeStoreId)
-      lastInitStoreId.current = activeStoreId
+      syncManager.triggerSync();
+      reinitDexieLayer(activeStoreId);
+      lastInitStoreId.current = activeStoreId;
     }
 
-    const gen = ++hydrateGen.current
-    const storeIdAtLaunch = activeStoreId
+    const gen = ++hydrateGen.current;
+    const storeIdAtLaunch = activeStoreId;
 
     void hydrationService
-      .hydrateAll(mainSpreadsheetId, spreadsheetId, monthlySpreadsheetId ?? '')
+      .hydrateAll(mainSpreadsheetId, spreadsheetId, monthlySpreadsheetId ?? "")
       .then(() => {
         // Discard result if the user switched stores before this hydration finished.
-        if (gen !== hydrateGen.current) return
+        if (gen !== hydrateGen.current) return;
         // Scope invalidation to the current store only — avoids nuking
         // unrelated caches like ['stores'] or date-range reports (T076).
         void queryClient.invalidateQueries({
           predicate: (query) =>
-            Array.isArray(query.queryKey) && query.queryKey[1] === storeIdAtLaunch,
-        })
-      })
-  }, [spreadsheetId, mainSpreadsheetId, monthlySpreadsheetId, activeStoreId, queryClient])
+            Array.isArray(query.queryKey) &&
+            query.queryKey[1] === storeIdAtLaunch,
+        });
+      });
+  }, [
+    spreadsheetId,
+    mainSpreadsheetId,
+    monthlySpreadsheetId,
+    activeStoreId,
+    queryClient,
+  ]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50" data-testid="app-shell">
+    <div
+      className="min-h-screen flex flex-col bg-gray-50"
+      data-testid="app-shell"
+    >
       <NavBar syncStatusSlot={<SyncStatus />} />
       <main
         className="flex-1 flex flex-col pb-16 md:pb-0"
@@ -81,5 +100,5 @@ export function AppShell() {
       </main>
       <BottomNav />
     </div>
-  )
+  );
 }

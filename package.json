@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "format": "biome format",
+    "lint": "biome lint",
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -40,7 +41,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
+    "@biomejs/biome": "^2.4.13",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/vite": "^4.2.2",
     "@testing-library/jest-dom": "^6.9.1",
@@ -52,10 +53,6 @@
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/ui": "^4.1.4",
     "autoprefixer": "10.5.0",
-    "eslint": "^9.39.4",
-    "eslint-plugin-import-x": "^4.16.2",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
     "fake-indexeddb": "^6.2.5",
     "globals": "^17.4.0",
     "jsdom": "^29.0.2",
@@ -63,7 +60,6 @@
     "postcss": "8.5.10",
     "tailwindcss": "^4.2.2",
     "typescript": "~6.0.2",
-    "typescript-eslint": "^8.58.0",
     "vite": "^8.0.4",
     "vitest": "^4.1.4"
   }

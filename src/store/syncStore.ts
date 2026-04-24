@@ -14,20 +14,20 @@
  * SyncStatus (UI) and page components. Not persisted — rehydrates from the
  * _outbox table on startup.
  */
-import { create } from 'zustand'
+import { create } from "zustand";
 
 interface SyncState {
-  pendingCount: number
-  isSyncing: boolean
-  lastSyncedAt: string | null
-  lastError: string | null
-  lastHydratedAt: number | null
+  pendingCount: number;
+  isSyncing: boolean;
+  lastSyncedAt: string | null;
+  lastError: string | null;
+  lastHydratedAt: number | null;
 
-  setPendingCount: (count: number) => void
-  setIsSyncing: (v: boolean) => void
-  setLastSyncedAt: (ts: string) => void
-  setLastError: (msg: string | null) => void
-  setLastHydratedAt: (ts: number) => void
+  setPendingCount: (count: number) => void;
+  setIsSyncing: (v: boolean) => void;
+  setLastSyncedAt: (ts: string) => void;
+  setLastError: (msg: string | null) => void;
+  setLastHydratedAt: (ts: number) => void;
 }
 
 export const useSyncStore = create<SyncState>()((set) => ({
@@ -42,4 +42,4 @@ export const useSyncStore = create<SyncState>()((set) => ({
   setLastSyncedAt: (ts) => set({ lastSyncedAt: ts }),
   setLastError: (msg) => set({ lastError: msg }),
   setLastHydratedAt: (ts) => set({ lastHydratedAt: ts }),
-}))
+}));

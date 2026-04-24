@@ -13,61 +13,68 @@
  * Members only need the `spreadsheets` scope — they access a sheet shared
  * with them, not one they created. The adapter handles scope selection.
  */
-import { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Button } from '../../components/ui/button'
-import { Alert, AlertDescription } from '../../components/ui/alert'
-import { authAdapter } from '../../lib/adapters'
-import { useAuth } from './useAuth'
-import { resolveUserRole } from './auth.service'
-import { recordGoogleUserId } from '../../modules/settings/members.service'
+import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Button } from "../../components/ui/button";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { authAdapter } from "../../lib/adapters";
+import { useAuth } from "./useAuth";
+import { resolveUserRole } from "./auth.service";
+import { recordGoogleUserId } from "../../modules/settings/members.service";
 
 export default function JoinPage() {
-  const navigate = useNavigate()
-  const [params] = useSearchParams()
-  const { setUser, setSpreadsheetId } = useAuth()
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const { setUser, setSpreadsheetId } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const sid = params.get('sid')
+  const sid = params.get("sid");
 
   async function handleJoin() {
     if (!sid) {
-      setError('Tautan toko tidak valid. Minta tautan baru dari pemilik toko.')
-      return
+      setError("Tautan toko tidak valid. Minta tautan baru dari pemilik toko.");
+      return;
     }
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      const user = await authAdapter.signIn()
-      const role = await resolveUserRole(user.email)
-      await recordGoogleUserId(user.email, user.id)
-      const userWithRole = { ...user, role }
-      const token = authAdapter.getAccessToken() ?? ''
-      setUser(userWithRole, role, token)
-      setSpreadsheetId(sid)
-      navigate('/cashier')
+      const user = await authAdapter.signIn();
+      const role = await resolveUserRole(user.email);
+      await recordGoogleUserId(user.email, user.id);
+      const userWithRole = { ...user, role };
+      const token = authAdapter.getAccessToken() ?? "";
+      setUser(userWithRole, role, token);
+      setSpreadsheetId(sid);
+      navigate("/cashier");
     } catch (err) {
-      setError(`Gagal bergabung: ${String(err)}`)
+      setError(`Gagal bergabung: ${String(err)}`);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-2xl font-bold" data-testid="join-page-heading">Bergabung ke Toko</h1>
+      <h1 className="text-2xl font-bold" data-testid="join-page-heading">
+        Bergabung ke Toko
+      </h1>
       <p className="text-muted-foreground text-center max-w-sm">
-        Anda diundang untuk mengakses toko ini. Masuk dengan akun Google Anda untuk melanjutkan.
+        Anda diundang untuk mengakses toko ini. Masuk dengan akun Google Anda
+        untuk melanjutkan.
       </p>
-  {error && (
-    <Alert variant="destructive" className="max-w-sm">
-      <AlertDescription>{error}</AlertDescription>
-    </Alert>
-  )}
-      <Button onClick={() => void handleJoin()} disabled={loading} data-testid="btn-join-sign-in">
-        {loading ? 'Memuat...' : 'Masuk dengan Google'}
+      {error && (
+        <Alert variant="destructive" className="max-w-sm">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      <Button
+        onClick={() => void handleJoin()}
+        disabled={loading}
+        data-testid="btn-join-sign-in"
+      >
+        {loading ? "Memuat..." : "Masuk dengan Google"}
       </Button>
     </div>
-  )
+  );
 }

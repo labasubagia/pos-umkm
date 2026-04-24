@@ -14,61 +14,68 @@
  * Testing: unit tests mock this module via vi.mock(); integration tests use the
  * real exports backed by fake-indexeddb (imported in test-setup.ts).
  */
-import type { IDriveClient } from './DriveClient'
-import { GoogleDriveClient } from './DriveClient'
-import type { AuthAdapter } from './types'
-import { GoogleAuthAdapter } from './google/GoogleAuthAdapter'
-import type { ISheetRepository } from './SheetRepository'
-import { SheetRepository } from './SheetRepository'
-import type { Repos } from './repos'
-import { ALL_TAB_HEADERS } from '../schema'
-import { DexieRepository } from './dexie/DexieRepository'
-import { SyncManager } from './dexie/SyncManager'
-import { HydrationService } from './dexie/HydrationService'
-import { getDb, clearDbCache } from './dexie/db'
+import type { IDriveClient } from "./DriveClient";
+import { GoogleDriveClient } from "./DriveClient";
+import type { AuthAdapter } from "./types";
+import { GoogleAuthAdapter } from "./google/GoogleAuthAdapter";
+import type { ISheetRepository } from "./SheetRepository";
+import { SheetRepository } from "./SheetRepository";
+import type { Repos } from "./repos";
+import { ALL_TAB_HEADERS } from "../schema";
+import { DexieRepository } from "./dexie/DexieRepository";
+import { SyncManager } from "./dexie/SyncManager";
+import { HydrationService } from "./dexie/HydrationService";
+import { getDb, clearDbCache } from "./dexie/db";
 
 // Lazy import to avoid circular dependency (authStore imports from here indirectly via services)
-import { useAuthStore } from '../../store/authStore'
+import { useAuthStore } from "../../store/authStore";
 
-export const authAdapter: AuthAdapter = new GoogleAuthAdapter()
+export const authAdapter: AuthAdapter = new GoogleAuthAdapter();
 
 const getToken = (): string => {
   // Prefer the in-memory token stored in Zustand (set by AuthInitializer)
-  const tokenFromStore = useAuthStore.getState().accessToken
-  if (tokenFromStore) return tokenFromStore
+  const tokenFromStore = useAuthStore.getState().accessToken;
+  if (tokenFromStore) return tokenFromStore;
   // Fallback to the adapter's token if present
-  const tokenFromAdapter = (authAdapter as GoogleAuthAdapter).getAccessToken?.() ?? ''
-  return tokenFromAdapter
-}
+  const tokenFromAdapter =
+    (authAdapter as GoogleAuthAdapter).getAccessToken?.() ?? "";
+  return tokenFromAdapter;
+};
 
-export const driveClient: IDriveClient = new GoogleDriveClient(getToken)
+export const driveClient: IDriveClient = new GoogleDriveClient(getToken);
 
 /** No-op SyncManager used as the initial value and after logout. */
 const noopSyncManager = {
-  start: () => { },
-  stop: () => { },
-  triggerSync: () => { },
-} as unknown as SyncManager
+  start: () => {},
+  stop: () => {},
+  triggerSync: () => {},
+} as unknown as SyncManager;
 
 /** No-op HydrationService used as the initial value and after logout. */
 const noopHydrationService = {
-  hydrateAll: async () => { },
-  forceHydrate: async () => { },
-} as unknown as HydrationService
+  hydrateAll: async () => {},
+  forceHydrate: async () => {},
+} as unknown as HydrationService;
 
 /**
  * SyncManager — drains the IndexedDB outbox to Google Sheets.
  * Mutable so reinitDexieLayer() can replace it when the active store changes.
  */
-// eslint-disable-next-line prefer-const
-export let syncManager: SyncManager = new SyncManager(getToken, getDb('__init__'))
+// ...existing code...
+export let syncManager: SyncManager = new SyncManager(
+  getToken,
+  getDb("__init__"),
+);
 
 /**
  * HydrationService — pulls Sheets data into IndexedDB after login.
  * Mutable so reinitDexieLayer() can replace it when the active store changes.
  */
-// eslint-disable-next-line prefer-const
-export let hydrationService: HydrationService = new HydrationService(getToken, getDb('__init__'))
+// ...existing code...
+export let hydrationService: HydrationService = new HydrationService(
+  getToken,
+  getDb("__init__"),
+);
 
 /**
  * Re-initializes the Dexie sync layer for the given store.
@@ -77,11 +84,11 @@ export let hydrationService: HydrationService = new HydrationService(getToken, g
  * and starts the new SyncManager.
  */
 export function reinitDexieLayer(storeId: string): void {
-  syncManager.stop()
-  const db = getDb(storeId)
-  syncManager = new SyncManager(getToken, db)
-  hydrationService = new HydrationService(getToken, db)
-  syncManager.start()
+  syncManager.stop();
+  const db = getDb(storeId);
+  syncManager = new SyncManager(getToken, db);
+  hydrationService = new HydrationService(getToken, db);
+  syncManager.start();
 }
 
 /**
@@ -89,10 +96,10 @@ export function reinitDexieLayer(storeId: string): void {
  * Call on logout so stale IndexedDB connections and references are released.
  */
 export function resetDexieLayer(): void {
-  syncManager.stop()
-  syncManager = noopSyncManager
-  hydrationService = noopHydrationService
-  clearDbCache()
+  syncManager.stop();
+  syncManager = noopSyncManager;
+  hydrationService = noopHydrationService;
+  clearDbCache();
 }
 
 /**
@@ -100,13 +107,18 @@ export function resetDexieLayer(): void {
  * Reads are served from IndexedDB; writes go to IndexedDB + outbox (drained by SyncManager).
  */
 export function getRepos(): Repos {
-  const { mainSpreadsheetId, spreadsheetId, monthlySpreadsheetId, activeStoreId } = useAuthStore.getState()
+  const {
+    mainSpreadsheetId,
+    spreadsheetId,
+    monthlySpreadsheetId,
+    activeStoreId,
+  } = useAuthStore.getState();
   return createDexieRepos(
-    activeStoreId ?? '__init__',
-    mainSpreadsheetId ?? '',
-    spreadsheetId ?? '',
-    monthlySpreadsheetId ?? '',
-  )
+    activeStoreId ?? "__init__",
+    mainSpreadsheetId ?? "",
+    spreadsheetId ?? "",
+    monthlySpreadsheetId ?? "",
+  );
 }
 
 /**
@@ -121,7 +133,12 @@ export function makeRepo<T extends Record<string, unknown>>(
   spreadsheetId: string,
   sheetName: string,
 ): ISheetRepository<T> {
-  return new SheetRepository<T>(spreadsheetId, sheetName, getToken, ALL_TAB_HEADERS[sheetName])
+  return new SheetRepository<T>(
+    spreadsheetId,
+    sheetName,
+    getToken,
+    ALL_TAB_HEADERS[sheetName],
+  );
 }
 
 // ─── Dexie repo factory ────────────────────────────────────────────────────────
@@ -137,39 +154,41 @@ function createDexieRepos(
   masterId: string,
   monthlyId: string,
 ): Repos {
-  const storeDb = getDb(storeId)
+  const storeDb = getDb(storeId);
 
   function dexie<T extends Record<string, unknown>>(
     spreadsheetId: string,
     sheetName: string,
   ): DexieRepository<T> {
-    return new DexieRepository<T>(storeDb, { spreadsheetId, sheetName }, () => syncManager.triggerSync())
+    return new DexieRepository<T>(storeDb, { spreadsheetId, sheetName }, () =>
+      syncManager.triggerSync(),
+    );
   }
 
   return {
-    stores: dexie(mainId, 'Stores'),
-    monthlySheets: dexie(masterId, 'Monthly_Sheets'),
-    categories: dexie(masterId, 'Categories'),
-    products: dexie(masterId, 'Products'),
-    variants: dexie(masterId, 'Variants'),
-    members: dexie(masterId, 'Members'),
-    settings: dexie(masterId, 'Settings'),
-    stockLog: dexie(masterId, 'Stock_Log'),
-    purchaseOrders: dexie(masterId, 'Purchase_Orders'),
-    purchaseOrderItems: dexie(masterId, 'Purchase_Order_Items'),
-    customers: dexie(masterId, 'Customers'),
-    auditLog: dexie(masterId, 'Audit_Log'),
-    transactions: dexie(monthlyId, 'Transactions'),
-    transactionItems: dexie(monthlyId, 'Transaction_Items'),
-    refunds: dexie(monthlyId, 'Refunds'),
-  }
+    stores: dexie(mainId, "Stores"),
+    monthlySheets: dexie(masterId, "Monthly_Sheets"),
+    categories: dexie(masterId, "Categories"),
+    products: dexie(masterId, "Products"),
+    variants: dexie(masterId, "Variants"),
+    members: dexie(masterId, "Members"),
+    settings: dexie(masterId, "Settings"),
+    stockLog: dexie(masterId, "Stock_Log"),
+    purchaseOrders: dexie(masterId, "Purchase_Orders"),
+    purchaseOrderItems: dexie(masterId, "Purchase_Order_Items"),
+    customers: dexie(masterId, "Customers"),
+    auditLog: dexie(masterId, "Audit_Log"),
+    transactions: dexie(monthlyId, "Transactions"),
+    transactionItems: dexie(monthlyId, "Transaction_Items"),
+    refunds: dexie(monthlyId, "Refunds"),
+  };
 }
 
-export type { IDriveClient, ISheetRepository, Repos }
-export type { ILocalRepository } from './ILocalRepository'
-export type { AuthAdapter }
-export { AdapterError } from './types'
-export type { User, Role } from './types'
+export type { IDriveClient, ISheetRepository, Repos };
+export type { ILocalRepository } from "./ILocalRepository";
+export type { AuthAdapter };
+export { AdapterError } from "./types";
+export type { User, Role } from "./types";
 
 /**
  * Writes rows directly to the Dexie table for the active store, bypassing the outbox.
@@ -180,9 +199,9 @@ export async function localCachePut(
   tableName: string,
   rows: Record<string, unknown>[],
 ): Promise<void> {
-  const { activeStoreId } = useAuthStore.getState()
-  const db = getDb(activeStoreId ?? '__init__')
-  await db.table(tableName).bulkPut(rows)
+  const { activeStoreId } = useAuthStore.getState();
+  const db = getDb(activeStoreId ?? "__init__");
+  await db.table(tableName).bulkPut(rows);
 }
 
 /**
@@ -196,10 +215,10 @@ export function getMembersForStore(
   targetStoreId: string,
   masterSpreadsheetId: string,
 ): DexieRepository<Record<string, unknown>> {
-  const db = getDb(targetStoreId)
+  const db = getDb(targetStoreId);
   return new DexieRepository<Record<string, unknown>>(
     db,
-    { spreadsheetId: masterSpreadsheetId, sheetName: 'Members' },
+    { spreadsheetId: masterSpreadsheetId, sheetName: "Members" },
     () => syncManager.triggerSync(),
-  )
+  );
 }

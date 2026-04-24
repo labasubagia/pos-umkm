@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.9                               |
+| Version     | 2.11                              |
 | Status      | Draft                             |
 | Date        | April 2026                        |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -107,6 +107,7 @@ Each business owner's data lives in **their own Google Drive** organized under `
 | i18n | `react-i18next` |
 | Unit testing | Vitest + `@testing-library/react` |
 | E2E testing | Playwright |
+| Linting & formatting | Biome |
 | Hosting | GitHub Pages (via GitHub Actions) or Netlify/Vercel free tier |
 
 ### 2.2 Offline-First via Dexie.js (IndexedDB)

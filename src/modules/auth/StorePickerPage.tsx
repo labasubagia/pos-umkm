@@ -11,72 +11,79 @@
  * Requires authentication (wrapped in ProtectedRoute in router.tsx).
  * No AppShell / NavBar — this is part of the auth/onboarding flow.
  */
-import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
-import { useAuth } from './useAuth'
-import { findOrCreateMain, activateStore } from './setup.service'
-import type { StoreRecord } from './setup.service'
-import { Button } from '../../components/ui/button'
-import { Alert, AlertDescription } from '../../components/ui/alert'
-import { STORES_QUERY_KEY } from '../../hooks/useStores'
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "./useAuth";
+import { findOrCreateMain, activateStore } from "./setup.service";
+import type { StoreRecord } from "./setup.service";
+import { Button } from "../../components/ui/button";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { STORES_QUERY_KEY } from "../../hooks/useStores";
 
 export default function StorePickerPage() {
-  const navigate = useNavigate()
-  const { user, setStoreSession } = useAuth()
-  const queryClient = useQueryClient()
+  const navigate = useNavigate();
+  const { user, setStoreSession } = useAuth();
+  const queryClient = useQueryClient();
 
-  const [loading, setLoading] = useState(true)
-  const [localStores, setLocalStores] = useState<StoreRecord[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [activating, setActivating] = useState(false)
-  const initialized = useRef(false)
+  const [loading, setLoading] = useState(true);
+  const [localStores, setLocalStores] = useState<StoreRecord[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [activating, setActivating] = useState(false);
+  const initialized = useRef(false);
 
   async function resolveStores() {
     try {
-      const { stores: list } = await findOrCreateMain(user?.email ?? '')
+      const { stores: list } = await findOrCreateMain(user?.email ?? "");
       // Seed React Query cache — NavBar and other consumers get the list immediately.
-      queryClient.setQueryData(STORES_QUERY_KEY, list)
+      queryClient.setQueryData(STORES_QUERY_KEY, list);
       if (list.length === 0) {
-        navigate('/setup', { replace: true })
-        return
+        navigate("/setup", { replace: true });
+        return;
       }
       if (list.length === 1) {
-        await activate(list[0])
-        return
+        await activate(list[0]);
+        return;
       }
-      setLocalStores(list)
+      setLocalStores(list);
     } catch (err) {
-      setError(`Gagal memuat daftar toko: ${String(err)}`)
+      setError(`Gagal memuat daftar toko: ${String(err)}`);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    void resolveStores()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (initialized.current) return;
+    initialized.current = true;
+    void resolveStores();
+  }, []);
 
   async function activate(store: StoreRecord) {
-    setActivating(true)
+    setActivating(true);
     try {
-      const session = await activateStore(store)
-      setStoreSession(session.spreadsheetId, session.monthlySpreadsheetId, store.store_id)
-      navigate('/cashier', { replace: true })
+      const session = await activateStore(store);
+      setStoreSession(
+        session.spreadsheetId,
+        session.monthlySpreadsheetId,
+        store.store_id,
+      );
+      navigate("/cashier", { replace: true });
     } catch (err) {
-      setError(`Gagal mengaktifkan toko: ${String(err)}`)
-      setActivating(false)
+      setError(`Gagal mengaktifkan toko: ${String(err)}`);
+      setActivating(false);
     }
   }
 
   if (loading || activating) {
     return (
-      <div className="flex min-h-screen items-center justify-center" data-testid="store-picker-loading">
+      <div
+        className="flex min-h-screen items-center justify-center"
+        data-testid="store-picker-loading"
+      >
         <p className="text-muted-foreground">Memuat toko…</p>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -85,11 +92,15 @@ export default function StorePickerPage() {
         <Alert variant="destructive" data-testid="store-picker-error">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-        <Button variant="outline" onClick={() => void resolveStores()} data-testid="btn-retry">
+        <Button
+          variant="outline"
+          onClick={() => void resolveStores()}
+          data-testid="btn-retry"
+        >
           Coba Lagi
         </Button>
       </div>
-    )
+    );
   }
 
   return (
@@ -97,7 +108,10 @@ export default function StorePickerPage() {
       <h1 className="text-2xl font-bold">Pilih Toko</h1>
       <p className="text-muted-foreground">Pilih toko yang ingin Anda buka.</p>
 
-      <div className="flex flex-col gap-3 w-full max-w-sm" data-testid="store-list">
+      <div
+        className="flex flex-col gap-3 w-full max-w-sm"
+        data-testid="store-list"
+      >
         {localStores.map((store) => (
           <button
             key={store.store_id}
@@ -106,18 +120,20 @@ export default function StorePickerPage() {
             data-testid={`btn-store-${store.store_id}`}
           >
             <p className="font-medium">{store.store_name}</p>
-            <p className="text-xs text-muted-foreground capitalize">{store.my_role}</p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {store.my_role}
+            </p>
           </button>
         ))}
       </div>
 
       <Button
         variant="outline"
-        onClick={() => navigate('/setup')}
+        onClick={() => navigate("/setup")}
         data-testid="btn-add-store"
       >
         + Tambah Toko Baru
       </Button>
     </div>
-  )
+  );
 }

@@ -9,79 +9,96 @@
  * Stock is automatically re-incremented by refund.service.createRefund().
  */
 
-import { useState } from 'react'
-import { fetchTransaction, createRefund, type RefundItem, RefundError } from './refund.service'
-import type { Transaction } from '../cashier/cashier.service'
-import { formatIDR } from '../../lib/formatters'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Alert, AlertDescription } from '../../components/ui/alert'
-import { Card, CardContent } from '../../components/ui/card'
+import { useState } from "react";
+import {
+  fetchTransaction,
+  createRefund,
+  type RefundItem,
+  RefundError,
+} from "./refund.service";
+import type { Transaction } from "../cashier/cashier.service";
+import { formatIDR } from "../../lib/formatters";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Card, CardContent } from "../../components/ui/card";
 
 interface ItemEntry {
-  product_id: string
-  product_name: string
-  unit_price: number
-  originalQty: number
-  refundQty: number
+  product_id: string;
+  product_name: string;
+  unit_price: number;
+  originalQty: number;
+  refundQty: number;
 }
 
 export function RefundFlow() {
-  const [txIdInput, setTxIdInput] = useState('')
-  const [transaction, setTransaction] = useState<Transaction | null>(null)
-  const [items, setItems] = useState<ItemEntry[]>([])
-  const [reason, setReason] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [findError, setFindError] = useState<string | null>(null)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
+  const [txIdInput, setTxIdInput] = useState("");
+  const [transaction, setTransaction] = useState<Transaction | null>(null);
+  const [items, setItems] = useState<ItemEntry[]>([]);
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [findError, setFindError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   async function handleFind() {
-    setFindError(null)
-    setTransaction(null)
-    setItems([])
-    setSuccess(false)
-    setLoading(true)
+    setFindError(null);
+    setTransaction(null);
+    setItems([]);
+    setSuccess(false);
+    setLoading(true);
     try {
-      const tx = await fetchTransaction(txIdInput.trim())
-      setTransaction(tx)
+      const tx = await fetchTransaction(txIdInput.trim());
+      setTransaction(tx);
       // For MVP, we don't load line items from Transaction_Items — user inputs qty manually
-      setItems([])
+      setItems([]);
     } catch (err) {
-      setFindError(err instanceof RefundError ? err.message : 'Transaksi tidak ditemukan')
+      setFindError(
+        err instanceof RefundError ? err.message : "Transaksi tidak ditemukan",
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   function addItem() {
     setItems((prev) => [
       ...prev,
-      { product_id: '', product_name: '', unit_price: 0, originalQty: 1, refundQty: 1 },
-    ])
+      {
+        product_id: "",
+        product_name: "",
+        unit_price: 0,
+        originalQty: 1,
+        refundQty: 1,
+      },
+    ]);
   }
 
-  function updateItem(index: number, field: keyof ItemEntry, value: string | number) {
+  function updateItem(
+    index: number,
+    field: keyof ItemEntry,
+    value: string | number,
+  ) {
     setItems((prev) =>
       prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
-    )
+    );
   }
 
   function removeItem(index: number) {
-    setItems((prev) => prev.filter((_, i) => i !== index))
+    setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleSubmit() {
-    setSubmitError(null)
-    if (!transaction) return
+    setSubmitError(null);
+    if (!transaction) return;
     if (items.length === 0) {
-      setSubmitError('Pilih minimal satu item untuk direfund')
-      return
+      setSubmitError("Pilih minimal satu item untuk direfund");
+      return;
     }
     if (!reason.trim()) {
-      setSubmitError('Alasan refund wajib diisi')
-      return
+      setSubmitError("Alasan refund wajib diisi");
+      return;
     }
 
     const refundItems: RefundItem[] = items.map((item) => ({
@@ -89,16 +106,18 @@ export function RefundFlow() {
       product_name: item.product_name,
       qty: item.refundQty,
       unit_price: item.unit_price,
-    }))
+    }));
 
-    setLoading(true)
+    setLoading(true);
     try {
-      await createRefund(transaction.id, refundItems, reason.trim())
-      setSuccess(true)
+      await createRefund(transaction.id, refundItems, reason.trim());
+      setSuccess(true);
     } catch (err) {
-      setSubmitError(err instanceof RefundError ? err.message : 'Gagal memproses refund')
+      setSubmitError(
+        err instanceof RefundError ? err.message : "Gagal memproses refund",
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -108,23 +127,25 @@ export function RefundFlow() {
         className="rounded-lg border border-green-200 bg-green-50 p-6 text-center"
         data-testid="refund-success"
       >
-        <p className="text-lg font-semibold text-green-700">✓ Refund berhasil diproses</p>
+        <p className="text-lg font-semibold text-green-700">
+          ✓ Refund berhasil diproses
+        </p>
         <p className="mt-1 text-sm text-green-600">Stok telah dikembalikan.</p>
         <Button
           type="button"
           className="mt-4 bg-green-600 hover:bg-green-700"
           onClick={() => {
-            setSuccess(false)
-            setTransaction(null)
-            setTxIdInput('')
-            setItems([])
-            setReason('')
+            setSuccess(false);
+            setTransaction(null);
+            setTxIdInput("");
+            setItems([]);
+            setReason("");
           }}
         >
           Refund Lainnya
         </Button>
       </div>
-    )
+    );
   }
 
   return (
@@ -166,7 +187,9 @@ export function RefundFlow() {
               <dt className="text-gray-500">Total</dt>
               <dd className="font-medium">{formatIDR(transaction.total)}</dd>
               <dt className="text-gray-500">Tanggal</dt>
-              <dd>{new Date(transaction.created_at).toLocaleDateString('id-ID')}</dd>
+              <dd>
+                {new Date(transaction.created_at).toLocaleDateString("id-ID")}
+              </dd>
             </dl>
           </CardContent>
         </Card>
@@ -176,7 +199,9 @@ export function RefundFlow() {
       {transaction && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-gray-700">Item yang Dikembalikan</h3>
+            <h3 className="text-sm font-medium text-gray-700">
+              Item yang Dikembalikan
+            </h3>
             <Button
               type="button"
               variant="outline"
@@ -198,22 +223,28 @@ export function RefundFlow() {
                 className="col-span-4"
                 placeholder="Nama produk"
                 value={item.product_name}
-                onChange={(e) => updateItem(index, 'product_name', e.target.value)}
+                onChange={(e) =>
+                  updateItem(index, "product_name", e.target.value)
+                }
                 data-testid={`refund-item-name-${index}`}
               />
               <Input
                 className="col-span-2"
                 placeholder="ID produk"
                 value={item.product_id}
-                onChange={(e) => updateItem(index, 'product_id', e.target.value)}
+                onChange={(e) =>
+                  updateItem(index, "product_id", e.target.value)
+                }
                 data-testid={`refund-item-product-id-${index}`}
               />
               <Input
                 className="col-span-2"
                 type="number"
                 placeholder="Harga"
-                value={item.unit_price || ''}
-                onChange={(e) => updateItem(index, 'unit_price', Number(e.target.value))}
+                value={item.unit_price || ""}
+                onChange={(e) =>
+                  updateItem(index, "unit_price", Number(e.target.value))
+                }
                 data-testid={`refund-item-price-${index}`}
               />
               <Input
@@ -222,7 +253,9 @@ export function RefundFlow() {
                 min={1}
                 placeholder="Qty"
                 value={item.refundQty}
-                onChange={(e) => updateItem(index, 'refundQty', Number(e.target.value))}
+                onChange={(e) =>
+                  updateItem(index, "refundQty", Number(e.target.value))
+                }
                 data-testid={`refund-item-qty-${index}`}
               />
               <Button
@@ -258,7 +291,11 @@ export function RefundFlow() {
       {transaction && (
         <div>
           {submitError && (
-            <Alert variant="destructive" className="mb-2" data-testid="refund-error">
+            <Alert
+              variant="destructive"
+              className="mb-2"
+              data-testid="refund-error"
+            >
               <AlertDescription>{submitError}</AlertDescription>
             </Alert>
           )}
@@ -269,12 +306,12 @@ export function RefundFlow() {
             disabled={loading || items.length === 0}
             data-testid="btn-submit-refund"
           >
-            {loading ? 'Memproses...' : 'Proses Refund'}
+            {loading ? "Memproses..." : "Proses Refund"}
           </Button>
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default RefundFlow
+export default RefundFlow;

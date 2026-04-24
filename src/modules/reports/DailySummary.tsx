@@ -5,16 +5,20 @@
  * "Lihat Laporan". Query key includes date so clicking with a new date
  * triggers a fresh fetch.
  */
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { useAuthStore } from '../../store/authStore'
-import { fetchDailySummary, type DailySummary as DailySummaryType, ReportError } from './reports.service'
-import { formatIDR } from '../../lib/formatters'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Alert, AlertDescription } from '../../components/ui/alert'
-import { Card, CardContent } from '../../components/ui/card'
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAuthStore } from "../../store/authStore";
+import {
+  fetchDailySummary,
+  type DailySummary as DailySummaryType,
+  ReportError,
+} from "./reports.service";
+import { formatIDR } from "../../lib/formatters";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Card, CardContent } from "../../components/ui/card";
 import {
   Table,
   TableBody,
@@ -22,36 +26,42 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../components/ui/table'
+} from "../../components/ui/table";
 
 export function DailySummary() {
-  const today = new Date().toISOString().slice(0, 10)
-  const [date, setDate] = useState(today)
-  const [enabled, setEnabled] = useState(true) // fetch on mount with today's date
-  const activeStoreId = useAuthStore((s) => s.activeStoreId)
-  const user = useAuthStore((s) => s.user)
-  const monthlySpreadsheetId = useAuthStore((s) => s.monthlySpreadsheetId)
-  const spreadsheetId = useAuthStore((s) => s.spreadsheetId)
-  const isOwner = user?.role === 'owner'
-  const txSheetId = monthlySpreadsheetId ?? spreadsheetId
+  const today = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(today);
+  const [enabled, setEnabled] = useState(true); // fetch on mount with today's date
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const user = useAuthStore((s) => s.user);
+  const monthlySpreadsheetId = useAuthStore((s) => s.monthlySpreadsheetId);
+  const spreadsheetId = useAuthStore((s) => s.spreadsheetId);
+  const isOwner = user?.role === "owner";
+  const txSheetId = monthlySpreadsheetId ?? spreadsheetId;
 
-  const { data: summary, isLoading, error, refetch } = useQuery({
-    queryKey: ['daily-summary', activeStoreId, date],
+  const {
+    data: summary,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["daily-summary", activeStoreId, date],
     queryFn: () => fetchDailySummary(date),
     enabled,
     retry: false,
-  })
+  });
 
   function handleLoad() {
-    setEnabled(true)
-    void refetch()
+    setEnabled(true);
+    void refetch();
   }
 
-  const errorMsg = error instanceof ReportError
-    ? error.message
-    : error instanceof Error
-      ? 'Terjadi kesalahan saat memuat laporan'
-      : null
+  const errorMsg =
+    error instanceof ReportError
+      ? error.message
+      : error instanceof Error
+        ? "Terjadi kesalahan saat memuat laporan"
+        : null;
 
   return (
     <div data-testid="daily-summary-container" className="p-4 space-y-4">
@@ -63,11 +73,18 @@ export function DailySummary() {
             data-testid="input-summary-date"
             type="date"
             value={date}
-            onChange={(e) => { setDate(e.target.value); setEnabled(false) }}
+            onChange={(e) => {
+              setDate(e.target.value);
+              setEnabled(false);
+            }}
             className="w-auto"
           />
         </div>
-        <Button data-testid="btn-load-summary" onClick={handleLoad} disabled={isLoading}>
+        <Button
+          data-testid="btn-load-summary"
+          onClick={handleLoad}
+          disabled={isLoading}
+        >
           Lihat Laporan
         </Button>
       </div>
@@ -114,7 +131,10 @@ export function DailySummary() {
             <Card>
               <CardContent className="pt-4">
                 <p className="text-sm text-gray-500">Rata-rata Belanja</p>
-                <p data-testid="summary-avg-basket" className="text-lg font-bold">
+                <p
+                  data-testid="summary-avg-basket"
+                  className="text-lg font-bold"
+                >
                   {formatIDR(Math.round(summary.average_basket))}
                 </p>
               </CardContent>
@@ -136,12 +156,17 @@ export function DailySummary() {
                   <TableRow key={p.product_id}>
                     <TableCell>{p.name}</TableCell>
                     <TableCell className="text-right">{p.total_qty}</TableCell>
-                    <TableCell className="text-right">{formatIDR(p.total_revenue)}</TableCell>
+                    <TableCell className="text-right">
+                      {formatIDR(p.total_revenue)}
+                    </TableCell>
                   </TableRow>
                 ))}
                 {summary.top_products.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center text-gray-400">
+                    <TableCell
+                      colSpan={3}
+                      className="text-center text-gray-400"
+                    >
                       Tidak ada data
                     </TableCell>
                   </TableRow>
@@ -152,5 +177,5 @@ export function DailySummary() {
         </div>
       )}
     </div>
-  )
+  );
 }

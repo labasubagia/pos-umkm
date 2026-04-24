@@ -5,56 +5,56 @@
  */
 
 /** A 2-D array of cell values as returned by the Sheets API. */
-export type SheetValues = (string | number | boolean)[][]
+export type SheetValues = (string | number | boolean)[][];
 
 /** Response from values.get */
 export interface SheetsGetResponse {
-  range: string
-  majorDimension: string
-  values?: SheetValues
+  range: string;
+  majorDimension: string;
+  values?: SheetValues;
 }
 
 /** Response from values.append */
 export interface SheetsAppendResponse {
-  spreadsheetId: string
-  tableRange: string
+  spreadsheetId: string;
+  tableRange: string;
   updates: {
-    spreadsheetId: string
-    updatedRange: string
-    updatedRows: number
-    updatedColumns: number
-    updatedCells: number
-  }
+    spreadsheetId: string;
+    updatedRange: string;
+    updatedRows: number;
+    updatedColumns: number;
+    updatedCells: number;
+  };
 }
 
 /** Response from values.update */
 export interface SheetsUpdateResponse {
-  spreadsheetId: string
-  updatedRange: string
-  updatedRows: number
-  updatedColumns: number
-  updatedCells: number
+  spreadsheetId: string;
+  updatedRange: string;
+  updatedRows: number;
+  updatedColumns: number;
+  updatedCells: number;
 }
 
 /** Response from values.batchGet */
 export interface SheetsBatchGetResponse {
-  spreadsheetId: string
-  valueRanges: SheetsGetResponse[]
+  spreadsheetId: string;
+  valueRanges: SheetsGetResponse[];
 }
 
 /** Response from values.batchUpdate */
 export interface SheetsBatchUpdateResponse {
-  spreadsheetId: string
-  totalUpdatedCells: number
+  spreadsheetId: string;
+  totalUpdatedCells: number;
 }
 
 /** Custom error thrown for any Sheets API HTTP error. */
 export class SheetsApiError extends Error {
-  readonly statusCode: number
+  readonly statusCode: number;
 
   constructor(statusCode: number, message: string) {
-    super(message)
-    this.name = 'SheetsApiError'
-    this.statusCode = statusCode
+    super(message);
+    this.name = "SheetsApiError";
+    this.statusCode = statusCode;
   }
 }

@@ -18,31 +18,31 @@
  * SheetRepository on the fly for each outbox entry — this avoids storing
  * any stale spreadsheetId references and matches the existing auth pattern.
  */
-import { SheetRepository } from '../SheetRepository'
-import type { PosUmkmDatabase } from './db'
-import type { OutboxEntry, OutboxOperation } from './db'
-import { ALL_TAB_HEADERS } from '../../schema'
-import { useSyncStore } from '../../../store/syncStore'
-import { getDb } from './db'
-import { useAuthStore } from '../../../store/authStore'
-import { authAdapter } from '../index'
-import { useNavigate } from 'react-router-dom'
+import { SheetRepository } from "../SheetRepository";
+import type { PosUmkmDatabase } from "./db";
+import type { OutboxEntry, OutboxOperation } from "./db";
+import { ALL_TAB_HEADERS } from "../../schema";
+import { useSyncStore } from "../../../store/syncStore";
+import { getDb } from "./db";
+import { useAuthStore } from "../../../store/authStore";
+import { authAdapter } from "../index";
+import { useNavigate } from "react-router-dom";
 
-const MAX_RETRIES = 5
-const POLL_INTERVAL_MS = 30_000
-const RATE_LIMIT_BACKOFF_MS = 60_000
+const MAX_RETRIES = 5;
+const POLL_INTERVAL_MS = 30_000;
+const RATE_LIMIT_BACKOFF_MS = 60_000;
 
 export class SyncManager {
-  private isSyncing = false
-  private readonly getToken: () => string
-  private readonly db: PosUmkmDatabase
-  private pollTimer: ReturnType<typeof setInterval> | null = null
-  private rateLimitTimer: ReturnType<typeof setTimeout> | null = null
-  private rateLimited = false
+  private isSyncing = false;
+  private readonly getToken: () => string;
+  private readonly db: PosUmkmDatabase;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private rateLimitTimer: ReturnType<typeof setTimeout> | null = null;
+  private rateLimited = false;
 
   constructor(getToken: () => string, db: PosUmkmDatabase) {
-    this.getToken = getToken
-    this.db = db
+    this.getToken = getToken;
+    this.db = db;
   }
 
   /**
@@ -50,10 +50,10 @@ export class SyncManager {
    * Safe to call multiple times — guard prevents duplicate listeners.
    */
   start(): void {
-    if (typeof window === 'undefined') return
-    window.addEventListener('online', this.handleOnline)
+    if (typeof window === "undefined") return;
+    window.addEventListener("online", this.handleOnline);
     if (!this.pollTimer) {
-      this.pollTimer = setInterval(() => this.triggerSync(), POLL_INTERVAL_MS)
+      this.pollTimer = setInterval(() => this.triggerSync(), POLL_INTERVAL_MS);
     }
     // Reset any stale 'syncing' entries left by abrupt shutdowns,
     // then attempt an immediate drain on startup and refresh pending count.
@@ -61,53 +61,70 @@ export class SyncManager {
     // the instance-bound DB. This avoids showing a zero pending count
     // when outbox entries are stored in a different DB instance.
     try {
-      const activeStoreId = useAuthStore.getState().activeStoreId ?? '__init__'
-      const startupDb = getDb(activeStoreId)
-      startupDb._outbox.where('status').equals('syncing').modify({ status: 'pending' })
-        .catch(() => {/* non-critical */ })
-        .then(() => {
-          this.triggerSync()
-          this.refreshPendingCount()
+      const activeStoreId = useAuthStore.getState().activeStoreId ?? "__init__";
+      const startupDb = getDb(activeStoreId);
+      startupDb._outbox
+        .where("status")
+        .equals("syncing")
+        .modify({ status: "pending" })
+        .catch(() => {
+          /* non-critical */
         })
+        .then(() => {
+          this.triggerSync();
+          this.refreshPendingCount();
+        });
     } catch {
       // Fallback to the instance-bound DB if anything goes wrong
-      this.db._outbox.where('status').equals('syncing').modify({ status: 'pending' })
-        .catch(() => {/* non-critical */ })
-        .then(() => {
-          this.triggerSync()
-          this.refreshPendingCount()
+      this.db._outbox
+        .where("status")
+        .equals("syncing")
+        .modify({ status: "pending" })
+        .catch(() => {
+          /* non-critical */
         })
+        .then(() => {
+          this.triggerSync();
+          this.refreshPendingCount();
+        });
     }
   }
 
   stop(): void {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('online', this.handleOnline)
+    if (typeof window !== "undefined") {
+      window.removeEventListener("online", this.handleOnline);
     }
     if (this.pollTimer) {
-      clearInterval(this.pollTimer)
-      this.pollTimer = null
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
     }
     if (this.rateLimitTimer) {
-      clearTimeout(this.rateLimitTimer)
-      this.rateLimitTimer = null
+      clearTimeout(this.rateLimitTimer);
+      this.rateLimitTimer = null;
     }
   }
 
   /** Public entry point. No-op if offline, already syncing, rate-limited, or no token. */
   triggerSync(): void {
     if (!navigator.onLine || this.isSyncing || this.rateLimited) {
-      console.debug('[SyncManager] triggerSync skipped: offline/isSyncing/rateLimited', { online: navigator.onLine, isSyncing: this.isSyncing, rateLimited: this.rateLimited })
-      return
+      console.debug(
+        "[SyncManager] triggerSync skipped: offline/isSyncing/rateLimited",
+        {
+          online: navigator.onLine,
+          isSyncing: this.isSyncing,
+          rateLimited: this.rateLimited,
+        },
+      );
+      return;
     }
-    const token = this.getToken()
+    const token = this.getToken();
     if (!token) {
-      console.debug('[SyncManager] triggerSync skipped: no access token')
-      return
+      console.debug("[SyncManager] triggerSync skipped: no access token");
+      return;
     }
     this.drain().catch((err) => {
-      console.error('[SyncManager] Unexpected drain error:', err)
-    })
+      console.error("[SyncManager] Unexpected drain error:", err);
+    });
   }
 
   /**
@@ -117,86 +134,98 @@ export class SyncManager {
    */
   async resetFailedEntries(): Promise<void> {
     await this.db._outbox
-      .where('status').equals('failed')
-      .modify({ status: 'pending', retries: 0, errorMessage: undefined })
-    this.triggerSync()
+      .where("status")
+      .equals("failed")
+      .modify({ status: "pending", retries: 0, errorMessage: undefined });
+    this.triggerSync();
   }
 
   // ─── Internal ──────────────────────────────────────────────────────────────
 
   private handleOnline = (): void => {
-    this.rateLimited = false
-    this.triggerSync()
-  }
+    this.rateLimited = false;
+    this.triggerSync();
+  };
 
   private async drain(): Promise<void> {
     // For navigation on logout
-    let navigate: ((to: string, opts?: any) => void) | null = null
+    let navigate: ((to: string, opts?: any) => void) | null = null;
     try {
       // Try to get navigate if in React context
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      navigate = require('react-router-dom').useNavigate?.() ?? null
+
+      navigate = require("react-router-dom").useNavigate?.() ?? null;
     } catch (error) {
       // This can fail when SyncManager runs outside a valid React Router hook
       // context. Navigation is optional here, so fall back to null and continue.
-      console.debug('[SyncManager] navigate unavailable outside React context', error)
-      navigate = null
+      console.debug(
+        "[SyncManager] navigate unavailable outside React context",
+        error,
+      );
+      navigate = null;
     }
-    this.isSyncing = true
-    useSyncStore.getState().setIsSyncing(true)
+    this.isSyncing = true;
+    useSyncStore.getState().setIsSyncing(true);
 
     try {
       const pending = await this.db._outbox
-        .where('status').anyOf(['pending', 'failed'])
+        .where("status")
+        .anyOf(["pending", "failed"])
         .and((entry) => entry.retries < MAX_RETRIES)
-        .sortBy('id')
+        .sortBy("id");
 
-      console.debug('[SyncManager] drain found pending outbox entries', pending.map((p) => ({ id: p.id, mutationId: p.mutationId, sheetName: p.sheetName })))
+      console.debug(
+        "[SyncManager] drain found pending outbox entries",
+        pending.map((p) => ({
+          id: p.id,
+          mutationId: p.mutationId,
+          sheetName: p.sheetName,
+        })),
+      );
 
       for (const entry of pending) {
         // Mark as syncing so the UI shows progress
-        await this.db._outbox.update(entry.id!, { status: 'syncing' })
+        await this.db._outbox.update(entry.id!, { status: "syncing" });
 
         try {
-          await this.applyToSheets(entry)
-          await this.db._outbox.delete(entry.id!)
-          useSyncStore.getState().setLastError(null)
+          await this.applyToSheets(entry);
+          await this.db._outbox.delete(entry.id!);
+          useSyncStore.getState().setLastError(null);
         } catch (err) {
-          const isRateLimit = isRateLimitError(err)
-          const errStr = String(err)
+          const isRateLimit = isRateLimitError(err);
+          const errStr = String(err);
           await this.db._outbox.update(entry.id!, {
-            status: 'failed',
+            status: "failed",
             retries: entry.retries + 1,
             errorMessage: errStr,
-          })
-          useSyncStore.getState().setLastError(errStr)
+          });
+          useSyncStore.getState().setLastError(errStr);
 
           // Auto-logout on Sheets API 401/UNAUTHENTICATED error
-          if (errStr.includes('401') || errStr.includes('UNAUTHENTICATED')) {
+          if (errStr.includes("401") || errStr.includes("UNAUTHENTICATED")) {
             // Clear auth and redirect to login
-            await authAdapter.signOut?.()
-            useAuthStore.getState().clearAuth()
-            if (navigate) navigate('/', { replace: true })
+            await authAdapter.signOut?.();
+            useAuthStore.getState().clearAuth();
+            if (navigate) navigate("/", { replace: true });
             // Stop further processing
-            break
+            break;
           }
 
           if (isRateLimit) {
             // Stop draining and backoff — other entries will retry after cooldown
-            this.activateRateLimit()
-            break
+            this.activateRateLimit();
+            break;
           }
 
           // Non-rate-limit errors: log and continue with next entry
-          console.error('[SyncManager]', entry, err)
+          console.error("[SyncManager]", entry, err);
         }
       }
 
-      useSyncStore.getState().setLastSyncedAt(new Date().toISOString())
+      useSyncStore.getState().setLastSyncedAt(new Date().toISOString());
     } finally {
-      this.isSyncing = false
-      useSyncStore.getState().setIsSyncing(false)
-      this.refreshPendingCount()
+      this.isSyncing = false;
+      useSyncStore.getState().setIsSyncing(false);
+      this.refreshPendingCount();
     }
   }
 
@@ -211,57 +240,75 @@ export class SyncManager {
       entry.sheetName,
       this.getToken,
       ALL_TAB_HEADERS[entry.sheetName],
-    )
-    console.debug('[SyncManager] applyToSheets repo created', { spreadsheetId: repo.spreadsheetId, sheetName: repo.sheetName })
-    console.debug('[SyncManager] applyToSheets operation', entry.operation)
+    );
+    console.debug("[SyncManager] applyToSheets repo created", {
+      spreadsheetId: repo.spreadsheetId,
+      sheetName: repo.sheetName,
+    });
+    console.debug("[SyncManager] applyToSheets operation", entry.operation);
 
-    const op: OutboxOperation = entry.operation
+    const op: OutboxOperation = entry.operation;
     switch (op.op) {
-      case 'append':
-        await repo.batchAppend(op.rows)
-        break
-      case 'batchUpdateCells':
-        await repo.batchUpdateCells(op.updates)
-        break
-      case 'softDelete':
-        await repo.softDelete(op.rowId)
-        break
+      case "append":
+        await repo.batchAppend(op.rows);
+        break;
+      case "batchUpdateCells":
+        await repo.batchUpdateCells(op.updates);
+        break;
+      case "softDelete":
+        await repo.softDelete(op.rowId);
+        break;
       default: {
-        const _exhaustive: never = op
-        throw new Error(`SyncManager: unknown op ${JSON.stringify(_exhaustive)}`)
+        const _exhaustive: never = op;
+        throw new Error(
+          `SyncManager: unknown op ${JSON.stringify(_exhaustive)}`,
+        );
       }
     }
   }
 
   private activateRateLimit(): void {
-    this.rateLimited = true
+    this.rateLimited = true;
     this.rateLimitTimer = setTimeout(() => {
-      this.rateLimited = false
-      this.triggerSync()
-    }, RATE_LIMIT_BACKOFF_MS)
+      this.rateLimited = false;
+      this.triggerSync();
+    }, RATE_LIMIT_BACKOFF_MS);
   }
 
   private refreshPendingCount(): void {
     // Count pending entries for the active store to avoid stale counts from
     // an out-of-date SyncManager DB instance.
     try {
-      const activeStoreId = useAuthStore.getState().activeStoreId ?? '__init__'
-      const db = getDb(activeStoreId)
-      db._outbox.count().then((count) => {
-        useSyncStore.getState().setPendingCount(count)
-      }).catch(() => {/* non-critical */ })
+      const activeStoreId = useAuthStore.getState().activeStoreId ?? "__init__";
+      const db = getDb(activeStoreId);
+      db._outbox
+        .count()
+        .then((count) => {
+          useSyncStore.getState().setPendingCount(count);
+        })
+        .catch(() => {
+          /* non-critical */
+        });
     } catch {
       // Fallback to the instance-bound DB if anything goes wrong
-      this.db._outbox.count().then((count) => {
-        useSyncStore.getState().setPendingCount(count)
-      }).catch(() => {/* non-critical */ })
+      this.db._outbox
+        .count()
+        .then((count) => {
+          useSyncStore.getState().setPendingCount(count);
+        })
+        .catch(() => {
+          /* non-critical */
+        });
     }
   }
 }
 
 function isRateLimitError(err: unknown): boolean {
   if (err instanceof Error) {
-    return err.message.includes('429') || err.message.toLowerCase().includes('rate limit')
+    return (
+      err.message.includes("429") ||
+      err.message.toLowerCase().includes("rate limit")
+    );
   }
-  return false
+  return false;
 }

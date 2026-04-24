@@ -10,40 +10,40 @@
  * static merchant QR code without any backend integration.
  */
 
-import { getRepos } from '../../lib/adapters'
-import { nowUTC } from '../../lib/formatters'
-import { generateId } from '../../lib/uuid'
+import { getRepos } from "../../lib/adapters";
+import { nowUTC } from "../../lib/formatters";
+import { generateId } from "../../lib/uuid";
 
 export interface BusinessSettings {
-  business_name: string
-  timezone: string
-  tax_rate: number
-  receipt_footer: string
-  qris_image_url: string
+  business_name: string;
+  timezone: string;
+  tax_rate: number;
+  receipt_footer: string;
+  qris_image_url: string;
 }
 
 /** Reads all settings rows and returns them as a flat object. */
 export async function getSettings(): Promise<BusinessSettings> {
-  const rows = await getRepos().settings.getAll()
-  const map: Record<string, string> = {}
+  const rows = await getRepos().settings.getAll();
+  const map: Record<string, string> = {};
   for (const row of rows) {
-    if (row['key'] && row['value'] !== undefined) {
-      map[row['key'] as string] = String(row['value'])
+    if (row["key"] && row["value"] !== undefined) {
+      map[row["key"] as string] = String(row["value"]);
     }
   }
   return {
-    business_name: map['business_name'] ?? 'POS UMKM',
-    timezone: map['timezone'] ?? 'Asia/Jakarta',
-    tax_rate: parseInt(map['tax_rate'] ?? '11', 10),
-    receipt_footer: map['receipt_footer'] ?? 'Terima kasih sudah berbelanja!',
-    qris_image_url: map['qris_image_url'] ?? '',
-  }
+    business_name: map["business_name"] ?? "POS UMKM",
+    timezone: map["timezone"] ?? "Asia/Jakarta",
+    tax_rate: parseInt(map["tax_rate"] ?? "11", 10),
+    receipt_footer: map["receipt_footer"] ?? "Terima kasih sudah berbelanja!",
+    qris_image_url: map["qris_image_url"] ?? "",
+  };
 }
 
 /** Returns the QRIS QR image URL stored in Settings, or empty string if not configured. */
 export async function getQRISImageUrl(): Promise<string> {
-  const settings = await getSettings()
-  return settings.qris_image_url
+  const settings = await getSettings();
+  return settings.qris_image_url;
 }
 
 /**
@@ -52,32 +52,32 @@ export async function getQRISImageUrl(): Promise<string> {
  * regardless of whether the key already exists or not.
  */
 export async function saveQRISImageUrl(url: string): Promise<void> {
-  await saveSetting('qris_image_url', url)
+  await saveSetting("qris_image_url", url);
 }
 
 export class SettingsError extends Error {
   constructor(message: string) {
-    super(message)
-    this.name = 'SettingsError'
+    super(message);
+    this.name = "SettingsError";
   }
 }
 
 /** Validates and saves a QRIS image (data URL or http/https URL). */
 export async function saveQRISImage(dataUrlOrUrl: string): Promise<void> {
-  const isDataUrl = dataUrlOrUrl.startsWith('data:image/')
+  const isDataUrl = dataUrlOrUrl.startsWith("data:image/");
   const isHttpUrl =
-    dataUrlOrUrl.startsWith('http://') || dataUrlOrUrl.startsWith('https://')
+    dataUrlOrUrl.startsWith("http://") || dataUrlOrUrl.startsWith("https://");
   if (!isDataUrl && !isHttpUrl) {
     throw new SettingsError(
-      'QRIS image must be a data URL (data:image/...) or a valid http/https URL',
-    )
+      "QRIS image must be a data URL (data:image/...) or a valid http/https URL",
+    );
   }
-  await saveQRISImageUrl(dataUrlOrUrl)
+  await saveQRISImageUrl(dataUrlOrUrl);
 }
 
 /** Returns the stored QRIS image (data URL or URL), or empty string if not configured. */
 export async function getQRISImage(): Promise<string> {
-  return getQRISImageUrl()
+  return getQRISImageUrl();
 }
 
 /**
@@ -87,22 +87,25 @@ export async function getQRISImage(): Promise<string> {
  * (update) or a newly generated id (insert), then calls batchUpsert.
  * Result: 1 getAll + 1 batchUpsert.
  */
-export async function saveSettings(settings: Partial<BusinessSettings>): Promise<void> {
-  const entries = (Object.entries(settings) as [string, string | number | undefined][])
-    .filter(([, v]) => v !== undefined)
-  if (entries.length === 0) return
+export async function saveSettings(
+  settings: Partial<BusinessSettings>,
+): Promise<void> {
+  const entries = (
+    Object.entries(settings) as [string, string | number | undefined][]
+  ).filter(([, v]) => v !== undefined);
+  if (entries.length === 0) return;
 
-  const existing = await getRepos().settings.getAll()
+  const existing = await getRepos().settings.getAll();
   const rows = entries.map(([key, value]) => {
-    const found = existing.find((r) => r['key'] === key)
+    const found = existing.find((r) => r["key"] === key);
     return found
       ? { ...found, value: String(value), updated_at: nowUTC() }
-      : { id: generateId(), key, value: String(value), updated_at: nowUTC() }
-  })
-  await getRepos().settings.batchUpsert(rows)
+      : { id: generateId(), key, value: String(value), updated_at: nowUTC() };
+  });
+  await getRepos().settings.batchUpsert(rows);
 }
 
 /** Saves a single setting key-value pair. */
 export async function saveSetting(key: string, value: string): Promise<void> {
-  return saveSettings({ [key]: value } as Partial<BusinessSettings>)
+  return saveSettings({ [key]: value } as Partial<BusinessSettings>);
 }
