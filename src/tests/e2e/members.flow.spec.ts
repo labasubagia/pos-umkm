@@ -19,7 +19,7 @@ async function signInAndNavigate(
   waitFor: string,
 ) {
   await injectAuthState(page, STORE);
-  await page.goto(`${BASE}${path}`);
+  await page.goto(`${BASE}/${STORE.storeId}${path}`);
   await page.getByTestId(waitFor).waitFor();
 }
 
@@ -27,8 +27,12 @@ test.describe("Member invite and Store Link", () => {
   test("owner can invite a member via email and see Store Link", async ({
     page,
   }) => {
-    await signInAndNavigate(page, "/settings", "btn-tab-members");
-    await page.getByTestId("btn-tab-members").click();
+    await signInAndNavigate(
+      page,
+      "/settings/member-management",
+      "input-member-email",
+    );
+
     await page.getByRole("heading", { name: /kelola anggota/i }).waitFor();
 
     await page.getByTestId("input-member-email").fill("member@test.com");
@@ -39,8 +43,12 @@ test.describe("Member invite and Store Link", () => {
   });
 
   test("owner can revoke a member's access", async ({ page }) => {
-    await signInAndNavigate(page, "/settings", "btn-tab-members");
-    await page.getByTestId("btn-tab-members").click();
+    await signInAndNavigate(
+      page,
+      "/settings/member-management",
+      "input-member-email",
+    );
+
     await page.getByRole("heading", { name: /kelola anggota/i }).waitFor();
 
     // Invite first
@@ -58,7 +66,7 @@ test.describe("Store Link join flow", () => {
   test("user navigating to join page sees the join UI", async ({ page }) => {
     // Seed a Members row so resolveUserRole works
     await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/cashier`);
+    await page.goto(`${BASE}/${STORE.storeId}/cashier`);
     await page.getByTestId("product-search-input").waitFor();
     await seedDexie(page, STORE.storeId, {
       Members: [
@@ -82,7 +90,7 @@ test.describe("Store Link join flow", () => {
     page,
   }) => {
     // Navigate directly without auth injection
-    await page.goto(`${BASE}/reports`);
+    await page.goto(`${BASE}/${STORE.storeId}/reports`);
     await expect(page).not.toHaveURL(/\/reports/);
   });
 });
@@ -90,7 +98,7 @@ test.describe("Store Link join flow", () => {
 test.describe("Role-based route access", () => {
   test("owner role can access /reports", async ({ page }) => {
     await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/reports`);
+    await page.goto(`${BASE}/${STORE.storeId}/reports`);
     // Owner should not be redirected away from /reports
     await expect(page).not.toHaveURL(/\/cashier/);
   });
@@ -101,7 +109,7 @@ test.describe("POS terminal PIN lock", () => {
     page,
   }) => {
     await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/cashier`);
+    await page.goto(`${BASE}/${STORE.storeId}/cashier`);
     await page.getByTestId("product-search-input").waitFor();
     await expect(page.getByTestId("pin-lock-overlay")).not.toBeVisible();
   });
@@ -110,7 +118,7 @@ test.describe("POS terminal PIN lock", () => {
     page,
   }) => {
     await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/cashier`);
+    await page.goto(`${BASE}/${STORE.storeId}/cashier`);
     await page.getByTestId("product-search-input").waitFor();
     // Without a PIN hash configured, the overlay never appears
     await expect(page.getByTestId("pin-lock-overlay")).not.toBeVisible();

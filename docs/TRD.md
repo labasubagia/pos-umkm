@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.11                              |
+| Version     | 2.12                              |
 | Status      | Draft                             |
 | Date        | April 2026                        |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -241,7 +241,7 @@ Authenticated pages share a common layout provided by `AppShell`, which is mount
 ```
 router.tsx
 └── <ProtectedRoute>
-    └── <AppShell>               ← layout route (no path of its own)
+    └── <AppShell>               ← layout route at path "/:storeId"
         ├── <NavBar />           ← top bar; rendered on all screen sizes
         ├── <main pb-16 md:pb-0> ← page-specific content via <Outlet />
         └── <BottomNav />        ← fixed bottom; only visible below md (md:hidden)
@@ -261,16 +261,24 @@ router.tsx
 
 Navigation links are filtered at render time using the same `ROLE_RANK` hierarchy as `RoleRoute`.
 
-| Route | Label | Min role | Icon |
-|---|---|---|---|
-| `/cashier` | Kasir | cashier | ShoppingCart |
-| `/catalog` | Katalog | manager | Package |
-| `/inventory` | Inventori | manager | Archive |
-| `/customers` | Pelanggan | manager | Users |
-| `/reports` | Laporan | manager | BarChart2 |
-| `/settings` | Pengaturan | owner | Settings |
+All routes are nested under the `/:storeId` path segment (e.g. `/pos-umkm/<storeId>/cashier`). The Vite `base` is `/pos-umkm/` and the React Router `basename` is also `/pos-umkm`, so the browser URL for a route like `cashier` in store `abc` is `/pos-umkm/abc/cashier`.
 
-Public routes (`/`, `/login`, `/join`) and the setup wizard (`/setup`) are **outside** the `AppShell` layout route and do not show any navigation.
+| Route | Full URL example | Label | Min role | Icon |
+|---|---|---|---|---|
+| `cashier` | `/pos-umkm/:storeId/cashier` | Kasir | cashier | ShoppingCart |
+| `catalog` | `/pos-umkm/:storeId/catalog` → redirects to `catalog/products` | Katalog | manager | Package |
+| `catalog/products` | `/pos-umkm/:storeId/catalog/products` | Katalog (Produk tab) | manager | Package |
+| `catalog/categories` | `/pos-umkm/:storeId/catalog/categories` | Katalog (Kategori tab) | manager | Package |
+| `inventory` | `/pos-umkm/:storeId/inventory` | Inventori | manager | Archive |
+| `customers` | `/pos-umkm/:storeId/customers` | Pelanggan | manager | Users |
+| `reports` | `/pos-umkm/:storeId/reports` | Laporan | manager | BarChart2 |
+| `settings` | `/pos-umkm/:storeId/settings` | Pengaturan | owner | Settings |
+
+`NavBar` and `BottomNav` both use **relative `to`** values (no leading `/`) so links resolve within the current `/:storeId` parent. The active-route highlight for `catalog` uses React Router's default prefix matching — it remains highlighted on `catalog/products` and `catalog/categories`.
+
+`AppShell` reads `useParams<{ storeId: string }>()` and calls `setActiveStoreId` whenever the URL `:storeId` differs from the Zustand store — the URL is the **authoritative source** for the active store.
+
+Public routes (`/`, `/login`, `/join`) and the onboarding routes (`/setup`, `/stores`) are **outside** the `/:storeId` layout route and do not show any navigation.
 
 **Mobile-first CashierPage layout:**
 
@@ -357,7 +365,7 @@ ISheetRepository<T>          — used by sync layer only
 6. All `SheetRepository` calls include `Authorization: Bearer <token>` header
 7. When the token expires, GIS silently refreshes it (`prompt: 'none'`) as long as the browser session is active
 8. After successful auth, `LoginPage` checks for a cached `masterSpreadsheetId` in `localStorage`:
-   - **Fast path (returning user):** `masterSpreadsheetId` found → restores adapter routing → navigates to `/cashier`
+   - **Fast path (returning user):** `masterSpreadsheetId` and `activeStoreId` found → restores adapter routing → navigates to `/<storeId>/cashier`
    - **Slow path (new session):** no cached ID → navigates to `/stores` (StorePickerPage)
 
 ### 3.2 Google OAuth Scopes
@@ -382,7 +390,7 @@ Every login (first-time and returning) goes through `/stores` (StorePickerPage) 
 
 **Based on store count:**
 - **0 stores (first-time owner):** navigates to `/setup` (SetupWizard)
-- **1 store:** auto-activates the store and navigates to `/cashier`
+- **1 store:** auto-activates the store and navigates to `/<storeId>/cashier`
 - **2+ stores:** shows a store picker UI; user selects a branch or adds a new one
 
 **When navigating to /setup (SetupWizard):**

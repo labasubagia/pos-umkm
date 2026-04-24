@@ -189,7 +189,7 @@ describe("NavBar", () => {
 
   // ── T064: no /cashier redirect on store switch ────────────────────────────
 
-  it("switching store calls activateStore and setActiveStoreId without navigating", async () => {
+  it("switching store navigates to /:storeId/cashier for the new store", async () => {
     const { activateStore } = await import("../modules/auth/setup.service");
     const user = userEvent.setup();
     setRole("owner");
@@ -206,10 +206,7 @@ describe("NavBar", () => {
 
     await waitFor(() => expect(activateStore).toHaveBeenCalledWith(store2));
     expect(useAuthStore.getState().activeStoreId).toBe(store2.store_id);
-    expect(mockNavigate).not.toHaveBeenCalledWith(
-      "/cashier",
-      expect.anything(),
-    );
+    expect(mockNavigate).toHaveBeenCalledWith(`/${store2.store_id}/cashier`);
   });
 
   it("selecting the already-active store does nothing", async () => {

@@ -28,7 +28,12 @@ export default function LoginPage() {
   // Already authenticated from persisted Zustand state (e.g. refresh, back-navigation).
   // Guard against the case where we're mid sign-in and isAuthenticated just flipped.
   if (isAuthenticated && !signingIn) {
-    return <Navigate to="/cashier" replace />;
+    const storeId =
+      useAuthStore.getState().activeStoreId ??
+      localStorage.getItem("activeStoreId");
+    return (
+      <Navigate to={storeId ? `/${storeId}/cashier` : "/stores"} replace />
+    );
   }
 
   /**
@@ -58,7 +63,11 @@ export default function LoginPage() {
           `txSheet_${restoredStoreId}_${now.getFullYear()}-${mm}`,
         ) ?? localStorage.getItem(`txSheet_${now.getFullYear()}-${mm}`);
       if (monthlyId) useAuthStore.getState().setMonthlySpreadsheetId(monthlyId);
-      navigate("/cashier");
+      if (restoredStoreId) {
+        navigate(`/${restoredStoreId}/cashier`);
+      } else {
+        navigate("/stores");
+      }
     } else {
       navigate("/stores");
     }

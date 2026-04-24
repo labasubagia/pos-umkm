@@ -19,8 +19,8 @@ const now = new Date().toISOString();
 
 async function signInToCatalog(page: Parameters<typeof injectAuthState>[0]) {
   await injectAuthState(page, STORE);
-  await page.goto(`${BASE}/catalog`);
-  await page.getByTestId("btn-tab-products").waitFor();
+  await page.goto(`${BASE}/${STORE.storeId}/catalog/products`);
+  await page.getByTestId("btn-add-product").waitFor();
 }
 
 // ─── T021 — Categories CRUD ───────────────────────────────────────────────────
@@ -29,7 +29,7 @@ test.describe("Categories CRUD (T021)", () => {
   test("owner can create, rename, and delete a category", async ({ page }) => {
     await signInToCatalog(page);
 
-    await page.getByTestId("btn-tab-categories").click();
+    await page.getByTestId("subnav-catalog-categories").click();
     await page.getByRole("heading", { name: /kategori produk/i }).waitFor();
 
     // Create
@@ -76,7 +76,7 @@ test.describe("Products CRUD (T022)", () => {
     await signInToCatalog(page);
 
     // Create category via UI (no pre-seeding needed)
-    await page.getByTestId("btn-tab-categories").click();
+    await page.getByTestId("subnav-catalog-categories").click();
     await page.getByRole("heading", { name: /kategori produk/i }).waitFor();
     await page.getByTestId("btn-add-category").click();
     await page.getByTestId("input-category-name").fill("Makanan");
@@ -87,7 +87,7 @@ test.describe("Products CRUD (T022)", () => {
         .filter({ hasText: "Makanan" }),
     ).toBeVisible();
 
-    await page.getByTestId("btn-tab-products").click();
+    await page.getByTestId("subnav-catalog-products").click();
     await page.getByRole("heading", { name: "Produk", exact: true }).waitFor();
 
     await page.getByTestId("btn-add-product").click();
@@ -116,8 +116,8 @@ test.describe("Products CRUD (T022)", () => {
   }) => {
     // Pre-seed a category so the product form has something to pick from
     await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/catalog`);
-    await page.getByTestId("btn-tab-products").waitFor();
+    await page.goto(`${BASE}/${STORE.storeId}/catalog/products`);
+    await page.getByTestId("btn-add-product").waitFor();
     await waitForHydration(page);
     await seedDexie(page, STORE.storeId, {
       Categories: [
@@ -129,7 +129,7 @@ test.describe("Products CRUD (T022)", () => {
         },
       ],
     });
-    await reloadAndWait(page, "btn-tab-products");
+    await reloadAndWait(page, "btn-add-product");
 
     await page.getByTestId("btn-add-product").click();
     await page.getByTestId("input-product-name").fill("Mie Goreng");
@@ -145,7 +145,7 @@ test.describe("Products CRUD (T022)", () => {
         .filter({ hasText: "Mie Goreng" }),
     ).toBeVisible();
 
-    await navigateTo(page, `${BASE}/cashier`);
+    await navigateTo(page, `${BASE}/${STORE.storeId}/cashier`);
     await page.getByTestId("product-search-input").waitFor();
     await page.getByTestId("product-search-input").fill("Mie Goreng");
     await expect(
@@ -159,7 +159,7 @@ test.describe("Products CRUD (T022)", () => {
     const prodId = "prod-stock-test";
 
     await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/cashier`);
+    await page.goto(`${BASE}/${STORE.storeId}/cashier`);
     await page.getByTestId("product-search-input").waitFor();
     await waitForHydration(page);
     const monthlySheetSeed = [
@@ -203,8 +203,8 @@ test.describe("Products CRUD (T022)", () => {
     await expect(page.getByTestId("receipt-success")).toBeVisible();
     await page.getByTestId("btn-receipt-close").click();
 
-    await navigateTo(page, `${BASE}/catalog`);
-    await page.getByTestId("btn-tab-products").click();
+    await navigateTo(page, `${BASE}/${STORE.storeId}/catalog/products`);
+    await page.getByTestId("subnav-catalog-products").click();
     await expect(page.getByTestId(`product-stock-${prodId}`)).toHaveText(
       "Stok: 19",
     );
@@ -220,8 +220,8 @@ test.describe("Stock Opname (T034)", () => {
     const prodId = "opname-prod-1";
 
     await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/inventory`);
-    await page.getByTestId("btn-tab-opname").waitFor();
+    await page.goto(`${BASE}/${STORE.storeId}/inventory/stock-opname`);
+    await page.getByTestId("stock-opname-container").waitFor();
     await waitForHydration(page);
     await seedDexie(page, STORE.storeId, {
       Products: [
@@ -241,7 +241,7 @@ test.describe("Stock Opname (T034)", () => {
         { id: "cat-1", name: "Umum", created_at: now, deleted_at: null },
       ],
     });
-    await reloadAndWait(page, "btn-tab-opname");
+    await reloadAndWait(page, "stock-opname-container");
 
     await expect(page.getByTestId("stock-opname-container")).toBeVisible();
     await expect(page.getByTestId(`opname-system-stock-${prodId}`)).toHaveText(
@@ -291,8 +291,8 @@ test.describe("Purchase Orders (T035)", () => {
     const prodId = "po-prod-1";
 
     await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/inventory`);
-    await page.getByTestId("btn-tab-opname").waitFor();
+    await page.goto(`${BASE}/${STORE.storeId}/inventory/stock-opname`);
+    await page.getByTestId("stock-opname-container").waitFor();
     await waitForHydration(page);
     await seedDexie(page, STORE.storeId, {
       Products: [
@@ -312,9 +312,9 @@ test.describe("Purchase Orders (T035)", () => {
         { id: "cat-1", name: "Umum", created_at: now, deleted_at: null },
       ],
     });
-    await reloadAndWait(page, "btn-tab-opname");
+    await reloadAndWait(page, "stock-opname-container");
 
-    await page.getByTestId("btn-tab-purchase-orders").click();
+    await page.getByTestId("subnav-inventory-purchase-order").click();
     await expect(page.getByTestId("purchase-orders-container")).toBeVisible();
 
     await page.getByTestId("btn-create-po").click();

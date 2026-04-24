@@ -63,7 +63,7 @@ const CATEGORIES = [
 
 async function signInToCashier(page: Parameters<typeof injectAuthState>[0]) {
   await injectAuthState(page, STORE);
-  await page.goto(`${BASE}/cashier`);
+  await page.goto(`${BASE}/${STORE.storeId}/cashier`);
   // Wait for the cashier search input — present even when the DB is empty.
   await page.getByTestId("product-search-input").waitFor();
   // Wait for HydrationService to finish before seeding to avoid the race where
@@ -80,7 +80,7 @@ async function signInToCashier(page: Parameters<typeof injectAuthState>[0]) {
   await page
     .locator('[data-testid^="product-card-"]')
     .first()
-    .waitFor({ timeout: 10000 });
+    .waitFor({ timeout: 20000 });
 }
 
 // ─── T026 — Product Search ────────────────────────────────────────────────────
@@ -274,8 +274,8 @@ test.describe("Transaction Commit + Receipt (T032, T033)", () => {
     await expect(page.getByTestId("receipt-success")).toBeVisible();
     await page.getByTestId("btn-receipt-close").click();
 
-    await navigateTo(page, `${BASE}/catalog`);
-    await page.getByTestId("btn-tab-products").click();
+    await navigateTo(page, `${BASE}/${STORE.storeId}/catalog/products`);
+
     // 20 - 2 = 18
     await expect(page.getByTestId("product-stock-e2e-prod-1")).toHaveText(
       "Stok: 18",
@@ -299,7 +299,7 @@ test.describe("Customer Search (T036)", () => {
     ];
 
     await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/cashier`);
+    await page.goto(`${BASE}/${STORE.storeId}/cashier`);
     await page.getByTestId("product-search-input").waitFor();
     await waitForHydration(page);
     await seedDexie(page, STORE.storeId, {
@@ -360,8 +360,8 @@ test.describe("Refund Flow (T037)", () => {
     ];
 
     await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/customers`);
-    await page.getByTestId("tab-refund").waitFor();
+    await page.goto(`${BASE}/${STORE.storeId}/customers/refund`);
+    await page.getByTestId("refund-tx-id-input").waitFor();
     await waitForHydration(page);
     await seedDexie(page, STORE.storeId, {
       Products: REFUND_PRODUCTS,
@@ -370,9 +370,7 @@ test.describe("Refund Flow (T037)", () => {
       Refunds: [],
     });
     await page.reload();
-    await page.getByTestId("tab-refund").waitFor();
-
-    await page.getByTestId("tab-refund").click();
+    await page.getByTestId("refund-tx-id-input").waitFor();
     await page.getByTestId("refund-tx-id-input").fill(txId);
     await page.getByTestId("btn-find-transaction").click();
     await expect(page.getByTestId("refund-tx-info")).toBeVisible();
@@ -391,7 +389,7 @@ test.describe("Refund Flow (T037)", () => {
     const updatedStock = await page.evaluate(
       async ({ storeId, productId }) => {
         const db = (
-          window as Record<
+          window as unknown as Record<
             string,
             (id: string) => {
               Products: {

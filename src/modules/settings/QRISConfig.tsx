@@ -15,7 +15,7 @@ import { QRIS_QUERY_KEY, useQRISImage } from "../../hooks/useQRISImage";
 import { useAuthStore } from "../../store/authStore";
 import { SettingsError, saveQRISImage } from "./settings.service";
 
-export default function QRISConfig() {
+export function QRISConfig() {
   const queryClient = useQueryClient();
   const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const { data: storedUrl = "" } = useQRISImage();

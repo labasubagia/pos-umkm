@@ -19,7 +19,7 @@ import {
   revokeMember,
 } from "./members.service";
 
-export default function MemberManagement() {
+export function MemberManagement() {
   const { spreadsheetId } = useAuth();
   const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const queryClient = useQueryClient();

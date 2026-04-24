@@ -21,7 +21,7 @@ import { type BusinessSettings, saveSettings } from "./settings.service";
 
 const TIMEZONES = ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"] as const;
 
-export default function BusinessProfile() {
+export function BusinessProfile() {
   const { activeStoreId, spreadsheetId } = useAuth();
   const zustandActiveStoreId = useAuthStore((s) => s.activeStoreId);
   const queryClient = useQueryClient();

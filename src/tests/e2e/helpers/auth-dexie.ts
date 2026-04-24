@@ -10,7 +10,7 @@
  *
  * Usage:
  *   await injectAuthState(page, storeConfig)
- *   await page.goto(`${BASE}/cashier`)
+ *   await page.goto(`${BASE}/${store.storeId}/cashier`)
  *   await page.waitForSelector('[data-testid="product-search-input"]')
  */
 import type { Page } from "@playwright/test";
@@ -92,6 +92,6 @@ export async function signInAsDexie(
   store: StoreConfig = DEFAULT_STORE,
 ): Promise<void> {
   await injectAuthState(page, store);
-  await page.goto(`${BASE}/cashier`);
+  await page.goto(`${BASE}/${store.storeId}/cashier`);
   await page.getByTestId("product-search-input").waitFor();
 }

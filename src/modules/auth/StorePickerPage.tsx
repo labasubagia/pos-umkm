@@ -43,7 +43,7 @@ export default function StorePickerPage() {
           session.monthlySpreadsheetId,
           store.store_id,
         );
-        navigate("/cashier", { replace: true });
+        navigate(`/${store.store_id}/cashier`, { replace: true });
       } catch (err) {
         setError(`Gagal mengaktifkan toko: ${String(err)}`);
         setActivating(false);

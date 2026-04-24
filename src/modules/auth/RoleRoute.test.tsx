@@ -24,11 +24,11 @@ function setRole(role: Role) {
 
 function renderRoute(minRole: Role, content: string) {
   return render(
-    <MemoryRouter initialEntries={["/target"]}>
+    <MemoryRouter initialEntries={["/test-store/target"]}>
       <Routes>
-        <Route path="/cashier" element={<div>Cashier</div>} />
+        <Route path="/:storeId/cashier" element={<div>Cashier</div>} />
         <Route
-          path="/target"
+          path="/:storeId/target"
           element={
             <RoleRoute minRole={minRole}>
               <div>{content}</div>

@@ -10,7 +10,7 @@
  * This is acceptable for the family-trust model described in TRD §3.4.
  */
 import type { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import type { Role } from "../../lib/adapters/types";
 import { useAuth } from "./useAuth";
 
@@ -29,6 +29,7 @@ interface RoleRouteProps {
 
 export function RoleRoute({ minRole, children }: RoleRouteProps) {
   const { isAuthenticated, role } = useAuth();
+  const { storeId } = useParams<{ storeId: string }>();
 
   // Not authenticated at all — ProtectedRoute should have caught this,
   // but guard defensively to avoid a blank screen.
@@ -37,7 +38,9 @@ export function RoleRoute({ minRole, children }: RoleRouteProps) {
   }
 
   if (ROLE_RANK[role] < ROLE_RANK[minRole]) {
-    return <Navigate to="/cashier" replace />;
+    return (
+      <Navigate to={storeId ? `/${storeId}/cashier` : "/stores"} replace />
+    );
   }
 
   return <>{children}</>;
