@@ -1434,11 +1434,11 @@
 
   **Scope of affected pages** (all pages that load data in a `useEffect` on mount):
   - `CashierPage` — `loadCatalog()`
-  - `CatalogPage` — `loadCatalog()`
-  - `InventoryPage` / `StockOpname` / `PurchaseOrders` — `loadInventory()`
-  - `CustomersPage` — `loadCustomers()`
-  - `ReportsPage` — `loadReports()`
-  - `SettingsPage` — `loadSettings()`
+  - Module components in `catalog/` — `loadCatalog()`
+  - Module components in `inventory/` (`StockOpname`, `PurchaseOrders`) — `loadInventory()`
+  - `CustomersListPage` (in `customers/`) — `loadCustomers()`
+  - Module components in `reports/` — `loadReports()`
+  - Module components in `settings/` — `loadSettings()`
 
 - **Deliverables:**
   - `src/store/syncStore.ts` updated:

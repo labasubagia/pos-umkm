@@ -3,6 +3,7 @@
 // Other modules may only import from 'src/modules/customers', never from internal paths.
 
 export { CustomerSearch } from "./CustomerSearch";
+export { CustomersListPage } from "./CustomersListPage";
 export type { Customer } from "./customers.service";
 export {
   addCustomer,

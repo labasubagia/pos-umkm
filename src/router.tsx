@@ -10,6 +10,7 @@ import StorePickerPage from "./modules/auth/StorePickerPage";
 import { CategoryList } from "./modules/catalog/CategoryList";
 import { CSVImport } from "./modules/catalog/CSVImport";
 import { ProductList } from "./modules/catalog/ProductList";
+import { CustomersListPage } from "./modules/customers/CustomersListPage";
 import { RefundFlow } from "./modules/customers/RefundFlow";
 import { PurchaseOrders } from "./modules/inventory/PurchaseOrders";
 import { StockOpname } from "./modules/inventory/StockOpname";
@@ -21,7 +22,6 @@ import { BusinessProfile } from "./modules/settings/BusinessProfile";
 import { MemberManagement } from "./modules/settings/MemberManagement";
 import { QRISConfig } from "./modules/settings/QRISConfig";
 import CashierPage from "./pages/CashierPage";
-import CustomersPage from "./pages/CustomersPage";
 import LandingPage from "./pages/LandingPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import OutboxPage from "./pages/OutboxPage";
@@ -138,7 +138,7 @@ export const router = createBrowserRouter(
               path: "customers",
               element: (
                 <RoleRoute minRole="manager">
-                  <CustomersPage />
+                  <CustomersListPage />
                 </RoleRoute>
               ),
             },

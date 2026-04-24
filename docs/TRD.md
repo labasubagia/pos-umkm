@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.12                              |
+| Version     | 2.13                              |
 | Status      | Draft                             |
 | Date        | April 2026                        |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -166,7 +166,9 @@ src/
 │   │   ├── inventory.service.ts
 │   │   └── inventory.test.ts
 │   ├── customers/       # Customer management
-│   │   ├── CustomerList.tsx
+│   │   ├── CustomersListPage.tsx   # Route component for customers/ sub-route
+│   │   ├── CustomerSearch.tsx
+│   │   ├── RefundFlow.tsx
 │   │   ├── useCustomers.ts
 │   │   ├── customers.service.ts
 │   │   └── customers.test.ts
@@ -210,6 +212,16 @@ src/
 │   ├── AppShell.tsx     # Authenticated page layout: NavBar + Outlet + BottomNav; starts SyncManager
 │   ├── SyncStatus.tsx   # NavBar sync badge: offline/pending/syncing/error/synced states
 │   └── ui/              # shadcn/ui primitives (Button, Modal, etc.)
+├── pages/               # Cross-module orchestrators and non-module pages only
+│   │                    # Rule: import from modules/ for single-module routes;
+│   │                    #       use pages/ only when a page composes multiple modules
+│   │                    #       or has no owning feature module.
+│   ├── CashierPage.tsx          # Composes cashier + customers + cart (multi-module)
+│   ├── LandingPage.tsx          # Public landing (no module)
+│   ├── NotFoundPage.tsx         # 404 (no module)
+│   ├── OutboxPage.tsx           # Sync outbox viewer (cross-cutting)
+│   ├── SetupPage.tsx            # Setup redirect shim (no module)
+│   └── StoreManagementPage.tsx  # Settings sub-page (store CRUD; settings module scope)
 ├── hooks/               # Shared React hooks — all React Query data hooks live here
 │   │                    # (useStores, useCategories, useProducts, useVariants,
 │   │                    #  useCustomers, useMembers, useSettings, useStockOpname,
@@ -233,6 +245,7 @@ src/
 - All React Query hooks include `activeStoreId` as part of the query key so switching stores automatically invalidates and refetches cached data.
 - After `HydrationService.hydrateAll()` completes in `AppShell`, `queryClient.invalidateQueries()` is called to refetch all active queries from freshly-populated IndexedDB.
 - Pure functions (formatters, validators, calculations) live in `lib/` and are unit-testable without DOM or API.
+- **Route import rule:** `src/router.tsx` imports route components directly from `src/modules/` for single-module routes. `src/pages/` is reserved for multi-module orchestrators (`CashierPage`) and pages with no owning module (`LandingPage`, `NotFoundPage`, `OutboxPage`, `StoreManagementPage`). There are no empty page-shell files — if a route needs only one module's component, the module component is used directly.
 
 ### 2.6 Application Layout — AppShell, NavBar & BottomNav
 

@@ -1,14 +1,15 @@
 /**
- * CustomersPage — Customer list page.
- * The refund sub-page lives at customers/refund (router points to RefundFlow directly).
+ * CustomersListPage — Customer list page (route: customers).
+ *
+ * The refund sub-page lives at customers/refund (router → RefundFlow directly).
  * Navigation between sub-sections is handled by the NavBar sub-nav row.
  */
 
 import { useState } from "react";
-import { CustomerSearch } from "../modules/customers/CustomerSearch";
-import type { Customer } from "../modules/customers/customers.service";
+import { CustomerSearch } from "./CustomerSearch";
+import type { Customer } from "./customers.service";
 
-export default function CustomersPage() {
+export function CustomersListPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null,
   );
