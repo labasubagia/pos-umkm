@@ -234,6 +234,7 @@ describe("StoreManagementPage", () => {
       .mockResolvedValueOnce([joinedStore]); // after delete
     vi.mocked(svc.removeOwnedStore).mockResolvedValue(undefined);
     seedOwner();
+    act(() => useAuthStore.getState().setActiveStoreId(joinedStore.store_id));
     renderPage();
 
     await waitFor(() =>
@@ -301,6 +302,7 @@ describe("StoreManagementPage", () => {
       new Error("Network error"),
     );
     seedOwner();
+    act(() => useAuthStore.getState().setActiveStoreId(null));
     renderPage();
 
     await waitFor(() =>
