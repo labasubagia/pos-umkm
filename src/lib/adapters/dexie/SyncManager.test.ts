@@ -16,6 +16,7 @@ const TEST_STORE_ID = "sync-test-store";
 
 // Reset DB and online state before each test
 import { useAuthStore } from "../../../store/authStore";
+
 beforeEach(async () => {
   // Set activeStoreId so SyncManager uses the test DB
   useAuthStore.getState().activeStoreId = TEST_STORE_ID;
@@ -62,7 +63,9 @@ describe("drain", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import("../SheetRepository");
-    const spy = vi.spyOn(SheetRepository.prototype, "batchAppend").mockResolvedValue(undefined);
+    const spy = vi
+      .spyOn(SheetRepository.prototype, "batchAppend")
+      .mockResolvedValue(undefined);
     await db._outbox.add(makeEntry());
     await (manager as any).drain();
     expect(spy).toHaveBeenCalledOnce();
@@ -74,7 +77,9 @@ describe("drain", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import("../SheetRepository");
-    const spy = vi.spyOn(SheetRepository.prototype, "batchAppend").mockResolvedValue(undefined);
+    const spy = vi
+      .spyOn(SheetRepository.prototype, "batchAppend")
+      .mockResolvedValue(undefined);
     await db._outbox.add(makeEntry());
     await (manager as any).drain();
     expect(await db._outbox.count()).toBe(0);
@@ -85,7 +90,9 @@ describe("drain", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import("../SheetRepository");
-    const spy = vi.spyOn(SheetRepository.prototype, "batchAppend").mockRejectedValue(new Error("Network error"));
+    const spy = vi
+      .spyOn(SheetRepository.prototype, "batchAppend")
+      .mockRejectedValue(new Error("Network error"));
     const id = await db._outbox.add(makeEntry());
     await (manager as any).drain();
     const entry = await db._outbox.get(id);
@@ -98,7 +105,11 @@ describe("drain", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import("../SheetRepository");
-    const spy = vi.spyOn(SheetRepository.prototype, "batchAppend").mockRejectedValue(new Error("Sheets API error 429: rate limit exceeded"));
+    const spy = vi
+      .spyOn(SheetRepository.prototype, "batchAppend")
+      .mockRejectedValue(
+        new Error("Sheets API error 429: rate limit exceeded"),
+      );
     await db._outbox.add(makeEntry());
     await db._outbox.add(makeEntry({ mutationId: crypto.randomUUID() }));
     await (manager as any).drain();
@@ -113,7 +124,9 @@ describe("drain", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import("../SheetRepository");
-    const spy = vi.spyOn(SheetRepository.prototype, "batchAppend").mockResolvedValue(undefined);
+    const spy = vi
+      .spyOn(SheetRepository.prototype, "batchAppend")
+      .mockResolvedValue(undefined);
     await db._outbox.add(makeEntry({ status: "failed", retries: 5 }));
     await (manager as any).drain();
     expect(spy).not.toHaveBeenCalled();
@@ -129,7 +142,9 @@ describe("drain", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import("../SheetRepository");
-    const spy = vi.spyOn(SheetRepository.prototype, "batchAppend").mockResolvedValue(undefined);
+    const spy = vi
+      .spyOn(SheetRepository.prototype, "batchAppend")
+      .mockResolvedValue(undefined);
     await db._outbox.add(makeEntry());
     manager.triggerSync();
     expect(spy).not.toHaveBeenCalled();
@@ -144,7 +159,9 @@ describe("operation routing", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import("../SheetRepository");
-    const spy = vi.spyOn(SheetRepository.prototype, "batchUpdateCells").mockResolvedValue(undefined);
+    const spy = vi
+      .spyOn(SheetRepository.prototype, "batchUpdateCells")
+      .mockResolvedValue(undefined);
     await db._outbox.add(
       makeEntry({
         operation: {
@@ -162,7 +179,9 @@ describe("operation routing", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import("../SheetRepository");
-    const spy = vi.spyOn(SheetRepository.prototype, "softDelete").mockResolvedValue(undefined);
+    const spy = vi
+      .spyOn(SheetRepository.prototype, "softDelete")
+      .mockResolvedValue(undefined);
     await db._outbox.add(
       makeEntry({
         operation: { op: "softDelete", rowId: "p1" },
