@@ -921,9 +921,6 @@ jobs:
       - run: npx playwright install --with-deps
       - run: npm run build && npx serve dist &
       - run: npx playwright test
-    env:
-      GOOGLE_TEST_EMAIL: ${{ secrets.GOOGLE_TEST_EMAIL }}
-      GOOGLE_TEST_SPREADSHEET_ID: ${{ secrets.GOOGLE_TEST_SPREADSHEET_ID }}
 ```
 
 ---

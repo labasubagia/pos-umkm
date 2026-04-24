@@ -141,11 +141,10 @@
 - **Section:** Scaffold
 - **Depends on:** T005, T006
 - **Test type:** none
-- **Architecture note:** Two separate jobs: `unit` (fast, no browser) and `e2e` (slow, browser). Separating them allows unit tests to give fast feedback on PRs while e2e can run in parallel. Secrets for test Google account are stored as GitHub Actions secrets, never in code.
+- **Architecture note:** Two separate jobs: `unit` (fast, no browser) and `e2e` (slow, browser). Separating them allows unit tests to give fast feedback on PRs while e2e can run in parallel. All spreadsheet operations in E2E tests are fully mocked — no real Google account or spreadsheet is needed in CI.
 - **Deliverables:**
   - `.github/workflows/ci.yml` with jobs: `unit` (Vitest) and `e2e` (Playwright)
   - `.github/workflows/deploy.yml` triggered on merge to `main` → `vite build` → GitHub Pages
-  - Secrets documented in `README.md`: `GOOGLE_TEST_EMAIL`, `GOOGLE_TEST_SPREADSHEET_ID`
 
 ---
 
