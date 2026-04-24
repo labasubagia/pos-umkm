@@ -80,5 +80,5 @@ secrets are absent (uses `MockAdapter` in CI by default).
 - [`docs/PRD.md`](docs/PRD.md) — Product Requirements Document
 - [`docs/TRD.md`](docs/TRD.md) — Technical Requirements Document
 - [`docs/TASKS.md`](docs/TASKS.md) — Implementation Task List
-- [`docs/COMMITS.md`](docs/COMMITS.md) — Git Commit Convention
+- [`.github/skills/git-commit/SKILL.md`](.github/skills/git-commit/SKILL.md) — Git Commit Convention
 

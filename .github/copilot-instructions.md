@@ -7,7 +7,6 @@
 1. **`docs/PRD.md`** — understand what the product does, for whom, and why. Check personas, user stories, and functional requirements before making decisions.
 2. **`docs/TRD.md`** — understand how it is built. Stack, architecture, data model (Google Sheets), auth flow, testing strategy, and module structure.
 3. **`docs/TASKS.md`** — find the current implementation status. Pick tasks with status ⬜ `todo` whose `depends_on` tasks are all ✅ `done`. Update task status before starting (`🔄 in-progress`) and after finishing (`✅ done`).
-4. **`docs/COMMITS.md`** — read before every `git commit`. Follow the Conventional Commits format, scope list, atomic commit rule, and required Copilot co-author trailer defined there.
 
 Do not start implementing until you have read all three. If a decision you are about to make contradicts something in PRD, TRD, or TASKS, flag the conflict before proceeding.
 
@@ -20,7 +19,6 @@ This is a **product and planning repository** for **POS UMKM** — a web-based P
 - **`docs/PRD.md`** (v1.3) — Product Requirements Document. Business/product-focused: what the product does, for whom, and why. No implementation specifics.
 - **`docs/TRD.md`** (v2.1) — Technical Requirements Document. How the product is built: stack, protocols, APIs, infrastructure, offline architecture, security implementation.
 - **`docs/TASKS.md`** — Implementation task list for AI coding agents. 61 tasks across 11 feature sections with TDD test cases, Playwright E2E specs, depends_on fields, and status tracking.
-- **`docs/COMMITS.md`** — Git commit message guide. Conventional Commits format, scope list, anti-patterns, TDD commit sequence, and required trailers.
 
 Keep these concerns separated — product decisions go in PRD, implementation decisions go in TRD, and execution tracking goes in TASKS.
 
@@ -139,7 +137,7 @@ When adding a new term, place it in the appropriate glossary based on whether it
 
 ### Commit Convention
 
-All commits must follow the rules in **`docs/COMMITS.md`**. Key points:
+All commits must follow the `git-commit` skill (`.github/skills/git-commit/SKILL.md`). Key points:
 
 - Format: `type(scope): subject` (Conventional Commits)
 - Scopes match the module structure: `auth`, `catalog`, `cashier`, `inventory`, `customers`, `reports`, `settings`, `adapters`, `sheets`, `lib`, `store`, `router`, `e2e`, `ci`, `docs`
