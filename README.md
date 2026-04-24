@@ -1,81 +1,72 @@
 # POS UMKM
 
-Aplikasi Point of Sale (POS) berbasis web untuk usaha mikro, kecil, dan menengah (UMKM) Indonesia.
+A web-based Point of Sale (POS) application for Indonesian micro, small, and medium businesses (UMKM: Usaha Mikro, Kecil, dan Menengah).
 
-## Prasyarat
+## Prerequisites
 
-- Node.js 18 atau lebih baru
-- Akun Google (untuk autentikasi dan penyimpanan data di Google Sheets)
+- Node.js 18 or later
+- A Google account (for authentication and data storage in Google Sheets)
 
-## Setup & Instalasi
+## Setup & Installation
 
 ```bash
-# Clone repositori
+# Clone the repository
 git clone https://github.com/<your-org>/pos-umkm.git
 cd pos-umkm
 
-# Install dependensi
+# Install dependencies
 npm install
 
-# Jalankan server pengembangan
+# Start the development server
 npm run dev
 ```
 
-Buka [http://localhost:5173/pos-umkm/](http://localhost:5173/pos-umkm/) di browser Anda.
+Open [http://localhost:5173/pos-umkm/](http://localhost:5173/pos-umkm/) in your browser.
 
-## Skrip yang Tersedia
+## Available Scripts
 
-| Skrip | Deskripsi |
+| Script | Description |
 |---|---|
-| `npm run dev` | Jalankan server pengembangan (Vite HMR) |
-| `npm run build` | Build produksi ke folder `dist/` |
-| `npm run preview` | Preview build produksi secara lokal |
-| `biome check` | Jalankan pemeriksaan format & lint Biome |
-| `npm test` | Jalankan unit test (Vitest) |
-| `npm run test:e2e` | Jalankan end-to-end test (Playwright) |
+| `npm run dev` | Start the development server (Vite HMR) |
+| `npm run build` | Production build to the `dist/` folder |
+| `npm run preview` | Preview the production build locally |
+| `biome check` | Run Biome format & lint checks |
+| `npm test` | Run unit tests (Vitest) |
+| `npm run test:e2e` | Run end-to-end tests (Playwright) |
 
-## Konfigurasi Environment
+## Environment Configuration
 
-Salin `.env.example` ke `.env.local` dan isi nilai yang diperlukan:
+Copy `.env.example` to `.env.local` and fill in the required values:
 
 ```bash
 cp .env.example .env.local
 ```
 
-File `.env.local` tidak di-commit ke repositori.
+The `.env.local` file is not committed to the repository.
 
-## Teknologi
+## Tech Stack
 
 - **Frontend**: React 19 + TypeScript + Vite
 - **Styling**: Tailwind CSS
-- **Database**: Google Sheets API v4 (data tersimpan di Google Drive pengguna)
+- **Database**: Google Sheets API v4 (data stored in the user's Google Drive)
 - **Auth**: Google Identity Services (OAuth 2.0)
 - **Testing**: Vitest + Testing Library (unit), Playwright (E2E)
 - **Hosting**: GitHub Pages / Netlify / Vercel
 
 ## Deployment
 
-Aplikasi di-build sebagai SPA statis dengan base path `/pos-umkm/` untuk GitHub Pages:
+The app is built as a static SPA with base path `/pos-umkm/` for GitHub Pages:
 
 ```bash
 npm run build
-# Output ada di folder dist/
+# Output is in the dist/ folder
 ```
 
 ## GitHub Actions Secrets
 
-The CI pipeline requires the following secrets to be configured in the repository settings
-(**Settings → Secrets and variables → Actions**):
+No secrets are required for the CI pipeline. All spreadsheet operations in E2E tests are fully mocked — Playwright tests never make real Google Sheets API calls.
 
-| Secret | Description |
-|---|---|
-| `GOOGLE_TEST_EMAIL` | Email address of the Google test account used by Playwright E2E tests |
-| `GOOGLE_TEST_SPREADSHEET_ID` | Spreadsheet ID of the test Google Sheet pre-seeded for E2E tests |
-
-These values are never committed to the repository. E2E tests skip Google API calls when these
-secrets are absent (uses `MockAdapter` in CI by default).
-
-## Dokumen
+## Documents
 
 - [`docs/PRD.md`](docs/PRD.md) — Product Requirements Document
 - [`docs/TRD.md`](docs/TRD.md) — Technical Requirements Document
