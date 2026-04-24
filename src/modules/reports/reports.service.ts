@@ -108,23 +108,23 @@ export async function fetchDailySummary(date: string): Promise<DailySummary> {
   }
 
   const transactions = txRows.map((r) => ({
-    id: String(r["id"]),
-    receipt_number: String(r["receipt_number"] ?? ""),
-    created_at: String(r["created_at"]),
-    cashier_id: String(r["cashier_id"]),
-    payment_method: String(r["payment_method"]),
-    total: Number(r["total"]),
-    cash_received: Number(r["cash_received"]),
+    id: String(r.id),
+    receipt_number: String(r.receipt_number ?? ""),
+    created_at: String(r.created_at),
+    cashier_id: String(r.cashier_id),
+    payment_method: String(r.payment_method),
+    total: Number(r.total),
+    cash_received: Number(r.cash_received),
   })) as TransactionRow[];
 
   const items = itemRows.map((r) => ({
-    id: String(r["id"]),
-    transaction_id: String(r["transaction_id"]),
-    product_id: String(r["product_id"]),
-    name: String(r["name"]),
-    price: Number(r["price"]),
-    quantity: Number(r["quantity"]),
-    subtotal: Number(r["subtotal"]),
+    id: String(r.id),
+    transaction_id: String(r.transaction_id),
+    product_id: String(r.product_id),
+    name: String(r.name),
+    price: Number(r.price),
+    quantity: Number(r.quantity),
+    subtotal: Number(r.subtotal),
   })) as TransactionItemRow[];
 
   return { date, ...aggregateTransactions(transactions, items, date) };
@@ -155,7 +155,7 @@ export async function fetchTransactionsForRange(
   }
 
   const months = getMonthsInRange(startDate, endDate);
-  const endBound = endDate + "T23:59:59.999Z";
+  const endBound = `${endDate}T23:59:59.999Z`;
 
   const allRows: TransactionRow[] = [];
   const seen = new Set<string>();
@@ -163,19 +163,19 @@ export async function fetchTransactionsForRange(
   for (const _month of months) {
     const rows = await getRepos().transactions.getAll();
     for (const r of rows) {
-      const id = String(r["id"]);
-      const created_at = String(r["created_at"]);
+      const id = String(r.id);
+      const created_at = String(r.created_at);
       if (seen.has(id)) continue;
       if (created_at >= startDate && created_at <= endBound) {
         seen.add(id);
         allRows.push({
           id,
-          receipt_number: String(r["receipt_number"] ?? ""),
+          receipt_number: String(r.receipt_number ?? ""),
           created_at,
-          cashier_id: String(r["cashier_id"]),
-          payment_method: String(r["payment_method"]),
-          total: Number(r["total"]),
-          cash_received: Number(r["cash_received"]),
+          cashier_id: String(r.cashier_id),
+          payment_method: String(r.payment_method),
+          total: Number(r.total),
+          cash_received: Number(r.cash_received),
         });
       }
     }

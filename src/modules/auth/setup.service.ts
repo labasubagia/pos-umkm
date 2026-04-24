@@ -11,27 +11,27 @@
  * adapters — no direct Sheets API calls from this file.
  */
 
-import { getRepos, driveClient, makeRepo } from "../../lib/adapters";
-import { generateId } from "../../lib/uuid";
+import { driveClient, getRepos, makeRepo } from "../../lib/adapters";
 import { nowUTC } from "../../lib/formatters";
-import { useAuthStore } from "../../store/authStore";
 import {
-  MAIN_TABS,
-  MASTER_TABS,
-  MONTHLY_TABS,
   MAIN_TAB_HEADERS,
+  MAIN_TABS,
   MASTER_TAB_HEADERS,
+  MASTER_TABS,
   MONTHLY_TAB_HEADERS,
+  MONTHLY_TABS,
 } from "../../lib/schema";
+import { generateId } from "../../lib/uuid";
+import { useAuthStore } from "../../store/authStore";
 
 // Re-export so existing callers that imported from this module continue to work.
 export {
-  MAIN_TABS,
-  MASTER_TABS,
-  MONTHLY_TABS,
   MAIN_TAB_HEADERS,
+  MAIN_TABS,
   MASTER_TAB_HEADERS,
+  MASTER_TABS,
   MONTHLY_TAB_HEADERS,
+  MONTHLY_TABS,
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -112,7 +112,9 @@ export function clearSetupStorage(): void {
   // (txSheet_<storeId>_YYYY-MM) and legacy unscoped (txSheet_YYYY-MM) formats.
   Object.keys(localStorage)
     .filter((k) => k.startsWith("txSheet_"))
-    .forEach((k) => localStorage.removeItem(k));
+    .forEach((k) => {
+      localStorage.removeItem(k);
+    });
 }
 
 /**
@@ -146,7 +148,7 @@ export async function createMainSpreadsheet(ownerEmail = ""): Promise<string> {
       ...MAIN_TABS,
     ]);
     await makeRepo(mainId, "Stores").writeHeaders(
-      MAIN_TAB_HEADERS["Stores"] ?? [],
+      MAIN_TAB_HEADERS.Stores ?? [],
     );
     void ownerEmail; // reserved for future row insertion on member join flow
     return mainId;
@@ -165,15 +167,15 @@ export async function listStores(
 ): Promise<StoreRecord[]> {
   const rows = await makeRepo(mainSpreadsheetId, "Stores").getAll();
   return rows
-    .filter((r) => r["store_id"] && r["master_spreadsheet_id"])
+    .filter((r) => r.store_id && r.master_spreadsheet_id)
     .map((r) => ({
-      store_id: String(r["store_id"]),
-      store_name: String(r["store_name"] ?? ""),
-      master_spreadsheet_id: String(r["master_spreadsheet_id"]),
-      drive_folder_id: String(r["drive_folder_id"] ?? ""),
-      owner_email: String(r["owner_email"] ?? ""),
-      my_role: String(r["my_role"] ?? "owner"),
-      joined_at: String(r["joined_at"] ?? ""),
+      store_id: String(r.store_id),
+      store_name: String(r.store_name ?? ""),
+      master_spreadsheet_id: String(r.master_spreadsheet_id),
+      drive_folder_id: String(r.drive_folder_id ?? ""),
+      owner_email: String(r.owner_email ?? ""),
+      my_role: String(r.my_role ?? "owner"),
+      joined_at: String(r.joined_at ?? ""),
     }));
 }
 
@@ -293,10 +295,10 @@ export async function activateStore(store: StoreRecord): Promise<{
   try {
     const rows = await makeRepo(masterId, "Monthly_Sheets").getAll();
     const row = rows.find(
-      (r) => (r as Record<string, unknown>)["year_month"] === yearMonth,
+      (r) => (r as Record<string, unknown>).year_month === yearMonth,
     );
     monthlyId =
-      ((row as Record<string, unknown>)?.["spreadsheetId"] as string) ?? null;
+      ((row as Record<string, unknown>)?.spreadsheetId as string) ?? null;
   } catch {
     // Monthly_Sheets tab may not yet exist (pre-setup); treat as no entry.
   }
@@ -420,8 +422,10 @@ export async function getCurrentMonthSheetId(): Promise<string | null> {
   const yearMonth = `${now.getFullYear()}-${mm(now.getMonth() + 1)}`;
   try {
     const rows = await getRepos().monthlySheets.getAll();
-    const row = rows.find((r) => r["year_month"] === yearMonth);
-    return (row?.["spreadsheetId"] as string) ?? null;
+    const row = rows.find(
+      (r) => (r as Record<string, unknown>).year_month === yearMonth,
+    );
+    return ((row as Record<string, unknown>)?.spreadsheetId as string) ?? null;
   } catch {
     // Monthly_Sheets tab may not yet exist (pre-setup); treat as no entry.
     return null;
@@ -576,13 +580,16 @@ export async function shareSheetWithAllMembers(
 ): Promise<void> {
   const members = await getRepos().members.getAll();
   const activeMembers = members.filter(
-    (u) => !u["deleted_at"] && u["email"] && u["email"] !== "",
+    (u) =>
+      !(u as Record<string, unknown>).deleted_at &&
+      (u as Record<string, unknown>).email &&
+      (u as Record<string, unknown>).email !== "",
   );
   await Promise.all(
     activeMembers.map((u) =>
       driveClient.shareSpreadsheet(
         spreadsheetId,
-        u["email"] as string,
+        (u as Record<string, unknown>).email as string,
         "editor",
       ),
     ),

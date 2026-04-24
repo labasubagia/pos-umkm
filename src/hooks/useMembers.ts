@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "../store/authStore";
 import { listMembers } from "../modules/settings/members.service";
+import { useAuthStore } from "../store/authStore";
 
 export const MEMBERS_QUERY_KEY = (storeId: string | null) => [
   "members",

@@ -6,18 +6,18 @@
  * Mutations call the service and invalidate the relevant queries.
  */
 
-import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Button } from "../../components/ui/button";
+import { CATEGORIES_QUERY_KEY, useCategories } from "../../hooks/useCategories";
+import { PRODUCTS_QUERY_KEY, useProducts } from "../../hooks/useProducts";
+import { formatIDR } from "../../lib/formatters";
 import { useAuthStore } from "../../store/authStore";
-import { useCategories, CATEGORIES_QUERY_KEY } from "../../hooks/useCategories";
-import { useProducts, PRODUCTS_QUERY_KEY } from "../../hooks/useProducts";
-import { addProduct, updateProduct, deleteProduct } from "./catalog.service";
 import type { NewProduct, ProductChanges } from "./catalog.service";
+import { addProduct, deleteProduct, updateProduct } from "./catalog.service";
 import { ProductForm } from "./ProductForm";
 import { VariantManager } from "./VariantManager";
-import { formatIDR } from "../../lib/formatters";
-import { Button } from "../../components/ui/button";
-import { Alert, AlertDescription } from "../../components/ui/alert";
 
 export function ProductList() {
   const queryClient = useQueryClient();

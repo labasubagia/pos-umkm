@@ -10,15 +10,15 @@
  */
 
 import { getRepos } from "../../lib/adapters";
-import { generateId } from "../../lib/uuid";
 import { nowUTC } from "../../lib/formatters";
+import { generateId } from "../../lib/uuid";
+import { useAuthStore } from "../../store/authStore";
 import {
   createMonthlySheet,
-  initializeMonthlySheets,
   getCurrentMonthSheetId,
+  initializeMonthlySheets,
   shareSheetWithAllMembers,
 } from "../auth/setup.service";
-import { useAuthStore } from "../../store/authStore";
 import type { Product, Variant } from "../catalog/catalog.service";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
@@ -187,9 +187,7 @@ export function searchProducts(query: string, products: Product[]): Product[] {
   const q = query.trim().toLowerCase();
   if (!q) return products;
   return products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(q) ||
-      (p.sku && p.sku.toLowerCase().includes(q)),
+    (p) => p.name.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q),
   );
 }
 
@@ -273,7 +271,7 @@ export async function commitTransaction(
   cashierId: string,
   customerId: string | null,
   _masterSpreadsheetId: string,
-  receiptSequence: number,
+  _receiptSequence: number,
   preloadedProducts?: Product[],
   preloadedVariants?: Variant[],
 ): Promise<Transaction> {
@@ -344,22 +342,22 @@ export async function commitTransaction(
     const insuffs: string[] = [];
     for (const it of items) {
       if (it.variantId) {
-        const v = variantRows.find((r) => r["id"] === it.variantId);
+        const v = variantRows.find((r) => r.id === it.variantId);
         if (!v) {
           insuffs.push(`${it.name} (varian) tidak ditemukan`);
           continue;
         }
-        const cur = Number(v["stock"]);
+        const cur = Number((v as unknown as Record<string, unknown>).stock);
         if (cur < it.quantity) {
           insuffs.push(`${it.name}: stok ${cur} < dibutuhkan ${it.quantity}`);
         }
       } else {
-        const p = productRows.find((r) => r["id"] === it.productId);
+        const p = productRows.find((r) => r.id === it.productId);
         if (!p) {
           insuffs.push(`${it.name} tidak ditemukan`);
           continue;
         }
-        const cur = Number(p["stock"]);
+        const cur = Number((p as unknown as Record<string, unknown>).stock);
         if (cur < it.quantity) {
           insuffs.push(`${it.name}: stok ${cur} < dibutuhkan ${it.quantity}`);
         }
@@ -439,12 +437,16 @@ export async function commitTransaction(
     const variantUpdates = items
       .filter((i) => i.variantId)
       .flatMap((item) => {
-        const v = variantRows.find((r) => r["id"] === item.variantId);
+        const v = variantRows.find((r) => r.id === item.variantId);
         if (!v) return [];
         return [
           {
-            id: item.variantId!,
-            stock: Math.max(0, Number(v["stock"]) - item.quantity),
+            id: String(item.variantId),
+            stock: Math.max(
+              0,
+              Number((v as unknown as Record<string, unknown>).stock) -
+                item.quantity,
+            ),
           },
         ];
       });
@@ -452,12 +454,16 @@ export async function commitTransaction(
     const productUpdates = items
       .filter((i) => !i.variantId)
       .flatMap((item) => {
-        const p = productRows.find((r) => r["id"] === item.productId);
+        const p = productRows.find((r) => r.id === item.productId);
         if (!p) return [];
         return [
           {
             id: item.productId,
-            stock: Math.max(0, Number(p["stock"]) - item.quantity),
+            stock: Math.max(
+              0,
+              Number((p as unknown as Record<string, unknown>).stock) -
+                item.quantity,
+            ),
           },
         ];
       });

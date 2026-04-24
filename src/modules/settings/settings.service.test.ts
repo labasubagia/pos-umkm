@@ -1,15 +1,15 @@
 /**
  * T043 + T044 — settings.service unit tests
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import {
-  getSettings,
-  saveSettings,
-  saveQRISImage,
-  getQRISImage,
-  SettingsError,
-} from "./settings.service";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
+import {
+  getQRISImage,
+  getSettings,
+  SettingsError,
+  saveQRISImage,
+  saveSettings,
+} from "./settings.service";
 
 function mockRepo(overrides = {}) {
   return {

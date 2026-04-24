@@ -17,11 +17,11 @@
  *   - entries that are new                      → batchInsert
  * This avoids serialising makeNewRow into the outbox.
  */
-import type { ILocalRepository } from "../ILocalRepository";
-import type { PosUmkmDatabase } from "./db";
-import type { OutboxEntry, OutboxOperation } from "./db";
-import { generateId } from "../../uuid";
+
 import { useSyncStore } from "../../../store/syncStore";
+import { generateId } from "../../uuid";
+import type { ILocalRepository } from "../ILocalRepository";
+import type { OutboxEntry, OutboxOperation, PosUmkmDatabase } from "./db";
 
 export interface SyncTarget {
   spreadsheetId: string;
@@ -49,7 +49,7 @@ export class DexieRepository<T extends Record<string, unknown>>
 
   async getAll(): Promise<T[]> {
     const rows = await this.db.table<T>(this.syncTarget.sheetName).toArray();
-    return rows.filter((r) => !(r as Record<string, unknown>)["deleted_at"]);
+    return rows.filter((r) => !(r as Record<string, unknown>).deleted_at);
   }
 
   // ─── Writes (IndexedDB + outbox) ─────────────────────────────────────────────
@@ -59,7 +59,7 @@ export class DexieRepository<T extends Record<string, unknown>>
   ): Promise<void> {
     if (rows.length === 0) return;
     const rowsWithIds = rows.map((r) =>
-      r["id"] ? r : { id: generateId(), ...r },
+      r.id ? r : { id: generateId(), ...r },
     );
     const tableName = this.syncTarget.sheetName;
     await this.db.transaction(
@@ -122,15 +122,15 @@ export class DexieRepository<T extends Record<string, unknown>>
     const existingSet = new Set(
       (
         await Promise.all(
-          rows.map((r) => this.db.table(tableName).get(r["id"] as string)),
+          rows.map((r) => this.db.table(tableName).get(r.id as string)),
         )
       )
-        .map((r, i) => (r ? (rows[i]["id"] as string) : null))
+        .map((r, i) => (r ? (rows[i].id as string) : null))
         .filter((id): id is string => id !== null),
     );
 
-    const toUpdate = rows.filter((r) => existingSet.has(r["id"] as string));
-    const toInsert = rows.filter((r) => !existingSet.has(r["id"] as string));
+    const toUpdate = rows.filter((r) => existingSet.has(r.id as string));
+    const toInsert = rows.filter((r) => !existingSet.has(r.id as string));
 
     if (toUpdate.length > 0) await this.batchUpdate(toUpdate);
     if (toInsert.length > 0) await this.batchInsert(toInsert);

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "../store/authStore";
 import { getQRISImage } from "../modules/settings/settings.service";
+import { useAuthStore } from "../store/authStore";
 
 export const QRIS_QUERY_KEY = (storeId: string | null) => ["qris", storeId];
 

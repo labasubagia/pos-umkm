@@ -14,21 +14,21 @@
  * Testing: unit tests mock this module via vi.mock(); integration tests use the
  * real exports backed by fake-indexeddb (imported in test-setup.ts).
  */
-import type { IDriveClient } from "./DriveClient";
-import { GoogleDriveClient } from "./DriveClient";
-import type { AuthAdapter } from "./types";
-import { GoogleAuthAdapter } from "./google/GoogleAuthAdapter";
-import type { ISheetRepository } from "./SheetRepository";
-import { SheetRepository } from "./SheetRepository";
-import type { Repos } from "./repos";
-import { ALL_TAB_HEADERS } from "../schema";
-import { DexieRepository } from "./dexie/DexieRepository";
-import { SyncManager } from "./dexie/SyncManager";
-import { HydrationService } from "./dexie/HydrationService";
-import { getDb, clearDbCache } from "./dexie/db";
 
 // Lazy import to avoid circular dependency (authStore imports from here indirectly via services)
 import { useAuthStore } from "../../store/authStore";
+import { ALL_TAB_HEADERS } from "../schema";
+import type { IDriveClient } from "./DriveClient";
+import { GoogleDriveClient } from "./DriveClient";
+import { DexieRepository } from "./dexie/DexieRepository";
+import { clearDbCache, getDb } from "./dexie/db";
+import { HydrationService } from "./dexie/HydrationService";
+import { SyncManager } from "./dexie/SyncManager";
+import { GoogleAuthAdapter } from "./google/GoogleAuthAdapter";
+import type { Repos } from "./repos";
+import type { ISheetRepository } from "./SheetRepository";
+import { SheetRepository } from "./SheetRepository";
+import type { AuthAdapter } from "./types";
 
 export const authAdapter: AuthAdapter = new GoogleAuthAdapter();
 
@@ -184,11 +184,10 @@ function createDexieRepos(
   };
 }
 
-export type { IDriveClient, ISheetRepository, Repos };
 export type { ILocalRepository } from "./ILocalRepository";
-export type { AuthAdapter };
+export type { Role, User } from "./types";
 export { AdapterError } from "./types";
-export type { User, Role } from "./types";
+export type { AuthAdapter, IDriveClient, ISheetRepository, Repos };
 
 /**
  * Writes rows directly to the Dexie table for the active store, bypassing the outbox.

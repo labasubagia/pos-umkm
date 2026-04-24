@@ -1,7 +1,7 @@
 /**
  * refund.service tests — covers T037 (Refund / Return Flow).
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
 import { createRefund, fetchTransaction, RefundError } from "./refund.service";
 
@@ -144,7 +144,7 @@ describe("createRefund", () => {
       expect.objectContaining({ event: "REFUND" }),
     ]);
     const auditRow = mockRepos.auditLog.batchInsert.mock.calls[0][0][0];
-    const data = JSON.parse(auditRow["data"] as string);
+    const data = JSON.parse(auditRow.data as string);
     expect(data.transactionId).toBe("tx-001");
     expect(data.reason).toBe("Produk rusak");
   });

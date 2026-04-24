@@ -5,10 +5,10 @@
  * Sheets API HTTP mocking.
  */
 import "fake-indexeddb/auto";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { SyncManager } from "./SyncManager";
-import { getDb, clearDbCache } from "./db";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OutboxEntry } from "./db";
+import { clearDbCache, getDb } from "./db";
+import { SyncManager } from "./SyncManager";
 
 const SPREADSHEET_ID = "test-sheet-id";
 const TOKEN = "test-token";

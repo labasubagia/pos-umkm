@@ -12,11 +12,11 @@
  * quota is exceeded. We retry with exponential backoff (up to MAX_RETRIES).
  */
 import type {
-  SheetsGetResponse,
   SheetsAppendResponse,
-  SheetsUpdateResponse,
   SheetsBatchGetResponse,
   SheetsBatchUpdateResponse,
+  SheetsGetResponse,
+  SheetsUpdateResponse,
   SheetValues,
 } from "./sheets.types";
 import { SheetsApiError } from "./sheets.types";

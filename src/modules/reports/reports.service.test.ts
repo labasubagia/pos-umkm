@@ -1,16 +1,16 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
 import {
   aggregateTransactions,
+  calculateExpectedCash,
+  calculateGrossProfit,
   fetchDailySummary,
   fetchTransactionsForRange,
   filterTransactions,
-  calculateGrossProfit,
-  calculateExpectedCash,
-  saveReconciliation,
   ReportError,
-  type TransactionRow,
+  saveReconciliation,
   type TransactionItemRow,
+  type TransactionRow,
 } from "./reports.service";
 
 function mockRepo(overrides = {}) {
@@ -462,8 +462,8 @@ describe("saveReconciliation", () => {
     await saveReconciliation(100000, 105000, "2026-06-01");
     expect(mockRepos.auditLog.batchInsert).toHaveBeenCalledOnce();
     const row = mockRepos.auditLog.batchInsert.mock.calls[0][0][0];
-    expect(row["event"]).toBe("CASH_RECONCILIATION");
-    const data = JSON.parse(row["data"] as string);
+    expect(row.event).toBe("CASH_RECONCILIATION");
+    const data = JSON.parse(row.data as string);
     expect(data.expected).toBe(100000);
     expect(data.actual).toBe(105000);
     expect(data.surplus_deficit).toBe(5000);

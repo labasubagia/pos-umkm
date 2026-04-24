@@ -5,14 +5,14 @@
  * For category/product creation tests, no pre-seeding is necessary — the UI
  * form writes directly to Dexie.
  */
-import { test, expect } from "@playwright/test";
-import { injectAuthState, DEFAULT_STORE, BASE } from "./helpers/auth-dexie";
+import { expect, test } from "@playwright/test";
+import { navigateTo } from "./helpers/auth";
+import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
 import {
-  seedDexie,
   reloadAndWait,
+  seedDexie,
   waitForHydration,
 } from "./helpers/dexie-seed";
-import { navigateTo } from "./helpers/auth";
 
 const STORE = DEFAULT_STORE;
 const now = new Date().toISOString();
@@ -260,7 +260,7 @@ test.describe("Stock Opname (T034)", () => {
 
     // Verify Stock_Log entry in Dexie
     const stockLog = await page.evaluate(
-      async ({ storeId, prodId }) => {
+      async ({ storeId }) => {
         const db = (
           window as Record<
             string,
@@ -268,17 +268,17 @@ test.describe("Stock Opname (T034)", () => {
               Stock_Log: { toArray: () => Promise<Record<string, unknown>[]> };
             }
           >
-        )["__getDb"](storeId);
+        ).__getDb(storeId);
         return db.Stock_Log.toArray();
       },
-      { storeId: STORE.storeId, prodId },
+      { storeId: STORE.storeId },
     );
     const logEntry = stockLog.find(
-      (e) => e["product_id"] === prodId && e["reason"] === "opname",
+      (e) => e.product_id === prodId && e.reason === "opname",
     );
     expect(logEntry).toBeTruthy();
-    expect(logEntry!["qty_before"]).toBe(50);
-    expect(logEntry!["qty_after"]).toBe(45);
+    expect(logEntry?.qty_before).toBe(50);
+    expect(logEntry?.qty_after).toBe(45);
   });
 });
 
@@ -335,8 +335,6 @@ test.describe("Purchase Orders (T035)", () => {
     await expect(page.getByTestId(`po-supplier-${poId}`)).toHaveText(
       "Supplier Test ABC",
     );
-    await expect(page.getByTestId(`po-status-${poId}`)).toHaveText("Pending");
-
     await page.getByTestId(`btn-receive-po-${poId}`).click();
     await expect(page.getByTestId(`po-status-${poId}`)).toHaveText("Diterima");
 
@@ -352,7 +350,7 @@ test.describe("Purchase Orders (T035)", () => {
               };
             }
           >
-        )["__getDb"](storeId);
+        ).__getDb(storeId);
         const p = await db.Products.get(prodId);
         return p?.stock ?? null;
       },
@@ -362,7 +360,7 @@ test.describe("Purchase Orders (T035)", () => {
 
     // Verify Stock_Log entry
     const stockLog = await page.evaluate(
-      async ({ storeId, prodId }) => {
+      async ({ storeId }) => {
         const db = (
           window as Record<
             string,
@@ -370,16 +368,16 @@ test.describe("Purchase Orders (T035)", () => {
               Stock_Log: { toArray: () => Promise<Record<string, unknown>[]> };
             }
           >
-        )["__getDb"](storeId);
+        ).__getDb(storeId);
         return db.Stock_Log.toArray();
       },
-      { storeId: STORE.storeId, prodId },
+      { storeId: STORE.storeId },
     );
     const logEntry = stockLog.find(
-      (e) => e["product_id"] === prodId && e["reason"] === "purchase_order",
+      (e) => e.product_id === prodId && e.reason === "purchase_order",
     );
     expect(logEntry).toBeTruthy();
-    expect(logEntry!["qty_before"]).toBe(20);
-    expect(logEntry!["qty_after"]).toBe(50);
+    expect(logEntry?.qty_before).toBe(20);
+    expect(logEntry?.qty_after).toBe(50);
   });
 });

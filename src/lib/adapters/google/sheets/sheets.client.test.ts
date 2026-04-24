@@ -2,14 +2,15 @@
  * Unit tests for the Sheets API client using MSW for HTTP mocking.
  * MSW intercepts fetch calls in the jsdom environment.
  */
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+
+import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
-import { http, HttpResponse } from "msw";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
-  sheetsGet,
   sheetsAppend,
-  sheetsUpdate,
   sheetsBatchGet,
+  sheetsGet,
+  sheetsUpdate,
 } from "./sheets.client";
 import { SheetsApiError } from "./sheets.types";
 

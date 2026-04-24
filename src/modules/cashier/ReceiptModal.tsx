@@ -4,9 +4,7 @@
  * Renders the receipt text and provides a "Share via WhatsApp" button.
  * The cashier can also just close the modal without sharing.
  */
-import { Share2, CheckCircle } from "lucide-react";
-import { generateReceiptText, generateWhatsAppLink } from "./receipt.service";
-import type { Transaction, TransactionItem } from "./cashier.service";
+import { CheckCircle, Share2 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import {
   Dialog,
@@ -15,6 +13,8 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { ScrollArea } from "../../components/ui/scroll-area";
+import type { Transaction, TransactionItem } from "./cashier.service";
+import { generateReceiptText, generateWhatsAppLink } from "./receipt.service";
 
 interface Props {
   transaction: Transaction;

@@ -1,13 +1,13 @@
 /**
  * customers.service tests — covers T036 (Customer Management).
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
 import {
-  fetchCustomers,
   addCustomer,
-  updateCustomer,
   CustomerError,
+  fetchCustomers,
+  updateCustomer,
 } from "./customers.service";
 
 function mockRepo(overrides = {}) {

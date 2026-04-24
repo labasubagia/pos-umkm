@@ -9,10 +9,10 @@
  * HydrationService) so no network calls are attempted in jsdom.
  */
 import "fake-indexeddb/auto";
-import { describe, it, expect, vi, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderWithDexie, cleanupDexie } from "../test-utils/dexie-test-utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanupDexie, renderWithDexie } from "../test-utils/dexie-test-utils";
 import CashierPage from "./CashierPage";
 
 const STORE_ID = "cashier-integration-store";

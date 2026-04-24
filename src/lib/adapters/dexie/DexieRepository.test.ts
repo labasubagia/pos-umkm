@@ -5,9 +5,9 @@
  * a real browser. Each test starts with a fresh database to avoid state leakage.
  */
 import "fake-indexeddb/auto";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DexieRepository } from "./DexieRepository";
-import { getDb, clearDbCache } from "./db";
+import { clearDbCache, getDb } from "./db";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -228,9 +228,9 @@ describe("batchUpsert", () => {
     ]);
     const all = await db.Settings.toArray();
     expect(all).toHaveLength(2);
-    const name = all.find((r) => r["key"] === "business_name");
-    expect(name?.["value"]).toBe("Toko Baru");
-    const addr = all.find((r) => r["key"] === "address");
+    const name = all.find((r) => r.key === "business_name");
+    expect(name?.value).toBe("Toko Baru");
+    const addr = all.find((r) => r.key === "address");
     expect(addr).toBeTruthy();
   });
 });

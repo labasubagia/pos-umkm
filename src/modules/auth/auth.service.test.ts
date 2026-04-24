@@ -1,13 +1,13 @@
 /**
  * T018 — auth.service unit tests
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as adapters from "../../lib/adapters";
 import {
-  resolveUserRole,
   isFirstTimeOwner,
+  resolveUserRole,
   UnauthorizedError,
 } from "./auth.service";
-import * as adapters from "../../lib/adapters";
 
 function mockRepo(overrides = {}) {
   return {

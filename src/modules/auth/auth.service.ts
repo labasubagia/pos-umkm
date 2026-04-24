@@ -27,7 +27,7 @@ export async function resolveUserRole(email: string): Promise<Role> {
   const members = await getRepos().members.getAll();
 
   // getSheet already filters out deleted rows, but double-check deleted_at for safety
-  const user = members.find((u) => u["email"] === email && !u["deleted_at"]);
+  const user = members.find((u) => u.email === email && !u.deleted_at);
 
   if (!user) {
     throw new UnauthorizedError(
@@ -35,7 +35,7 @@ export async function resolveUserRole(email: string): Promise<Role> {
     );
   }
 
-  return user["role"] as Role;
+  return user.role as Role;
 }
 
 /**

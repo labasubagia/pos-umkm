@@ -1,35 +1,35 @@
-import { useState } from "react";
-import { ShoppingBag, ShoppingCart } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "../store/authStore";
-import { useProducts, PRODUCTS_QUERY_KEY } from "../hooks/useProducts";
-import { useVariants, VARIANTS_QUERY_KEY } from "../hooks/useVariants";
+import { ShoppingBag, ShoppingCart } from "lucide-react";
+import { useState } from "react";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import { PRODUCTS_QUERY_KEY, useProducts } from "../hooks/useProducts";
 import { useQRISImage } from "../hooks/useQRISImage";
-import { useCartStore } from "../modules/cashier/useCart";
-import { ProductSearch } from "../modules/cashier/ProductSearch";
+import { useVariants, VARIANTS_QUERY_KEY } from "../hooks/useVariants";
 import { CartPanel } from "../modules/cashier/CartPanel";
-import { DiscountInput } from "../modules/cashier/DiscountInput";
-import { PaymentModal } from "../modules/cashier/PaymentModal";
-import { ReceiptModal } from "../modules/cashier/ReceiptModal";
-import { HeldCartsPanel } from "../modules/cashier/HeldCartsPanel";
-import { CustomerSearch } from "../modules/customers/CustomerSearch";
-import type { Customer } from "../modules/customers/customers.service";
+import type {
+  PaymentInfo,
+  Transaction,
+  TransactionItem,
+} from "../modules/cashier/cashier.service";
 import {
-  calculateSubtotal,
   applyDiscount,
+  CashierError,
+  calculateSubtotal,
   calculateTax,
   calculateTotal,
   commitTransaction,
   ensureMonthlySheetExists,
-  CashierError,
 } from "../modules/cashier/cashier.service";
-import type {
-  Transaction,
-  TransactionItem,
-  PaymentInfo,
-} from "../modules/cashier/cashier.service";
-import { Button } from "../components/ui/button";
-import { Alert, AlertDescription } from "../components/ui/alert";
+import { DiscountInput } from "../modules/cashier/DiscountInput";
+import { HeldCartsPanel } from "../modules/cashier/HeldCartsPanel";
+import { PaymentModal } from "../modules/cashier/PaymentModal";
+import { ProductSearch } from "../modules/cashier/ProductSearch";
+import { ReceiptModal } from "../modules/cashier/ReceiptModal";
+import { useCartStore } from "../modules/cashier/useCart";
+import { CustomerSearch } from "../modules/customers/CustomerSearch";
+import type { Customer } from "../modules/customers/customers.service";
+import { useAuthStore } from "../store/authStore";
 
 const TAX_RATE = 0; // PPN disabled by default; owner can enable in Settings (post-MVP)
 
@@ -138,6 +138,7 @@ export default function CashierPage() {
       {/* Mobile view toggle tabs — only visible on < md */}
       <div className="flex border-b bg-white shrink-0 md:hidden">
         <button
+          type="button"
           className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${
             mobileView === "products"
               ? "border-blue-600 text-blue-600"
@@ -149,6 +150,7 @@ export default function CashierPage() {
           Produk
         </button>
         <button
+          type="button"
           className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors ${
             mobileView === "cart"
               ? "border-blue-600 text-blue-600"

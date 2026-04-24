@@ -33,7 +33,7 @@ export async function waitForHydration(
   _storeId?: string,
 ): Promise<void> {
   await page.waitForFunction(
-    () => Boolean((window as Record<string, unknown>)["__lastHydratedAt"]),
+    () => Boolean((window as Record<string, unknown>).__lastHydratedAt),
     undefined,
     { timeout: 15000 },
   );
@@ -60,7 +60,7 @@ export async function seedDexie(
             id: string,
           ) => Record<string, { bulkPut: (rows: unknown[]) => Promise<void> }>
         >
-      )["__getDb"](storeId);
+      ).__getDb(storeId);
       for (const [tableName, rows] of Object.entries(tables)) {
         if (rows.length > 0) {
           await db[tableName].bulkPut(rows);

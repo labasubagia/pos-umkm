@@ -4,10 +4,10 @@
  * Shows held carts with item count and time. Tapping a row restores it
  * (replaces the current active cart).
  */
-import { ShoppingBag, Clock } from "lucide-react";
-import { useCartStore } from "./useCart";
-import { formatDateTime } from "../../lib/formatters";
+import { Clock, ShoppingBag } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { formatDateTime } from "../../lib/formatters";
+import { useCartStore } from "./useCart";
 
 export function HeldCartsPanel() {
   const heldCarts = useCartStore((s) => s.heldCarts);
@@ -39,6 +39,7 @@ export function HeldCartsPanel() {
 
       {heldCarts.map((cart, i) => (
         <button
+          type="button"
           key={cart.heldAt}
           onClick={() => retrieveCart(i)}
           className="flex items-center justify-between p-3 border rounded-lg hover:bg-blue-50 text-left text-sm transition-colors"

@@ -73,12 +73,13 @@ export class CatalogError extends Error {
 export async function fetchCategories(): Promise<Category[]> {
   const rows = await getRepos().categories.getAll();
   return rows
-    .filter((r) => r["name"]) // skip sentinel/header rows without a name
+    .filter((r) => (r as Record<string, unknown>).name) // skip sentinel/header rows without a name
     .map((r) => ({
-      id: r["id"] as string,
-      name: r["name"] as string,
-      created_at: r["created_at"] as string,
-      deleted_at: (r["deleted_at"] as string | null) ?? null,
+      id: (r as Record<string, unknown>).id as string,
+      name: (r as Record<string, unknown>).name as string,
+      created_at: (r as Record<string, unknown>).created_at as string,
+      deleted_at:
+        ((r as Record<string, unknown>).deleted_at as string | null) ?? null,
     }));
 }
 
@@ -128,7 +129,9 @@ export async function updateCategory(id: string, name: string): Promise<void> {
  */
 export async function deleteCategory(id: string): Promise<void> {
   const products = await getRepos().products.getAll();
-  const hasProducts = products.some((p) => p["category_id"] === id);
+  const hasProducts = products.some(
+    (p) => (p as Record<string, unknown>).category_id === id,
+  );
   if (hasProducts) {
     throw new CatalogError(
       "Kategori tidak dapat dihapus karena masih ada produk yang menggunakan kategori ini",
@@ -146,17 +149,20 @@ export async function deleteCategory(id: string): Promise<void> {
 export async function fetchProducts(): Promise<Product[]> {
   const rows = await getRepos().products.getAll();
   return rows
-    .filter((r) => r["name"])
+    .filter((r) => (r as Record<string, unknown>).name)
     .map((r) => ({
-      id: r["id"] as string,
-      category_id: r["category_id"] as string,
-      name: r["name"] as string,
-      sku: (r["sku"] as string) ?? "",
-      price: Number(r["price"]),
-      stock: Number(r["stock"]),
-      has_variants: r["has_variants"] === true || r["has_variants"] === "TRUE",
-      created_at: r["created_at"] as string,
-      deleted_at: (r["deleted_at"] as string | null) ?? null,
+      id: (r as Record<string, unknown>).id as string,
+      category_id: (r as Record<string, unknown>).category_id as string,
+      name: (r as Record<string, unknown>).name as string,
+      sku: ((r as Record<string, unknown>).sku as string) ?? "",
+      price: Number((r as Record<string, unknown>).price),
+      stock: Number((r as Record<string, unknown>).stock),
+      has_variants:
+        (r as Record<string, unknown>).has_variants === true ||
+        (r as Record<string, unknown>).has_variants === "TRUE",
+      created_at: (r as Record<string, unknown>).created_at as string,
+      deleted_at:
+        ((r as Record<string, unknown>).deleted_at as string | null) ?? null,
     }));
 }
 
@@ -247,11 +253,13 @@ export async function decrementStock(
   qty: number,
 ): Promise<void> {
   const rows = await getRepos().products.getAll();
-  const product = rows.find((r) => r["id"] === productId);
+  const product = rows.find(
+    (r) => (r as Record<string, unknown>).id === productId,
+  );
   if (!product) {
     throw new CatalogError(`Produk dengan id "${productId}" tidak ditemukan`);
   }
-  const currentStock = Number(product["stock"]);
+  const currentStock = Number((product as Record<string, unknown>).stock);
   const newStock = currentStock - qty;
   if (newStock < 0) {
     throw new CatalogError(
@@ -271,16 +279,17 @@ export async function decrementStock(
 export async function fetchVariants(): Promise<Variant[]> {
   const rows = await getRepos().variants.getAll();
   return rows
-    .filter((r) => r["product_id"])
+    .filter((r) => (r as Record<string, unknown>).product_id)
     .map((r) => ({
-      id: r["id"] as string,
-      product_id: r["product_id"] as string,
-      option_name: r["option_name"] as string,
-      option_value: r["option_value"] as string,
-      price: Number(r["price"]),
-      stock: Number(r["stock"]),
-      created_at: r["created_at"] as string,
-      deleted_at: (r["deleted_at"] as string | null) ?? null,
+      id: (r as Record<string, unknown>).id as string,
+      product_id: (r as Record<string, unknown>).product_id as string,
+      option_name: (r as Record<string, unknown>).option_name as string,
+      option_value: (r as Record<string, unknown>).option_value as string,
+      price: Number((r as Record<string, unknown>).price),
+      stock: Number((r as Record<string, unknown>).stock),
+      created_at: (r as Record<string, unknown>).created_at as string,
+      deleted_at:
+        ((r as Record<string, unknown>).deleted_at as string | null) ?? null,
     }));
 }
 
@@ -342,11 +351,13 @@ export async function decrementVariantStock(
   qty: number,
 ): Promise<void> {
   const rows = await getRepos().variants.getAll();
-  const variant = rows.find((r) => r["id"] === variantId);
+  const variant = rows.find(
+    (r) => (r as Record<string, unknown>).id === variantId,
+  );
   if (!variant) {
     throw new CatalogError(`Varian dengan id "${variantId}" tidak ditemukan`);
   }
-  const currentStock = Number(variant["stock"]);
+  const currentStock = Number((variant as Record<string, unknown>).stock);
   const newStock = currentStock - qty;
   if (newStock < 0) {
     throw new CatalogError(

@@ -5,18 +5,19 @@
  * and invalidates the settings query. If business_name changed, also syncs
  * to the main spreadsheet and invalidates the stores query.
  */
-import { useState, useEffect } from "react";
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSettings, SETTINGS_QUERY_KEY } from "../../hooks/useSettings";
-import { saveSettings, type BusinessSettings } from "./settings.service";
-import { updateStoreName } from "../auth/setup.service";
-import { useAuth } from "../auth/useAuth";
-import { useAuthStore } from "../../store/authStore";
+import { useEffect, useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Alert, AlertDescription } from "../../components/ui/alert";
+import { SETTINGS_QUERY_KEY, useSettings } from "../../hooks/useSettings";
 import { STORES_QUERY_KEY } from "../../hooks/useStores";
+import { useAuthStore } from "../../store/authStore";
+import { updateStoreName } from "../auth/setup.service";
+import { useAuth } from "../auth/useAuth";
+import { type BusinessSettings, saveSettings } from "./settings.service";
 
 const TIMEZONES = ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"] as const;
 

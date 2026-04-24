@@ -1,10 +1,10 @@
 import {
-  ShoppingCart,
-  Package,
   Archive,
-  Users,
   BarChart2,
+  Package,
   Settings,
+  ShoppingCart,
+  Users,
 } from "lucide-react";
 import type { Role } from "../lib/adapters/types";
 

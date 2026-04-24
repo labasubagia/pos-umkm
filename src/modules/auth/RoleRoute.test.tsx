@@ -1,13 +1,14 @@
 /**
  * T019 — RoleRoute unit tests
  */
-import { describe, it, expect, beforeEach } from "vitest";
+
 import { render, screen } from "@testing-library/react";
 import { act } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { beforeEach, describe, expect, it } from "vitest";
+import type { Role } from "../../lib/adapters/types";
 import { useAuthStore } from "../../store/authStore";
 import { RoleRoute } from "./RoleRoute";
-import type { Role } from "../../lib/adapters/types";
 
 function setRole(role: Role) {
   act(() => {

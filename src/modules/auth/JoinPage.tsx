@@ -15,12 +15,12 @@
  */
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Button } from "../../components/ui/button";
 import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Button } from "../../components/ui/button";
 import { authAdapter } from "../../lib/adapters";
-import { useAuth } from "./useAuth";
-import { resolveUserRole } from "./auth.service";
 import { recordGoogleUserId } from "../../modules/settings/members.service";
+import { resolveUserRole } from "./auth.service";
+import { useAuth } from "./useAuth";
 
 export default function JoinPage() {
   const navigate = useNavigate();

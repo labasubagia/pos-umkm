@@ -13,7 +13,9 @@ const mockStorage: Storage = {
     delete store[key];
   },
   clear: () => {
-    Object.keys(store).forEach((k) => delete store[k]);
+    Object.keys(store).forEach((k) => {
+      delete store[k];
+    });
   },
   get length() {
     return Object.keys(store).length;

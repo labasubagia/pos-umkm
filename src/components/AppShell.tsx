@@ -19,18 +19,19 @@
  *   invalidateQueries() after the user has already switched to a different store.
  *   Only the most-recent hydration call is allowed to trigger invalidation.
  */
+
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { NavBar } from "./NavBar";
-import { BottomNav } from "./BottomNav";
-import { SyncStatus } from "./SyncStatus";
 import {
-  reinitDexieLayer,
   hydrationService,
+  reinitDexieLayer,
   syncManager,
 } from "../lib/adapters";
 import { useAuthStore } from "../store/authStore";
+import { BottomNav } from "./BottomNav";
+import { NavBar } from "./NavBar";
+import { SyncStatus } from "./SyncStatus";
 
 export function AppShell() {
   const {

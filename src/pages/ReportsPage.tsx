@@ -1,13 +1,13 @@
-import { DailySummary } from "../modules/reports/DailySummary";
-import { SalesReport } from "../modules/reports/SalesReport";
-import { GrossProfitReport } from "../modules/reports/GrossProfitReport";
-import { CashReconciliation } from "../modules/reports/CashReconciliation";
 import {
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
-  TabsContent,
 } from "../components/ui/tabs";
+import { CashReconciliation } from "../modules/reports/CashReconciliation";
+import { DailySummary } from "../modules/reports/DailySummary";
+import { GrossProfitReport } from "../modules/reports/GrossProfitReport";
+import { SalesReport } from "../modules/reports/SalesReport";
 
 export default function ReportsPage() {
   return (

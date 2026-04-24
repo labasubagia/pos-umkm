@@ -5,17 +5,17 @@
  * Data comes from useVariants() (React Query). Mutations invalidate the query.
  */
 
-import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "../../store/authStore";
-import { useVariants, VARIANTS_QUERY_KEY } from "../../hooks/useVariants";
-import { addVariant, deleteVariant } from "./catalog.service";
-import type { Product } from "./catalog.service";
-import { formatIDR } from "../../lib/formatters";
+import { useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Alert, AlertDescription } from "../../components/ui/alert";
+import { useVariants, VARIANTS_QUERY_KEY } from "../../hooks/useVariants";
+import { formatIDR } from "../../lib/formatters";
+import { useAuthStore } from "../../store/authStore";
+import type { Product } from "./catalog.service";
+import { addVariant, deleteVariant } from "./catalog.service";
 
 interface Props {
   product: Product;

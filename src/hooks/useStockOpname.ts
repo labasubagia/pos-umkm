@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "../store/authStore";
 import { fetchStockOpnameData } from "../modules/inventory/inventory.service";
+import { useAuthStore } from "../store/authStore";
 
 export const STOCK_OPNAME_QUERY_KEY = (storeId: string | null) => [
   "stock-opname",

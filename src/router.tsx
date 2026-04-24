@@ -1,21 +1,21 @@
 import { createBrowserRouter } from "react-router-dom";
-import LandingPage from "./pages/LandingPage";
+import { AppShell } from "./components/AppShell";
+import { PageLayout } from "./components/PageLayout";
+import JoinPage from "./modules/auth/JoinPage";
+import LoginPage from "./modules/auth/LoginPage";
+import { ProtectedRoute } from "./modules/auth/ProtectedRoute";
+import { RoleRoute } from "./modules/auth/RoleRoute";
+import SetupWizard from "./modules/auth/SetupWizard";
+import StorePickerPage from "./modules/auth/StorePickerPage";
 import CashierPage from "./pages/CashierPage";
 import CatalogPage from "./pages/CatalogPage";
 import CustomersPage from "./pages/CustomersPage";
 import InventoryPage from "./pages/InventoryPage";
+import LandingPage from "./pages/LandingPage";
+import NotFoundPage from "./pages/NotFoundPage";
 import ReportsPage from "./pages/ReportsPage";
 import SettingsPage from "./pages/SettingsPage";
 import StoreManagementPage from "./pages/StoreManagementPage";
-import NotFoundPage from "./pages/NotFoundPage";
-import LoginPage from "./modules/auth/LoginPage";
-import SetupWizard from "./modules/auth/SetupWizard";
-import StorePickerPage from "./modules/auth/StorePickerPage";
-import JoinPage from "./modules/auth/JoinPage";
-import { ProtectedRoute } from "./modules/auth/ProtectedRoute";
-import { RoleRoute } from "./modules/auth/RoleRoute";
-import { AppShell } from "./components/AppShell";
-import { PageLayout } from "./components/PageLayout";
 
 export const router = createBrowserRouter(
   [

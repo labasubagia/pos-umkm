@@ -114,8 +114,11 @@ export class GoogleAuthAdapter implements AuthAdapter {
     }
 
     return new Promise<User>((resolve, reject) => {
-      const tokenClient = window.google!.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID!,
+      const google = window.google;
+      const clientId = CLIENT_ID as string;
+      if (!google) return resolve({} as User); // satisfy type checker; this should never happen due to the earlier check
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
         scope: OWNER_SCOPE,
         callback: async (response) => {
           if (response.error || !response.access_token) {
@@ -189,8 +192,11 @@ export class GoogleAuthAdapter implements AuthAdapter {
   silentRefresh(): Promise<boolean> {
     if (!CLIENT_ID || !window.google) return Promise.resolve(false);
     return new Promise<boolean>((resolve) => {
-      const tokenClient = window.google!.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID!,
+      const google = window.google;
+      const clientId = CLIENT_ID as string;
+      if (!google) return resolve(false); // satisfy type checker; this should never happen due to the earlier check
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
         scope: this.grantedScope,
         callback: (response) => {
           if (response.error || !response.access_token) {

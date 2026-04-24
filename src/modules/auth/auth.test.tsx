@@ -4,10 +4,11 @@
  * Tests the Zustand auth store and the ProtectedRoute component.
  * Uses MockAuthAdapter so no OAuth network calls are made.
  */
-import { describe, it, expect, beforeEach } from "vitest";
+
 import { render, screen } from "@testing-library/react";
 import { act } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { beforeEach, describe, expect, it } from "vitest";
 import { useAuthStore } from "../../store/authStore";
 import { ProtectedRoute } from "./ProtectedRoute";
 

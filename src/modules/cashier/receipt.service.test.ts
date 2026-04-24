@@ -1,13 +1,13 @@
 /**
  * receipt.service tests — T033.
  */
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import type { Transaction, TransactionItem } from "./cashier.service";
 import {
+  generateReceiptNumber,
   generateReceiptText,
   generateWhatsAppLink,
-  generateReceiptNumber,
 } from "./receipt.service";
-import type { Transaction, TransactionItem } from "./cashier.service";
 
 const settings = {
   businessName: "Warung Pak Santoso",

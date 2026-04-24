@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "../store/authStore";
 import { getSettings } from "../modules/settings/settings.service";
+import { useAuthStore } from "../store/authStore";
 
 export const SETTINGS_QUERY_KEY = (storeId: string | null) => [
   "settings",

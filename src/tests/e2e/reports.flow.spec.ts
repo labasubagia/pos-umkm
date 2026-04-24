@@ -4,17 +4,17 @@
  * Auth is injected via localStorage. Transaction data is seeded into Dexie
  * directly so reports can be computed without any Sheets API calls.
  */
-import { test, expect } from "@playwright/test";
-import { injectAuthState, DEFAULT_STORE, BASE } from "./helpers/auth-dexie";
+import { expect, test } from "@playwright/test";
+import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
 import {
-  seedDexie,
   reloadAndWait,
+  seedDexie,
   waitForHydration,
 } from "./helpers/dexie-seed";
 
 const STORE = DEFAULT_STORE;
 const today = new Date().toISOString().slice(0, 10);
-const now = new Date().toISOString();
+const _now = new Date().toISOString();
 
 const SEED_TRANSACTIONS = [
   {

@@ -7,15 +7,16 @@
  * stateless and independently testable. Error translation from
  * SheetsApiError → AdapterError happens here so GoogleDataAdapter stays thin.
  */
+
+import { generateId } from "../../../uuid";
+import { AdapterError } from "../../types";
 import {
   sheetsAppend,
-  sheetsUpdate,
   sheetsBatchGet,
   sheetsBatchUpdate,
+  sheetsUpdate,
 } from "./sheets.client";
 import { SheetsApiError } from "./sheets.types";
-import { AdapterError } from "../../types";
-import { generateId } from "../../../uuid";
 
 const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
@@ -53,7 +54,7 @@ export async function getSheet(
         });
         return obj;
       })
-      .filter((r) => !r["deleted_at"]);
+      .filter((r) => !r.deleted_at);
   } catch (err) {
     if (err instanceof SheetsApiError) {
       throw new AdapterError(
@@ -129,7 +130,7 @@ export async function batchAppendRows(
     }
 
     const valueRows = rows.map((row) => {
-      const rowWithId = row["id"] ? row : { id: generateId(), ...row };
+      const rowWithId = row.id ? row : { id: generateId(), ...row };
       if (headers.length > 0) {
         return headers.map((h) => rowWithId[h] ?? null);
       }

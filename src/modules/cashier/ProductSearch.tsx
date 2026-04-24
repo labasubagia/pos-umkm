@@ -4,12 +4,9 @@
  * Renders a text input and shows product cards in a grid. Clicking a card
  * adds it to the cart (if no variants) or opens the variant selector.
  */
-import { useState } from "react";
+
 import { Search } from "lucide-react";
-import { searchProducts } from "./cashier.service";
-import { useCartStore } from "./useCart";
-import type { Product, Variant } from "../catalog/catalog.service";
-import { Input } from "../../components/ui/input";
+import { useState } from "react";
 import { Button } from "../../components/ui/button";
 import {
   Dialog,
@@ -17,6 +14,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
+import type { Product, Variant } from "../catalog/catalog.service";
+import { searchProducts } from "./cashier.service";
+import { useCartStore } from "./useCart";
 
 interface Props {
   products: Product[];
@@ -104,6 +105,7 @@ export function ProductSearch({ products, variants }: Props) {
             <div className="flex flex-col gap-2">
               {productVariants.map((v) => (
                 <button
+                  type="button"
                   key={v.id}
                   onClick={() => handleVariantClick(v, variantProduct)}
                   className="flex justify-between items-center p-3 border rounded-lg hover:bg-blue-50 text-sm"
@@ -129,9 +131,8 @@ export function ProductSearch({ products, variants }: Props) {
       )}
 
       {/* Product grid — fills remaining height and scrolls */}
-      <div
+      <ul
         className="grid grid-cols-2 md:grid-cols-3 gap-2 flex-1 min-h-0 overflow-y-auto content-start"
-        role="list"
         aria-label="Daftar produk"
       >
         {results.length === 0 && (
@@ -140,33 +141,34 @@ export function ProductSearch({ products, variants }: Props) {
           </p>
         )}
         {results.map((product) => (
-          <button
-            key={product.id}
-            role="listitem"
-            data-testid={`product-card-${product.id}`}
-            onClick={() => handleProductClick(product)}
-            disabled={!product.has_variants && product.stock <= 0}
-            className="flex flex-col items-start p-3 border rounded-lg text-left text-sm hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <span className="font-medium leading-tight">{product.name}</span>
-            {product.sku && (
-              <span className="text-xs text-gray-400 mt-0.5">
-                {product.sku}
+          <li key={product.id}>
+            <button
+              type="button"
+              data-testid={`product-card-${product.id}`}
+              onClick={() => handleProductClick(product)}
+              disabled={!product.has_variants && product.stock <= 0}
+              className="flex flex-col items-start p-3 border rounded-lg text-left text-sm hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <span className="font-medium leading-tight">{product.name}</span>
+              {product.sku && (
+                <span className="text-xs text-gray-400 mt-0.5">
+                  {product.sku}
+                </span>
+              )}
+              <span className="mt-1 font-semibold text-blue-700">
+                Rp {product.price.toLocaleString("id-ID")}
               </span>
-            )}
-            <span className="mt-1 font-semibold text-blue-700">
-              Rp {product.price.toLocaleString("id-ID")}
-            </span>
-            {!product.has_variants && (
-              <span
-                className={`text-xs mt-0.5 ${product.stock <= 5 ? "text-orange-500" : "text-gray-400"}`}
-              >
-                Stok: {product.stock}
-              </span>
-            )}
-          </button>
+              {!product.has_variants && (
+                <span
+                  className={`text-xs mt-0.5 ${product.stock <= 5 ? "text-orange-500" : "text-gray-400"}`}
+                >
+                  Stok: {product.stock}
+                </span>
+              )}
+            </button>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }

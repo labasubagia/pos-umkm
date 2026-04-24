@@ -18,15 +18,13 @@
  * SheetRepository on the fly for each outbox entry — this avoids storing
  * any stale spreadsheetId references and matches the existing auth pattern.
  */
-import { SheetRepository } from "../SheetRepository";
-import type { PosUmkmDatabase } from "./db";
-import type { OutboxEntry, OutboxOperation } from "./db";
-import { ALL_TAB_HEADERS } from "../../schema";
-import { useSyncStore } from "../../../store/syncStore";
-import { getDb } from "./db";
+
 import { useAuthStore } from "../../../store/authStore";
-import { authAdapter } from "../index";
-import { useNavigate } from "react-router-dom";
+import { useSyncStore } from "../../../store/syncStore";
+import { ALL_TAB_HEADERS } from "../../schema";
+import { SheetRepository } from "../SheetRepository";
+import type { OutboxEntry, OutboxOperation, PosUmkmDatabase } from "./db";
+import { getDb } from "./db";
 
 const MAX_RETRIES = 5;
 const POLL_INTERVAL_MS = 30_000;
@@ -148,21 +146,9 @@ export class SyncManager {
   };
 
   private async drain(): Promise<void> {
-    // For navigation on logout
-    let navigate: ((to: string, opts?: any) => void) | null = null;
-    try {
-      // Try to get navigate if in React context
-
-      navigate = require("react-router-dom").useNavigate?.() ?? null;
-    } catch (error) {
-      // This can fail when SyncManager runs outside a valid React Router hook
-      // context. Navigation is optional here, so fall back to null and continue.
-      console.debug(
-        "[SyncManager] navigate unavailable outside React context",
-        error,
-      );
-      navigate = null;
-    }
+    // Navigation on logout should use a simple location replace so this
+    // module doesn't rely on React hooks (which must be called only inside
+    // components). We'll use window.location.replace('/') when available.
     this.isSyncing = true;
     useSyncStore.getState().setIsSyncing(true);
 
@@ -183,17 +169,22 @@ export class SyncManager {
       );
 
       for (const entry of pending) {
+        if (entry.id == null) {
+          console.warn("[SyncManager] skipping outbox entry with no id", entry);
+          continue;
+        }
+        const id = entry.id;
         // Mark as syncing so the UI shows progress
-        await this.db._outbox.update(entry.id!, { status: "syncing" });
+        await this.db._outbox.update(id, { status: "syncing" });
 
         try {
           await this.applyToSheets(entry);
-          await this.db._outbox.delete(entry.id!);
+          await this.db._outbox.delete(id);
           useSyncStore.getState().setLastError(null);
         } catch (err) {
           const isRateLimit = isRateLimitError(err);
           const errStr = String(err);
-          await this.db._outbox.update(entry.id!, {
+          await this.db._outbox.update(id, {
             status: "failed",
             retries: entry.retries + 1,
             errorMessage: errStr,
@@ -202,10 +193,12 @@ export class SyncManager {
 
           // Auto-logout on Sheets API 401/UNAUTHENTICATED error
           if (errStr.includes("401") || errStr.includes("UNAUTHENTICATED")) {
-            // Clear auth and redirect to login
+            // Clear auth and redirect to login. Use dynamic import to avoid
+            // circular dependency with the adapters index module.
+            const { authAdapter } = await import("../index");
             await authAdapter.signOut?.();
             useAuthStore.getState().clearAuth();
-            if (navigate) navigate("/", { replace: true });
+            if (typeof window !== "undefined") window.location.replace("/");
             // Stop further processing
             break;
           }

@@ -9,28 +9,28 @@
  * The parent (CashierPage) is responsible for calling commitTransaction.
  */
 import { useState } from "react";
-import {
-  calculateSubtotal,
-  applyDiscount,
-  calculateTax,
-  calculateTotal,
-  calculateChange,
-  suggestDenominations,
-  validateSplitPayment,
-  SplitPaymentError,
-} from "./cashier.service";
-import { useCartStore } from "./useCart";
-import type { PaymentInfo } from "./cashier.service";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
 import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Button } from "../../components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import type { PaymentInfo } from "./cashier.service";
+import {
+  applyDiscount,
+  calculateChange,
+  calculateSubtotal,
+  calculateTax,
+  calculateTotal,
+  SplitPaymentError,
+  suggestDenominations,
+  validateSplitPayment,
+} from "./cashier.service";
+import { useCartStore } from "./useCart";
 
 interface Props {
   qrisImageUrl: string;
@@ -148,6 +148,7 @@ export function PaymentModal({
               Pilih Metode Pembayaran
             </p>
             <button
+              type="button"
               onClick={() => setStep("cash")}
               className="p-4 border-2 rounded-xl text-left hover:border-blue-500 transition-colors"
               data-testid="btn-method-cash"
@@ -156,6 +157,7 @@ export function PaymentModal({
               <p className="text-xs text-gray-400">Hitung kembalian otomatis</p>
             </button>
             <button
+              type="button"
               onClick={() => setStep("qris")}
               className="p-4 border-2 rounded-xl text-left hover:border-blue-500 transition-colors"
               data-testid="btn-method-qris"
@@ -166,6 +168,7 @@ export function PaymentModal({
               </p>
             </button>
             <button
+              type="button"
               onClick={() => setStep("split")}
               className="p-4 border-2 rounded-xl text-left hover:border-blue-500 transition-colors"
               data-testid="btn-method-split"
@@ -208,6 +211,7 @@ export function PaymentModal({
             <div className="flex gap-2 flex-wrap">
               {denominations.map((d) => (
                 <button
+                  type="button"
                   key={d}
                   onClick={() => {
                     setCashInput(String(d));

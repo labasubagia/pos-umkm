@@ -5,14 +5,14 @@
  * Google Drive/Sheets API calls (createSpreadsheet for new stores) are
  * stubbed via page.route() to return a fake spreadsheetId.
  */
-import { test, expect } from "@playwright/test";
-import { injectAuthState, DEFAULT_STORE, BASE } from "./helpers/auth-dexie";
+import { expect, test } from "@playwright/test";
+import { navigateTo } from "./helpers/auth";
+import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
 import {
-  seedDexie,
   reloadAndWait,
+  seedDexie,
   waitForHydration,
 } from "./helpers/dexie-seed";
-import { navigateTo } from "./helpers/auth";
 
 const STORE = DEFAULT_STORE;
 const now = new Date().toISOString();
@@ -42,7 +42,7 @@ const SEED_STORES = [
   },
 ];
 
-async function openStoresTab(page: Parameters<typeof injectAuthState>[0]) {
+async function _openStoresTab(page: Parameters<typeof injectAuthState>[0]) {
   await navigateTo(page, `${BASE}/settings`);
   await page.getByTestId("btn-tab-stores").click();
   await page.getByRole("heading", { name: /kelola toko/i }).waitFor();

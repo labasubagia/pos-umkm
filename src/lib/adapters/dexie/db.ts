@@ -139,5 +139,5 @@ export function clearDbCache(): void {
 // via `page.evaluate(() => window.__getDb(storeId).Products.bulkPut([...]))`.
 // Guarded by VITE_E2E so it is never present in production builds.
 if (import.meta.env.VITE_E2E === "true") {
-  (window as unknown as Record<string, unknown>)["__getDb"] = getDb;
+  (window as unknown as Record<string, unknown>).__getDb = getDb;
 }

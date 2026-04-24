@@ -5,14 +5,14 @@
  * needed. Product/category data is seeded directly into Dexie IndexedDB via
  * window.__getDb (exposed when VITE_E2E=true) so there is no mock adapter.
  */
-import { test, expect } from "@playwright/test";
-import { injectAuthState, DEFAULT_STORE, BASE } from "./helpers/auth-dexie";
+import { expect, test } from "@playwright/test";
+import { navigateTo } from "./helpers/auth";
+import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
 import {
-  seedDexie,
   reloadAndWait,
+  seedDexie,
   waitForHydration,
 } from "./helpers/dexie-seed";
-import { navigateTo } from "./helpers/auth";
 
 const STORE = DEFAULT_STORE;
 const now = new Date().toISOString();
@@ -399,7 +399,7 @@ test.describe("Refund Flow (T037)", () => {
               };
             }
           >
-        )["__getDb"](storeId);
+        ).__getDb(storeId);
         const product = await db.Products.get(productId);
         return product?.stock ?? null;
       },

@@ -4,12 +4,12 @@
  */
 
 import { useState } from "react";
-import type { Category, NewProduct } from "./catalog.service";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
+import { Checkbox } from "../../components/ui/checkbox";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Checkbox } from "../../components/ui/checkbox";
-import { Alert, AlertDescription } from "../../components/ui/alert";
+import type { Category, NewProduct } from "./catalog.service";
 
 interface Props {
   categories: Category[];

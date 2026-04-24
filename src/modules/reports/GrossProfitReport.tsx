@@ -1,17 +1,17 @@
 import { useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { getRepos } from "../../lib/adapters";
+import { formatIDR } from "../../lib/formatters";
 import {
-  fetchTransactionsForRange,
   calculateGrossProfit,
+  fetchTransactionsForRange,
   type ProfitSummary,
   ReportError,
 } from "./reports.service";
-import { getRepos } from "../../lib/adapters";
-import { formatIDR } from "../../lib/formatters";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
-import { Alert, AlertDescription } from "../../components/ui/alert";
-import { Card, CardContent } from "../../components/ui/card";
 
 export function GrossProfitReport() {
   const today = new Date().toISOString().slice(0, 10);
@@ -32,18 +32,18 @@ export function GrossProfitReport() {
       ]);
 
       const items = itemRows.map((r) => ({
-        id: String(r["id"]),
-        transaction_id: String(r["transaction_id"]),
-        product_id: String(r["product_id"]),
-        name: String(r["name"]),
-        price: Number(r["price"]),
-        quantity: Number(r["quantity"]),
-        subtotal: Number(r["subtotal"]),
+        id: String(r.id),
+        transaction_id: String(r.transaction_id),
+        product_id: String(r.product_id),
+        name: String(r.name),
+        price: Number(r.price),
+        quantity: Number(r.quantity),
+        subtotal: Number(r.subtotal),
       }));
 
       const products = productRows.map((r) => ({
-        id: String(r["id"]),
-        cost_price: Number(r["cost_price"] ?? 0),
+        id: String(r.id),
+        cost_price: Number(r.cost_price ?? 0),
       }));
 
       setResult(calculateGrossProfit(transactions, items, products));

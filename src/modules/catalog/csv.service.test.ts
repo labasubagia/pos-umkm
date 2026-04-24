@@ -1,14 +1,14 @@
 /**
  * csv.service tests — covers T024 (CSV Bulk Product Import).
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
+import type { ParsedProduct } from "./csv.service";
 import {
+  bulkImportProducts,
   parseProductCSV,
   validateImportRows,
-  bulkImportProducts,
 } from "./csv.service";
-import type { ParsedProduct } from "./csv.service";
 
 function mockRepo(overrides = {}) {
   return {

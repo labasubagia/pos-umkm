@@ -4,15 +4,16 @@
  * Loads current image via useQRISImage() (React Query).
  * Save invalidates the query to reflect the update.
  */
-import { useState, useRef, useEffect } from "react";
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "../../store/authStore";
-import { useQRISImage, QRIS_QUERY_KEY } from "../../hooks/useQRISImage";
-import { saveQRISImage, SettingsError } from "./settings.service";
+import { useEffect, useRef, useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Alert, AlertDescription } from "../../components/ui/alert";
+import { QRIS_QUERY_KEY, useQRISImage } from "../../hooks/useQRISImage";
+import { useAuthStore } from "../../store/authStore";
+import { SettingsError, saveQRISImage } from "./settings.service";
 
 export default function QRISConfig() {
   const queryClient = useQueryClient();

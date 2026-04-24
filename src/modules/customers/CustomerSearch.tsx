@@ -6,10 +6,10 @@
  */
 
 import { useState } from "react";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 import { useCustomers } from "../../hooks/useCustomers";
 import type { Customer } from "./customers.service";
-import { Input } from "../../components/ui/input";
-import { Button } from "../../components/ui/button";
 
 interface CustomerSearchProps {
   onSelect: (customer: Customer | null) => void;

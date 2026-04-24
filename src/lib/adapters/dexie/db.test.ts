@@ -5,8 +5,8 @@
  * clearDbCache() resets the factory so tests can start fresh.
  */
 import "fake-indexeddb/auto";
-import { describe, it, expect, afterEach } from "vitest";
-import { getDb, clearDbCache, PosUmkmDatabase } from "./db";
+import { afterEach, describe, expect, it } from "vitest";
+import { clearDbCache, getDb, PosUmkmDatabase } from "./db";
 
 afterEach(() => {
   clearDbCache();

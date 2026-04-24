@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { formatIDR } from "./formatIDR";
 import {
-  formatIDRStrict,
   formatDate,
   formatDateTime,
+  formatIDRStrict,
   nowUTC,
   parseIDR,
 } from "./formatters";

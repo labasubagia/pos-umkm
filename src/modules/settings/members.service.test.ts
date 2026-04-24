@@ -1,16 +1,16 @@
 /**
  * T017 — members.service unit tests
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import {
-  inviteMember,
-  generateStoreLink,
-  revokeMember,
-  listMembers,
-  recordGoogleUserId,
-  MemberError,
-} from "./members.service";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
+import {
+  generateStoreLink,
+  inviteMember,
+  listMembers,
+  MemberError,
+  recordGoogleUserId,
+  revokeMember,
+} from "./members.service";
 
 function mockRepo(overrides = {}) {
   return {

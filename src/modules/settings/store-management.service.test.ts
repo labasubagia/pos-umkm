@@ -11,19 +11,19 @@
  * Tests validate the orchestration logic in each service function;
  * lower-level repo / Dexie behaviour is tested elsewhere.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
-import * as setupService from "../auth/setup.service";
 import { useAuthStore } from "../../store/authStore";
-import {
-  listStores,
-  createStore,
-  updateStore,
-  removeOwnedStore,
-  removeAccessToStore,
-  StoreManagementError,
-} from "./store-management.service";
 import type { StoreRecord } from "../auth/setup.service";
+import * as setupService from "../auth/setup.service";
+import {
+  createStore,
+  listStores,
+  removeAccessToStore,
+  removeOwnedStore,
+  StoreManagementError,
+  updateStore,
+} from "./store-management.service";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 

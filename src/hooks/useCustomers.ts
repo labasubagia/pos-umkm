@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "../store/authStore";
 import { fetchCustomers } from "../modules/customers/customers.service";
+import { useAuthStore } from "../store/authStore";
 
 export const CUSTOMERS_QUERY_KEY = (storeId: string | null) => [
   "customers",

@@ -1,11 +1,12 @@
 /**
  * T020 — pin.service + usePinLock unit tests
  */
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+
+import { act, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as adapters from "../../lib/adapters";
 import { hashPIN, verifyPIN } from "./pin.service";
 import { usePinLock } from "./usePinLock";
-import * as adapters from "../../lib/adapters";
 
 function mockRepo(overrides = {}) {
   return {

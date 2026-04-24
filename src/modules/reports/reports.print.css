@@ -5,7 +5,7 @@
   [data-testid="topbar"],
   button,
   .no-print {
-    display: none !important;
+    display: none;
   }
 
   body {

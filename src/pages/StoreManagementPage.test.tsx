@@ -7,16 +7,17 @@
  * activateStore (setup.service) is mocked to avoid real API calls.
  * QueryClientProvider is provided so useStores() / useMutation() work.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { MemoryRouter } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { StoreRecord } from "../modules/auth/setup.service";
+import * as svc from "../modules/settings/store-management.service";
 import { useAuthStore } from "../store/authStore";
 import StoreManagementPage from "./StoreManagementPage";
-import * as svc from "../modules/settings/store-management.service";
-import type { StoreRecord } from "../modules/auth/setup.service";
 
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 

@@ -9,18 +9,21 @@
  * syncStatusSlot: optional ReactNode rendered between the store picker and the user info.
  * AppShell passes <SyncStatus /> here so the offline badge appears in the navbar.
  */
+
+import { LogOut, Store } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { LogOut, Store } from "lucide-react";
-import { useAuth } from "../modules/auth/useAuth";
-import { clearSetupStorage } from "../modules/auth/setup.service";
-import { authAdapter, resetDexieLayer, syncManager } from "../lib/adapters";
-import { activateStore } from "../modules/auth/setup.service";
-import type { Role } from "../lib/adapters/types";
-import { Button } from "./ui/button";
-import { NAV_ITEMS } from "./nav.constants";
 import { useStores } from "../hooks/useStores";
+import { authAdapter, resetDexieLayer, syncManager } from "../lib/adapters";
+import type { Role } from "../lib/adapters/types";
 import { queryClient } from "../lib/queryClient";
+import {
+  activateStore,
+  clearSetupStorage,
+} from "../modules/auth/setup.service";
+import { useAuth } from "../modules/auth/useAuth";
+import { NAV_ITEMS } from "./nav.constants";
+import { Button } from "./ui/button";
 
 const ROLE_RANK: Record<Role, number> = {
   cashier: 1,

@@ -12,7 +12,7 @@
  * does not need to be shared across components.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { verifyPIN } from "./pin.service";
 
 const IDLE_EVENTS: Array<keyof WindowEventMap> = [
@@ -60,10 +60,14 @@ export function usePinLock({
   // Wire up idle event listeners and start the initial timer.
   useEffect(() => {
     resetTimer();
-    IDLE_EVENTS.forEach((e) => window.addEventListener(e, resetTimer));
+    IDLE_EVENTS.forEach((e) => {
+      window.addEventListener(e, resetTimer);
+    });
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      IDLE_EVENTS.forEach((e) => window.removeEventListener(e, resetTimer));
+      IDLE_EVENTS.forEach((e) => {
+        window.removeEventListener(e, resetTimer);
+      });
     };
   }, [resetTimer]);
 

@@ -11,15 +11,16 @@
  * Requires authentication (wrapped in ProtectedRoute in router.tsx).
  * No AppShell / NavBar — this is part of the auth/onboarding flow.
  */
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+
 import { useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "./useAuth";
-import { findOrCreateMain, activateStore } from "./setup.service";
-import type { StoreRecord } from "./setup.service";
-import { Button } from "../../components/ui/button";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Button } from "../../components/ui/button";
 import { STORES_QUERY_KEY } from "../../hooks/useStores";
+import type { StoreRecord } from "./setup.service";
+import { activateStore, findOrCreateMain } from "./setup.service";
+import { useAuth } from "./useAuth";
 
 export default function StorePickerPage() {
   const navigate = useNavigate();
@@ -32,7 +33,26 @@ export default function StorePickerPage() {
   const [activating, setActivating] = useState(false);
   const initialized = useRef(false);
 
-  async function resolveStores() {
+  const activate = useCallback(
+    async (store: StoreRecord) => {
+      setActivating(true);
+      try {
+        const session = await activateStore(store);
+        setStoreSession(
+          session.spreadsheetId,
+          session.monthlySpreadsheetId,
+          store.store_id,
+        );
+        navigate("/cashier", { replace: true });
+      } catch (err) {
+        setError(`Gagal mengaktifkan toko: ${String(err)}`);
+        setActivating(false);
+      }
+    },
+    [setStoreSession, navigate],
+  );
+
+  const resolveStores = useCallback(async () => {
     try {
       const { stores: list } = await findOrCreateMain(user?.email ?? "");
       // Seed React Query cache — NavBar and other consumers get the list immediately.
@@ -51,29 +71,13 @@ export default function StorePickerPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user, queryClient, navigate, activate]);
 
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
     void resolveStores();
-  }, []);
-
-  async function activate(store: StoreRecord) {
-    setActivating(true);
-    try {
-      const session = await activateStore(store);
-      setStoreSession(
-        session.spreadsheetId,
-        session.monthlySpreadsheetId,
-        store.store_id,
-      );
-      navigate("/cashier", { replace: true });
-    } catch (err) {
-      setError(`Gagal mengaktifkan toko: ${String(err)}`);
-      setActivating(false);
-    }
-  }
+  }, [resolveStores]);
 
   if (loading || activating) {
     return (
@@ -114,6 +118,7 @@ export default function StorePickerPage() {
       >
         {localStores.map((store) => (
           <button
+            type="button"
             key={store.store_id}
             className="rounded-lg border border-border bg-card px-4 py-3 text-left hover:bg-accent transition-colors"
             onClick={() => void activate(store)}

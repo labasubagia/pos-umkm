@@ -29,7 +29,7 @@
  * token's lifetime. On failure it clears auth so the user is sent back to
  * the login page.
  */
-import { useEffect, useRef, type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { authAdapter, resetDexieLayer, syncManager } from "../lib/adapters";
 import type { GoogleAuthAdapter } from "../lib/adapters/google/GoogleAuthAdapter";
 import { useAuth } from "../modules/auth/useAuth";
@@ -93,7 +93,7 @@ export function AuthInitializer({ children }: Props) {
     return () => {
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     };
-  }, []);
+  }, [setAccessToken, clearAuth]);
 
   return <>{children}</>;
 }

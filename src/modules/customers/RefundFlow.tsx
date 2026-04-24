@@ -10,19 +10,20 @@
  */
 
 import { useState } from "react";
-import {
-  fetchTransaction,
-  createRefund,
-  type RefundItem,
-  RefundError,
-} from "./refund.service";
-import type { Transaction } from "../cashier/cashier.service";
-import { formatIDR } from "../../lib/formatters";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Alert, AlertDescription } from "../../components/ui/alert";
-import { Card, CardContent } from "../../components/ui/card";
+import { formatIDR } from "../../lib/formatters";
+import { generateId } from "../../lib/uuid";
+import type { Transaction } from "../cashier/cashier.service";
+import {
+  createRefund,
+  fetchTransaction,
+  RefundError,
+  type RefundItem,
+} from "./refund.service";
 
 interface ItemEntry {
   product_id: string;
@@ -35,7 +36,7 @@ interface ItemEntry {
 export function RefundFlow() {
   const [txIdInput, setTxIdInput] = useState("");
   const [transaction, setTransaction] = useState<Transaction | null>(null);
-  const [items, setItems] = useState<ItemEntry[]>([]);
+  const [items, setItems] = useState<(ItemEntry & { _uid: string })[]>([]);
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [findError, setFindError] = useState<string | null>(null);
@@ -71,6 +72,7 @@ export function RefundFlow() {
         unit_price: 0,
         originalQty: 1,
         refundQty: 1,
+        _uid: generateId(),
       },
     ]);
   }
@@ -215,7 +217,7 @@ export function RefundFlow() {
 
           {items.map((item, index) => (
             <div
-              key={index}
+              key={item._uid}
               className="grid grid-cols-12 gap-2 rounded border border-gray-200 p-3 text-sm"
               data-testid={`refund-item-row-${index}`}
             >

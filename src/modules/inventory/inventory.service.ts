@@ -14,8 +14,8 @@
  */
 
 import { getRepos } from "../../lib/adapters";
-import { generateId } from "../../lib/uuid";
 import { nowUTC } from "../../lib/formatters";
+import { generateId } from "../../lib/uuid";
 
 // ─── Custom errors ─────────────────────────────────────────────────────────────
 
@@ -76,13 +76,13 @@ export interface PurchaseOrderItemRow extends PurchaseOrderItem {
 export async function fetchStockOpnameData(): Promise<OpnameRow[]> {
   const rows = await getRepos().products.getAll();
   return rows
-    .filter((r) => r["name"]) // skip sentinel rows
+    .filter((r) => (r as Record<string, unknown>).name) // skip sentinel rows
     .map((r) => ({
-      product_id: r["id"] as string,
-      product_name: r["name"] as string,
-      sku: (r["sku"] as string) ?? "",
-      system_stock: Number(r["stock"]),
-      physical_count: Number(r["stock"]),
+      product_id: (r as Record<string, unknown>).id as string,
+      product_name: (r as Record<string, unknown>).name as string,
+      sku: ((r as Record<string, unknown>).sku as string) ?? "",
+      system_stock: Number((r as Record<string, unknown>).stock),
+      physical_count: Number((r as Record<string, unknown>).stock),
     }));
 }
 
@@ -200,11 +200,13 @@ export async function createPurchaseOrder(
 export async function receivePurchaseOrder(orderId: string): Promise<void> {
   // Step 1: Load order and validate state
   const orders = await getRepos().purchaseOrders.getAll();
-  const order = orders.find((o) => o["id"] === orderId);
+  const order = orders.find(
+    (o) => (o as Record<string, unknown>).id === orderId,
+  );
   if (!order) {
     throw new InventoryError(`Purchase order "${orderId}" tidak ditemukan`);
   }
-  if (order["status"] === "received") {
+  if ((order as Record<string, unknown>).status === "received") {
     throw new InventoryError(
       `Purchase order "${orderId}" sudah berstatus "received" dan tidak dapat diproses ulang`,
     );
@@ -217,20 +219,24 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
   ]);
 
   const orderItems = allItems.filter(
-    (i) => i["order_id"] === orderId,
+    (i) => (i as Record<string, unknown>).order_id === orderId,
   ) as unknown as PurchaseOrderItemRow[];
 
   // Compute all new stock values and validate products exist
   const created_at = nowUTC();
   const stockData = orderItems.map((item) => {
-    const product = products.find((p) => p["id"] === item["product_id"]);
+    const product = products.find(
+      (p) =>
+        (p as Record<string, unknown>).id ===
+        (item as Record<string, unknown>).product_id,
+    );
     if (!product) {
       throw new InventoryError(
-        `Produk dengan id "${item["product_id"]}" tidak ditemukan saat menerima purchase order`,
+        `Produk dengan id "${(item as Record<string, unknown>).product_id}" tidak ditemukan saat menerima purchase order`,
       );
     }
-    const qtyBefore = Number(product["stock"]);
-    const qtyAfter = qtyBefore + Number(item["qty"]);
+    const qtyBefore = Number((product as Record<string, unknown>).stock);
+    const qtyAfter = qtyBefore + Number((item as Record<string, unknown>).qty);
     return { item, qtyBefore, qtyAfter };
   });
 
@@ -238,14 +244,14 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
   await Promise.all([
     getRepos().products.batchUpdate(
       stockData.map(({ item, qtyAfter }) => ({
-        id: item["product_id"] as string,
+        id: (item as Record<string, unknown>).product_id as string,
         stock: qtyAfter,
       })),
     ),
     getRepos().stockLog.batchInsert(
       stockData.map(({ item, qtyBefore, qtyAfter }) => ({
         id: generateId(),
-        product_id: item["product_id"],
+        product_id: (item as Record<string, unknown>).product_id,
         reason: "purchase_order",
         qty_before: qtyBefore,
         qty_after: qtyAfter,
@@ -267,12 +273,12 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
 export async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
   const rows = await getRepos().purchaseOrders.getAll();
   return rows
-    .filter((r) => r["supplier"])
+    .filter((r) => r.supplier)
     .map((r) => ({
-      id: r["id"] as string,
-      supplier: r["supplier"] as string,
-      status: r["status"] as "pending" | "received",
-      created_at: r["created_at"] as string,
+      id: r.id as string,
+      supplier: r.supplier as string,
+      status: r.status as "pending" | "received",
+      created_at: r.created_at as string,
     }))
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
@@ -285,14 +291,14 @@ export async function fetchPurchaseOrderItems(
 ): Promise<PurchaseOrderItemRow[]> {
   const rows = await getRepos().purchaseOrderItems.getAll();
   return rows
-    .filter((r) => r["order_id"] === orderId)
+    .filter((r) => r.order_id === orderId)
     .map((r) => ({
-      id: r["id"] as string,
-      order_id: r["order_id"] as string,
-      product_id: r["product_id"] as string,
-      product_name: r["product_name"] as string,
-      qty: Number(r["qty"]),
-      cost_price: Number(r["cost_price"]),
-      created_at: r["created_at"] as string,
+      id: r.id as string,
+      order_id: r.order_id as string,
+      product_id: r.product_id as string,
+      product_name: r.product_name as string,
+      qty: Number(r.qty),
+      cost_price: Number(r.cost_price),
+      created_at: r.created_at as string,
     }));
 }

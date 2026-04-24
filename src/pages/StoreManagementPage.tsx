@@ -9,30 +9,21 @@
  *   - removeOwnedStore of active store → first remaining store, or /setup if empty
  *   - removeAccessToStore               → /stores (store picker)
  */
+
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "../store/authStore";
-import { activateStore } from "../modules/auth/setup.service";
-import {
-  createStore,
-  updateStore,
-  removeOwnedStore,
-  removeAccessToStore,
-  StoreManagementError,
-} from "../modules/settings/store-management.service";
-import type { StoreRecord } from "../modules/auth/setup.service";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
 import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "../components/ui/dialog";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import {
   Table,
   TableBody,
@@ -41,8 +32,18 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { useStores, STORES_QUERY_KEY } from "../hooks/useStores";
+import { STORES_QUERY_KEY, useStores } from "../hooks/useStores";
 import { syncManager } from "../lib/adapters";
+import type { StoreRecord } from "../modules/auth/setup.service";
+import { activateStore } from "../modules/auth/setup.service";
+import {
+  createStore,
+  removeAccessToStore,
+  removeOwnedStore,
+  StoreManagementError,
+  updateStore,
+} from "../modules/settings/store-management.service";
+import { useAuthStore } from "../store/authStore";
 
 export default function StoreManagementPage() {
   const navigate = useNavigate();
@@ -235,17 +236,10 @@ export default function StoreManagementPage() {
                         variant="destructive"
                         size="sm"
                         data-testid={`btn-delete-store-${store.store_id}`}
-                        disabled={store.store_id === activeStoreId}
-                        title={
-                          store.store_id === activeStoreId
-                            ? "Tidak dapat menghapus toko aktif"
-                            : "Hapus toko"
-                        }
+                        title={"Hapus toko"}
                         onClick={() => {
-                          if (store.store_id !== activeStoreId) {
-                            setDeleteStoreId(store.store_id);
-                            setMutationError(null);
-                          }
+                          setDeleteStoreId(store.store_id);
+                          setMutationError(null);
                         }}
                       >
                         Hapus

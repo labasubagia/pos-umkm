@@ -7,36 +7,20 @@
  *
  * T035 deliverable.
  */
-import { useState } from "react";
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "../../store/authStore";
-import {
-  usePurchaseOrders,
-  PURCHASE_ORDERS_QUERY_KEY,
-} from "../../hooks/usePurchaseOrders";
-import { useProducts, PRODUCTS_QUERY_KEY } from "../../hooks/useProducts";
-import { formatDate } from "../../lib/formatDate";
-import { formatIDR } from "../../lib/formatIDR";
-import {
-  fetchPurchaseOrderItems,
-  createPurchaseOrder,
-  receivePurchaseOrder,
-  InventoryError,
-  type PurchaseOrder,
-  type PurchaseOrderItem,
-  type PurchaseOrderItemRow,
-} from "./inventory.service";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
+import { useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import {
   Table,
   TableBody,
@@ -45,6 +29,23 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
+import { PRODUCTS_QUERY_KEY, useProducts } from "../../hooks/useProducts";
+import {
+  PURCHASE_ORDERS_QUERY_KEY,
+  usePurchaseOrders,
+} from "../../hooks/usePurchaseOrders";
+import { formatDate } from "../../lib/formatDate";
+import { formatIDR } from "../../lib/formatIDR";
+import { generateId } from "../../lib/uuid";
+import { useAuthStore } from "../../store/authStore";
+import {
+  createPurchaseOrder,
+  fetchPurchaseOrderItems,
+  type PurchaseOrder,
+  type PurchaseOrderItem,
+  type PurchaseOrderItemRow,
+  receivePurchaseOrder,
+} from "./inventory.service";
 
 export function PurchaseOrders() {
   const queryClient = useQueryClient();
@@ -59,8 +60,16 @@ export function PurchaseOrders() {
   // New order form state
   const [showForm, setShowForm] = useState(false);
   const [supplier, setSupplier] = useState("");
-  const [formItems, setFormItems] = useState<PurchaseOrderItem[]>([
-    { product_id: "", product_name: "", qty: 1, cost_price: 0 },
+  const [formItems, setFormItems] = useState<
+    (PurchaseOrderItem & { _uid: string })[]
+  >([
+    {
+      product_id: "",
+      product_name: "",
+      qty: 1,
+      cost_price: 0,
+      _uid: generateId(),
+    },
   ]);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -103,12 +112,20 @@ export function PurchaseOrders() {
       void invalidateOrders();
       void invalidateProducts();
     },
-    onError: (err) => setReceivingId(null),
+    onError: (_err) => setReceivingId(null),
   });
 
   function openForm() {
     setSupplier("");
-    setFormItems([{ product_id: "", product_name: "", qty: 1, cost_price: 0 }]);
+    setFormItems([
+      {
+        product_id: "",
+        product_name: "",
+        qty: 1,
+        cost_price: 0,
+        _uid: generateId(),
+      },
+    ]);
     setFormError(null);
     setShowForm(true);
   }
@@ -192,7 +209,7 @@ export function PurchaseOrders() {
           <div className="mb-3 space-y-2">
             {formItems.map((item, idx) => (
               <div
-                key={idx}
+                key={item._uid}
                 data-testid={`po-item-row-${idx}`}
                 className="flex items-center gap-2"
               >
@@ -243,6 +260,7 @@ export function PurchaseOrders() {
                 />
                 {formItems.length > 1 && (
                   <button
+                    type="button"
                     data-testid={`btn-remove-po-item-${idx}`}
                     onClick={() =>
                       setFormItems((prev) => prev.filter((_, i) => i !== idx))
@@ -258,11 +276,18 @@ export function PurchaseOrders() {
           </div>
 
           <button
+            type="button"
             data-testid="btn-add-po-item"
             onClick={() =>
               setFormItems((prev) => [
                 ...prev,
-                { product_id: "", product_name: "", qty: 1, cost_price: 0 },
+                {
+                  product_id: "",
+                  product_name: "",
+                  qty: 1,
+                  cost_price: 0,
+                  _uid: generateId(),
+                },
               ])
             }
             className="mb-3 text-sm text-blue-600 hover:underline"

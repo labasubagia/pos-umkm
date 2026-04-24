@@ -3,20 +3,21 @@
  *
  * Data comes from useMembers() (React Query). Mutations invalidate the query.
  */
-import { useState } from "react";
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "../../store/authStore";
-import { useMembers, MEMBERS_QUERY_KEY } from "../../hooks/useMembers";
-import { useAuth } from "../auth/useAuth";
-import {
-  inviteMember,
-  revokeMember,
-  generateStoreLink,
-} from "./members.service";
+import { useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Alert, AlertDescription } from "../../components/ui/alert";
+import { MEMBERS_QUERY_KEY, useMembers } from "../../hooks/useMembers";
+import { useAuthStore } from "../../store/authStore";
+import { useAuth } from "../auth/useAuth";
+import {
+  generateStoreLink,
+  inviteMember,
+  revokeMember,
+} from "./members.service";
 
 export default function MemberManagement() {
   const { spreadsheetId } = useAuth();

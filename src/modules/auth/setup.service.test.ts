@@ -4,33 +4,32 @@
  * Uses spies on adapters (getRepos, makeRepo, driveClient) so no Drive/Sheets
  * API calls are made.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as adapters from "../../lib/adapters";
+import { useAuthStore } from "../../store/authStore";
 import {
+  activateStore,
   createMainSpreadsheet,
   createMasterSpreadsheet,
-  initializeMasterSheets,
-  saveSpreadsheetId,
-  saveMainSpreadsheetId,
-  getMainSpreadsheetId,
-  monthlySheetKey,
-  listStores,
-  updateStoreName,
+  createMonthlySheet,
   findOrCreateMain,
-  activateStore,
-  runStoreSetup,
-  runFirstTimeSetup,
+  getCurrentMonthSheetId,
+  getMainSpreadsheetId,
+  initializeMasterSheets,
+  initializeMonthlySheets,
+  listStores,
   MAIN_TAB_HEADERS,
   MASTER_TABS,
   MONTHLY_TABS,
-  getCurrentMonthSheetId,
-  createMonthlySheet,
-  initializeMonthlySheets,
-  shareSheetWithAllMembers,
+  monthlySheetKey,
+  runFirstTimeSetup,
+  runStoreSetup,
   type StoreRecord,
+  saveMainSpreadsheetId,
+  saveSpreadsheetId,
+  shareSheetWithAllMembers,
+  updateStoreName,
 } from "./setup.service";
-
-import * as adapters from "../../lib/adapters";
-import { useAuthStore } from "../../store/authStore";
 
 // jsdom localStorage.clear() may not exist in all vitest environments; use Map-backed mock
 const localStorageMock = (() => {
@@ -66,7 +65,6 @@ function mockRepo(overrides = {}) {
     // ISheetRepository methods — used by sharedMakeRepo (makeRepo() path)
     batchAppend: vi.fn().mockResolvedValue(undefined),
     batchUpdateCells: vi.fn().mockResolvedValue(undefined),
-    batchUpsert: vi.fn().mockResolvedValue(undefined),
     // ILocalRepository methods — used by mockRepos (getRepos() path)
     batchInsert: vi.fn().mockResolvedValue(undefined),
     batchUpdate: vi.fn().mockResolvedValue(undefined),
@@ -147,7 +145,7 @@ describe("createMainSpreadsheet", () => {
     await createMainSpreadsheet();
 
     expect(sharedMakeRepo.writeHeaders).toHaveBeenCalledWith(
-      MAIN_TAB_HEADERS["Stores"],
+      MAIN_TAB_HEADERS.Stores,
     );
   });
 

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "../store/authStore";
 import { fetchPurchaseOrders } from "../modules/inventory/inventory.service";
+import { useAuthStore } from "../store/authStore";
 
 export const PURCHASE_ORDERS_QUERY_KEY = (storeId: string | null) => [
   "purchase-orders",

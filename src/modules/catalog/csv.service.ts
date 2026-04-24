@@ -11,8 +11,8 @@
 
 import Papa from "papaparse";
 import { getRepos } from "../../lib/adapters";
-import { generateId } from "../../lib/uuid";
 import { nowUTC } from "../../lib/formatters";
+import { generateId } from "../../lib/uuid";
 
 export interface ParsedProduct {
   name: string;
@@ -38,12 +38,12 @@ export function parseProductCSV(file: File): Promise<ParsedProduct[]> {
       skipEmptyLines: true,
       complete(results) {
         const parsed = results.data.map((row) => ({
-          name: (row["name"] ?? "").trim(),
-          category_id: (row["category_id"] ?? "").trim(),
-          price: parseInt(row["price"] ?? "0", 10),
-          stock: parseInt(row["stock"] ?? "0", 10),
-          sku: (row["sku"] ?? "").trim(),
-          has_variants: (row["has_variants"] ?? "").toLowerCase() === "true",
+          name: (row.name ?? "").trim(),
+          category_id: (row.category_id ?? "").trim(),
+          price: parseInt(row.price ?? "0", 10),
+          stock: parseInt(row.stock ?? "0", 10),
+          sku: (row.sku ?? "").trim(),
+          has_variants: (row.has_variants ?? "").toLowerCase() === "true",
         }));
         resolve(parsed);
       },

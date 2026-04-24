@@ -8,18 +8,19 @@
  * useNavigate is mocked because NavBar calls navigate('/') on sign-out.
  * activateStore (setup.service) is mocked for store-switch tests.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { MemoryRouter } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useAuthStore } from "../store/authStore";
-import { NavBar } from "./NavBar";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as useStoresModule from "../hooks/useStores";
 import * as adapters from "../lib/adapters";
 import type { Role } from "../lib/adapters/types";
 import type { StoreRecord } from "../modules/auth/setup.service";
-import * as useStoresModule from "../hooks/useStores";
+import { useAuthStore } from "../store/authStore";
+import { NavBar } from "./NavBar";
 
 vi.mock("../lib/adapters", () => ({
   authAdapter: {

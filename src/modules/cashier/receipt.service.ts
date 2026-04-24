@@ -23,7 +23,7 @@
  *   Terima kasih!
  */
 
-import { formatIDR, formatDateTime } from "../../lib/formatters";
+import { formatDateTime, formatIDR } from "../../lib/formatters";
 import { validatePhone } from "../../lib/validators";
 import type { Transaction, TransactionItem } from "./cashier.service";
 

@@ -9,15 +9,15 @@
  */
 
 import { useState } from "react";
-import { CustomerSearch } from "../modules/customers/CustomerSearch";
-import { RefundFlow } from "../modules/customers/RefundFlow";
-import type { Customer } from "../modules/customers/customers.service";
 import {
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
-  TabsContent,
 } from "../components/ui/tabs";
+import { CustomerSearch } from "../modules/customers/CustomerSearch";
+import type { Customer } from "../modules/customers/customers.service";
+import { RefundFlow } from "../modules/customers/RefundFlow";
 
 export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(

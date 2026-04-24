@@ -1,14 +1,14 @@
-import MemberManagement from "../modules/settings/MemberManagement";
-import BusinessProfile from "../modules/settings/BusinessProfile";
-import QRISConfig from "../modules/settings/QRISConfig";
-import StoreManagementPage from "./StoreManagementPage";
-import OutboxPage from "./OutboxPage";
 import {
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
-  TabsContent,
 } from "../components/ui/tabs";
+import BusinessProfile from "../modules/settings/BusinessProfile";
+import MemberManagement from "../modules/settings/MemberManagement";
+import QRISConfig from "../modules/settings/QRISConfig";
+import OutboxPage from "./OutboxPage";
+import StoreManagementPage from "./StoreManagementPage";
 
 export default function SettingsPage() {
   return (

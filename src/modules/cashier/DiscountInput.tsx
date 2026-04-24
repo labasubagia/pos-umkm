@@ -5,11 +5,11 @@
  * Updates the cart discount in useCartStore on change.
  */
 import { useState } from "react";
-import { useCartStore } from "./useCart";
-import type { DiscountType } from "./cashier.service";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import type { DiscountType } from "./cashier.service";
+import { useCartStore } from "./useCart";
 
 export function DiscountInput() {
   const [type, setType] = useState<"flat" | "percent">("flat");
@@ -19,7 +19,7 @@ export function DiscountInput() {
 
   function handleApply() {
     const num = parseInt(value, 10);
-    if (!value || isNaN(num) || num <= 0) {
+    if (!value || Number.isNaN(num) || num <= 0) {
       setDiscount(null);
       return;
     }
@@ -39,6 +39,7 @@ export function DiscountInput() {
       {/* Type toggle */}
       <div className="flex rounded-lg border overflow-hidden text-sm">
         <button
+          type="button"
           onClick={() => setType("flat")}
           className={`flex-1 py-1.5 transition-colors ${type === "flat" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
           aria-pressed={type === "flat"}
@@ -47,6 +48,7 @@ export function DiscountInput() {
           Nominal (Rp)
         </button>
         <button
+          type="button"
           onClick={() => setType("percent")}
           className={`flex-1 py-1.5 transition-colors ${type === "percent" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
           aria-pressed={type === "percent"}

@@ -1,15 +1,15 @@
 // Google Sheets API client
 export {
-  sheetsGet,
   sheetsAppend,
-  sheetsUpdate,
   sheetsBatchGet,
+  sheetsGet,
+  sheetsUpdate,
 } from "./sheets.client";
 export type {
-  SheetsGetResponse,
   SheetsAppendResponse,
-  SheetsUpdateResponse,
   SheetsBatchGetResponse,
+  SheetsGetResponse,
+  SheetsUpdateResponse,
   SheetValues,
 } from "./sheets.types";
 export { SheetsApiError } from "./sheets.types";

@@ -5,11 +5,11 @@
  * Calls useCartStore actions — all purely in-memory.
  */
 import { Trash2 } from "lucide-react";
-import { useCartStore } from "./useCart";
-import { calculateSubtotal } from "./cashier.service";
 import { Button } from "../../components/ui/button";
 import { useProducts } from "../../hooks/useProducts";
 import { useVariants } from "../../hooks/useVariants";
+import { calculateSubtotal } from "./cashier.service";
+import { useCartStore } from "./useCart";
 
 export function CartPanel() {
   const items = useCartStore((s) => s.items);

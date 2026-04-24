@@ -5,16 +5,17 @@
  * Data loading is handled by useProducts() / useCategories() (React Query)
  * inside child components — no explicit loadCatalog() call needed here.
  */
-import { useProducts } from "../hooks/useProducts";
-import { CategoryList } from "../modules/catalog/CategoryList";
-import { ProductList } from "../modules/catalog/ProductList";
-import { CSVImport } from "../modules/catalog/CSVImport";
+
 import {
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
-  TabsContent,
 } from "../components/ui/tabs";
+import { useProducts } from "../hooks/useProducts";
+import { CategoryList } from "../modules/catalog/CategoryList";
+import { CSVImport } from "../modules/catalog/CSVImport";
+import { ProductList } from "../modules/catalog/ProductList";
 
 export default function CatalogPage() {
   const { isLoading } = useProducts();

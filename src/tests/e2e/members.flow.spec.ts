@@ -5,10 +5,10 @@
  * is never triggered because Zustand auth state is pre-seeded. The join-store
  * flow is tested by navigating directly to /join?sid=... with auth pre-injected.
  */
-import { test, expect } from "@playwright/test";
-import { injectAuthState, DEFAULT_STORE, BASE } from "./helpers/auth-dexie";
-import { seedDexie } from "./helpers/dexie-seed";
+import { expect, test } from "@playwright/test";
 import { navigateTo } from "./helpers/auth";
+import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
+import { seedDexie } from "./helpers/dexie-seed";
 
 const STORE = DEFAULT_STORE;
 const now = new Date().toISOString();

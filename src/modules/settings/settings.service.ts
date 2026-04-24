@@ -27,16 +27,17 @@ export async function getSettings(): Promise<BusinessSettings> {
   const rows = await getRepos().settings.getAll();
   const map: Record<string, string> = {};
   for (const row of rows) {
-    if (row["key"] && row["value"] !== undefined) {
-      map[row["key"] as string] = String(row["value"]);
+    const rr = row as Record<string, unknown>;
+    if (rr.key && rr.value !== undefined) {
+      map[rr.key as string] = String(rr.value);
     }
   }
   return {
-    business_name: map["business_name"] ?? "POS UMKM",
-    timezone: map["timezone"] ?? "Asia/Jakarta",
-    tax_rate: parseInt(map["tax_rate"] ?? "11", 10),
-    receipt_footer: map["receipt_footer"] ?? "Terima kasih sudah berbelanja!",
-    qris_image_url: map["qris_image_url"] ?? "",
+    business_name: map.business_name ?? "POS UMKM",
+    timezone: map.timezone ?? "Asia/Jakarta",
+    tax_rate: parseInt(map.tax_rate ?? "11", 10),
+    receipt_footer: map.receipt_footer ?? "Terima kasih sudah berbelanja!",
+    qris_image_url: map.qris_image_url ?? "",
   };
 }
 
@@ -97,7 +98,9 @@ export async function saveSettings(
 
   const existing = await getRepos().settings.getAll();
   const rows = entries.map(([key, value]) => {
-    const found = existing.find((r) => r["key"] === key);
+    const found = existing.find(
+      (r) => (r as Record<string, unknown>).key === key,
+    );
     return found
       ? { ...found, value: String(value), updated_at: nowUTC() }
       : { id: generateId(), key, value: String(value), updated_at: nowUTC() };

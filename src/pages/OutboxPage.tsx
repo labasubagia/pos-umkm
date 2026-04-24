@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { getDb } from "../lib/adapters/dexie/db";
-import { useAuthStore } from "../store/authStore";
-import type { OutboxEntry } from "../lib/adapters/dexie/db";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "../components/ui/button";
+import { syncManager } from "../lib/adapters";
+import type { OutboxEntry } from "../lib/adapters/dexie/db";
+import { getDb } from "../lib/adapters/dexie/db";
 
 import { formatDate } from "../lib/formatDate";
-import { syncManager } from "../lib/adapters";
+import { useAuthStore } from "../store/authStore";
 
 export default function OutboxPage() {
   const [outbox, setOutbox] = useState<OutboxEntry[]>([]);
@@ -13,17 +13,17 @@ export default function OutboxPage() {
   const activeStoreId = useAuthStore((s) => s.activeStoreId) ?? "__init__";
   const db = getDb(activeStoreId);
 
-  const fetchOutbox = async () => {
+  const fetchOutbox = useCallback(async () => {
     setLoading(true);
     const items = await db._outbox.orderBy("id").reverse().toArray();
     setOutbox(items);
     setLoading(false);
-  };
+  }, [db]);
 
   useEffect(() => {
     fetchOutbox();
     // Optionally, subscribe to sync events to refresh
-  }, [activeStoreId]);
+  }, [fetchOutbox]);
 
   return (
     <div className="p-4">

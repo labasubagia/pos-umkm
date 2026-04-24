@@ -2,14 +2,15 @@
  * InventoryPage — Stock opname and purchase order management.
  * Accessible to owner and manager roles.
  */
-import { StockOpname } from "../modules/inventory/StockOpname";
-import { PurchaseOrders } from "../modules/inventory/PurchaseOrders";
+
 import {
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
-  TabsContent,
 } from "../components/ui/tabs";
+import { PurchaseOrders } from "../modules/inventory/PurchaseOrders";
+import { StockOpname } from "../modules/inventory/StockOpname";
 
 export default function InventoryPage() {
   return (

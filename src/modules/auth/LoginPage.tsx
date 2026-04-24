@@ -11,11 +11,11 @@
  * (slow path — StorePickerPage resolves the active store).
  */
 import { useState } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
-import { useAuth } from "./useAuth";
+import { Navigate, useNavigate } from "react-router-dom";
+import { Button } from "../../components/ui/button";
 import { authAdapter } from "../../lib/adapters";
 import { useAuthStore } from "../../store/authStore";
-import { Button } from "../../components/ui/button";
+import { useAuth } from "./useAuth";
 
 export default function LoginPage() {
   const navigate = useNavigate();

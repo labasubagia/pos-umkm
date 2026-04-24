@@ -1,24 +1,24 @@
 /**
  * cashier.service tests — T025, T026, T027, T030, T031, T032.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
+import type { Product } from "../catalog/catalog.service";
+import type { CartItem } from "./cashier.service";
 import {
-  calculateSubtotal,
   applyDiscount,
+  CashierError,
+  calculateChange,
+  calculateSubtotal,
   calculateTax,
   calculateTotal,
-  calculateChange,
-  suggestDenominations,
-  searchProducts,
-  validateSplitPayment,
   commitTransaction,
   InsufficientCashError,
   SplitPaymentError,
-  CashierError,
+  searchProducts,
+  suggestDenominations,
+  validateSplitPayment,
 } from "./cashier.service";
-import type { CartItem } from "./cashier.service";
-import type { Product } from "../catalog/catalog.service";
 
 // Mock the auth setup service so ensureMonthlySheetExists doesn't touch localStorage
 vi.mock("../auth/setup.service", () => ({
@@ -343,12 +343,12 @@ describe("commitTransaction", () => {
     );
 
     const updates = mockRepos.products.batchUpdate.mock.calls[0][0];
-    expect(
-      updates.find((u: { id: string }) => u.id === "prod-1")?.["stock"],
-    ).toBe(8); // 10 - 2
-    expect(
-      updates.find((u: { id: string }) => u.id === "prod-2")?.["stock"],
-    ).toBe(19); // 20 - 1
+    expect(updates.find((u: { id: string }) => u.id === "prod-1")?.stock).toBe(
+      8,
+    ); // 10 - 2
+    expect(updates.find((u: { id: string }) => u.id === "prod-2")?.stock).toBe(
+      19,
+    ); // 20 - 1
   });
 
   it("returns the completed transaction object with generated ID", async () => {

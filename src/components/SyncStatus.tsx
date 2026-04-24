@@ -10,12 +10,13 @@
  * SyncStatus — shows the offline/syncing/synced status indicator in the NavBar.
  * Reads from useSyncStore — no props needed.
  */
+
+import { CheckCircle, CloudOff, CloudUpload, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { CloudOff, CloudUpload, CheckCircle, Loader2 } from "lucide-react";
-import { useSyncStore } from "../store/syncStore";
 import { syncManager } from "../lib/adapters";
-import { cn } from "../lib/utils";
 import { formatDate } from "../lib/formatDate";
+import { cn } from "../lib/utils";
+import { useSyncStore } from "../store/syncStore";
 
 export function SyncStatus() {
   const { pendingCount, isSyncing, lastSyncedAt, lastError } = useSyncStore();
@@ -69,6 +70,7 @@ export function SyncStatus() {
   if (lastError && hasPending) {
     return (
       <button
+        type="button"
         data-testid="sync-status-error"
         onClick={handleManualSync}
         className="flex items-center text-red-600 hover:text-red-700"
@@ -82,6 +84,7 @@ export function SyncStatus() {
   if (hasPending) {
     return (
       <button
+        type="button"
         data-testid="sync-status-pending"
         onClick={handleManualSync}
         className={cn(

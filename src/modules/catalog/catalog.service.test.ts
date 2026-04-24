@@ -1,23 +1,23 @@
 /**
  * catalog.service tests — covers T021 (Categories), T022 (Products), T023 (Variants).
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
 import {
-  fetchCategories,
   addCategory,
-  updateCategory,
-  deleteCategory,
-  fetchProducts,
   addProduct,
-  updateProduct,
-  deleteProduct,
-  decrementStock,
-  fetchVariants,
   addVariant,
-  deleteVariant,
-  decrementVariantStock,
   CatalogError,
+  decrementStock,
+  decrementVariantStock,
+  deleteCategory,
+  deleteProduct,
+  deleteVariant,
+  fetchCategories,
+  fetchProducts,
+  fetchVariants,
+  updateCategory,
+  updateProduct,
 } from "./catalog.service";
 
 function mockRepo(overrides = {}) {
@@ -109,9 +109,9 @@ describe("addCategory", () => {
 
     expect(mockRepos.categories.batchInsert).toHaveBeenCalledOnce();
     const row = mockRepos.categories.batchInsert.mock.calls[0][0][0];
-    expect(row["name"]).toBe("Snack");
-    expect(typeof row["id"]).toBe("string");
-    expect(row["id"]).toBeTruthy();
+    expect(row.name).toBe("Snack");
+    expect(typeof row.id).toBe("string");
+    expect(row.id).toBeTruthy();
     expect(result.name).toBe("Snack");
   });
 
@@ -192,8 +192,8 @@ describe("addProduct", () => {
 
     expect(mockRepos.products.batchInsert).toHaveBeenCalledOnce();
     const row = mockRepos.products.batchInsert.mock.calls[0][0][0];
-    expect(row["name"]).toBe("Nasi Goreng");
-    expect(row["price"]).toBe(15000);
+    expect(row.name).toBe("Nasi Goreng");
+    expect(row.price).toBe(15000);
     expect(result.id).toBeTruthy();
   });
 
@@ -299,8 +299,8 @@ describe("addVariant", () => {
 
     expect(mockRepos.variants.batchInsert).toHaveBeenCalledOnce();
     const row = mockRepos.variants.batchInsert.mock.calls[0][0][0];
-    expect(row["product_id"]).toBe("prod-1");
-    expect(row["option_value"]).toBe("L");
+    expect(row.product_id).toBe("prod-1");
+    expect(row.option_value).toBe("L");
     expect(result.price).toBe(30000);
   });
 

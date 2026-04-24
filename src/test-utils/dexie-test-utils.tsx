@@ -14,15 +14,16 @@
  * fake-indexeddb/auto must be imported before Dexie opens any database.
  * It is imported in src/test-setup.ts so it is always available.
  */
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { type RenderResult, render } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { render, type RenderResult } from "@testing-library/react";
 import { act } from "react";
 import { MemoryRouter } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useAuthStore } from "../store/authStore";
-import { useCartStore } from "../modules/cashier/useCart";
-import { getDb, clearDbCache } from "../lib/adapters/dexie/db";
 import type { PosUmkmDatabase } from "../lib/adapters/dexie/db";
+import { clearDbCache, getDb } from "../lib/adapters/dexie/db";
+import { useCartStore } from "../modules/cashier/useCart";
+import { useAuthStore } from "../store/authStore";
 
 export type { PosUmkmDatabase };
 

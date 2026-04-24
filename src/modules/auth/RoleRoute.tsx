@@ -11,8 +11,8 @@
  */
 import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "./useAuth";
 import type { Role } from "../../lib/adapters/types";
+import { useAuth } from "./useAuth";
 
 /** Numeric rank for role comparison (higher = more privileged). */
 const ROLE_RANK: Record<Role, number> = {

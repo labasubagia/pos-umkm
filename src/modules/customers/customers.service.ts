@@ -46,14 +46,17 @@ export class CustomerError extends Error {
 export async function fetchCustomers(): Promise<Customer[]> {
   const rows = await getRepos().customers.getAll();
   return rows
-    .filter((r) => r["name"])
+    .filter((r) => (r as Record<string, unknown>).name)
     .map((r) => ({
-      id: r["id"] as string,
-      name: r["name"] as string,
-      phone: r["phone"] as string,
-      email: (r["email"] as string | undefined) ?? undefined,
-      created_at: r["created_at"] as string,
-      deleted_at: (r["deleted_at"] as string | null) ?? null,
+      id: (r as Record<string, unknown>).id as string,
+      name: (r as Record<string, unknown>).name as string,
+      phone: (r as Record<string, unknown>).phone as string,
+      email:
+        ((r as Record<string, unknown>).email as string | undefined) ??
+        undefined,
+      created_at: (r as Record<string, unknown>).created_at as string,
+      deleted_at:
+        ((r as Record<string, unknown>).deleted_at as string | null) ?? null,
     }));
 }
 
@@ -76,7 +79,11 @@ export async function addCustomer(
 
   // Check for duplicate phone in existing customers
   const existing = await getRepos().customers.getAll();
-  const duplicate = existing.find((r) => r["name"] && r["phone"] === phone);
+  const duplicate = existing.find(
+    (r) =>
+      (r as Record<string, unknown>).name &&
+      (r as Record<string, unknown>).phone === phone,
+  );
   if (duplicate) {
     throw new CustomerError(`Nomor telepon ${phone} sudah terdaftar`);
   }

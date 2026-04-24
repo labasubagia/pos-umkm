@@ -20,10 +20,11 @@
  *
  * writeHeaders is never called during hydration — headers are Sheets-side only.
  */
+
+import { useSyncStore } from "../../../store/syncStore";
+import { ALL_TAB_HEADERS } from "../../schema";
 import { SheetRepository } from "../SheetRepository";
 import type { PosUmkmDatabase } from "./db";
-import { ALL_TAB_HEADERS } from "../../schema";
-import { useSyncStore } from "../../../store/syncStore";
 
 /** How old a hydration timestamp must be before we re-fetch (5 minutes). */
 const STALE_MS = 5 * 60 * 1000;
@@ -85,7 +86,8 @@ export class HydrationService {
     // reliably wait for all table.clear() transactions to complete before
     // seeding test data (avoids a race between seedDexie and hydrateTable).
     if (import.meta.env.VITE_E2E === "true") {
-      (window as Record<string, unknown>)["__lastHydratedAt"] = Date.now();
+      (window as unknown as Record<string, unknown>).__lastHydratedAt =
+        Date.now();
     }
   }
 
@@ -141,11 +143,11 @@ export class HydrationService {
       // Dexie requires 'id' as primary key, so we map store_id → id when id is absent.
       const normalizedRows = rawRows.map((r) => {
         if (
-          (r["id"] == null || r["id"] === "") &&
-          r["store_id"] != null &&
-          r["store_id"] !== ""
+          (r.id == null || r.id === "") &&
+          r.store_id != null &&
+          r.store_id !== ""
         ) {
-          return { ...r, id: r["store_id"] };
+          return { ...r, id: r.store_id };
         }
         return r;
       });
@@ -153,7 +155,7 @@ export class HydrationService {
       // return trailing empty rows that parse to { id: null, ... } which IDB
       // rejects with a DataError when the key path yields no value.
       const validRows = normalizedRows.filter(
-        (r) => r["id"] != null && r["id"] !== "",
+        (r) => r.id != null && r.id !== "",
       );
       // Clear the local table then re-populate from Sheets (full replace).
       // This removes rows that were deleted in Sheets and ensures the local cache

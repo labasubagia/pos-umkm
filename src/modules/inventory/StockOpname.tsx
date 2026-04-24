@@ -6,21 +6,12 @@
  *
  * T034 deliverable.
  */
-import { useState, useEffect } from "react";
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "../../store/authStore";
-import {
-  useStockOpname,
-  STOCK_OPNAME_QUERY_KEY,
-} from "../../hooks/useStockOpname";
-import {
-  saveOpnameResults,
-  InventoryError,
-  type OpnameRow,
-} from "./inventory.service";
+import { useEffect, useState } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { Alert, AlertDescription } from "../../components/ui/alert";
 import {
   Table,
   TableBody,
@@ -29,6 +20,16 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
+import {
+  STOCK_OPNAME_QUERY_KEY,
+  useStockOpname,
+} from "../../hooks/useStockOpname";
+import { useAuthStore } from "../../store/authStore";
+import {
+  InventoryError,
+  type OpnameRow,
+  saveOpnameResults,
+} from "./inventory.service";
 
 export function StockOpname() {
   const queryClient = useQueryClient();
@@ -62,7 +63,7 @@ export function StockOpname() {
         queryKey: STOCK_OPNAME_QUERY_KEY(activeStoreId),
       });
     },
-    onError: (err) => setSuccessMsg(null),
+    onError: (_err) => setSuccessMsg(null),
   });
 
   function handlePhysicalCountChange(productId: string, value: string) {
@@ -70,7 +71,10 @@ export function StockOpname() {
     setRows((prev) =>
       prev.map((r) =>
         r.product_id === productId
-          ? { ...r, physical_count: isNaN(count) ? r.physical_count : count }
+          ? {
+              ...r,
+              physical_count: Number.isNaN(count) ? r.physical_count : count,
+            }
           : r,
       ),
     );

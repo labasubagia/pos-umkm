@@ -4,14 +4,14 @@
  * TDD: tests written first. All use vi.spyOn on getRepos() so no localStorage
  * or Sheets API is touched. The adapter is stubbed per test case.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
 import {
-  fetchStockOpnameData,
-  saveOpnameResults,
   createPurchaseOrder,
-  receivePurchaseOrder,
+  fetchStockOpnameData,
   InventoryError,
+  receivePurchaseOrder,
+  saveOpnameResults,
 } from "./inventory.service";
 
 function mockRepo(overrides = {}) {
@@ -139,10 +139,10 @@ describe("saveOpnameResults", () => {
 
     expect(mockRepos.stockLog.batchInsert).toHaveBeenCalledTimes(1);
     const logRow = mockRepos.stockLog.batchInsert.mock.calls[0][0][0];
-    expect(logRow["product_id"]).toBe("p1");
-    expect(logRow["reason"]).toBe("opname");
-    expect(logRow["qty_before"]).toBe(30);
-    expect(logRow["qty_after"]).toBe(28);
+    expect(logRow.product_id).toBe("p1");
+    expect(logRow.reason).toBe("opname");
+    expect(logRow.qty_before).toBe(30);
+    expect(logRow.qty_after).toBe(28);
   });
 
   it("skips products where physical count matches system count", async () => {
@@ -198,15 +198,15 @@ describe("createPurchaseOrder", () => {
 
     expect(mockRepos.purchaseOrders.batchInsert).toHaveBeenCalledTimes(1);
     const orderRow = mockRepos.purchaseOrders.batchInsert.mock.calls[0][0][0];
-    expect(orderRow["supplier"]).toBe("Supplier ABC");
-    expect(orderRow["status"]).toBe("pending");
+    expect(orderRow.supplier).toBe("Supplier ABC");
+    expect(orderRow.status).toBe("pending");
 
     expect(mockRepos.purchaseOrderItems.batchInsert).toHaveBeenCalledTimes(1);
     const poItems = mockRepos.purchaseOrderItems.batchInsert.mock.calls[0][0];
     expect(poItems).toHaveLength(2);
-    expect(poItems[0]["product_id"]).toBe("p1");
-    expect(poItems[0]["qty"]).toBe(50);
-    expect(poItems[1]["product_id"]).toBe("p2");
+    expect(poItems[0].product_id).toBe("p1");
+    expect(poItems[0].qty).toBe(50);
+    expect(poItems[1].product_id).toBe("p2");
   });
 });
 
@@ -276,13 +276,13 @@ describe("receivePurchaseOrder", () => {
     const updates = mockRepos.products.batchUpdate.mock.calls[0][0];
     expect(updates).toHaveLength(2);
     // prod-1: 20 + 50 = 70
-    expect(
-      updates.find((u: { id: string }) => u.id === "prod-1")?.["stock"],
-    ).toBe(70);
+    expect(updates.find((u: { id: string }) => u.id === "prod-1")?.stock).toBe(
+      70,
+    );
     // prod-2: 10 + 100 = 110
-    expect(
-      updates.find((u: { id: string }) => u.id === "prod-2")?.["stock"],
-    ).toBe(110);
+    expect(updates.find((u: { id: string }) => u.id === "prod-2")?.stock).toBe(
+      110,
+    );
   });
 
   it('appends Stock_Log entry with reason "purchase_order" for each item', async () => {
@@ -295,9 +295,9 @@ describe("receivePurchaseOrder", () => {
     expect(mockRepos.stockLog.batchInsert).toHaveBeenCalledTimes(1);
     const logEntries = mockRepos.stockLog.batchInsert.mock.calls[0][0];
     expect(logEntries).toHaveLength(2);
-    expect(logEntries[0]["reason"]).toBe("purchase_order");
-    expect(logEntries[0]["qty_before"]).toBe(20);
-    expect(logEntries[0]["qty_after"]).toBe(70);
+    expect(logEntries[0].reason).toBe("purchase_order");
+    expect(logEntries[0].qty_before).toBe(20);
+    expect(logEntries[0].qty_after).toBe(70);
   });
 
   it('throws InventoryError if order status is already "received"', async () => {

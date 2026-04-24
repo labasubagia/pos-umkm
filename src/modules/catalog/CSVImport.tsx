@@ -8,21 +8,11 @@
  *   4. On confirm, bulkImportProducts writes all rows + store is refreshed
  */
 
-import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  parseProductCSV,
-  validateImportRows,
-  bulkImportProducts,
-} from "./csv.service";
-import type { ParsedProduct, RowValidationResult } from "./csv.service";
-import { PRODUCTS_QUERY_KEY } from "../../hooks/useProducts";
-import { CATEGORIES_QUERY_KEY } from "../../hooks/useCategories";
-import { useAuthStore } from "../../store/authStore";
-import { formatIDR } from "../../lib/formatters";
-import { Button } from "../../components/ui/button";
+import { useRef, useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
 import {
   Table,
   TableBody,
@@ -31,6 +21,16 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
+import { CATEGORIES_QUERY_KEY } from "../../hooks/useCategories";
+import { PRODUCTS_QUERY_KEY } from "../../hooks/useProducts";
+import { formatIDR } from "../../lib/formatters";
+import { useAuthStore } from "../../store/authStore";
+import type { ParsedProduct, RowValidationResult } from "./csv.service";
+import {
+  bulkImportProducts,
+  parseProductCSV,
+  validateImportRows,
+} from "./csv.service";
 
 export function CSVImport() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -144,7 +144,7 @@ export function CSVImport() {
               </TableHeader>
               <TableBody>
                 {results.map((r, i) => (
-                  <TableRow key={i} className={r.valid ? "" : "bg-red-50"}>
+                  <TableRow key={r.row} className={r.valid ? "" : "bg-red-50"}>
                     <TableCell>{r.row}</TableCell>
                     <TableCell>{rows[i]?.name || "—"}</TableCell>
                     <TableCell>

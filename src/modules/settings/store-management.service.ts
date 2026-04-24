@@ -11,16 +11,16 @@
  */
 
 import {
+  getMembersForStore,
   getRepos,
   localCachePut,
-  getMembersForStore,
 } from "../../lib/adapters";
 import { nowUTC } from "../../lib/formatters";
 import { useAuthStore } from "../../store/authStore";
 import {
   createMasterSpreadsheet,
-  initializeMasterSheets,
   getMainSpreadsheetId,
+  initializeMasterSheets,
   type StoreRecord,
 } from "../auth/setup.service";
 
@@ -48,13 +48,25 @@ function requireMainId(): string {
 /** Maps a raw Stores-tab row to a typed StoreRecord. */
 function toStoreRecord(r: Record<string, unknown>): StoreRecord {
   return {
-    store_id: String(r["store_id"]),
-    store_name: String(r["store_name"] ?? ""),
-    master_spreadsheet_id: String(r["master_spreadsheet_id"]),
-    drive_folder_id: String(r["drive_folder_id"] ?? ""),
-    owner_email: String(r["owner_email"] ?? ""),
-    my_role: String(r["my_role"] ?? "owner"),
-    joined_at: String(r["joined_at"] ?? ""),
+    store_id: String((r as Record<string, unknown>).store_id),
+    store_name: String(
+      ((r as Record<string, unknown>).store_name ?? "") as string,
+    ),
+    master_spreadsheet_id: String(
+      (r as Record<string, unknown>).master_spreadsheet_id,
+    ),
+    drive_folder_id: String(
+      ((r as Record<string, unknown>).drive_folder_id ?? "") as string,
+    ),
+    owner_email: String(
+      ((r as Record<string, unknown>).owner_email ?? "") as string,
+    ),
+    my_role: String(
+      ((r as Record<string, unknown>).my_role ?? "owner") as string,
+    ),
+    joined_at: String(
+      ((r as Record<string, unknown>).joined_at ?? "") as string,
+    ),
   };
 }
 
@@ -70,7 +82,11 @@ export async function listStores(): Promise<StoreRecord[]> {
   requireMainId();
   const rows = await getRepos().stores.getAll();
   return rows
-    .filter((r) => r["store_id"] && r["master_spreadsheet_id"])
+    .filter(
+      (r) =>
+        (r as Record<string, unknown>).store_id &&
+        (r as Record<string, unknown>).master_spreadsheet_id,
+    )
     .map(toStoreRecord);
 }
 
@@ -147,7 +163,9 @@ export async function removeOwnedStore(storeId: string): Promise<void> {
 
   // Verify the store exists before stamping — avoids silent no-ops.
   const rows = await repo.getAll();
-  const exists = rows.some((r) => r["store_id"] === storeId);
+  const exists = rows.some(
+    (r) => (r as Record<string, unknown>).store_id === storeId,
+  );
   if (!exists) {
     throw new StoreManagementError(
       `removeOwnedStore: store "${storeId}" not found`,
@@ -184,12 +202,14 @@ export async function removeAccessToStore(
 
   const membersRepo = getMembersForStore(targetStoreId, masterSpreadsheetId);
   const members = await membersRepo.getAll();
-  const myRow = members.find((r) => r["email"] === callerEmail);
+  const myRow = members.find(
+    (r) => (r as Record<string, unknown>).email === callerEmail,
+  );
   if (!myRow) {
     throw new StoreManagementError(
       `removeAccessToStore: caller "${callerEmail}" not found in Members`,
     );
   }
 
-  await membersRepo.softDelete(String(myRow["id"]));
+  await membersRepo.softDelete(String((myRow as Record<string, unknown>).id));
 }
