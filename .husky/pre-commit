@@ -1,3 +1,5 @@
+# 1. secretlint + biome on staged files only (via lint-staged)
+npx lint-staged
 
+# 2. Full TypeScript type check (whole project — cross-file inference requires it)
 npm run check
-npm run lint
