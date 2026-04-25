@@ -19,8 +19,6 @@ import { updateStoreName } from "../auth/setup.service";
 import { useAuth } from "../auth/useAuth";
 import { type BusinessSettings, saveSettings } from "./settings.service";
 
-const TIMEZONES = ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"] as const;
-
 export function BusinessProfile() {
   const { activeStoreId, spreadsheetId } = useAuth();
   const zustandActiveStoreId = useAuthStore((s) => s.activeStoreId);
@@ -29,7 +27,6 @@ export function BusinessProfile() {
 
   const [form, setForm] = useState<BusinessSettings>({
     business_name: "",
-    timezone: "Asia/Jakarta",
     tax_rate: 11,
     receipt_footer: "",
     qris_image_url: "",
@@ -101,24 +98,6 @@ export function BusinessProfile() {
           onChange={handleChange}
           required
         />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="timezone">Zona Waktu</Label>
-        <select
-          id="timezone"
-          data-testid="input-timezone"
-          name="timezone"
-          value={form.timezone}
-          onChange={handleChange}
-          className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm"
-        >
-          {TIMEZONES.map((tz) => (
-            <option key={tz} value={tz}>
-              {tz}
-            </option>
-          ))}
-        </select>
       </div>
 
       <div className="space-y-1.5">

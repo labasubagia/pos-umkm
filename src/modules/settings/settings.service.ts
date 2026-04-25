@@ -16,7 +16,6 @@ import { generateId } from "../../lib/uuid";
 
 export interface BusinessSettings {
   business_name: string;
-  timezone: string;
   tax_rate: number;
   receipt_footer: string;
   qris_image_url: string;
@@ -34,7 +33,6 @@ export async function getSettings(): Promise<BusinessSettings> {
   }
   return {
     business_name: map.business_name ?? "POS UMKM",
-    timezone: map.timezone ?? "Asia/Jakarta",
     tax_rate: parseInt(map.tax_rate ?? "11", 10),
     receipt_footer: map.receipt_footer ?? "Terima kasih sudah berbelanja!",
     qris_image_url: map.qris_image_url ?? "",

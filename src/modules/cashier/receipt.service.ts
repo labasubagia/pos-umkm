@@ -32,7 +32,6 @@ const DIVIDER = "─────────────────────
 export interface ReceiptSettings {
   businessName: string;
   receiptFooter?: string;
-  timezone: string;
 }
 
 /**

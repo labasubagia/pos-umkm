@@ -21,7 +21,6 @@ interface Props {
   items: TransactionItem[];
   businessName: string;
   receiptFooter?: string;
-  timezone: string;
   customerPhone?: string;
   onClose: () => void;
 }
@@ -31,14 +30,12 @@ export function ReceiptModal({
   items,
   businessName,
   receiptFooter,
-  timezone,
   customerPhone = "",
   onClose,
 }: Props) {
   const receiptText = generateReceiptText(transaction, items, {
     businessName,
     receiptFooter,
-    timezone,
   });
 
   const waLink = generateWhatsAppLink(customerPhone, receiptText);

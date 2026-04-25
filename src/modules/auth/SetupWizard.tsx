@@ -1,7 +1,7 @@
 /**
  * SetupWizard — onboarding form for first-time store owners.
  *
- * Collects business name, timezone, and PPN toggle.
+ * Collects business name and PPN toggle.
  * On submit: creates master spreadsheet, initializes all tabs,
  * and navigates to /cashier.
  */
@@ -17,17 +17,10 @@ import { nowUTC } from "../../lib/formatters";
 import { runStoreSetup } from "./setup.service";
 import { useAuth } from "./useAuth";
 
-const TIMEZONES = [
-  { label: "WIB (UTC+7) — Jakarta, Bandung", value: "Asia/Jakarta" },
-  { label: "WITA (UTC+8) — Makassar, Bali", value: "Asia/Makassar" },
-  { label: "WIT (UTC+9) — Jayapura", value: "Asia/Jayapura" },
-];
-
 export default function SetupWizard() {
   const navigate = useNavigate();
   const { setStoreSession, user } = useAuth();
   const [businessName, setBusinessName] = useState("");
-  const [timezone, setTimezone] = useState("Asia/Jakarta");
   const [ppnEnabled, setPpnEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +42,6 @@ export default function SetupWizard() {
       // Persist settings as key-value rows (matching settings.service.ts read format)
       const settingsRows = [
         { key: "business_name", value: businessName.trim() },
-        { key: "timezone", value: timezone },
         { key: "tax_rate", value: ppnEnabled ? 11 : 0 },
         { key: "receipt_footer", value: "" },
       ];
@@ -91,22 +83,6 @@ export default function SetupWizard() {
             required
             data-testid="input-business-name"
           />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="setup-timezone">Zona Waktu</Label>
-          <select
-            id="setup-timezone"
-            className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm"
-            value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-          >
-            {TIMEZONES.map((tz) => (
-              <option key={tz.value} value={tz.value}>
-                {tz.label}
-              </option>
-            ))}
-          </select>
         </div>
 
         <div className="flex items-center gap-2">

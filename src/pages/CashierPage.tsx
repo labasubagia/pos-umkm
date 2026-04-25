@@ -307,7 +307,6 @@ export default function CashierPage() {
           transaction={completedTransaction.tx}
           items={completedTransaction.txItems}
           businessName="POS UMKM"
-          timezone="Asia/Jakarta"
           onClose={() => setCompletedTransaction(null)}
         />
       )}

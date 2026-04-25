@@ -62,7 +62,6 @@ describe("getSettings", () => {
         value: "Warung Pak Santoso",
         updated_at: "",
       },
-      { id: "2", key: "timezone", value: "Asia/Makassar", updated_at: "" },
       { id: "3", key: "tax_rate", value: "11", updated_at: "" },
       {
         id: "4",
@@ -81,7 +80,6 @@ describe("getSettings", () => {
     const settings = await getSettings();
 
     expect(settings.business_name).toBe("Warung Pak Santoso");
-    expect(settings.timezone).toBe("Asia/Makassar");
     expect(settings.tax_rate).toBe(11);
     expect(settings.receipt_footer).toBe("Terima kasih!");
     expect(settings.qris_image_url).toBe("https://example.com/qr.png");
@@ -93,7 +91,6 @@ describe("getSettings", () => {
     const settings = await getSettings();
 
     expect(settings.business_name).toBe("POS UMKM");
-    expect(settings.timezone).toBe("Asia/Jakarta");
     expect(settings.tax_rate).toBe(11);
     expect(settings.receipt_footer).toBe("Terima kasih sudah berbelanja!");
     expect(settings.qris_image_url).toBe("");
