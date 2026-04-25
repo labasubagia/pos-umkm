@@ -86,13 +86,19 @@ export class DexieRepository<T extends Record<string, unknown>>
       "rw",
       [this.db.table(tableName), this.db._outbox],
       async () => {
-        for (const row of rows) {
-          const { id, ...fields } = row;
-          if (!id) continue;
-          const existing = await this.db.table(tableName).get(id as string);
+        const ids = rows.map((r) => r.id as string);
+        const existingRows = await this.db.table(tableName).bulkGet(ids);
+
+        const mergedRows: Record<string, unknown>[] = [];
+        for (let i = 0; i < rows.length; i++) {
+          const existing = existingRows[i];
           if (!existing) continue; // row not locally cached yet — skip local update
-          await this.db.table(tableName).update(id as string, fields);
+          mergedRows.push({ ...existing, ...rows[i] });
         }
+        if (mergedRows.length > 0) {
+          await this.db.table(tableName).bulkPut(mergedRows);
+        }
+
         // Translate to outbox vocabulary for SyncManager compatibility
         const updates = rows.flatMap(({ id, ...fields }) =>
           Object.entries(fields).map(([column, value]) => ({
@@ -119,13 +125,11 @@ export class DexieRepository<T extends Record<string, unknown>>
     if (rows.length === 0) return;
     const tableName = this.syncTarget.sheetName;
 
+    const ids = rows.map((r) => r.id as string);
+    const existingRows = await this.db.table(tableName).bulkGet(ids);
     const existingSet = new Set(
-      (
-        await Promise.all(
-          rows.map((r) => this.db.table(tableName).get(r.id as string)),
-        )
-      )
-        .map((r, i) => (r ? (rows[i].id as string) : null))
+      existingRows
+        .map((r, i) => (r ? ids[i] : null))
         .filter((id): id is string => id !== null),
     );
 
