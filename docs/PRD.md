@@ -420,9 +420,9 @@ POS UMKM is positioned as a **100% free, locally-aware, web-based POS** that run
 |---|---|
 | Language | UI available in Bahasa Indonesia (default) and English |
 | Currency | IDR displayed with Rp prefix, no decimal, thousands separator (e.g., Rp 15.000) |
-| Date format | DD/MM/YYYY (Indonesian standard) |
+| Date format | `dd/MM/yyyy HH:mm` (Indonesian standard, date-fns tokens) |
 | Number format | Period as thousands separator (e.g., 1.000) |
-| Time zone | WIB (UTC+7), WITA (UTC+8), WIT (UTC+9) selectable per business |
+| Time zone | Displayed in user's browser-local timezone by default |
 | Accessibility | Large touch targets suitable for tablet use; keyboard navigable |
 
 ### 8.5 Device Compatibility

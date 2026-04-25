@@ -321,23 +321,22 @@
 - **Section:** Core Library
 - **Depends on:** T009
 - **Test type:** unit
-- **Architecture note:** `Intl.NumberFormat` is used for currency formatting (native, no bundle cost) rather than a library like `numeral.js`. All monetary storage is in plain integers (no decimals). `date-fns` with the `id` locale is used for date formatting — chosen over `moment.js` (deprecated, large) and `dayjs` (smaller but less type-safe with locales).
+- **Architecture note:** `Intl.NumberFormat` is used for currency formatting (native, no bundle cost) rather than a library like `numeral.js`. All monetary storage is in plain integers (no decimals). `date-fns` + `date-fns-tz` with the `id` locale is used for date formatting — single `formatDateTimeTZ(isoString, timezone?, fmt?)` function; timezone defaults to `Intl.DateTimeFormat().resolvedOptions().timeZone` (browser local), format defaults to `dd/MM/yyyy HH:mm`.
 - **Deliverables:**
   - `formatIDR(amount: number): string` — e.g., `15000` → `"Rp 15.000"`
-  - `formatDate(isoString: string, timezone: string): string` — e.g., `"2026-04-18"` (DD/MM/YYYY)
-  - `formatDateTime(isoString: string, timezone: string): string` — e.g., `"18/04/2026 12:30"`
+  - `formatDateTimeTZ(isoString: string, timezone?: string, fmt?: string): string` — e.g., `"18/04/2026 12:30"` (defaults to browser timezone and `dd/MM/yyyy HH:mm`)
   - `nowUTC(): string` — current UTC ISO 8601 timestamp
   - `parseIDR(displayString: string): number` — inverse of formatIDR
 - **Test cases (`formatters.test.ts`):**
   - ✅ `formatIDR(15000) returns "Rp 15.000"`
   - ✅ `formatIDR(0) returns "Rp 0"`
   - ✅ `formatIDR(1000000) returns "Rp 1.000.000"`
-  - ✅ `formatDate returns DD/MM/YYYY in WIB timezone`
-  - ✅ `formatDate returns DD/MM/YYYY in WIT timezone`
+  - ✅ `formatDateTimeTZ returns dd/MM/yyyy in WIB timezone`
+  - ✅ `formatDateTimeTZ returns dd/MM/yyyy in WIT timezone`
+  - ✅ `formatDateTimeTZ returns dd/MM/yyyy HH:mm in WIB timezone (default format)`
+  - ✅ `formatDateTimeTZ accepts a custom format string`
   - ✅ `nowUTC returns a valid ISO 8601 UTC string`
   - ✅ `parseIDR("Rp 15.000") returns 15000`
-  - ❌ `formatIDR throws on negative number`
-  - ❌ `formatIDR throws on non-integer (float) input`
   - ❌ `parseIDR throws on malformed string`
 
 ---

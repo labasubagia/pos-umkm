@@ -131,8 +131,8 @@ See §12 for the full offline-first architecture.
 - i18n: `react-i18next` with `id-ID` (Bahasa Indonesia) as default, `en-US` secondary
 - Currency: `Rp` prefix, no decimals, `Intl.NumberFormat('id-ID')` (e.g., Rp 15.000)
 - All monetary values stored in sheets as plain integers (IDR, no decimals) to avoid floating-point issues
-- Date format: `DD/MM/YYYY` via `date-fns` with `id` locale
-- Timestamps: ISO 8601 strings written to sheets; displayed in selected business timezone (WIB/WITA/WIT)
+- Date format: `dd/MM/yyyy HH:mm` (date-fns tokens) via `date-fns` + `date-fns-tz` with `id` locale; exposed as `formatDateTimeTZ(isoString)` in `src/lib/formatters.ts`
+- Timestamps: ISO 8601 strings written to sheets; displayed in the user's browser-local timezone (`Intl.DateTimeFormat().resolvedOptions().timeZone`) by default — no manual timezone selection required
 
 ### 2.5 Module Structure
 
