@@ -14,7 +14,7 @@ import {
 import { formatDateTimeTZ, formatIDR } from "../../lib/formatters";
 import { useAuthStore } from "../../store/authStore";
 import { listMembers } from "../settings/members.service";
-import { exportToExcel, printReport } from "./export.service";
+import { printReport } from "./export.service";
 import {
   fetchTransactionsForRange,
   filterTransactions,
@@ -82,20 +82,6 @@ export function SalesReport() {
     return cashierEmailMap[cashierId] ?? cashierId;
   }
 
-  function handleExport() {
-    if (!rows || rows.length === 0) return;
-    exportToExcel(
-      rows.map((r) => ({
-        "No. Struk": r.receipt_number,
-        Tanggal: formatDateTimeTZ(r.created_at),
-        Kasir: resolveCashier(r.cashier_id),
-        Pembayaran: r.payment_method,
-        Total: r.total,
-      })),
-      `laporan-penjualan-${startDate}-${endDate}`,
-    );
-  }
-
   return (
     <div data-testid="sales-report-container" className="p-4 space-y-4">
       <h2 className="text-xl font-semibold">Laporan Penjualan</h2>
@@ -161,14 +147,6 @@ export function SalesReport() {
       {rows !== null && (
         <div className="space-y-2">
           <div className="flex gap-2 no-print">
-            <Button
-              variant="secondary"
-              data-testid="btn-export-excel"
-              onClick={handleExport}
-              className="bg-green-600 text-white hover:bg-green-700"
-            >
-              Export Excel
-            </Button>
             <Button
               variant="secondary"
               data-testid="btn-print-report"

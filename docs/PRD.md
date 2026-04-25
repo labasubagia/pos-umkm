@@ -254,7 +254,7 @@ POS UMKM is positioned as a **100% free, locally-aware, web-based POS** that run
 
 **US-15** — As a business owner, I want to see a profit/loss report based on cost of goods vs. selling price so that I know my actual margin.
 
-**US-16** — As a business owner, I want to export reports to PDF or Excel so that I can share them with my accountant or bank.
+**US-16** — As a business owner, I want to export reports to PDF so that I can share them with my accountant or bank.
 
 **US-17** — As a business owner, I want to do an end-of-day cash reconciliation (expected cash vs. actual cash in drawer) so that I can detect discrepancies.
 
@@ -364,7 +364,7 @@ POS UMKM is positioned as a **100% free, locally-aware, web-based POS** that run
 | F-REP-05 | Tax (PPN) collected report for a period |
 | F-REP-06 | End-of-day cash reconciliation: expected cash (opening balance + cash sales) vs. actual declared cash |
 | F-REP-07 | Transaction log with search and filter; shows cashier, items, total, payment method |
-| F-REP-08 | Export report to PDF and Excel (.xlsx) |
+| F-REP-08 | Export report to PDF |
 
 ### 7.7 Customer Management
 
