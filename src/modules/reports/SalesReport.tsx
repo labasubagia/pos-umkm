@@ -11,8 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { formatDate } from "../../lib/formatDate";
-import { formatIDR } from "../../lib/formatters";
+import { formatDateTimeTZ, formatIDR } from "../../lib/formatters";
 import { useAuthStore } from "../../store/authStore";
 import { listMembers } from "../settings/members.service";
 import { exportToExcel, printReport } from "./export.service";
@@ -88,7 +87,7 @@ export function SalesReport() {
     exportToExcel(
       rows.map((r) => ({
         "No. Struk": r.receipt_number,
-        Tanggal: formatDate(r.created_at, "YYYY-MM-DD HH:mm"),
+        Tanggal: formatDateTimeTZ(r.created_at),
         Kasir: resolveCashier(r.cashier_id),
         Pembayaran: r.payment_method,
         Total: r.total,
@@ -205,9 +204,7 @@ export function SalesReport() {
               {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>{r.receipt_number}</TableCell>
-                  <TableCell>
-                    {formatDate(r.created_at, "YYYY-MM-DD HH:mm")}
-                  </TableCell>
+                  <TableCell>{formatDateTimeTZ(r.created_at)}</TableCell>
                   <TableCell>{resolveCashier(r.cashier_id)}</TableCell>
                   <TableCell>{r.payment_method}</TableCell>
                   <TableCell className="text-right">

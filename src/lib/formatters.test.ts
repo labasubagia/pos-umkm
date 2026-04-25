@@ -1,14 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { formatIDR } from "./formatIDR";
-import {
-  formatDate,
-  formatDateTime,
-  formatIDRStrict,
-  nowUTC,
-  parseIDR,
-} from "./formatters";
+import { formatDateTimeTZ, formatIDR, nowUTC, parseIDR } from "./formatters";
 
-describe("formatIDR (from formatIDR.ts)", () => {
+describe("formatIDR", () => {
   it('formatIDR(15000) returns "Rp 15.000"', () => {
     expect(formatIDR(15000)).toBe("Rp 15.000");
   });
@@ -22,35 +15,40 @@ describe("formatIDR (from formatIDR.ts)", () => {
   });
 });
 
-describe("formatIDRStrict (validates input)", () => {
-  it("throws on negative number", () => {
-    expect(() => formatIDRStrict(-1)).toThrow(RangeError);
-  });
-
-  it("throws on non-integer (float) input", () => {
-    expect(() => formatIDRStrict(1.5)).toThrow(TypeError);
-  });
-});
-
-describe("formatDate", () => {
-  it("returns DD/MM/YYYY in WIB timezone (Asia/Jakarta)", () => {
+describe("formatDateTimeTZ", () => {
+  it("returns dd/MM/yyyy in WIB timezone (Asia/Jakarta)", () => {
     // 2026-04-18T10:00:00Z = 2026-04-18T17:00:00+07:00 → 18/04/2026 in WIB
-    const result = formatDate("2026-04-18T10:00:00.000Z", "Asia/Jakarta");
+    const result = formatDateTimeTZ(
+      "2026-04-18T10:00:00.000Z",
+      "Asia/Jakarta",
+      "dd/MM/yyyy",
+    );
     expect(result).toBe("18/04/2026");
   });
 
-  it("returns DD/MM/YYYY in WIT timezone (Asia/Jayapura)", () => {
+  it("returns dd/MM/yyyy in WIT timezone (Asia/Jayapura)", () => {
     // 2026-04-18T14:00:00Z = 18/04/2026 23:00 in WIT (UTC+9)
-    const result = formatDate("2026-04-18T14:00:00.000Z", "Asia/Jayapura");
+    const result = formatDateTimeTZ(
+      "2026-04-18T14:00:00.000Z",
+      "Asia/Jayapura",
+      "dd/MM/yyyy",
+    );
     expect(result).toBe("18/04/2026");
   });
-});
 
-describe("formatDateTime", () => {
-  it("returns DD/MM/YYYY HH:mm in WIB timezone", () => {
+  it("returns dd/MM/yyyy HH:mm in WIB timezone (default format)", () => {
     // 2026-04-18T05:30:00Z = 18/04/2026 12:30 in WIB (UTC+7)
-    const result = formatDateTime("2026-04-18T05:30:00.000Z", "Asia/Jakarta");
+    const result = formatDateTimeTZ("2026-04-18T05:30:00.000Z", "Asia/Jakarta");
     expect(result).toBe("18/04/2026 12:30");
+  });
+
+  it("accepts a custom format string", () => {
+    const result = formatDateTimeTZ(
+      "2026-04-18T05:30:00.000Z",
+      "Asia/Jakarta",
+      "yyyy-MM-dd HH:mm",
+    );
+    expect(result).toBe("2026-04-18 12:30");
   });
 });
 

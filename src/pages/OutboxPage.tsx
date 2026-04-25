@@ -12,7 +12,7 @@ import { syncManager } from "../lib/adapters";
 import type { OutboxEntry } from "../lib/adapters/dexie/db";
 import { getDb } from "../lib/adapters/dexie/db";
 
-import { formatDate } from "../lib/formatDate";
+import { formatDateTimeTZ } from "../lib/formatters";
 import { useAuthStore } from "../store/authStore";
 import { useSyncStore } from "../store/syncStore";
 
@@ -115,7 +115,7 @@ export default function OutboxPage() {
                     {item.retries}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
-                    {formatDate(item.createdAt)}
+                    {formatDateTimeTZ(item.createdAt)}
                   </TableCell>
                   <TableCell
                     className="max-w-40 truncate text-red-600"

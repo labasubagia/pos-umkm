@@ -34,8 +34,7 @@ import {
   PURCHASE_ORDERS_QUERY_KEY,
   usePurchaseOrders,
 } from "../../hooks/usePurchaseOrders";
-import { formatDate } from "../../lib/formatDate";
-import { formatIDR } from "../../lib/formatIDR";
+import { formatDateTimeTZ, formatIDR } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
 import { useAuthStore } from "../../store/authStore";
 import {
@@ -345,7 +344,7 @@ export function PurchaseOrders() {
                   {order.supplier}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {formatDate(order.created_at, "DD MMM YYYY")}
+                  {formatDateTimeTZ(order.created_at)}
                 </p>
               </div>
               <div className="flex items-center gap-3">

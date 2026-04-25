@@ -6,7 +6,7 @@
  */
 import { Clock, ShoppingBag } from "lucide-react";
 import { Button } from "../../components/ui/button";
-import { formatDateTime } from "../../lib/formatters";
+import { formatDateTimeTZ } from "../../lib/formatters";
 import { useCartStore } from "./useCart";
 
 export function HeldCartsPanel() {
@@ -49,7 +49,7 @@ export function HeldCartsPanel() {
             <span className="font-medium">{cart.items.length} produk</span>
             <span className="flex items-center gap-1 text-xs text-gray-400">
               <Clock className="h-3 w-3" />
-              {formatDateTime(cart.heldAt, "Asia/Jakarta")}
+              {formatDateTimeTZ(cart.heldAt)}
             </span>
           </div>
           <span className="text-blue-600 font-semibold text-xs">Ambil</span>

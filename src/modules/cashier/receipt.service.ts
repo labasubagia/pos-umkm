@@ -23,7 +23,7 @@
  *   Terima kasih!
  */
 
-import { formatDateTime, formatIDR } from "../../lib/formatters";
+import { formatDateTimeTZ, formatIDR } from "../../lib/formatters";
 import { validatePhone } from "../../lib/validators";
 import type { Transaction, TransactionItem } from "./cashier.service";
 
@@ -45,12 +45,11 @@ export function generateReceiptText(
   settings: ReceiptSettings,
 ): string {
   const lines: string[] = [];
-  const tz = settings.timezone || "Asia/Jakarta";
 
   lines.push(`🏪 *${settings.businessName}*`);
   lines.push(DIVIDER);
   lines.push(`No: ${transaction.receipt_number}`);
-  lines.push(`Tgl: ${formatDateTime(transaction.created_at, tz)}`);
+  lines.push(`Tgl: ${formatDateTimeTZ(transaction.created_at)}`);
   lines.push(DIVIDER);
 
   // Line items

@@ -11,40 +11,37 @@ import { format, parseISO } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
 
-export { formatIDR } from "./formatIDR";
-
 /**
- * Formats an integer IDR amount as a display string.
- * Throws if the amount is negative or not an integer.
+ * Formats an integer amount in IDR (Indonesian Rupiah).
+ * Uses id-ID locale: thousands separator is a period, no decimal places.
+ * The Intl.NumberFormat output is normalized to use a regular space instead
+ * of the non-breaking space (\u00a0) that some environments emit.
+ * Example: formatIDR(15000) → "Rp 15.000"
  */
-export function formatIDRStrict(amount: number): string {
-  if (amount < 0)
-    throw new RangeError(`formatIDR: amount must be ≥ 0, got ${amount}`);
-  if (!Number.isInteger(amount))
-    throw new TypeError(`formatIDR: amount must be an integer, got ${amount}`);
+export function formatIDR(amount: number): string {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
+  })
+    .format(amount)
+    .replace(/\u00a0/g, " ");
 }
 
 /**
- * Formats a UTC ISO 8601 string as DD/MM/YYYY in the given IANA timezone.
+ * Formats a UTC ISO 8601 string for display in the given IANA timezone.
+ * Default timezone: browser local. Default format: "dd/MM/yyyy HH:mm".
+ * Format tokens follow date-fns conventions (dd, MM, yyyy, HH, mm, ss, etc.)
  * Timezone examples: 'Asia/Jakarta' (WIB), 'Asia/Makassar' (WITA), 'Asia/Jayapura' (WIT).
  */
-export function formatDate(isoString: string, timezone: string): string {
+export function formatDateTimeTZ(
+  isoString: string,
+  timezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+  fmt = "dd/MM/yyyy HH:mm",
+): string {
   const zonedDate = toZonedTime(parseISO(isoString), timezone);
-  return format(zonedDate, "dd/MM/yyyy", { locale: idLocale });
-}
-
-/**
- * Formats a UTC ISO 8601 string as DD/MM/YYYY HH:mm in the given IANA timezone.
- */
-export function formatDateTime(isoString: string, timezone: string): string {
-  const zonedDate = toZonedTime(parseISO(isoString), timezone);
-  return format(zonedDate, "dd/MM/yyyy HH:mm", { locale: idLocale });
+  return format(zonedDate, fmt, { locale: idLocale });
 }
 
 /**

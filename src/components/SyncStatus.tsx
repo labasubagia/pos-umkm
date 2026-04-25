@@ -14,7 +14,7 @@
 import { CheckCircle, CloudOff, CloudUpload, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { syncManager } from "../lib/adapters";
-import { formatDate } from "../lib/formatDate";
+import { formatDateTimeTZ } from "../lib/formatters";
 import { cn } from "../lib/utils";
 import { useSyncStore } from "../store/syncStore";
 
@@ -112,7 +112,7 @@ export function SyncStatus() {
       className="flex items-center text-muted-foreground"
       title={
         lastSyncedAt
-          ? `Tersinkron: ${formatDate(lastSyncedAt, "HH:mm:ss")}`
+          ? `Tersinkron: ${formatDateTimeTZ(lastSyncedAt)}`
           : "Tersinkron"
       }
     >
