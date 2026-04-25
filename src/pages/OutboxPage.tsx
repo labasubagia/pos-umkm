@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
 import { syncManager } from "../lib/adapters";
 import type { OutboxEntry } from "../lib/adapters/dexie/db";
 import { getDb } from "../lib/adapters/dexie/db";
@@ -81,32 +89,45 @@ export default function OutboxPage() {
       ) : outbox.length === 0 ? (
         <div className="text-muted-foreground">No outbox items.</div>
       ) : (
-        <table className="w-full text-sm border">
-          <thead>
-            <tr className="bg-muted">
-              <th className="p-2">ID</th>
-              <th className="p-2">Sheet</th>
-              <th className="p-2">Operation</th>
-              <th className="p-2">Status</th>
-              <th className="p-2">Retries</th>
-              <th className="p-2">Created</th>
-              <th className="p-2">Error</th>
-            </tr>
-          </thead>
-          <tbody>
-            {outbox.map((item) => (
-              <tr key={item.id} className="border-t">
-                <td className="p-2">{item.id}</td>
-                <td className="p-2">{item.sheetName}</td>
-                <td className="p-2">{item.operation.op}</td>
-                <td className="p-2">{item.status}</td>
-                <td className="p-2">{item.retries}</td>
-                <td className="p-2">{formatDate(item.createdAt)}</td>
-                <td className="p-2 text-red-600">{item.errorMessage ?? ""}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="hidden sm:table-cell">ID</TableHead>
+                <TableHead>Sheet</TableHead>
+                <TableHead>Operation</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="hidden sm:table-cell">Retries</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Error</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {outbox.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="hidden sm:table-cell">
+                    {item.id}
+                  </TableCell>
+                  <TableCell>{item.sheetName}</TableCell>
+                  <TableCell>{item.operation.op}</TableCell>
+                  <TableCell>{item.status}</TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {item.retries}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {formatDate(item.createdAt)}
+                  </TableCell>
+                  <TableCell
+                    className="max-w-40 truncate text-red-600"
+                    title={item.errorMessage ?? ""}
+                  >
+                    {item.errorMessage ?? ""}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );
