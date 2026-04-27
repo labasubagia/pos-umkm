@@ -10,16 +10,16 @@ import {
   reloadAndWait,
   seedDexie,
   waitForHydration,
+  waitForTableRowCount,
 } from "./helpers/dexie-seed";
 
 const STORE = DEFAULT_STORE;
-const today = new Date().toISOString().slice(0, 10);
-const _now = new Date().toISOString();
+const REPORT_DATE = "2026-06-01";
 
 const SEED_TRANSACTIONS = [
   {
     id: "e2e-tx-1",
-    created_at: `${today}T08:00:00.000Z`,
+    created_at: `${REPORT_DATE}T08:00:00.000Z`,
     cashier_id: "e2e-owner-1",
     customer_id: null,
     subtotal: 30000,
@@ -36,7 +36,7 @@ const SEED_TRANSACTIONS = [
   },
   {
     id: "e2e-tx-2",
-    created_at: `${today}T10:00:00.000Z`,
+    created_at: `${REPORT_DATE}T10:00:00.000Z`,
     cashier_id: "e2e-owner-1",
     customer_id: null,
     subtotal: 20000,
@@ -86,12 +86,27 @@ async function signInToReports(page: Parameters<typeof injectAuthState>[0]) {
     Transaction_Items: SEED_TX_ITEMS,
   });
   await reloadAndWait(page, "daily-summary-container");
+  await waitForTableRowCount(
+    page,
+    STORE.storeId,
+    "Transactions",
+    SEED_TRANSACTIONS.length,
+  );
+  await waitForTableRowCount(
+    page,
+    STORE.storeId,
+    "Transaction_Items",
+    SEED_TX_ITEMS.length,
+  );
 }
 
 test("owner can view today's sales summary", async ({ page }) => {
   await signInToReports(page);
 
   await page.getByTestId("daily-summary-container").waitFor();
+  const summaryDateInput = page.getByTestId("input-summary-date");
+  await summaryDateInput.fill(REPORT_DATE);
+  await expect(summaryDateInput).toHaveValue(REPORT_DATE);
   await page.getByTestId("btn-load-summary").click();
   await page.getByTestId("summary-revenue").waitFor();
 
@@ -108,8 +123,13 @@ test("owner can filter report by date range and see correct totals", async ({
   await page.getByTestId("subnav-reports-sales").click();
   await page.getByTestId("sales-report-container").waitFor();
 
-  await page.getByTestId("input-start-date").fill(today);
-  await page.getByTestId("input-end-date").fill(today);
+  const startDateInput = page.getByTestId("input-start-date");
+  const endDateInput = page.getByTestId("input-end-date");
+
+  await startDateInput.fill(REPORT_DATE);
+  await expect(startDateInput).toHaveValue(REPORT_DATE);
+  await endDateInput.fill(REPORT_DATE);
+  await expect(endDateInput).toHaveValue(REPORT_DATE);
   await page.getByTestId("btn-load-report").click();
 
   await page.getByTestId("report-total-revenue").waitFor();
@@ -123,7 +143,9 @@ test("owner can complete end-of-day cash reconciliation", async ({ page }) => {
   await page.getByTestId("subnav-reports-cash-reconciliation").click();
   await page.getByTestId("reconciliation-container").waitFor();
 
-  await page.getByTestId("input-reconciliation-date").fill(today);
+  const reconciliationDateInput = page.getByTestId("input-reconciliation-date");
+  await reconciliationDateInput.fill(REPORT_DATE);
+  await expect(reconciliationDateInput).toHaveValue(REPORT_DATE);
   await page.getByTestId("input-opening-balance").fill("100000");
   await page.getByTestId("input-closing-balance").fill("130000");
   await page.getByTestId("btn-calculate-reconciliation").click();

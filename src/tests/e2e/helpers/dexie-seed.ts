@@ -16,6 +16,27 @@ import type { Page } from "@playwright/test";
 
 type TableRows = Record<string, unknown[]>;
 
+export async function waitForTableRowCount(
+  page: Page,
+  storeId: string,
+  tableName: string,
+  expectedCount: number,
+): Promise<void> {
+  await page.waitForFunction(
+    async ({ storeId, tableName, expectedCount }) => {
+      const db = (
+        window as unknown as Record<
+          string,
+          (id: string) => Record<string, { count: () => Promise<number> }>
+        >
+      ).__getDb(storeId);
+      return (await db[tableName].count()) >= expectedCount;
+    },
+    { storeId, tableName, expectedCount },
+    { timeout: 15000 },
+  );
+}
+
 /**
  * Waits for HydrationService to finish hydrating all tables.
  *
@@ -70,6 +91,12 @@ export async function seedDexie(
     },
     { storeId, tables },
   );
+
+  for (const [tableName, rows] of Object.entries(tables)) {
+    if (rows.length > 0) {
+      await waitForTableRowCount(page, storeId, tableName, rows.length);
+    }
+  }
 }
 
 /**

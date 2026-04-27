@@ -21,6 +21,7 @@ async function signInToCatalog(page: Parameters<typeof injectAuthState>[0]) {
   await injectAuthState(page, STORE);
   await page.goto(`${BASE}/${STORE.storeId}/catalog/products`);
   await page.getByTestId("btn-add-product").waitFor();
+  await waitForHydration(page);
 }
 
 // ─── T021 — Categories CRUD ───────────────────────────────────────────────────
