@@ -12,6 +12,7 @@ import {
   reloadAndWait,
   seedDexie,
   waitForHydration,
+  waitForTableRowCount,
 } from "./helpers/dexie-seed";
 
 const STORE = DEFAULT_STORE;
@@ -76,6 +77,7 @@ async function signInToCashier(page: Parameters<typeof injectAuthState>[0]) {
     Monthly_Sheets: MONTHLY_SHEET_SEED,
   });
   await reloadAndWait(page, "product-search-input");
+  await waitForTableRowCount(page, STORE.storeId, "Products", PRODUCTS.length);
   // Wait for at least one product card — confirms seeded data survived the reload.
   await page
     .locator('[data-testid^="product-card-"]')

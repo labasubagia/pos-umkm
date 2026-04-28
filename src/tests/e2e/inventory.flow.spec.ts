@@ -12,7 +12,9 @@ import {
   reloadAndWait,
   seedDexie,
   waitForHydration,
+  waitForTableRowCount,
 } from "./helpers/dexie-seed";
+import { makeId, makeStoreConfig } from "./helpers/e2e-fixtures";
 
 const STORE = DEFAULT_STORE;
 const now = new Date().toISOString();
@@ -21,6 +23,7 @@ async function signInToCatalog(page: Parameters<typeof injectAuthState>[0]) {
   await injectAuthState(page, STORE);
   await page.goto(`${BASE}/${STORE.storeId}/catalog/products`);
   await page.getByTestId("btn-add-product").waitFor();
+  await waitForHydration(page);
 }
 
 // ─── T021 — Categories CRUD ───────────────────────────────────────────────────
@@ -156,25 +159,29 @@ test.describe("Products CRUD (T022)", () => {
   });
 
   test("completing a sale decrements product stock", async ({ page }) => {
-    const prodId = "prod-stock-test";
+    const testInfo = test.info();
+    const store = makeStoreConfig(testInfo);
+    const prodId = makeId(testInfo, "prod-stock-test");
+    const categoryId = makeId(testInfo, "cat-stock-test");
+    const monthlySheetId = makeId(testInfo, "monthly-sheet-stock");
 
-    await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/${STORE.storeId}/cashier`);
+    await injectAuthState(page, store);
+    await page.goto(`${BASE}/${store.storeId}/cashier`);
     await page.getByTestId("product-search-input").waitFor();
     await waitForHydration(page);
     const monthlySheetSeed = [
       {
-        id: "e2e-monthly-sheet-stock",
+        id: monthlySheetId,
         year_month: now.slice(0, 7),
-        spreadsheetId: STORE.monthlySpreadsheetId,
+        spreadsheetId: store.monthlySpreadsheetId,
         created_at: now,
       },
     ];
-    await seedDexie(page, STORE.storeId, {
+    await seedDexie(page, store.storeId, {
       Products: [
         {
           id: prodId,
-          category_id: "cat-1",
+          category_id: categoryId,
           name: "Produk Stok Test",
           sku: "STOK-01",
           price: 10000,
@@ -185,15 +192,15 @@ test.describe("Products CRUD (T022)", () => {
         },
       ],
       Categories: [
-        { id: "cat-1", name: "Umum", created_at: now, deleted_at: null },
+        { id: categoryId, name: "Umum", created_at: now, deleted_at: null },
       ],
       Monthly_Sheets: monthlySheetSeed,
     });
     await reloadAndWait(page, "product-search-input");
-    await page
-      .locator('[data-testid^="product-card-"]')
-      .first()
-      .waitFor({ timeout: 10000 });
+    await waitForTableRowCount(page, store.storeId, "Products", 1);
+    await page.getByTestId(`product-card-${prodId}`).waitFor({
+      timeout: 10000,
+    });
 
     await page.getByTestId("product-search-input").fill("Produk Stok Test");
     await page.getByTestId(`product-card-${prodId}`).click();
@@ -203,7 +210,7 @@ test.describe("Products CRUD (T022)", () => {
     await expect(page.getByTestId("receipt-success")).toBeVisible();
     await page.getByTestId("btn-receipt-close").click();
 
-    await navigateTo(page, `${BASE}/${STORE.storeId}/catalog/products`);
+    await navigateTo(page, `${BASE}/${store.storeId}/catalog/products`);
     await page.getByTestId("subnav-catalog-products").click();
     await expect(page.getByTestId(`product-stock-${prodId}`)).toHaveText(
       "Stok: 19",

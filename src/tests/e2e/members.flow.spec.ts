@@ -8,7 +8,11 @@
 import { expect, test } from "@playwright/test";
 import { navigateTo } from "./helpers/auth";
 import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
-import { seedDexie } from "./helpers/dexie-seed";
+import {
+  reloadAndWait,
+  seedDexie,
+  waitForHydration,
+} from "./helpers/dexie-seed";
 
 const STORE = DEFAULT_STORE;
 const now = new Date().toISOString();
@@ -21,6 +25,7 @@ async function signInAndNavigate(
   await injectAuthState(page, STORE);
   await page.goto(`${BASE}/${STORE.storeId}${path}`);
   await page.getByTestId(waitFor).waitFor();
+  await waitForHydration(page);
 }
 
 test.describe("Member invite and Store Link", () => {
@@ -68,6 +73,7 @@ test.describe("Store Link join flow", () => {
     await injectAuthState(page, STORE);
     await page.goto(`${BASE}/${STORE.storeId}/cashier`);
     await page.getByTestId("product-search-input").waitFor();
+    await waitForHydration(page);
     await seedDexie(page, STORE.storeId, {
       Members: [
         {
@@ -81,6 +87,7 @@ test.describe("Store Link join flow", () => {
         },
       ],
     });
+    await reloadAndWait(page, "product-search-input");
     // Navigate to join page with a store link
     await navigateTo(page, `${BASE}/join?sid=${STORE.masterSpreadsheetId}`);
     await expect(page.getByTestId("join-page-heading")).toBeVisible();

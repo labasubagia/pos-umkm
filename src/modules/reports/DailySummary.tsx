@@ -1,13 +1,12 @@
 /**
  * DailySummary.tsx — Daily sales summary report.
  *
- * Uses React Query with enabled:false — fetches only when user clicks
- * "Lihat Laporan". Query key includes date so clicking with a new date
- * triggers a fresh fetch.
+ * Uses React Query and fetches only when the user clicks "Lihat Laporan".
+ * Query key includes date so clicking with a new date triggers a fresh fetch.
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
@@ -28,7 +27,8 @@ import { fetchDailySummary, ReportError } from "./reports.service";
 export function DailySummary() {
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(today);
-  const [enabled, setEnabled] = useState(true); // fetch on mount with today's date
+  const filtersFormRef = useRef<HTMLFormElement | null>(null);
+  const [enabled, setEnabled] = useState(false);
   const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const user = useAuthStore((s) => s.user);
   const monthlySpreadsheetId = useAuthStore((s) => s.monthlySpreadsheetId);
@@ -49,8 +49,17 @@ export function DailySummary() {
   });
 
   function handleLoad() {
+    const formData = filtersFormRef.current
+      ? new FormData(filtersFormRef.current)
+      : null;
+    const nextDate = (formData?.get("date") as string | null) ?? date;
+    setDate(nextDate);
     setEnabled(true);
-    void refetch();
+    // Use the live input value so clicking immediately after editing the date
+    // still loads the intended report instead of the previous render's state.
+    if (nextDate === date) {
+      void refetch();
+    }
   }
 
   const errorMsg =
@@ -63,11 +72,19 @@ export function DailySummary() {
   return (
     <div data-testid="daily-summary-container" className="p-4 space-y-4">
       <h2 className="text-xl font-semibold">Ringkasan Harian</h2>
-      <div className="flex gap-2 items-end">
+      <form
+        ref={filtersFormRef}
+        className="flex gap-2 items-end"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleLoad();
+        }}
+      >
         <div className="space-y-1.5">
           <Label>Tanggal</Label>
           <Input
             data-testid="input-summary-date"
+            name="date"
             type="date"
             value={date}
             onChange={(e) => {
@@ -79,12 +96,12 @@ export function DailySummary() {
         </div>
         <Button
           data-testid="btn-load-summary"
-          onClick={handleLoad}
+          type="submit"
           disabled={isLoading}
         >
           Lihat Laporan
         </Button>
-      </div>
+      </form>
 
       {isOwner && txSheetId && (
         <div className="no-print">

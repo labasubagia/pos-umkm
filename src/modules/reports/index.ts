@@ -4,7 +4,7 @@
 
 export { CashReconciliation } from "./CashReconciliation";
 export { DailySummary } from "./DailySummary";
-export { ExportError, exportToExcel, printReport } from "./export.service";
+export { ExportError, printReport } from "./export.service";
 export { GrossProfitReport } from "./GrossProfitReport";
 export type {
   DailySummary as DailySummaryData,

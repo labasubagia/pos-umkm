@@ -1083,22 +1083,19 @@
 
 ---
 
-### T042 — PDF / Excel Export
+### T042 — PDF Export
 
 - **Status:** ✅ done
 - **Section:** Reports
 - **Depends on:** T039
 - **Test type:** unit
-- **Architecture note:** PDF export uses `window.print()` with a print-optimized CSS stylesheet — no additional library needed. Excel export uses `SheetJS` (`xlsx` npm package) to generate an `.xlsx` file client-side and trigger a download. Both approaches run entirely in the browser with no server involvement.
+- **Architecture note:** PDF export uses `window.print()` with a print-optimized CSS stylesheet — no additional library needed.
 - **Deliverables:**
   - `src/modules/reports/export.service.ts`:
-    - `exportToExcel(reportData, filename): void` — uses SheetJS
     - `printReport(): void` — triggers `window.print()`
   - Print CSS: `src/modules/reports/reports.print.css`
 - **Test cases:**
-  - ✅ `exportToExcel calls SheetJS write with correct sheet data`
-  - ✅ `exportToExcel triggers file download with .xlsx extension`
-  - ❌ `exportToExcel throws if reportData is empty`
+  - ✅ `printReport calls window.print`
 
 ---
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
@@ -17,6 +17,7 @@ export function CashReconciliation() {
   const [openingBalance, setOpeningBalance] = useState("");
   const [closingBalance, setClosingBalance] = useState("");
   const [date, setDate] = useState(today);
+  const filtersFormRef = useRef<HTMLFormElement | null>(null);
   const [expected, setExpected] = useState<number | null>(null);
   const [actual, setActual] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,9 +28,16 @@ export function CashReconciliation() {
     setLoading(true);
     setError(null);
     setSaved(false);
+    const formData = filtersFormRef.current
+      ? new FormData(filtersFormRef.current)
+      : null;
+    const nextDate = (formData?.get("date") as string | null) ?? date;
+    setDate(nextDate);
     try {
-      const transactions = await fetchTransactionsForRange(date, date);
-      const dayTxs = transactions.filter((t) => t.created_at.startsWith(date));
+      const transactions = await fetchTransactionsForRange(nextDate, nextDate);
+      const dayTxs = transactions.filter((t) =>
+        t.created_at.startsWith(nextDate),
+      );
       const exp = calculateExpectedCash(
         Number(openingBalance) || 0,
         dayTxs,
@@ -70,11 +78,19 @@ export function CashReconciliation() {
     <div data-testid="reconciliation-container" className="p-4 space-y-4">
       <h2 className="text-xl font-semibold">Rekonsiliasi Kas</h2>
 
-      <div className="flex flex-wrap gap-2 items-end">
+      <form
+        ref={filtersFormRef}
+        className="flex flex-wrap gap-2 items-end"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void calculate();
+        }}
+      >
         <div className="space-y-1.5">
           <Label>Tanggal</Label>
           <Input
             data-testid="input-reconciliation-date"
+            name="date"
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
@@ -105,12 +121,12 @@ export function CashReconciliation() {
         </div>
         <Button
           data-testid="btn-calculate-reconciliation"
-          onClick={calculate}
+          type="submit"
           disabled={loading}
         >
           Hitung Rekonsiliasi
         </Button>
-      </div>
+      </form>
 
       {error && (
         <Alert variant="destructive">

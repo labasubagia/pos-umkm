@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -14,7 +14,7 @@ import {
 import { formatDateTimeTZ, formatIDR } from "../../lib/formatters";
 import { useAuthStore } from "../../store/authStore";
 import { listMembers } from "../settings/members.service";
-import { exportToExcel, printReport } from "./export.service";
+import { printReport } from "./export.service";
 import {
   fetchTransactionsForRange,
   filterTransactions,
@@ -27,6 +27,7 @@ export function SalesReport() {
   const today = new Date().toISOString().slice(0, 10);
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
+  const filtersFormRef = useRef<HTMLFormElement | null>(null);
   const [cashierEmail, setCashierEmail] = useState("");
   const [paymentFilter, setPaymentFilter] = useState<
     "" | "CASH" | "QRIS" | "SPLIT"
@@ -46,6 +47,14 @@ export function SalesReport() {
   async function load() {
     setLoading(true);
     setError(null);
+    const formData = filtersFormRef.current
+      ? new FormData(filtersFormRef.current)
+      : null;
+    const nextStartDate =
+      (formData?.get("startDate") as string | null) ?? startDate;
+    const nextEndDate = (formData?.get("endDate") as string | null) ?? endDate;
+    setStartDate(nextStartDate);
+    setEndDate(nextEndDate);
     try {
       // Build google_user_id → email map: logged-in user first, then Members sheet.
       const authUser = useAuthStore.getState().user;
@@ -58,7 +67,7 @@ export function SalesReport() {
       }
       setCashierEmailMap(emailMap);
 
-      const all = await fetchTransactionsForRange(startDate, endDate);
+      const all = await fetchTransactionsForRange(nextStartDate, nextEndDate);
       const filters: ReportFilters = {};
       if (cashierEmail.trim()) filters.cashier_email = cashierEmail.trim();
       if (paymentFilter) filters.payment_method = paymentFilter;
@@ -82,29 +91,23 @@ export function SalesReport() {
     return cashierEmailMap[cashierId] ?? cashierId;
   }
 
-  function handleExport() {
-    if (!rows || rows.length === 0) return;
-    exportToExcel(
-      rows.map((r) => ({
-        "No. Struk": r.receipt_number,
-        Tanggal: formatDateTimeTZ(r.created_at),
-        Kasir: resolveCashier(r.cashier_id),
-        Pembayaran: r.payment_method,
-        Total: r.total,
-      })),
-      `laporan-penjualan-${startDate}-${endDate}`,
-    );
-  }
-
   return (
     <div data-testid="sales-report-container" className="p-4 space-y-4">
       <h2 className="text-xl font-semibold">Laporan Penjualan</h2>
 
-      <div className="flex flex-wrap gap-2 items-end">
+      <form
+        ref={filtersFormRef}
+        className="flex flex-wrap gap-2 items-end"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void load();
+        }}
+      >
         <div className="space-y-1.5">
           <Label>Dari</Label>
           <Input
             data-testid="input-start-date"
+            name="startDate"
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
@@ -116,6 +119,7 @@ export function SalesReport() {
           <Label>Sampai</Label>
           <Input
             data-testid="input-end-date"
+            name="endDate"
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
@@ -147,10 +151,10 @@ export function SalesReport() {
             <option value="SPLIT">SPLIT</option>
           </select>
         </div>
-        <Button data-testid="btn-load-report" onClick={load} disabled={loading}>
+        <Button data-testid="btn-load-report" type="submit" disabled={loading}>
           Lihat Laporan
         </Button>
-      </div>
+      </form>
 
       {error && (
         <Alert variant="destructive">
@@ -161,14 +165,6 @@ export function SalesReport() {
       {rows !== null && (
         <div className="space-y-2">
           <div className="flex gap-2 no-print">
-            <Button
-              variant="secondary"
-              data-testid="btn-export-excel"
-              onClick={handleExport}
-              className="bg-green-600 text-white hover:bg-green-700"
-            >
-              Export Excel
-            </Button>
             <Button
               variant="secondary"
               data-testid="btn-print-report"
