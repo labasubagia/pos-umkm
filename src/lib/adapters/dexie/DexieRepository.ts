@@ -185,12 +185,20 @@ export class DexieRepository<T extends Record<string, unknown>>
 
   /**
    * Resolves the spreadsheetId for this repo's sheetName.
-   * Tries the store map first; falls back to the constructor-provided value.
+   * Tries non-monthly sheets first, then current month's monthly sheets,
+   * falls back to the constructor-provided value.
    */
   private resolveSpreadsheetId(): string {
     try {
-      const meta = getActiveStoreMap().getState().getSheetMeta(this.sheetName);
+      const storeMap = getActiveStoreMap().getState();
+      // Non-monthly sheets (master, main)
+      const meta = storeMap.getSheetMeta(this.sheetName);
       if (meta?.spreadsheet_id) return meta.spreadsheet_id;
+      // Current month's transaction sheets
+      const monthSheets = storeMap.getCurrentMonthSheets();
+      if (monthSheets?.[this.sheetName]?.spreadsheet_id) {
+        return monthSheets[this.sheetName].spreadsheet_id;
+      }
     } catch {
       // Store map not initialized (e.g. during setup) — use fallback
     }

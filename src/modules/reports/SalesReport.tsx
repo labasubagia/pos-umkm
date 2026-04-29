@@ -174,9 +174,9 @@ export function SalesReport() {
             {isOwner &&
               (() => {
                 try {
-                  const txSheetId =
-                    getActiveStoreMap().getState().sheets.Transactions
-                      ?.spreadsheet_id;
+                  const txSheetId = getActiveStoreMap()
+                    .getState()
+                    .getCurrentMonthSheets()?.Transactions?.spreadsheet_id;
                   return txSheetId ? (
                     <a
                       data-testid="link-transaction-sheet"

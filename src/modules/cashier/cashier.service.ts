@@ -212,23 +212,21 @@ export function validateSplitPayment(
 /**
  * Ensures a monthly transaction spreadsheet exists for today's month.
  * With Option B, current + next month sheets are pre-created on store activation.
- * This function checks the store map and creates if missing (defensive).
- * Returns the spreadsheetId.
+ * This function checks the store map's monthlySheets array and returns the spreadsheetId.
+ * AppShell guarantees the store map is populated before children render.
  */
 export async function ensureMonthlySheetExists(): Promise<string> {
   const now = new Date();
   const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-  // Check the store map for the current month's Transactions sheet
   const storeMap = getActiveStoreMap().getState();
-  const txSheet = storeMap.sheets.Transactions;
-  if (txSheet && txSheet.spreadsheet_name === `transaction_${yearMonth}`) {
-    return txSheet.spreadsheet_id;
+  const monthlyEntry = storeMap.monthlySheets.find(
+    (m) => m.yearMonth === yearMonth,
+  );
+  if (monthlyEntry?.sheets.Transactions) {
+    return monthlyEntry.sheets.Transactions.spreadsheet_id;
   }
 
-  // Sheet not found in map — this shouldn't happen with Option B but handle defensively.
-  // The sheet was pre-created during activateStore; the store map should have it.
-  // If we get here, it means the map is stale or the store was activated before Option B.
   throw new Error(
     `Monthly sheet for ${yearMonth} not found in store map. ` +
       `Expected "transaction_${yearMonth}" to exist. Try re-activating the store.`,

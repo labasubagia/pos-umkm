@@ -55,9 +55,20 @@ export class HydrationService {
     const storeMap = getActiveStoreMap().getState();
     const targets: HydrationTarget[] = [];
 
+    // Non-monthly sheets (master, main)
     for (const [sheetName, meta] of Object.entries(storeMap.sheets)) {
       if (meta.spreadsheet_id) {
         targets.push({ sheetName, spreadsheetId: meta.spreadsheet_id });
+      }
+    }
+
+    // Current month's transaction sheets
+    const currentMonthSheets = storeMap.getCurrentMonthSheets();
+    if (currentMonthSheets) {
+      for (const [sheetName, meta] of Object.entries(currentMonthSheets)) {
+        if (meta.spreadsheet_id) {
+          targets.push({ sheetName, spreadsheetId: meta.spreadsheet_id });
+        }
       }
     }
 

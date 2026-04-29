@@ -126,6 +126,7 @@ export default function CashierPage() {
       } else {
         setTxError("Terjadi kesalahan saat memproses transaksi");
       }
+      console.error(err);
     } finally {
       setSubmitting(false);
     }

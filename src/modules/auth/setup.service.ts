@@ -260,8 +260,10 @@ export async function activateStore(store: StoreRecord): Promise<void> {
   setActiveStoreMap(storeId);
 
   // Traverse the folder to build the sheet map
-  const sheets = await storeFolderService.traverse(storeFolderId);
-  getActiveStoreMap().getState().setStoreMap(storeFolderId, sheets);
+  const result = await storeFolderService.traverse(storeFolderId);
+  getActiveStoreMap()
+    .getState()
+    .setStoreMap(storeFolderId, result.sheets, result.monthlySheets);
 
   // Option B: Pre-create current + next month's sheets if missing
   await ensureMonthlySheets(storeId, storeFolderId);
@@ -324,8 +326,10 @@ async function ensureMonthlySheets(
 
   // Re-traverse to pick up any newly created sheets
   if (created) {
-    const updatedSheets = await storeFolderService.traverse(storeFolderId);
-    getActiveStoreMap().getState().setStoreMap(storeFolderId, updatedSheets);
+    const updated = await storeFolderService.traverse(storeFolderId);
+    getActiveStoreMap()
+      .getState()
+      .setStoreMap(storeFolderId, updated.sheets, updated.monthlySheets);
   }
 }
 
@@ -543,8 +547,10 @@ export async function runStoreSetup(
 
   // Initialize the store map and traverse to build the full map
   setActiveStoreMap(newStoreId);
-  const sheets = await storeFolderService.traverse(driveFolderId);
-  getActiveStoreMap().getState().setStoreMap(driveFolderId, sheets);
+  const initial = await storeFolderService.traverse(driveFolderId);
+  getActiveStoreMap()
+    .getState()
+    .setStoreMap(driveFolderId, initial.sheets, initial.monthlySheets);
 
   // Option B: Pre-create next month's sheet
   const nextMonth = month === 12 ? 1 : month + 1;
@@ -557,8 +563,10 @@ export async function runStoreSetup(
       nextMonth,
     );
     // Re-traverse to pick up the new sheet
-    const updatedSheets = await storeFolderService.traverse(driveFolderId);
-    getActiveStoreMap().getState().setStoreMap(driveFolderId, updatedSheets);
+    const updated = await storeFolderService.traverse(driveFolderId);
+    getActiveStoreMap()
+      .getState()
+      .setStoreMap(driveFolderId, updated.sheets, updated.monthlySheets);
   } catch (err) {
     console.warn("[setup] Failed to pre-create next month's sheet:", err);
   }

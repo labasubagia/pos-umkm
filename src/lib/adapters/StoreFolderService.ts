@@ -41,6 +41,16 @@ export interface SheetMeta {
   headers: string[];
 }
 
+export interface MonthlySheetMeta {
+  yearMonth: string;
+  sheets: Record<string, SheetMeta>;
+}
+
+export interface TraverseResult {
+  sheets: Record<string, SheetMeta>;
+  monthlySheets: MonthlySheetMeta[];
+}
+
 interface DriveNode {
   id: string;
   name: string;
@@ -62,10 +72,11 @@ export class StoreFolderService {
   }
 
   /**
-   * Traverses the store folder and returns a flat sheet map.
-   * Key = sheet name, value = SheetMeta with spreadsheet_id, headers, etc.
+   * Traverses the store folder and returns a flat sheet map + monthly sheets array.
+   * Non-transaction sheets are in `sheets` (keyed by sheet name).
+   * Monthly transaction spreadsheets are in `monthlySheets` (array, one per month).
    */
-  async traverse(storeFolderId: string): Promise<Record<string, SheetMeta>> {
+  async traverse(storeFolderId: string): Promise<TraverseResult> {
     const tree = await this.traverseRecursive(storeFolderId);
     return this.flattenToMap(tree);
   }
@@ -170,21 +181,45 @@ export class StoreFolderService {
 
   // ─── Flatten ────────────────────────────────────────────────────────────────
 
-  private flattenToMap(nodes: DriveNode[]): Record<string, SheetMeta> {
-    const map: Record<string, SheetMeta> = {};
+  private flattenToMap(nodes: DriveNode[]): TraverseResult {
+    const sheets: Record<string, SheetMeta> = {};
+    const monthlySheets: MonthlySheetMeta[] = [];
 
     const walk = (items: DriveNode[], path: string) => {
       for (const item of items) {
         if (item.sheet) {
-          for (const [sheetName, meta] of Object.entries(item.sheet)) {
-            map[sheetName] = {
-              spreadsheet_id: meta.spreadsheetId,
-              spreadsheet_name: item.name,
-              folder_path: path,
-              sheet_name: sheetName,
-              sheet_id: meta.sheetId,
-              headers: meta.headers,
+          // Check if this is a monthly transaction spreadsheet
+          const monthMatch = item.name.match(/^transaction_(\d{4}-\d{2})$/);
+
+          if (monthMatch) {
+            // Monthly spreadsheet — store separately
+            const monthlyEntry: MonthlySheetMeta = {
+              yearMonth: monthMatch[1],
+              sheets: {},
             };
+            for (const [sheetName, meta] of Object.entries(item.sheet)) {
+              monthlyEntry.sheets[sheetName] = {
+                spreadsheet_id: meta.spreadsheetId,
+                spreadsheet_name: item.name,
+                folder_path: path,
+                sheet_name: sheetName,
+                sheet_id: meta.sheetId,
+                headers: meta.headers,
+              };
+            }
+            monthlySheets.push(monthlyEntry);
+          } else {
+            // Non-monthly spreadsheet (master, etc.) — store in main map
+            for (const [sheetName, meta] of Object.entries(item.sheet)) {
+              sheets[sheetName] = {
+                spreadsheet_id: meta.spreadsheetId,
+                spreadsheet_name: item.name,
+                folder_path: path,
+                sheet_name: sheetName,
+                sheet_id: meta.sheetId,
+                headers: meta.headers,
+              };
+            }
           }
         }
         if (item.children) {
@@ -195,6 +230,6 @@ export class StoreFolderService {
     };
 
     walk(nodes, "");
-    return map;
+    return { sheets, monthlySheets };
   }
 }

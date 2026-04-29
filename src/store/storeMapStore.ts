@@ -10,13 +10,18 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { SheetMeta } from "../lib/adapters/StoreFolderService";
+import type {
+  MonthlySheetMeta,
+  SheetMeta,
+} from "../lib/adapters/StoreFolderService";
 
 interface StoreMapState {
   /** The store's root Drive folder ID. */
   storeFolderId: string | null;
-  /** Flattened sheet map: sheet_name → SheetMeta. */
+  /** Non-transaction sheets: sheet_name → SheetMeta (master, main). */
   sheets: Record<string, SheetMeta>;
+  /** Monthly transaction spreadsheets (array — one per month). */
+  monthlySheets: MonthlySheetMeta[];
   /** Epoch ms of last successful traversal. */
   lastTraversedAt: number | null;
 
@@ -24,8 +29,10 @@ interface StoreMapState {
   setStoreMap: (
     storeFolderId: string,
     sheets: Record<string, SheetMeta>,
+    monthlySheets: MonthlySheetMeta[],
   ) => void;
   getSheetMeta: (sheetName: string) => SheetMeta | undefined;
+  getCurrentMonthSheets: () => Record<string, SheetMeta> | undefined;
   clearStoreMap: () => void;
 }
 
@@ -39,12 +46,14 @@ export function createStoreMapStore(storeId: string) {
       (set, get) => ({
         storeFolderId: null,
         sheets: {},
+        monthlySheets: [],
         lastTraversedAt: null,
 
-        setStoreMap: (storeFolderId, sheets) =>
+        setStoreMap: (storeFolderId, sheets, monthlySheets) =>
           set({
             storeFolderId,
             sheets,
+            monthlySheets,
             lastTraversedAt: Date.now(),
           }),
 
@@ -52,10 +61,22 @@ export function createStoreMapStore(storeId: string) {
           return get().sheets[sheetName];
         },
 
+        /**
+         * Returns the sheet map for the current month's transaction spreadsheet,
+         * or undefined if no monthly sheet exists for the current month.
+         */
+        getCurrentMonthSheets: () => {
+          const now = new Date();
+          const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+          return get().monthlySheets.find((m) => m.yearMonth === yearMonth)
+            ?.sheets;
+        },
+
         clearStoreMap: () =>
           set({
             storeFolderId: null,
             sheets: {},
+            monthlySheets: [],
             lastTraversedAt: null,
           }),
       }),
@@ -77,8 +98,27 @@ export function setActiveStoreMap(storeId: string): void {
   _activeStoreMap = createStoreMapStore(storeId);
 }
 
+/**
+ * Returns the active store map. If not yet initialized, auto-initializes
+ * from the activeStoreId in localStorage (handles page refresh where
+ * activateStore hasn't been called yet but the persisted store map exists).
+ */
 export function getActiveStoreMap(): ReturnType<typeof createStoreMapStore> {
   if (!_activeStoreMap) {
+    // Auto-initialize from localStorage (authStore persists activeStoreId)
+    try {
+      const authRaw = localStorage.getItem("pos-umkm-auth");
+      if (authRaw) {
+        const auth = JSON.parse(authRaw);
+        const storeId = auth?.state?.activeStoreId;
+        if (storeId) {
+          _activeStoreMap = createStoreMapStore(storeId);
+          return _activeStoreMap;
+        }
+      }
+    } catch {
+      // ignore parse errors
+    }
     throw new Error(
       "storeMapStore: no active store — call setActiveStoreMap(storeId) first",
     );

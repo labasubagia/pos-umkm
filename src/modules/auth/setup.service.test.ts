@@ -130,39 +130,50 @@ beforeEach(() => {
     undefined,
   );
 
-  // Mock storeFolderService.traverse to return a valid sheet map
+  // Mock storeFolderService.traverse to return a valid TraverseResult
   vi.spyOn(adapters.storeFolderService, "traverse").mockResolvedValue({
-    Stores: {
-      spreadsheet_id: "main-id",
-      spreadsheet_name: "main",
-      folder_path: "",
-      sheet_name: "Stores",
-      sheet_id: 1,
-      headers: ["store_id", "store_name"],
+    sheets: {
+      Stores: {
+        spreadsheet_id: "main-id",
+        spreadsheet_name: "main",
+        folder_path: "",
+        sheet_name: "Stores",
+        sheet_id: 1,
+        headers: ["store_id", "store_name"],
+      },
+      Settings: {
+        spreadsheet_id: "master-id",
+        spreadsheet_name: "master",
+        folder_path: "",
+        sheet_name: "Settings",
+        sheet_id: 2,
+        headers: ["id", "key", "value"],
+      },
     },
-    Settings: {
-      spreadsheet_id: "master-id",
-      spreadsheet_name: "master",
-      folder_path: "",
-      sheet_name: "Settings",
-      sheet_id: 2,
-      headers: ["id", "key", "value"],
-    },
-    Transactions: {
-      spreadsheet_id: "monthly-id",
-      spreadsheet_name: "transaction_2026-04",
-      folder_path: "transactions/2026",
-      sheet_name: "Transactions",
-      sheet_id: 3,
-      headers: ["id", "created_at"],
-    },
+    monthlySheets: [
+      {
+        yearMonth: "2026-04",
+        sheets: {
+          Transactions: {
+            spreadsheet_id: "monthly-id",
+            spreadsheet_name: "transaction_2026-04",
+            folder_path: "transactions/2026",
+            sheet_name: "Transactions",
+            sheet_id: 3,
+            headers: ["id", "created_at"],
+          },
+        },
+      },
+    ],
   });
 
   // Reset store map state
   mockStoreMapState = {
     sheets: {},
+    monthlySheets: [],
     setStoreMap: mockSetStoreMap,
     getSheetMeta: mockGetSheetMeta,
+    getCurrentMonthSheets: vi.fn().mockReturnValue(undefined),
   };
 });
 
@@ -397,6 +408,7 @@ describe("activateStore", () => {
     expect(mockSetStoreMap).toHaveBeenCalledWith(
       "folder-id",
       expect.any(Object),
+      expect.any(Array),
     );
   });
 });

@@ -104,9 +104,9 @@ export function DailySummary() {
       {isOwner &&
         (() => {
           try {
-            const txSheetId =
-              getActiveStoreMap().getState().sheets.Transactions
-                ?.spreadsheet_id;
+            const txSheetId = getActiveStoreMap()
+              .getState()
+              .getCurrentMonthSheets()?.Transactions?.spreadsheet_id;
             return txSheetId ? (
               <div className="no-print">
                 <a
