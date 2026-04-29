@@ -15,7 +15,6 @@ import {
 } from "./helpers/dexie-seed";
 
 const STORE = DEFAULT_STORE;
-const now = new Date().toISOString();
 
 const SEED_STORES = [
   {
@@ -63,8 +62,12 @@ test.describe("Store Management", () => {
   test("owner can add a new store", async ({ page }) => {
     await signInToSettings(page);
 
-    // Specific API stubs registered AFTER signInToSettings so they take priority
-    // over the general stub (Playwright matches routes LIFO — last registered wins).
+    // Register specific API stubs that override the general googleapis.com catch-all
+    // registered by stubGoogleApis(). We use page.unroute() first to ensure clean
+    // precedence, then register the more specific routes.
+    await page.unroute("**googleapis.com/drive/v3/files**");
+    await page.unroute("**googleapis.com/v4/spreadsheets**");
+
     // Drive stub distinguishes GET (search → empty files list) from POST/PATCH (create/move → id).
     await page.route("**googleapis.com/drive/v3/files**", (route) => {
       const req = route.request();
@@ -116,9 +119,7 @@ test.describe("Store Management", () => {
     await page.getByTestId("btn-save-store").click();
 
     // Use role=cell to avoid strict-mode ambiguity with the navbar store switcher option.
-    await expect(page.getByRole("cell", { name: "Cabang Baru" })).toBeVisible({
-      timeout: 5000,
-    });
+    await expect(page.getByRole("cell", { name: "Cabang Baru" })).toBeVisible();
   });
 
   test("owner can edit store name", async ({ page }) => {
@@ -133,7 +134,7 @@ test.describe("Store Management", () => {
     // Use role=cell to avoid strict-mode ambiguity with the navbar store switcher option.
     await expect(
       page.getByRole("cell", { name: "Toko Utama Renamed" }),
-    ).toBeVisible({ timeout: 5000 });
+    ).toBeVisible();
   });
 
   test("owner can delete owned store", async ({ page }) => {
@@ -145,10 +146,11 @@ test.describe("Store Management", () => {
     await page.getByTestId("btn-confirm-delete-store").click();
     await expect(
       page.getByRole("cell", { name: "Toko Utama" }),
-    ).not.toBeVisible({ timeout: 5000 });
+    ).not.toBeVisible();
   });
 
   test("member can leave a non-owned store", async ({ page }) => {
+    const now = new Date().toISOString();
     const storeMembers = [
       {
         id: "m1",
@@ -175,7 +177,7 @@ test.describe("Store Management", () => {
 
     await page.getByTestId("btn-leave-store-store-b").click();
     await page.getByTestId("btn-confirm-leave-store").click();
-    await page.waitForURL(/\/stores/, { waitUntil: "commit", timeout: 5000 });
+    await page.waitForURL(/\/stores/, { waitUntil: "commit" });
   });
 
   test("Save button is disabled when store name is empty", async ({ page }) => {

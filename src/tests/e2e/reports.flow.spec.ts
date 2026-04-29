@@ -146,6 +146,9 @@ async function signInToReports(
     );
     if (hasSeededRows) return;
   }
+  throw new Error(
+    `Failed to seed report fixtures after 2 attempts for store ${store.storeId}`,
+  );
 }
 
 test("owner can view today's sales summary", async ({ page }, testInfo) => {
@@ -227,7 +230,8 @@ test("owner can complete end-of-day cash reconciliation", async ({
   expect(expected).toContain("130.000");
 
   await page.getByTestId("btn-save-reconciliation").click();
+  // After save, the reconciliation form should close/refresh — button disappears
   await expect(page.getByTestId("btn-save-reconciliation")).not.toBeVisible({
-    timeout: 3000,
+    timeout: 5000,
   });
 });

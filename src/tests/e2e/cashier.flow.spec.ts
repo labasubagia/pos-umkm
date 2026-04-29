@@ -14,75 +14,91 @@ import {
   waitForHydration,
   waitForTableRowCount,
 } from "./helpers/dexie-seed";
+import { makeId } from "./helpers/e2e-fixtures";
 
 const STORE = DEFAULT_STORE;
-const now = new Date().toISOString();
-// Seed a Monthly_Sheets entry for the current month so ensureMonthlySheetExists()
-// finds an existing record and skips all Google Sheets API calls during payment.
-const MONTHLY_SHEET_SEED = [
-  {
-    id: "e2e-monthly-sheet-1",
-    year_month: now.slice(0, 7),
-    spreadsheetId: STORE.monthlySpreadsheetId,
-    created_at: now,
-  },
-];
 
-const PRODUCTS = [
-  {
-    id: "e2e-prod-1",
-    category_id: "e2e-cat-1",
-    name: "Nasi Goreng",
-    sku: "NASGOR",
-    price: 15000,
-    stock: 20,
-    has_variants: false,
-    created_at: now,
-    deleted_at: null,
-  },
-  {
-    id: "e2e-prod-2",
-    category_id: "e2e-cat-1",
-    name: "Es Teh Manis",
-    sku: "ESTEH",
-    price: 5000,
-    stock: 50,
-    has_variants: false,
-    created_at: now,
-    deleted_at: null,
-  },
-];
+function buildFixtures(testInfo: ReturnType<typeof test.info>) {
+  const now = new Date().toISOString();
+  const prod1Id = makeId(testInfo, "prod-1");
+  const prod2Id = makeId(testInfo, "prod-2");
+  const catId = makeId(testInfo, "cat-1");
+  const monthlySheetId = makeId(testInfo, "monthly-sheet");
 
-const CATEGORIES = [
-  {
-    id: "e2e-cat-1",
-    name: "Makanan & Minuman",
-    created_at: now,
-    deleted_at: null,
-  },
-];
+  const products = [
+    {
+      id: prod1Id,
+      category_id: catId,
+      name: "Nasi Goreng",
+      sku: "NASGOR",
+      price: 15000,
+      stock: 20,
+      has_variants: false,
+      created_at: now,
+      deleted_at: null,
+    },
+    {
+      id: prod2Id,
+      category_id: catId,
+      name: "Es Teh Manis",
+      sku: "ESTEH",
+      price: 5000,
+      stock: 50,
+      has_variants: false,
+      created_at: now,
+      deleted_at: null,
+    },
+  ];
 
-async function signInToCashier(page: Parameters<typeof injectAuthState>[0]) {
+  const categories = [
+    {
+      id: catId,
+      name: "Makanan & Minuman",
+      created_at: now,
+      deleted_at: null,
+    },
+  ];
+
+  const monthlySheets = [
+    {
+      id: monthlySheetId,
+      year_month: now.slice(0, 7),
+      spreadsheetId: STORE.monthlySpreadsheetId,
+      created_at: now,
+    },
+  ];
+
+  return { now, prod1Id, prod2Id, catId, products, categories, monthlySheets };
+}
+
+async function signInToCashier(
+  page: Parameters<typeof injectAuthState>[0],
+  testInfo: ReturnType<typeof test.info>,
+) {
+  const fixtures = buildFixtures(testInfo);
   await injectAuthState(page, STORE);
   await page.goto(`${BASE}/${STORE.storeId}/cashier`);
-  // Wait for the cashier search input — present even when the DB is empty.
   await page.getByTestId("product-search-input").waitFor();
-  // Wait for HydrationService to finish before seeding to avoid the race where
-  // hydrateTable().clear() overwrites our bulkPut inserts.
   await waitForHydration(page);
-  // Seed Dexie and reload so React Query reads the seeded data.
   await seedDexie(page, STORE.storeId, {
-    Products: PRODUCTS,
-    Categories: CATEGORIES,
-    Monthly_Sheets: MONTHLY_SHEET_SEED,
+    Products: fixtures.products,
+    Categories: fixtures.categories,
+    Monthly_Sheets: fixtures.monthlySheets,
   });
   await reloadAndWait(page, "product-search-input");
-  await waitForTableRowCount(page, STORE.storeId, "Products", PRODUCTS.length);
+  await waitForTableRowCount(
+    page,
+    STORE.storeId,
+    "Products",
+    fixtures.products.length,
+  );
   // Wait for at least one product card — confirms seeded data survived the reload.
+  // The 20s timeout accounts for React Query re-render latency under parallel workers.
   await page
     .locator('[data-testid^="product-card-"]')
     .first()
-    .waitFor({ timeout: 20000 });
+    .waitFor({ timeout: 20_000 });
+  return fixtures;
 }
 
 // ─── T026 — Product Search ────────────────────────────────────────────────────
@@ -90,12 +106,12 @@ async function signInToCashier(page: Parameters<typeof injectAuthState>[0]) {
 test.describe("Product Search (T026)", () => {
   test("cashier can search for a product by name and add it to cart", async ({
     page,
-  }) => {
-    await signInToCashier(page);
+  }, testInfo) => {
+    const { prod1Id } = await signInToCashier(page, testInfo);
 
     await page.getByTestId("product-search-input").fill("Nasi Goreng");
-    await expect(page.getByTestId("product-card-e2e-prod-1")).toBeVisible();
-    await page.getByTestId("product-card-e2e-prod-1").click();
+    await expect(page.getByTestId(`product-card-${prod1Id}`)).toBeVisible();
+    await page.getByTestId(`product-card-${prod1Id}`).click();
     await expect(page.getByTestId("btn-pay")).toContainText("15.000");
   });
 });
@@ -105,10 +121,10 @@ test.describe("Product Search (T026)", () => {
 test.describe("Cash Payment (T027)", () => {
   test("cashier enters cash received and sees correct change amount", async ({
     page,
-  }) => {
-    await signInToCashier(page);
+  }, testInfo) => {
+    const { prod1Id } = await signInToCashier(page, testInfo);
 
-    await page.getByTestId("product-card-e2e-prod-1").click();
+    await page.getByTestId(`product-card-${prod1Id}`).click();
     await page.getByTestId("btn-pay").click();
     await expect(page.getByTestId("payment-modal")).toBeVisible();
     await page.getByTestId("btn-method-cash").click();
@@ -116,10 +132,12 @@ test.describe("Cash Payment (T027)", () => {
     await expect(page.getByTestId("change-amount")).toHaveText("Rp 5.000");
   });
 
-  test("quick-amount buttons show correct denominations", async ({ page }) => {
-    await signInToCashier(page);
+  test("quick-amount buttons show correct denominations", async ({
+    page,
+  }, testInfo) => {
+    const { prod1Id } = await signInToCashier(page, testInfo);
 
-    await page.getByTestId("product-card-e2e-prod-1").click();
+    await page.getByTestId(`product-card-${prod1Id}`).click();
     await page.getByTestId("btn-pay").click();
     await page.getByTestId("btn-method-cash").click();
     await expect(page.getByTestId("btn-denomination-20000")).toBeVisible();
@@ -127,10 +145,10 @@ test.describe("Cash Payment (T027)", () => {
 
   test("selecting a quick-amount button fills cash received and computes change", async ({
     page,
-  }) => {
-    await signInToCashier(page);
+  }, testInfo) => {
+    const { prod1Id } = await signInToCashier(page, testInfo);
 
-    await page.getByTestId("product-card-e2e-prod-1").click();
+    await page.getByTestId(`product-card-${prod1Id}`).click();
     await page.getByTestId("btn-pay").click();
     await page.getByTestId("btn-method-cash").click();
     await page.getByTestId("btn-denomination-20000").click();
@@ -143,10 +161,10 @@ test.describe("Cash Payment (T027)", () => {
 test.describe("QRIS Payment (T028)", () => {
   test("cashier can complete a QRIS payment by manually confirming", async ({
     page,
-  }) => {
-    await signInToCashier(page);
+  }, testInfo) => {
+    const { prod2Id } = await signInToCashier(page, testInfo);
 
-    await page.getByTestId("product-card-e2e-prod-2").click();
+    await page.getByTestId(`product-card-${prod2Id}`).click();
     await page.getByTestId("btn-pay").click();
     await page.getByTestId("btn-method-qris").click();
     await expect(page.getByTestId("btn-qris-confirm")).toBeVisible();
@@ -160,10 +178,10 @@ test.describe("QRIS Payment (T028)", () => {
 test.describe("Discount (T029)", () => {
   test("cashier can apply a percentage discount and see updated total", async ({
     page,
-  }) => {
-    await signInToCashier(page);
+  }, testInfo) => {
+    const { prod1Id } = await signInToCashier(page, testInfo);
 
-    await page.getByTestId("product-card-e2e-prod-1").click();
+    await page.getByTestId(`product-card-${prod1Id}`).click();
     await page.getByTestId("btn-discount-percent").click();
     await page.getByTestId("input-discount-value").fill("10");
     await page.getByTestId("btn-discount-apply").click();
@@ -171,10 +189,10 @@ test.describe("Discount (T029)", () => {
     await expect(page.getByTestId("btn-pay")).toContainText("13.500");
   });
 
-  test("cashier can apply a flat IDR discount", async ({ page }) => {
-    await signInToCashier(page);
+  test("cashier can apply a flat IDR discount", async ({ page }, testInfo) => {
+    const { prod1Id } = await signInToCashier(page, testInfo);
 
-    await page.getByTestId("product-card-e2e-prod-1").click();
+    await page.getByTestId(`product-card-${prod1Id}`).click();
     await page.getByTestId("input-discount-value").fill("2000");
     await page.getByTestId("btn-discount-apply").click();
     // 15000 - 2000 = 13000
@@ -187,10 +205,10 @@ test.describe("Discount (T029)", () => {
 test.describe("Split Payment (T030)", () => {
   test("cashier can complete a split payment (part cash, part QRIS)", async ({
     page,
-  }) => {
-    await signInToCashier(page);
+  }, testInfo) => {
+    const { prod1Id } = await signInToCashier(page, testInfo);
 
-    await page.getByTestId("product-card-e2e-prod-1").click();
+    await page.getByTestId(`product-card-${prod1Id}`).click();
     await page.getByTestId("btn-pay").click();
     await page.getByTestId("btn-method-split").click();
     await page.getByTestId("input-split-cash").fill("10000");
@@ -205,16 +223,16 @@ test.describe("Split Payment (T030)", () => {
 test.describe("Hold Transaction (T031)", () => {
   test("cashier can hold a transaction, start a new one, and retrieve the held transaction", async ({
     page,
-  }) => {
-    await signInToCashier(page);
+  }, testInfo) => {
+    const { prod1Id, prod2Id } = await signInToCashier(page, testInfo);
 
-    await page.getByTestId("product-card-e2e-prod-1").click();
+    await page.getByTestId(`product-card-${prod1Id}`).click();
     await expect(page.getByTestId("btn-pay")).toContainText("15.000");
 
     await page.getByTestId("btn-hold-cart").click();
     await expect(page.getByTestId("btn-pay")).toBeDisabled();
 
-    await page.getByTestId("product-card-e2e-prod-2").click();
+    await page.getByTestId(`product-card-${prod2Id}`).click();
 
     await page.getByTestId("btn-held-toggle").click();
     await expect(page.getByTestId("btn-retrieve-cart-0")).toBeVisible();
@@ -229,10 +247,10 @@ test.describe("Hold Transaction (T031)", () => {
 test.describe("Transaction Commit + Receipt (T032, T033)", () => {
   test("completing a transaction writes to Transactions and shows receipt", async ({
     page,
-  }) => {
-    await signInToCashier(page);
+  }, testInfo) => {
+    const { prod1Id } = await signInToCashier(page, testInfo);
 
-    await page.getByTestId("product-card-e2e-prod-1").click();
+    await page.getByTestId(`product-card-${prod1Id}`).click();
     await page.getByTestId("btn-pay").click();
     await page.getByTestId("btn-method-cash").click();
     await page.getByTestId("input-cash").fill("20000");
@@ -245,11 +263,11 @@ test.describe("Transaction Commit + Receipt (T032, T033)", () => {
 
   test("receipt shows correct totals for multiple products", async ({
     page,
-  }) => {
-    await signInToCashier(page);
+  }, testInfo) => {
+    const { prod1Id, prod2Id } = await signInToCashier(page, testInfo);
 
-    await page.getByTestId("product-card-e2e-prod-1").click();
-    await page.getByTestId("product-card-e2e-prod-2").click();
+    await page.getByTestId(`product-card-${prod1Id}`).click();
+    await page.getByTestId(`product-card-${prod2Id}`).click();
     await page.getByTestId("btn-pay").click();
     await page.getByTestId("btn-method-qris").click();
     await page.getByTestId("btn-qris-confirm").click();
@@ -264,22 +282,28 @@ test.describe("Transaction Commit + Receipt (T032, T033)", () => {
     await expect(page.getByTestId("btn-whatsapp-share")).toBeVisible();
   });
 
-  test("product stock is decremented after transaction", async ({ page }) => {
-    await signInToCashier(page);
+  test("product stock is decremented after transaction", async ({
+    page,
+  }, testInfo) => {
+    const { prod1Id } = await signInToCashier(page, testInfo);
 
     // Add 2 units of Nasi Goreng (stock=20)
-    await page.getByTestId("product-card-e2e-prod-1").click();
-    await page.getByTestId("product-card-e2e-prod-1").click();
+    await page.getByTestId(`product-card-${prod1Id}`).click();
+    await page.getByTestId(`product-card-${prod1Id}`).click();
     await page.getByTestId("btn-pay").click();
     await page.getByTestId("btn-method-qris").click();
     await page.getByTestId("btn-qris-confirm").click();
     await expect(page.getByTestId("receipt-success")).toBeVisible();
     await page.getByTestId("btn-receipt-close").click();
 
-    await navigateTo(page, `${BASE}/${STORE.storeId}/catalog/products`);
+    await navigateTo(
+      page,
+      `${BASE}/${STORE.storeId}/catalog/products`,
+      `product-stock-${prod1Id}`,
+    );
 
     // 20 - 2 = 18
-    await expect(page.getByTestId("product-stock-e2e-prod-1")).toHaveText(
+    await expect(page.getByTestId(`product-stock-${prod1Id}`)).toHaveText(
       "Stok: 18",
     );
   });
@@ -288,10 +312,16 @@ test.describe("Transaction Commit + Receipt (T032, T033)", () => {
 // ─── T036 — Customer attach to transaction ────────────────────────────────────
 
 test.describe("Customer Search (T036)", () => {
-  test("cashier can attach a customer to a transaction", async ({ page }) => {
+  test("cashier can attach a customer to a transaction", async ({
+    page,
+  }, testInfo) => {
+    const now = new Date().toISOString();
+    const { prod1Id, products, categories } = buildFixtures(testInfo);
+    const cusId = makeId(testInfo, "cus-1");
+
     const CUSTOMERS = [
       {
-        id: "e2e-cus-1",
+        id: cusId,
         name: "Budi Santoso",
         phone: "08111234567",
         email: "",
@@ -305,16 +335,16 @@ test.describe("Customer Search (T036)", () => {
     await page.getByTestId("product-search-input").waitFor();
     await waitForHydration(page);
     await seedDexie(page, STORE.storeId, {
-      Products: PRODUCTS,
-      Categories: CATEGORIES,
+      Products: products,
+      Categories: categories,
       Customers: CUSTOMERS,
     });
     await reloadAndWait(page, "product-search-input");
 
-    await page.getByTestId("product-card-e2e-prod-1").click();
+    await page.getByTestId(`product-card-${prod1Id}`).click();
     await page.getByTestId("customer-search-input").fill("Budi");
-    await expect(page.getByTestId("customer-result-e2e-cus-1")).toBeVisible();
-    await page.getByTestId("customer-result-e2e-cus-1").click();
+    await expect(page.getByTestId(`customer-result-${cusId}`)).toBeVisible();
+    await page.getByTestId(`customer-result-${cusId}`).click();
     await expect(page.getByTestId("cart-customer-name")).toContainText(
       "Budi Santoso",
     );
@@ -324,14 +354,19 @@ test.describe("Customer Search (T036)", () => {
 // ─── T037 — Refund flow ───────────────────────────────────────────────────────
 
 test.describe("Refund Flow (T037)", () => {
-  test("owner can process a refund and stock is restored", async ({ page }) => {
-    const txId = "e2e-tx-refund-1";
-    const productId = "e2e-prod-refund-1";
+  test("owner can process a refund and stock is restored", async ({
+    page,
+  }, testInfo) => {
+    const now = new Date().toISOString();
+    const txId = makeId(testInfo, "tx-refund");
+    const productId = makeId(testInfo, "prod-refund");
+    const catId = makeId(testInfo, "cat-refund");
+    const { categories } = buildFixtures(testInfo);
 
     const REFUND_PRODUCTS = [
       {
         id: productId,
-        category_id: "e2e-cat-1",
+        category_id: catId,
         name: "Es Teh",
         sku: "ESTEH2",
         price: 15000,
@@ -367,12 +402,11 @@ test.describe("Refund Flow (T037)", () => {
     await waitForHydration(page);
     await seedDexie(page, STORE.storeId, {
       Products: REFUND_PRODUCTS,
-      Categories: CATEGORIES,
+      Categories: categories,
       Transactions: TRANSACTIONS,
       Refunds: [],
     });
-    await page.reload();
-    await page.getByTestId("refund-tx-id-input").waitFor();
+    await reloadAndWait(page, "refund-tx-id-input");
     await page.getByTestId("refund-tx-id-input").fill(txId);
     await page.getByTestId("btn-find-transaction").click();
     await expect(page.getByTestId("refund-tx-info")).toBeVisible();

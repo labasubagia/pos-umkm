@@ -11,6 +11,8 @@ export default defineConfig({
     // Port 5174 is reserved for Playwright — separate from the dev server on 5173.
     baseURL: "http://localhost:5174",
     trace: "on-first-retry",
+    actionTimeout: 10_000,
+    navigationTimeout: 15_000,
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {

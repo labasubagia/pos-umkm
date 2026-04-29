@@ -17,7 +17,6 @@ import {
 import { makeId, makeStoreConfig } from "./helpers/e2e-fixtures";
 
 const STORE = DEFAULT_STORE;
-const now = new Date().toISOString();
 
 async function signInToCatalog(page: Parameters<typeof injectAuthState>[0]) {
   await injectAuthState(page, STORE);
@@ -116,7 +115,10 @@ test.describe("Products CRUD (T022)", () => {
 
   test("product added via catalog form appears in cashier product search", async ({
     page,
-  }) => {
+  }, testInfo) => {
+    const now = new Date().toISOString();
+    const catId = makeId(testInfo, "cat-search");
+
     // Pre-seed a category so the product form has something to pick from
     await injectAuthState(page, STORE);
     await page.goto(`${BASE}/${STORE.storeId}/catalog/products`);
@@ -125,7 +127,7 @@ test.describe("Products CRUD (T022)", () => {
     await seedDexie(page, STORE.storeId, {
       Categories: [
         {
-          id: "cat-search",
+          id: catId,
           name: "Makanan",
           created_at: now,
           deleted_at: null,
@@ -148,8 +150,11 @@ test.describe("Products CRUD (T022)", () => {
         .filter({ hasText: "Mie Goreng" }),
     ).toBeVisible();
 
-    await navigateTo(page, `${BASE}/${STORE.storeId}/cashier`);
-    await page.getByTestId("product-search-input").waitFor();
+    await navigateTo(
+      page,
+      `${BASE}/${STORE.storeId}/cashier`,
+      "product-search-input",
+    );
     await page.getByTestId("product-search-input").fill("Mie Goreng");
     await expect(
       page
@@ -159,6 +164,7 @@ test.describe("Products CRUD (T022)", () => {
   });
 
   test("completing a sale decrements product stock", async ({ page }) => {
+    const now = new Date().toISOString();
     const testInfo = test.info();
     const store = makeStoreConfig(testInfo);
     const prodId = makeId(testInfo, "prod-stock-test");
@@ -198,9 +204,7 @@ test.describe("Products CRUD (T022)", () => {
     });
     await reloadAndWait(page, "product-search-input");
     await waitForTableRowCount(page, store.storeId, "Products", 1);
-    await page.getByTestId(`product-card-${prodId}`).waitFor({
-      timeout: 10000,
-    });
+    await page.getByTestId(`product-card-${prodId}`).waitFor();
 
     await page.getByTestId("product-search-input").fill("Produk Stok Test");
     await page.getByTestId(`product-card-${prodId}`).click();
@@ -210,8 +214,11 @@ test.describe("Products CRUD (T022)", () => {
     await expect(page.getByTestId("receipt-success")).toBeVisible();
     await page.getByTestId("btn-receipt-close").click();
 
-    await navigateTo(page, `${BASE}/${store.storeId}/catalog/products`);
-    await page.getByTestId("subnav-catalog-products").click();
+    await navigateTo(
+      page,
+      `${BASE}/${store.storeId}/catalog/products`,
+      `product-stock-${prodId}`,
+    );
     await expect(page.getByTestId(`product-stock-${prodId}`)).toHaveText(
       "Stok: 19",
     );
@@ -223,8 +230,10 @@ test.describe("Products CRUD (T022)", () => {
 test.describe("Stock Opname (T034)", () => {
   test("owner can run stock opname and discrepancies are logged", async ({
     page,
-  }) => {
-    const prodId = "opname-prod-1";
+  }, testInfo) => {
+    const now = new Date().toISOString();
+    const prodId = makeId(testInfo, "opname-prod-1");
+    const categoryId = makeId(testInfo, "opname-cat-1");
 
     await injectAuthState(page, STORE);
     await page.goto(`${BASE}/${STORE.storeId}/inventory/stock-opname`);
@@ -234,7 +243,7 @@ test.describe("Stock Opname (T034)", () => {
       Products: [
         {
           id: prodId,
-          category_id: "cat-1",
+          category_id: categoryId,
           name: "Produk Opname",
           sku: "OPNAME-01",
           price: 10000,
@@ -245,7 +254,7 @@ test.describe("Stock Opname (T034)", () => {
         },
       ],
       Categories: [
-        { id: "cat-1", name: "Umum", created_at: now, deleted_at: null },
+        { id: categoryId, name: "Umum", created_at: now, deleted_at: null },
       ],
     });
     await reloadAndWait(page, "stock-opname-container");
@@ -294,8 +303,10 @@ test.describe("Stock Opname (T034)", () => {
 test.describe("Purchase Orders (T035)", () => {
   test("owner can create a purchase order and mark it as received, increasing stock", async ({
     page,
-  }) => {
-    const prodId = "po-prod-1";
+  }, testInfo) => {
+    const now = new Date().toISOString();
+    const prodId = makeId(testInfo, "po-prod-1");
+    const categoryId = makeId(testInfo, "po-cat-1");
 
     await injectAuthState(page, STORE);
     await page.goto(`${BASE}/${STORE.storeId}/inventory/stock-opname`);
@@ -305,7 +316,7 @@ test.describe("Purchase Orders (T035)", () => {
       Products: [
         {
           id: prodId,
-          category_id: "cat-1",
+          category_id: categoryId,
           name: "Produk PO",
           sku: "PO-01",
           price: 10000,
@@ -316,7 +327,7 @@ test.describe("Purchase Orders (T035)", () => {
         },
       ],
       Categories: [
-        { id: "cat-1", name: "Umum", created_at: now, deleted_at: null },
+        { id: categoryId, name: "Umum", created_at: now, deleted_at: null },
       ],
     });
     await reloadAndWait(page, "stock-opname-container");
