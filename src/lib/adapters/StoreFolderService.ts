@@ -22,11 +22,15 @@
  *   // map["Products"] → { spreadsheet_id, sheet_name, sheet_id, headers, ... }
  */
 
+import pLimit from "p-limit";
+
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const SHEETS_API = "https://sheets.googleapis.com/v4";
 
 const MIME_FOLDER = "application/vnd.google-apps.folder";
 const MIME_SPREADSHEET = "application/vnd.google-apps.spreadsheet";
+
+const DEFAULT_CONCURRENCY = 5;
 
 export interface SheetMeta {
   spreadsheet_id: string;
@@ -50,9 +54,11 @@ interface DriveNode {
 
 export class StoreFolderService {
   private readonly getToken: () => string;
+  private readonly limit: ReturnType<typeof pLimit>;
 
-  constructor(getToken: () => string) {
+  constructor(getToken: () => string, concurrency = DEFAULT_CONCURRENCY) {
     this.getToken = getToken;
+    this.limit = pLimit(concurrency);
   }
 
   /**
@@ -84,14 +90,19 @@ export class StoreFolderService {
 
   private async traverseRecursive(folderId: string): Promise<DriveNode[]> {
     const items = await this.getFolderContent(folderId);
-    for (const item of items) {
-      if (item.mimeType === MIME_FOLDER) {
-        item.children = await this.traverseRecursive(item.id);
-      } else if (item.mimeType === MIME_SPREADSHEET) {
-        item.sheet = await this.getSpreadsheetMeta(item.id);
-      }
-    }
-    return items;
+
+    return Promise.all(
+      items.map((item) =>
+        this.limit(async () => {
+          if (item.mimeType === MIME_FOLDER) {
+            item.children = await this.traverseRecursive(item.id);
+          } else if (item.mimeType === MIME_SPREADSHEET) {
+            item.sheet = await this.getSpreadsheetMeta(item.id);
+          }
+          return item;
+        }),
+      ),
+    );
   }
 
   private async getSpreadsheetMeta(
