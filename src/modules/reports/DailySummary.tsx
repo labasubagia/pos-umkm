@@ -22,6 +22,7 @@ import {
 } from "../../components/ui/table";
 import { formatIDR } from "../../lib/formatters";
 import { useAuthStore } from "../../store/authStore";
+import { getActiveStoreMap } from "../../store/storeMapStore";
 import { fetchDailySummary, ReportError } from "./reports.service";
 
 export function DailySummary() {
@@ -31,10 +32,7 @@ export function DailySummary() {
   const [enabled, setEnabled] = useState(false);
   const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const user = useAuthStore((s) => s.user);
-  const monthlySpreadsheetId = useAuthStore((s) => s.monthlySpreadsheetId);
-  const spreadsheetId = useAuthStore((s) => s.spreadsheetId);
   const isOwner = user?.role === "owner";
-  const txSheetId = monthlySpreadsheetId ?? spreadsheetId;
 
   const {
     data: summary,
@@ -103,19 +101,29 @@ export function DailySummary() {
         </Button>
       </form>
 
-      {isOwner && txSheetId && (
-        <div className="no-print">
-          <a
-            data-testid="link-transaction-sheet"
-            href={`https://docs.google.com/spreadsheets/d/${txSheetId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-blue-600 underline"
-          >
-            Buka Spreadsheet Transaksi
-          </a>
-        </div>
-      )}
+      {isOwner &&
+        (() => {
+          try {
+            const txSheetId =
+              getActiveStoreMap().getState().sheets.Transactions
+                ?.spreadsheet_id;
+            return txSheetId ? (
+              <div className="no-print">
+                <a
+                  data-testid="link-transaction-sheet"
+                  href={`https://docs.google.com/spreadsheets/d/${txSheetId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 underline"
+                >
+                  Buka Spreadsheet Transaksi
+                </a>
+              </div>
+            ) : null;
+          } catch {
+            return null;
+          }
+        })()}
 
       {errorMsg && (
         <Alert variant="destructive">

@@ -3,15 +3,20 @@
  *
  * Responsible for:
  * 1. Detecting or creating the Main spreadsheet (owner's personal store registry).
- * 2. Creating store spreadsheets (master + monthly) for each branch.
- * 3. Activating a store by routing the adapter to the correct spreadsheets.
- * 4. Managing monthly transaction spreadsheets (lazy creation on first tx).
+ * 2. Creating store folder structure (master + transactions/YYYY spreadsheets).
+ * 3. Activating a store by traversing its Drive folder to build the sheet map.
+ * 4. Pre-creating current + next month's transaction spreadsheets (Option B).
  *
- * Uses the active DataAdapter so these calls work with both Mock and Google
- * adapters — no direct Sheets API calls from this file.
+ * The sheet map is the single source of truth for spreadsheet IDs.
+ * No more individual spreadsheet ID management in localStorage.
  */
 
-import { driveClient, getRepos, makeRepo } from "../../lib/adapters";
+import {
+  driveClient,
+  getRepos,
+  makeRepo,
+  storeFolderService,
+} from "../../lib/adapters";
 import { nowUTC } from "../../lib/formatters";
 import {
   MAIN_TAB_HEADERS,
@@ -23,6 +28,10 @@ import {
 } from "../../lib/schema";
 import { generateId } from "../../lib/uuid";
 import { useAuthStore } from "../../store/authStore";
+import {
+  getActiveStoreMap,
+  setActiveStoreMap,
+} from "../../store/storeMapStore";
 
 // Re-export so existing callers that imported from this module continue to work.
 export {
@@ -86,15 +95,6 @@ export function saveMainSpreadsheetId(id: string): void {
 }
 
 /**
- * Persists the master spreadsheetId to Zustand (persisted) and the legacy
- * direct localStorage key. Called from runStoreSetup after creating a new store.
- */
-export function saveSpreadsheetId(spreadsheetId: string): void {
-  useAuthStore.getState().setSpreadsheetId(spreadsheetId);
-  localStorage.setItem("masterSpreadsheetId", spreadsheetId); // legacy fallback key
-}
-
-/**
  * Removes all setup-related localStorage keys. Call this on sign-out to prevent
  * stale spreadsheet IDs from being picked up on the next login (especially if a
  * different Google account signs in on the same device).
@@ -115,20 +115,6 @@ export function clearSetupStorage(): void {
     .forEach((k) => {
       localStorage.removeItem(k);
     });
-}
-
-/**
- * Returns the localStorage key used to cache a monthly transaction sheet ID.
- * LoginPage reads this key on session restore to avoid a Sheets API lookup.
- * Key is scoped to storeId to prevent multi-store collisions.
- * Example: txSheet_abc123_2026-04
- */
-export function monthlySheetKey(
-  storeId: string,
-  year: number,
-  month: number,
-): string {
-  return `txSheet_${storeId}_${year}-${mm(month)}`;
 }
 
 // ─── Main Spreadsheet ─────────────────────────────────────────────────────────
@@ -159,8 +145,6 @@ export async function createMainSpreadsheet(ownerEmail = ""): Promise<string> {
 
 /**
  * Reads all store rows from main.Stores.
- * Temporarily routes the adapter to mainSpreadsheetId, then leaves it pointing
- * at main — callers that activate a store must call setSpreadsheetId(masterId).
  */
 export async function listStores(
   mainSpreadsheetId: string,
@@ -185,14 +169,6 @@ export async function listStores(
  * Called when the owner renames their business in Settings > Profil Bisnis.
  * The main spreadsheet is the registry shared across all stores so the store
  * picker shows the up-to-date name.
- *
- * Steps:
- *   1. Temporarily routes the adapter to mainSpreadsheetId.
- *   2. Finds the row for `storeId` in the `Stores` tab.
- *   3. Updates the `store_name` cell for that row.
- *
- * @param storeId  The `store_id` of the store being renamed.
- * @param newName  The new store/business name.
  */
 export async function updateStoreName(
   storeId: string,
@@ -241,15 +217,10 @@ export async function findOrCreateMain(
     let mainId = getMainSpreadsheetId();
 
     if (!mainId) {
-      // Cache miss — use Drive to find the existing file or create a new one.
-      // createMainSpreadsheet calls createSpreadsheet with a parentFolderId so
-      // the "find or create" search in drive.client.ts is triggered: if
-      // apps/pos_umkm/main already exists, its ID is returned (not a new file).
       mainId = await createMainSpreadsheet(ownerEmail);
       saveMainSpreadsheetId(mainId);
     }
 
-    // Always read stores — whether mainId came from cache or from Drive.
     const stores = await listStores(mainId);
     return { mainSpreadsheetId: mainId, stores };
   } catch (err) {
@@ -260,62 +231,158 @@ export async function findOrCreateMain(
 // ─── Store Activation ─────────────────────────────────────────────────────────
 
 /**
- * Activates a store selected from the store picker.
+ * Activates a store by traversing its Drive folder to build the sheet map.
  *
- * Sets the adapter's master spreadsheet routing, saves IDs to localStorage,
- * then resolves the current month's transaction sheet (creating it if missing
- * and the user has the `drive` scope — owners and managers only).
+ * This is the new single entry point for store activation. Instead of
+ * manually tracking main/master/monthly spreadsheet IDs, we:
+ *   1. Traverse the store's Drive folder to discover all spreadsheets
+ *   2. Build a flat sheet map (sheet_name → SheetMeta)
+ *   3. Pre-create current + next month's transaction sheets (Option B)
+ *   4. Re-traverse to pick up newly created sheets
  *
- * Cashiers who lack the drive scope will land on a store without a monthly sheet
- * if the owner has not yet created one for this month; pages should handle this
- * gracefully with an empty-state message rather than crashing.
+ * @param store  The store record from main.Stores (must have drive_folder_id).
  */
-export async function activateStore(store: StoreRecord): Promise<{
-  spreadsheetId: string;
-  monthlySpreadsheetId: string | null;
-}> {
-  const { master_spreadsheet_id: masterId, store_id: storeId } = store;
+export async function activateStore(store: StoreRecord): Promise<void> {
+  const { store_id: storeId, drive_folder_id: storeFolderId } = store;
 
-  // activeStoreId must be in localStorage synchronously — createMonthlySheet()
-  // reads it during this same call to determine the Drive folder path.
-  localStorage.setItem("activeStoreId", storeId);
-
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const yearMonth = `${year}-${mm(month)}`;
-
-  // Read Monthly_Sheets directly from the master spreadsheet via a raw
-  // SheetRepository (makeRepo), bypassing the Dexie cache. At this point
-  // reinitDexieLayer() has not yet run for the new store (it fires in
-  // AppShell's useEffect after the Zustand state update), so getRepos()
-  // would read from the *previous* store's IndexedDB and return the wrong
-  // monthly spreadsheet ID, causing cross-store data contamination.
-  let monthlyId: string | null = null;
-  try {
-    const rows = await makeRepo(masterId, "Monthly_Sheets").getAll();
-    const row = rows.find(
-      (r) => (r as Record<string, unknown>).year_month === yearMonth,
+  if (!storeFolderId) {
+    throw new SetupError(
+      `activateStore: store "${store.store_name}" has no drive_folder_id. ` +
+        `This store may have been created before the folder-based architecture.`,
     );
-    monthlyId =
-      ((row as Record<string, unknown>)?.spreadsheetId as string) ?? null;
-  } catch {
-    // Monthly_Sheets tab may not yet exist (pre-setup); treat as no entry.
   }
 
-  if (!monthlyId) {
+  // Set activeStoreId synchronously for downstream services
+  localStorage.setItem("activeStoreId", storeId);
+  localStorage.setItem("storeFolderId", storeFolderId);
+
+  // Initialize the store map store for this store_id
+  setActiveStoreMap(storeId);
+
+  // Traverse the folder to build the sheet map
+  const sheets = await storeFolderService.traverse(storeFolderId);
+  getActiveStoreMap().getState().setStoreMap(storeFolderId, sheets);
+
+  // Option B: Pre-create current + next month's sheets if missing
+  await ensureMonthlySheets(storeId, storeFolderId);
+}
+
+/**
+ * Ensures current + next month's transaction spreadsheets exist.
+ * Creates any that are missing, then updates the store map with the new sheets.
+ * Option B strategy: always have current + next month ready.
+ */
+async function ensureMonthlySheets(
+  storeId: string,
+  storeFolderId: string,
+): Promise<void> {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+
+  // Calculate next month
+  const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+  const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear;
+
+  const monthsToEnsure = [
+    { year: currentYear, month: currentMonth },
+    { year: nextYear, month: nextMonth },
+  ];
+
+  const storeMap = getActiveStoreMap().getState();
+  let created = false;
+
+  for (const { year, month } of monthsToEnsure) {
+    const yearMonth = `${year}-${mm(month)}`;
+    const sheetName = `transaction_${yearMonth}`;
+
+    // Check if a spreadsheet with this name already exists in the map
+    const alreadyExists = Object.values(storeMap.sheets).some(
+      (s) => s.spreadsheet_name === sheetName,
+    );
+    if (alreadyExists) continue;
+
+    // Create the monthly sheet
     try {
-      monthlyId = await createMonthlySheet(year, month);
-      await initializeMonthlySheets(monthlyId);
-    } catch {
-      // Cashiers lack the drive scope to create monthly sheets.
-      // The monthly sheet must be pre-created by an owner or manager.
-      return { spreadsheetId: masterId, monthlySpreadsheetId: null };
+      const monthlyId = await createMonthlySheetForStore(
+        storeId,
+        storeFolderId,
+        year,
+        month,
+      );
+      if (monthlyId) {
+        created = true;
+      }
+    } catch (err) {
+      // Cashiers may lack drive scope — log and continue
+      console.warn(
+        `[setup] Failed to pre-create monthly sheet for ${yearMonth}:`,
+        err,
+      );
     }
   }
 
-  localStorage.setItem(monthlySheetKey(storeId, year, month), monthlyId);
-  return { spreadsheetId: masterId, monthlySpreadsheetId: monthlyId };
+  // Re-traverse to pick up any newly created sheets
+  if (created) {
+    const updatedSheets = await storeFolderService.traverse(storeFolderId);
+    getActiveStoreMap().getState().setStoreMap(storeFolderId, updatedSheets);
+  }
+}
+
+/**
+ * Creates a monthly transaction spreadsheet for a specific store.
+ * Named "transaction_<year>-<month>" and placed inside the year folder under
+ * the store's transactions/<year>/ in Drive.
+ * Registers the entry in the master sheet's Monthly_Sheets tab.
+ */
+async function createMonthlySheetForStore(
+  storeId: string,
+  _storeFolderId: string,
+  year: number,
+  month: number,
+): Promise<string | null> {
+  const yearMonth = `${year}-${mm(month)}`;
+  const name = `transaction_${yearMonth}`;
+
+  // Check if it already exists in the store map
+  const storeMap = getActiveStoreMap().getState();
+  for (const sheet of Object.values(storeMap.sheets)) {
+    if (sheet.spreadsheet_name === name) {
+      return sheet.spreadsheet_id;
+    }
+  }
+
+  // Create the year folder and spreadsheet
+  const yearFolderId = await driveClient.ensureFolder([
+    "apps",
+    "pos_umkm",
+    "stores",
+    storeId,
+    "transactions",
+    String(year),
+  ]);
+
+  const id = await driveClient.createSpreadsheet(name, yearFolderId, [
+    ...MONTHLY_TABS,
+  ]);
+
+  // Write headers
+  await initializeMonthlySheets(id);
+
+  // Register in Monthly_Sheets tab (read from master spreadsheet in the store map)
+  const masterMeta = storeMap.sheets.Monthly_Sheets;
+  if (masterMeta) {
+    await makeRepo(masterMeta.spreadsheet_id, "Monthly_Sheets").batchInsert([
+      {
+        id: generateId(),
+        year_month: yearMonth,
+        spreadsheetId: id,
+        created_at: nowUTC(),
+      },
+    ]);
+  }
+
+  return id;
 }
 
 // ─── Master Spreadsheet ───────────────────────────────────────────────────────
@@ -325,18 +392,6 @@ export async function activateStore(store: StoreRecord): Promise<{
  *
  * Assumes the main spreadsheet already exists — call findOrCreateMain() first.
  * Does NOT create main (that is findOrCreateMain's responsibility).
- *
- * Steps:
- *   1. Generates a UUID store_id.
- *   2. Creates apps/pos_umkm/stores/<store_id>/ folder.
- *   3. Creates `master` spreadsheet inside the store folder.
- *   4. Registers the new store in main.Stores tab.
- *   5. Restores adapter routing to master.
- *   6. Saves activeStoreId and storeFolderId to localStorage.
- *
- * @param businessName    Store display name.
- * @param ownerEmail      Owner's Google account email.
- * @param mainSpreadsheetId  The main spreadsheet to register the store in.
  */
 export async function createMasterSpreadsheet(
   businessName: string,
@@ -376,10 +431,6 @@ export async function createMasterSpreadsheet(
       },
     ]);
 
-    // Persist store context so monthly sheets and other services can locate the folder.
-    localStorage.setItem("activeStoreId", storeId);
-    if (storeFolderId) localStorage.setItem("storeFolderId", storeFolderId);
-
     return { masterId, storeId, driveFolderId: storeFolderId ?? "" };
   } catch (err) {
     throw new SetupError(`createMasterSpreadsheet failed: ${String(err)}`, err);
@@ -388,9 +439,6 @@ export async function createMasterSpreadsheet(
 
 /**
  * Writes the column header row to every tab of the Master Spreadsheet.
- * Must be called once after createMasterSpreadsheet so that GoogleDataAdapter
- * can map object keys to the correct column positions in subsequent appendRow calls.
- * In MockDataAdapter this is a no-op — the mock uses object keys directly.
  */
 export async function initializeMasterSheets(
   spreadsheetId: string,
@@ -408,88 +456,7 @@ export async function initializeMasterSheets(
 // ─── Monthly Spreadsheet ──────────────────────────────────────────────────────
 
 /**
- * Returns the spreadsheetId for the current calendar month's transaction sheet
- * by querying the `Monthly_Sheets` registry tab in the master spreadsheet.
- * Returns null if no entry exists for the current month (triggers lazy creation
- * on the first transaction of the month).
- *
- * Reading from the sheet (rather than localStorage) means any user — including
- * cashiers who have no Drive API access — can resolve the monthly sheet ID without
- * a Drive folder listing call.
- */
-export async function getCurrentMonthSheetId(): Promise<string | null> {
-  const now = new Date();
-  const yearMonth = `${now.getFullYear()}-${mm(now.getMonth() + 1)}`;
-  try {
-    const rows = await getRepos().monthlySheets.getAll();
-    const row = rows.find(
-      (r) => (r as Record<string, unknown>).year_month === yearMonth,
-    );
-    return ((row as Record<string, unknown>)?.spreadsheetId as string) ?? null;
-  } catch {
-    // Monthly_Sheets tab may not yet exist (pre-setup); treat as no entry.
-    return null;
-  }
-}
-
-/**
- * Creates a new monthly transaction spreadsheet.
- * Named "transaction_<year>-<month>" and placed inside the year folder under
- * apps/pos_umkm/stores/<store_id>/transactions/<year>/ in Drive.
- * After creation the entry is registered in the master sheet's `Monthly_Sheets`
- * tab so that any user (including cashiers without Drive API access) can resolve
- * the spreadsheetId from a simple Sheets API read.
- */
-export async function createMonthlySheet(
-  year: number,
-  month: number,
-): Promise<string> {
-  try {
-    const yearMonth = `${year}-${mm(month)}`;
-    const name = `transaction_${yearMonth}`;
-
-    let parentFolderId: string | undefined;
-    const storeId = localStorage.getItem("activeStoreId");
-    if (storeId) {
-      const folderId = await driveClient.ensureFolder([
-        "apps",
-        "pos_umkm",
-        "stores",
-        storeId,
-        "transactions",
-        String(year),
-      ]);
-      if (folderId) parentFolderId = folderId;
-    } else {
-      // Fallback: use the store folder directly (pre-existing sessions without activeStoreId)
-      parentFolderId = localStorage.getItem("storeFolderId") ?? undefined;
-    }
-
-    const id = await driveClient.createSpreadsheet(name, parentFolderId, [
-      ...MONTHLY_TABS,
-    ]);
-
-    // Register in the Monthly_Sheets registry tab so all users can resolve the ID.
-    await getRepos().monthlySheets.batchInsert([
-      {
-        id: generateId(),
-        year_month: yearMonth,
-        spreadsheetId: id,
-        created_at: nowUTC(),
-      },
-    ]);
-
-    return id;
-  } catch (err) {
-    throw new SetupError(`createMonthlySheet failed: ${String(err)}`, err);
-  }
-}
-
-/**
  * Writes the column header row to every tab of a Monthly Spreadsheet.
- * Must be called after setMonthlySpreadsheetId(id) so that writeHeaders
- * routes to the monthly spreadsheet and not the master.
- * In MockDataAdapter this is a no-op.
  */
 export async function initializeMonthlySheets(
   spreadsheetId: string,
@@ -517,16 +484,15 @@ export async function initializeMonthlySheets(
  * Steps:
  *   1. createMasterSpreadsheet → store folder + master spreadsheet + main.Stores row
  *   2. initializeMasterSheets  → frozen header rows on all master tabs
- *   3. saveSpreadsheetId       → persists masterSpreadsheetId to localStorage
- *   4. createMonthlySheet      → current month's transaction spreadsheet
- *   5. setMonthlySpreadsheetId → routes adapter writes to the monthly sheet
- *   6. initializeMonthlySheets → frozen header rows on all monthly tabs
- *   7. saves txSheet key       → persists monthly ID for fast session restore
+ *   3. createMonthlySheet      → current month's transaction spreadsheet
+ *   4. initializeMonthlySheets → frozen header rows on all monthly tabs
+ *   5. Traverse folder         → build the sheet map
+ *   6. Pre-create next month   → Option B
  */
 export async function runStoreSetup(
   businessName: string,
   ownerEmail = "",
-): Promise<{ masterSpreadsheetId: string; monthlySpreadsheetId: string }> {
+): Promise<{ storeId: string; driveFolderId: string }> {
   const mainId = getMainSpreadsheetId();
   if (!mainId) {
     throw new SetupError(
@@ -534,29 +500,75 @@ export async function runStoreSetup(
     );
   }
 
-  const { masterId: masterSpreadsheetId, storeId: newStoreId } =
-    await createMasterSpreadsheet(businessName, ownerEmail, mainId);
-  await initializeMasterSheets(masterSpreadsheetId);
-  saveSpreadsheetId(masterSpreadsheetId);
+  const {
+    masterId,
+    storeId: newStoreId,
+    driveFolderId,
+  } = await createMasterSpreadsheet(businessName, ownerEmail, mainId);
+  await initializeMasterSheets(masterId);
 
+  // Set activeStoreId so downstream services can locate the folder
+  localStorage.setItem("activeStoreId", newStoreId);
+  localStorage.setItem("storeFolderId", driveFolderId);
+
+  // Create current month's transaction spreadsheet
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
-  const monthlySpreadsheetId = await createMonthlySheet(year, month);
-  useAuthStore.getState().setMonthlySpreadsheetId(monthlySpreadsheetId);
-  await initializeMonthlySheets(monthlySpreadsheetId);
-  localStorage.setItem(
-    monthlySheetKey(newStoreId, year, month),
-    monthlySpreadsheetId,
-  );
+  const yearMonth = `${year}-${mm(month)}`;
+  const name = `transaction_${yearMonth}`;
 
-  return { masterSpreadsheetId, monthlySpreadsheetId };
+  const yearFolderId = await driveClient.ensureFolder([
+    "apps",
+    "pos_umkm",
+    "stores",
+    newStoreId,
+    "transactions",
+    String(year),
+  ]);
+  const monthlyId = await driveClient.createSpreadsheet(name, yearFolderId, [
+    ...MONTHLY_TABS,
+  ]);
+  await initializeMonthlySheets(monthlyId);
+
+  // Register in Monthly_Sheets
+  await makeRepo(masterId, "Monthly_Sheets").batchInsert([
+    {
+      id: generateId(),
+      year_month: yearMonth,
+      spreadsheetId: monthlyId,
+      created_at: nowUTC(),
+    },
+  ]);
+
+  // Initialize the store map and traverse to build the full map
+  setActiveStoreMap(newStoreId);
+  const sheets = await storeFolderService.traverse(driveFolderId);
+  getActiveStoreMap().getState().setStoreMap(driveFolderId, sheets);
+
+  // Option B: Pre-create next month's sheet
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  try {
+    await createMonthlySheetForStore(
+      newStoreId,
+      driveFolderId,
+      nextYear,
+      nextMonth,
+    );
+    // Re-traverse to pick up the new sheet
+    const updatedSheets = await storeFolderService.traverse(driveFolderId);
+    getActiveStoreMap().getState().setStoreMap(driveFolderId, updatedSheets);
+  } catch (err) {
+    console.warn("[setup] Failed to pre-create next month's sheet:", err);
+  }
+
+  return { storeId: newStoreId, driveFolderId };
 }
 
 /**
- * Full first-time setup orchestrator — implements TRD §3.3 steps 3–8 and 10.
+ * Full first-time setup orchestrator.
  * Combines findOrCreateMain + runStoreSetup into one call.
- * Retained for testing convenience and backward compatibility.
  *
  * @param businessName  Display name of the store.
  * @param ownerEmail    Owner's Google account email.
@@ -564,7 +576,7 @@ export async function runStoreSetup(
 export async function runFirstTimeSetup(
   businessName: string,
   ownerEmail = "",
-): Promise<{ masterSpreadsheetId: string; monthlySpreadsheetId: string }> {
+): Promise<{ storeId: string; driveFolderId: string }> {
   const { mainSpreadsheetId } = await findOrCreateMain(ownerEmail);
   saveMainSpreadsheetId(mainSpreadsheetId);
   return runStoreSetup(businessName, ownerEmail);

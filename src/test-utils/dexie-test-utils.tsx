@@ -39,12 +39,8 @@ export interface TestUser {
 export interface RenderWithDexieOptions {
   /** Dexie DB key — each unique storeId gets its own isolated in-memory DB. */
   storeId?: string;
-  /** Fake master spreadsheet ID passed into Zustand. */
-  spreadsheetId?: string;
   /** Fake main spreadsheet ID. */
   mainSpreadsheetId?: string;
-  /** Fake monthly spreadsheet ID. */
-  monthlySpreadsheetId?: string;
   /** Auth state to inject into Zustand before render. */
   user?: TestUser;
   /** Async callback to pre-populate Dexie tables before the component mounts. */
@@ -70,9 +66,7 @@ export async function renderWithDexie(
 ): Promise<RenderResult & { db: PosUmkmDatabase; queryClient: QueryClient }> {
   const {
     storeId = "test-store",
-    spreadsheetId = "test-master-id",
     mainSpreadsheetId = "test-main-id",
-    monthlySpreadsheetId = "test-monthly-id",
     user = {},
     seed,
     initialPath = "/",
@@ -98,9 +92,6 @@ export async function renderWithDexie(
       .setUser({ id, email, name, role }, role, "test-token");
     useAuthStore.getState().setActiveStoreId(storeId);
     useAuthStore.getState().setMainSpreadsheetId(mainSpreadsheetId);
-    useAuthStore
-      .getState()
-      .setStoreSession(spreadsheetId, monthlySpreadsheetId, storeId);
   });
 
   const queryClient = new QueryClient({

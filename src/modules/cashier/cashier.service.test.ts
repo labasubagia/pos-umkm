@@ -22,10 +22,29 @@ import {
 
 // Mock the auth setup service so ensureMonthlySheetExists doesn't touch localStorage
 vi.mock("../auth/setup.service", () => ({
-  getCurrentMonthSheetId: vi.fn().mockResolvedValue("monthly-id"),
-  createMonthlySheet: vi.fn().mockResolvedValue("monthly-id"),
   initializeMonthlySheets: vi.fn().mockResolvedValue(undefined),
   shareSheetWithAllMembers: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../../store/storeMapStore", () => ({
+  getActiveStoreMap: vi.fn().mockReturnValue({
+    getState: vi.fn().mockReturnValue({
+      sheets: {
+        Transactions: {
+          spreadsheet_id: "monthly-id",
+          spreadsheet_name: "transaction_2026-04",
+          folder_path: "transactions/2026",
+          sheet_name: "Transactions",
+          sheet_id: 123,
+          headers: ["id", "created_at"],
+        },
+      },
+      getSheetMeta: vi.fn().mockReturnValue({
+        spreadsheet_id: "monthly-id",
+        spreadsheet_name: "transaction_2026-04",
+      }),
+    }),
+  }),
 }));
 
 function mockRepo(overrides = {}) {

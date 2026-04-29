@@ -200,7 +200,7 @@ export async function removeAccessToStore(
   );
   const targetStoreId = targetStore?.store_id ?? masterSpreadsheetId;
 
-  const membersRepo = getMembersForStore(targetStoreId, masterSpreadsheetId);
+  const membersRepo = getMembersForStore(targetStoreId);
   const members = await membersRepo.getAll();
   const myRow = members.find(
     (r) => (r as Record<string, unknown>).email === callerEmail,

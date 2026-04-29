@@ -19,7 +19,7 @@ import { useAuth } from "./useAuth";
 
 export default function SetupWizard() {
   const navigate = useNavigate();
-  const { setStoreSession, user } = useAuth();
+  const { setActiveStoreId, user } = useAuth();
   const [businessName, setBusinessName] = useState("");
   const [ppnEnabled, setPpnEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,7 +34,7 @@ export default function SetupWizard() {
     setLoading(true);
     setError(null);
     try {
-      const { masterSpreadsheetId, monthlySpreadsheetId } = await runStoreSetup(
+      const { storeId } = await runStoreSetup(
         businessName.trim(),
         user?.email ?? "",
       );
@@ -50,10 +50,7 @@ export default function SetupWizard() {
         settingsRows.map((s) => ({ ...s, updated_at: ts })),
       );
 
-      // runStoreSetup writes activeStoreId to localStorage — read it back so
-      // we can atomically update the Zustand store and navigate to the URL.
-      const storeId = localStorage.getItem("activeStoreId") ?? "";
-      setStoreSession(masterSpreadsheetId, monthlySpreadsheetId, storeId);
+      setActiveStoreId(storeId);
       if (storeId) {
         navigate(`/${storeId}/cashier`);
       } else {

@@ -36,7 +36,7 @@ const TAX_RATE = 0; // PPN disabled by default; owner can enable in Settings (po
 type MobileView = "products" | "cart";
 
 export default function CashierPage() {
-  const { user, spreadsheetId } = useAuthStore();
+  const { user } = useAuthStore();
   const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const queryClient = useQueryClient();
   const { data: products = [] } = useProducts();
@@ -71,13 +71,13 @@ export default function CashierPage() {
   const total = calculateTotal(subtotal, discountAmount, tax);
 
   async function handlePaymentConfirm(payment: PaymentInfo) {
-    if (!user || !spreadsheetId || submitting) return;
+    if (!user || submitting) return;
     setTxError("");
     setSubmitting(true);
     try {
       // Ensure the monthly transaction sheet exists before writing to it.
-      // Creates it (with headers) on the first transaction of each month.
-      await ensureMonthlySheetExists(spreadsheetId);
+      // With Option B, this is pre-created during store activation.
+      await ensureMonthlySheetExists();
       const tx = await commitTransaction(
         items,
         discount,
@@ -85,7 +85,7 @@ export default function CashierPage() {
         payment,
         user.id,
         selectedCustomer?.id ?? null,
-        spreadsheetId,
+        "",
         receiptSeq,
         products,
         variants,

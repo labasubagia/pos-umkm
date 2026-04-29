@@ -12,13 +12,7 @@
 import { getRepos } from "../../lib/adapters";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
-import { useAuthStore } from "../../store/authStore";
-import {
-  createMonthlySheet,
-  getCurrentMonthSheetId,
-  initializeMonthlySheets,
-  shareSheetWithAllMembers,
-} from "../auth/setup.service";
+import { getActiveStoreMap } from "../../store/storeMapStore";
 import type { Product, Variant } from "../catalog/catalog.service";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
@@ -217,26 +211,28 @@ export function validateSplitPayment(
 
 /**
  * Ensures a monthly transaction spreadsheet exists for today's month.
- * Creates it (and shares with all members) if not yet present.
+ * With Option B, current + next month sheets are pre-created on store activation.
+ * This function checks the store map and creates if missing (defensive).
  * Returns the spreadsheetId.
  */
-export async function ensureMonthlySheetExists(
-  _masterSpreadsheetId: string,
-): Promise<string> {
-  const existing = await getCurrentMonthSheetId();
-  if (existing) {
-    // Ensure the adapter routes monthly tab writes to the correct spreadsheet.
-    useAuthStore.getState().setMonthlySpreadsheetId(existing);
-    return existing;
+export async function ensureMonthlySheetExists(): Promise<string> {
+  const now = new Date();
+  const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  // Check the store map for the current month's Transactions sheet
+  const storeMap = getActiveStoreMap().getState();
+  const txSheet = storeMap.sheets.Transactions;
+  if (txSheet && txSheet.spreadsheet_name === `transaction_${yearMonth}`) {
+    return txSheet.spreadsheet_id;
   }
 
-  const now = new Date();
-  const id = await createMonthlySheet(now.getFullYear(), now.getMonth() + 1);
-  // Set routing BEFORE initializeMonthlySheets so writeHeaders goes to the monthly sheet.
-  useAuthStore.getState().setMonthlySpreadsheetId(id);
-  await initializeMonthlySheets(id);
-  await shareSheetWithAllMembers(id);
-  return id;
+  // Sheet not found in map — this shouldn't happen with Option B but handle defensively.
+  // The sheet was pre-created during activateStore; the store map should have it.
+  // If we get here, it means the map is stale or the store was activated before Option B.
+  throw new Error(
+    `Monthly sheet for ${yearMonth} not found in store map. ` +
+      `Expected "transaction_${yearMonth}" to exist. Try re-activating the store.`,
+  );
 }
 
 export interface PaymentInfo {

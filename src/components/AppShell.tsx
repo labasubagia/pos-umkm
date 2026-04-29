@@ -34,13 +34,7 @@ import { NavBar } from "./NavBar";
 import { SyncStatus } from "./SyncStatus";
 
 export function AppShell() {
-  const {
-    spreadsheetId,
-    mainSpreadsheetId,
-    monthlySpreadsheetId,
-    activeStoreId,
-    setActiveStoreId,
-  } = useAuthStore();
+  const { activeStoreId, setActiveStoreId } = useAuthStore();
   const queryClient = useQueryClient();
   const { storeId: urlStoreId } = useParams<{ storeId: string }>();
 
@@ -62,7 +56,7 @@ export function AppShell() {
   const hydrateGen = useRef(0);
 
   useEffect(() => {
-    if (!spreadsheetId || !mainSpreadsheetId || !activeStoreId) return;
+    if (!activeStoreId) return;
 
     // Reinit the per-store Dexie layer only when the active store changes.
     // This ensures hydrationService always targets the correct IndexedDB before
@@ -76,26 +70,18 @@ export function AppShell() {
     const gen = ++hydrateGen.current;
     const storeIdAtLaunch = activeStoreId;
 
-    void hydrationService
-      .hydrateAll(mainSpreadsheetId, spreadsheetId, monthlySpreadsheetId ?? "")
-      .then(() => {
-        // Discard result if the user switched stores before this hydration finished.
-        if (gen !== hydrateGen.current) return;
-        // Scope invalidation to the current store only — avoids nuking
-        // unrelated caches like ['stores'] or date-range reports (T076).
-        void queryClient.invalidateQueries({
-          predicate: (query) =>
-            Array.isArray(query.queryKey) &&
-            query.queryKey[1] === storeIdAtLaunch,
-        });
+    void hydrationService.hydrateAll().then(() => {
+      // Discard result if the user switched stores before this hydration finished.
+      if (gen !== hydrateGen.current) return;
+      // Scope invalidation to the current store only — avoids nuking
+      // unrelated caches like ['stores'] or date-range reports (T076).
+      void queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          query.queryKey[1] === storeIdAtLaunch,
       });
-  }, [
-    spreadsheetId,
-    mainSpreadsheetId,
-    monthlySpreadsheetId,
-    activeStoreId,
-    queryClient,
-  ]);
+    });
+  }, [activeStoreId, queryClient]);
 
   return (
     <div

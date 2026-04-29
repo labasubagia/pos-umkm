@@ -2,9 +2,10 @@
  * Adapter layer — always uses the Dexie offline-first adapter (Google Sheets backend).
  *
  * Exports:
- *   getRepos()         — typed per-sheet repositories reading IDs from the auth store.
+ *   getRepos()         — typed per-sheet repositories resolving IDs from the store map.
  *   driveClient        — Drive/spreadsheet management (createSpreadsheet, ensureFolder, shareSpreadsheet).
  *   makeRepo()         — one-off raw SheetRepository for setup code (writes headers directly to Sheets).
+ *   storeFolderService — traverses Drive folder to build the sheet map.
  *   authAdapter        — Google Identity Services authentication adapter.
  *   syncManager        — drains the offline outbox to Google Sheets.
  *   hydrationService   — pulls Sheets data into IndexedDB on login.
@@ -28,6 +29,7 @@ import { GoogleAuthAdapter } from "./google/GoogleAuthAdapter";
 import type { Repos } from "./repos";
 import type { ISheetRepository } from "./SheetRepository";
 import { SheetRepository } from "./SheetRepository";
+import { StoreFolderService } from "./StoreFolderService";
 import type { AuthAdapter } from "./types";
 
 export const authAdapter: AuthAdapter = new GoogleAuthAdapter();
@@ -43,6 +45,8 @@ const getToken = (): string => {
 };
 
 export const driveClient: IDriveClient = new GoogleDriveClient(getToken);
+
+export const storeFolderService = new StoreFolderService(getToken);
 
 /** No-op SyncManager used as the initial value and after logout. */
 const noopSyncManager = {
@@ -114,22 +118,12 @@ export function resetDexieLayer(): void {
 }
 
 /**
- * Returns typed repo instances reading IDs from the current auth store state.
+ * Returns typed repo instances resolving spreadsheet IDs from the store map.
  * Reads are served from IndexedDB; writes go to IndexedDB + outbox (drained by SyncManager).
  */
 export function getRepos(): Repos {
-  const {
-    mainSpreadsheetId,
-    spreadsheetId,
-    monthlySpreadsheetId,
-    activeStoreId,
-  } = useAuthStore.getState();
-  return createDexieRepos(
-    activeStoreId ?? "__init__",
-    mainSpreadsheetId ?? "",
-    spreadsheetId ?? "",
-    monthlySpreadsheetId ?? "",
-  );
+  const { activeStoreId } = useAuthStore.getState();
+  return createDexieRepos(activeStoreId ?? "__init__");
 }
 
 /**
@@ -158,40 +152,40 @@ export function makeRepo<T extends Record<string, unknown>>(
  * Creates DexieRepository instances for every sheet in the active store.
  * Each repo writes to IndexedDB + outbox; after each write it calls
  * syncManager.triggerSync() for an immediate drain attempt.
+ *
+ * Spreadsheet IDs are resolved from the store map at enqueue time.
+ * The empty-string fallback in each dexie() call is only used if the
+ * store map is not yet populated (e.g. during initial setup).
  */
-function createDexieRepos(
-  storeId: string,
-  mainId: string,
-  masterId: string,
-  monthlyId: string,
-): Repos {
+function createDexieRepos(storeId: string): Repos {
   const storeDb = getDb(storeId);
 
   function dexie<T extends Record<string, unknown>>(
-    spreadsheetId: string,
     sheetName: string,
   ): DexieRepository<T> {
-    return new DexieRepository<T>(storeDb, { spreadsheetId, sheetName }, () =>
-      syncManager.triggerSync(),
+    return new DexieRepository<T>(
+      storeDb,
+      { spreadsheetId: "", sheetName },
+      () => syncManager.triggerSync(),
     );
   }
 
   return {
-    stores: dexie(mainId, "Stores"),
-    monthlySheets: dexie(masterId, "Monthly_Sheets"),
-    categories: dexie(masterId, "Categories"),
-    products: dexie(masterId, "Products"),
-    variants: dexie(masterId, "Variants"),
-    members: dexie(masterId, "Members"),
-    settings: dexie(masterId, "Settings"),
-    stockLog: dexie(masterId, "Stock_Log"),
-    purchaseOrders: dexie(masterId, "Purchase_Orders"),
-    purchaseOrderItems: dexie(masterId, "Purchase_Order_Items"),
-    customers: dexie(masterId, "Customers"),
-    auditLog: dexie(masterId, "Audit_Log"),
-    transactions: dexie(monthlyId, "Transactions"),
-    transactionItems: dexie(monthlyId, "Transaction_Items"),
-    refunds: dexie(monthlyId, "Refunds"),
+    stores: dexie("Stores"),
+    monthlySheets: dexie("Monthly_Sheets"),
+    categories: dexie("Categories"),
+    products: dexie("Products"),
+    variants: dexie("Variants"),
+    members: dexie("Members"),
+    settings: dexie("Settings"),
+    stockLog: dexie("Stock_Log"),
+    purchaseOrders: dexie("Purchase_Orders"),
+    purchaseOrderItems: dexie("Purchase_Order_Items"),
+    customers: dexie("Customers"),
+    auditLog: dexie("Audit_Log"),
+    transactions: dexie("Transactions"),
+    transactionItems: dexie("Transaction_Items"),
+    refunds: dexie("Refunds"),
   };
 }
 
@@ -218,17 +212,15 @@ export async function localCachePut(
  * Returns a Dexie-backed Members repository for a specific store's database.
  * Use when mutating another store's Members (e.g. removing self when leaving a store).
  *
- * @param targetStoreId        The store_id whose Dexie DB contains the Members table.
- * @param masterSpreadsheetId  The spreadsheetId used as the outbox sync target.
+ * @param targetStoreId  The store_id whose Dexie DB contains the Members table.
  */
 export function getMembersForStore(
   targetStoreId: string,
-  masterSpreadsheetId: string,
 ): DexieRepository<Record<string, unknown>> {
   const db = getDb(targetStoreId);
   return new DexieRepository<Record<string, unknown>>(
     db,
-    { spreadsheetId: masterSpreadsheetId, sheetName: "Members" },
+    { spreadsheetId: "", sheetName: "Members" },
     () => syncManager.triggerSync(),
   );
 }

@@ -269,10 +269,7 @@ describe("removeAccessToStore", () => {
 
     await removeAccessToStore(MASTER_ID_B);
 
-    expect(adapters.getMembersForStore).toHaveBeenCalledWith(
-      "store-b",
-      MASTER_ID_B,
-    );
+    expect(adapters.getMembersForStore).toHaveBeenCalledWith("store-b");
     expect(membersRepo.softDelete).toHaveBeenCalledWith("m1");
   });
 

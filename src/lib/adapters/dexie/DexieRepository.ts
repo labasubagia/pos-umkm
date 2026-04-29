@@ -4,9 +4,10 @@
  * Serves reads from IndexedDB (instant, offline-capable) and queues writes to
  * the _outbox table for later sync to Google Sheets by SyncManager.
  *
- * The `syncTarget` constructor argument is an outbox routing hint only — it
- * tells SyncManager which spreadsheet/sheet to replay the operation against.
- * It carries no semantic claim that this repository "is" a sheet.
+ * The `sheetName` constructor argument identifies which sheet tab this repo
+ * targets. The spreadsheetId is resolved from the store map at enqueue time,
+ * with the constructor-provided `spreadsheetId` as a fallback for setup code
+ * that runs before the store map is populated.
  *
  * Write → IndexedDB immediately (ACID via Dexie transaction)
  *       → _outbox entry queued in the same transaction
@@ -18,6 +19,7 @@
  * This avoids serialising makeNewRow into the outbox.
  */
 
+import { getActiveStoreMap } from "../../../store/storeMapStore";
 import { useSyncStore } from "../../../store/syncStore";
 import { generateId } from "../../uuid";
 import type { ILocalRepository } from "../ILocalRepository";
@@ -32,7 +34,8 @@ export class DexieRepository<T extends Record<string, unknown>>
   implements ILocalRepository<T>
 {
   private readonly db: PosUmkmDatabase;
-  private readonly syncTarget: SyncTarget;
+  private readonly sheetName: string;
+  private readonly fallbackSpreadsheetId: string;
   private readonly onAfterWrite: () => void;
 
   constructor(
@@ -41,14 +44,15 @@ export class DexieRepository<T extends Record<string, unknown>>
     onAfterWrite: () => void = () => {},
   ) {
     this.db = db;
-    this.syncTarget = syncTarget;
+    this.sheetName = syncTarget.sheetName;
+    this.fallbackSpreadsheetId = syncTarget.spreadsheetId;
     this.onAfterWrite = onAfterWrite;
   }
 
   // ─── Reads (always from IndexedDB) ──────────────────────────────────────────
 
   async getAll(): Promise<T[]> {
-    const rows = await this.db.table<T>(this.syncTarget.sheetName).toArray();
+    const rows = await this.db.table<T>(this.sheetName).toArray();
     return rows.filter((r) => !(r as Record<string, unknown>).deleted_at);
   }
 
@@ -61,7 +65,7 @@ export class DexieRepository<T extends Record<string, unknown>>
     const rowsWithIds = rows.map((r) =>
       r.id ? r : { id: generateId(), ...r },
     );
-    const tableName = this.syncTarget.sheetName;
+    const tableName = this.sheetName;
     await this.db.transaction(
       "rw",
       [this.db.table(tableName), this.db._outbox],
@@ -81,7 +85,7 @@ export class DexieRepository<T extends Record<string, unknown>>
     rows: Array<Partial<T> & Record<string, unknown>>,
   ): Promise<void> {
     if (rows.length === 0) return;
-    const tableName = this.syncTarget.sheetName;
+    const tableName = this.sheetName;
     await this.db.transaction(
       "rw",
       [this.db.table(tableName), this.db._outbox],
@@ -123,7 +127,7 @@ export class DexieRepository<T extends Record<string, unknown>>
     rows: Array<Partial<T> & Record<string, unknown>>,
   ): Promise<void> {
     if (rows.length === 0) return;
-    const tableName = this.syncTarget.sheetName;
+    const tableName = this.sheetName;
 
     const ids = rows.map((r) => r.id as string);
     const existingRows = await this.db.table(tableName).bulkGet(ids);
@@ -142,7 +146,7 @@ export class DexieRepository<T extends Record<string, unknown>>
 
   async softDelete(id: string): Promise<void> {
     const deletedAt = new Date().toISOString();
-    const tableName = this.syncTarget.sheetName;
+    const tableName = this.sheetName;
     await this.db.transaction(
       "rw",
       [this.db.table(tableName), this.db._outbox],
@@ -158,10 +162,14 @@ export class DexieRepository<T extends Record<string, unknown>>
   // ─── Internal helpers ────────────────────────────────────────────────────────
 
   private enqueue(operation: OutboxOperation): Promise<number> {
+    // Resolve spreadsheetId from the store map (preferred) with fallback
+    // to the constructor-provided value for setup code that runs before
+    // the store map is populated.
+    const spreadsheetId = this.resolveSpreadsheetId();
     const entry: OutboxEntry = {
       mutationId: generateId(),
-      spreadsheetId: this.syncTarget.spreadsheetId,
-      sheetName: this.syncTarget.sheetName,
+      spreadsheetId,
+      sheetName: this.sheetName,
       operation,
       status: "pending",
       retries: 0,
@@ -173,6 +181,20 @@ export class DexieRepository<T extends Record<string, unknown>>
       mutationId: entry.mutationId,
     });
     return this.db._outbox.add(entry);
+  }
+
+  /**
+   * Resolves the spreadsheetId for this repo's sheetName.
+   * Tries the store map first; falls back to the constructor-provided value.
+   */
+  private resolveSpreadsheetId(): string {
+    try {
+      const meta = getActiveStoreMap().getState().getSheetMeta(this.sheetName);
+      if (meta?.spreadsheet_id) return meta.spreadsheet_id;
+    } catch {
+      // Store map not initialized (e.g. during setup) — use fallback
+    }
+    return this.fallbackSpreadsheetId;
   }
 
   private refreshPendingCount(): void {
