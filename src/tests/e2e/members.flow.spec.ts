@@ -15,7 +15,6 @@ import {
 } from "./helpers/dexie-seed";
 
 const STORE = DEFAULT_STORE;
-const now = new Date().toISOString();
 
 async function signInAndNavigate(
   page: Parameters<typeof injectAuthState>[0],
@@ -69,6 +68,8 @@ test.describe("Member invite and Store Link", () => {
 
 test.describe("Store Link join flow", () => {
   test("user navigating to join page sees the join UI", async ({ page }) => {
+    const now = new Date().toISOString();
+
     // Seed a Members row so resolveUserRole works
     await injectAuthState(page, STORE);
     await page.goto(`${BASE}/${STORE.storeId}/cashier`);
@@ -89,7 +90,11 @@ test.describe("Store Link join flow", () => {
     });
     await reloadAndWait(page, "product-search-input");
     // Navigate to join page with a store link
-    await navigateTo(page, `${BASE}/join?sid=${STORE.masterSpreadsheetId}`);
+    await navigateTo(
+      page,
+      `${BASE}/join?sid=${STORE.masterSpreadsheetId}`,
+      "join-page-heading",
+    );
     await expect(page.getByTestId("join-page-heading")).toBeVisible();
   });
 
@@ -99,6 +104,10 @@ test.describe("Store Link join flow", () => {
     // Navigate directly without auth injection
     await page.goto(`${BASE}/${STORE.storeId}/reports`);
     await expect(page).not.toHaveURL(/\/reports/);
+    // Verify the redirect destination actually loaded (login page or landing)
+    await expect(
+      page.getByRole("button", { name: /masuk|login|sign in/i }),
+    ).toBeVisible();
   });
 });
 
