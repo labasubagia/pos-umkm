@@ -7,11 +7,11 @@ import { HydrationService } from "./HydrationService";
 const TEST_STORE_ID = "hydration-store";
 
 const mocks = vi.hoisted(() => ({
-  getActiveStoreMap: vi.fn(),
+  getCurrentStoreMapStore: vi.fn(),
 }));
 
 vi.mock("../../../store/storeMapStore", () => ({
-  getActiveStoreMap: mocks.getActiveStoreMap,
+  getCurrentStoreMapStore: mocks.getCurrentStoreMapStore,
 }));
 
 describe("HydrationService", () => {
@@ -35,7 +35,7 @@ describe("HydrationService", () => {
     const db = getDb(TEST_STORE_ID);
     await Promise.all(db.tables.map((table) => table.clear()));
 
-    mocks.getActiveStoreMap.mockReturnValue({
+    mocks.getCurrentStoreMapStore.mockReturnValue({
       getState: () => ({
         sheets: {},
         monthlySheets: [],

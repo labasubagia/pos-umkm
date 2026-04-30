@@ -21,7 +21,7 @@
  * writeHeaders is never called during hydration — headers are Sheets-side only.
  */
 
-import { getActiveStoreMap } from "../../../store/storeMapStore";
+import { getCurrentStoreMapStore } from "../../../store/storeMapStore";
 import { useAuthStore } from "../../../store/authStore";
 import { useSyncStore } from "../../../store/syncStore";
 import { ALL_TAB_HEADERS } from "../../schema";
@@ -53,7 +53,7 @@ export class HydrationService {
    * Reads spreadsheet IDs from the store map — no need to pass them explicitly.
    */
   async hydrateAll(): Promise<void> {
-    const storeMap = getActiveStoreMap().getState();
+    const storeMap = getCurrentStoreMapStore().getState();
     const targets: HydrationTarget[] = [];
     const mainSpreadsheetId = useAuthStore.getState().mainSpreadsheetId;
 

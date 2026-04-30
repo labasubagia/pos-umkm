@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => {
     hydrateAllMock: vi.fn(),
     reinitDexieLayerMock: vi.fn(),
     triggerSyncMock: vi.fn(),
-    setActiveStoreMapMock: vi.fn(),
+    getStoreMapStoreMock: vi.fn(),
     setStoreMapMock,
     storeMapState: {
       storeFolderId: null as string | null,
@@ -36,8 +36,7 @@ vi.mock("../lib/adapters", () => ({
 }));
 
 vi.mock("../store/storeMapStore", () => ({
-  getActiveStoreMap: () => ({ getState: () => mocks.storeMapState }),
-  setActiveStoreMap: mocks.setActiveStoreMapMock,
+  getStoreMapStore: mocks.getStoreMapStoreMock,
 }));
 
 vi.mock("./NavBar", () => ({
@@ -56,6 +55,9 @@ describe("AppShell", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    mocks.getStoreMapStoreMock.mockReturnValue({
+      getState: () => mocks.storeMapState,
+    });
     mocks.storeMapState.storeFolderId = "folder-from-store-map";
     mocks.storeMapState.sheets = {};
     mocks.storeMapState.monthlySheets = [];

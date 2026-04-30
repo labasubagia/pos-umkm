@@ -52,8 +52,9 @@ import { useAuthStore } from "../store/authStore";
 export default function StoreManagementPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, activeStoreId, setActiveStoreId } = useAuthStore();
-  const storesQueryKey = STORES_QUERY_KEY(activeStoreId);
+  const { user, activeStoreId, mainSpreadsheetId, setActiveStoreId } =
+    useAuthStore();
+  const storesQueryKey = STORES_QUERY_KEY(mainSpreadsheetId);
 
   const { data: stores = [], error: storesError } = useStores();
   const [mutationError, setMutationError] = useState<string | null>(null);

@@ -12,7 +12,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { MEMBERS_QUERY_KEY, useMembers } from "../../hooks/useMembers";
 import { useAuthStore } from "../../store/authStore";
-import { getActiveStoreMap } from "../../store/storeMapStore";
+import { getStoreMapStore } from "../../store/storeMapStore";
 import {
   generateStoreLink,
   inviteMember,
@@ -27,8 +27,10 @@ export function MemberManagement() {
   // Master spreadsheet ID from the store map (used for invite + store link)
   const spreadsheetId = (() => {
     try {
+      if (!activeStoreId) return null;
       return (
-        getActiveStoreMap().getState().sheets.Members?.spreadsheet_id ?? null
+        getStoreMapStore(activeStoreId).getState().sheets.Members
+          ?.spreadsheet_id ?? null
       );
     } catch {
       return null;

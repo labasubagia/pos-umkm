@@ -50,9 +50,11 @@ export default function StorePickerPage() {
 
   const resolveStores = useCallback(async () => {
     try {
-      const { stores: list } = await findOrCreateMain(user?.email ?? "");
+      const { mainSpreadsheetId, stores: list } = await findOrCreateMain(
+        user?.email ?? "",
+      );
       // Seed React Query cache — NavBar and other consumers get the list immediately.
-      queryClient.setQueryData(STORES_QUERY_KEY(null), list);
+      queryClient.setQueryData(STORES_QUERY_KEY(mainSpreadsheetId), list);
       if (list.length === 0) {
         navigate("/setup", { replace: true });
         return;

@@ -84,8 +84,10 @@ let mockStoreMapState: Record<string, unknown> = {
 };
 
 vi.mock("../../store/storeMapStore", () => ({
-  setActiveStoreMap: vi.fn(),
-  getActiveStoreMap: vi.fn(() => ({
+  getCurrentStoreMapStore: vi.fn(() => ({
+    getState: () => mockStoreMapState,
+  })),
+  getStoreMapStore: vi.fn(() => ({
     getState: () => mockStoreMapState,
   })),
 }));

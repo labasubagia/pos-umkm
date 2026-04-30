@@ -3,8 +3,8 @@ import { listStores } from "../modules/settings/store-management.service";
 import { useAuthStore } from "../store/authStore";
 
 export const STORES_QUERY_KEY_PREFIX = ["stores"] as const;
-export const STORES_QUERY_KEY = (storeId: string | null) =>
-  ["stores", storeId] as const;
+export const STORES_QUERY_KEY = (mainSpreadsheetId: string | null) =>
+  ["stores", mainSpreadsheetId] as const;
 
 /**
  * React Query hook for the current user's store list.
@@ -18,7 +18,7 @@ export function useStores() {
   const mainSpreadsheetId = useAuthStore((s) => s.mainSpreadsheetId);
 
   return useQuery({
-    queryKey: STORES_QUERY_KEY(activeStoreId),
+    queryKey: STORES_QUERY_KEY(mainSpreadsheetId),
     queryFn: listStores,
     staleTime: 30_000,
     enabled: !!activeStoreId && !!mainSpreadsheetId,

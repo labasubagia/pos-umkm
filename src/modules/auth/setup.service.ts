@@ -29,8 +29,8 @@ import {
 import { generateId } from "../../lib/uuid";
 import { useAuthStore } from "../../store/authStore";
 import {
-  getActiveStoreMap,
-  setActiveStoreMap,
+  getCurrentStoreMapStore,
+  getStoreMapStore,
 } from "../../store/storeMapStore";
 
 // Re-export so existing callers that imported from this module continue to work.
@@ -252,12 +252,9 @@ export async function activateStore(store: StoreRecord): Promise<void> {
     );
   }
 
-  // Initialize the store map store for this store_id
-  setActiveStoreMap(storeId);
-
   // Traverse the folder to build the sheet map
   const result = await storeFolderService.traverse(storeFolderId);
-  getActiveStoreMap()
+  getStoreMapStore(storeId)
     .getState()
     .setStoreMap(storeFolderId, result.sheets, result.monthlySheets);
 
@@ -287,7 +284,7 @@ async function ensureMonthlySheets(
     { year: nextYear, month: nextMonth },
   ];
 
-  const storeMap = getActiveStoreMap().getState();
+  const storeMap = getStoreMapStore(storeId).getState();
   let created = false;
 
   for (const { year, month } of monthsToEnsure) {
@@ -323,7 +320,7 @@ async function ensureMonthlySheets(
   // Re-traverse to pick up any newly created sheets
   if (created) {
     const updated = await storeFolderService.traverse(storeFolderId);
-    getActiveStoreMap()
+    getStoreMapStore(storeId)
       .getState()
       .setStoreMap(storeFolderId, updated.sheets, updated.monthlySheets);
   }
@@ -345,7 +342,7 @@ async function createMonthlySheetForStore(
   const name = `transaction_${yearMonth}`;
 
   // Check if it already exists in the store map
-  const storeMap = getActiveStoreMap().getState();
+  const storeMap = getCurrentStoreMapStore().getState();
   for (const sheet of Object.values(storeMap.sheets)) {
     if (sheet.spreadsheet_name === name) {
       return sheet.spreadsheet_id;
@@ -542,9 +539,8 @@ export async function runStoreSetup(
   ]);
 
   // Initialize the store map and traverse to build the full map
-  setActiveStoreMap(newStoreId);
   const initial = await storeFolderService.traverse(driveFolderId);
-  getActiveStoreMap()
+  getStoreMapStore(newStoreId)
     .getState()
     .setStoreMap(driveFolderId, initial.sheets, initial.monthlySheets);
 
@@ -560,7 +556,7 @@ export async function runStoreSetup(
     );
     // Re-traverse to pick up the new sheet
     const updated = await storeFolderService.traverse(driveFolderId);
-    getActiveStoreMap()
+    getStoreMapStore(newStoreId)
       .getState()
       .setStoreMap(driveFolderId, updated.sheets, updated.monthlySheets);
   } catch (err) {

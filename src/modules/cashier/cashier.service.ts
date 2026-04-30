@@ -12,7 +12,7 @@
 import { getRepos } from "../../lib/adapters";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
-import { getActiveStoreMap } from "../../store/storeMapStore";
+import { getCurrentStoreMapStore } from "../../store/storeMapStore";
 import type { Product, Variant } from "../catalog/catalog.service";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
@@ -219,7 +219,7 @@ export async function ensureMonthlySheetExists(): Promise<string> {
   const now = new Date();
   const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-  const storeMap = getActiveStoreMap().getState();
+  const storeMap = getCurrentStoreMapStore().getState();
   const monthlyEntry = storeMap.monthlySheets.find(
     (m) => m.yearMonth === yearMonth,
   );

@@ -22,7 +22,7 @@ import {
 } from "../../components/ui/table";
 import { formatIDR } from "../../lib/formatters";
 import { useAuthStore } from "../../store/authStore";
-import { getActiveStoreMap } from "../../store/storeMapStore";
+import { getCurrentStoreMapStore } from "../../store/storeMapStore";
 import { fetchDailySummary, ReportError } from "./reports.service";
 
 export function DailySummary() {
@@ -104,7 +104,7 @@ export function DailySummary() {
       {isOwner &&
         (() => {
           try {
-            const txSheetId = getActiveStoreMap()
+            const txSheetId = getCurrentStoreMapStore()
               .getState()
               .getCurrentMonthSheets()?.Transactions?.spreadsheet_id;
             return txSheetId ? (

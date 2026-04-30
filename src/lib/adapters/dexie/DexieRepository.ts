@@ -19,7 +19,7 @@
  * This avoids serialising makeNewRow into the outbox.
  */
 
-import { getActiveStoreMap } from "../../../store/storeMapStore";
+import { getCurrentStoreMapStore } from "../../../store/storeMapStore";
 import { useAuthStore } from "../../../store/authStore";
 import { useSyncStore } from "../../../store/syncStore";
 import { generateId } from "../../uuid";
@@ -196,7 +196,7 @@ export class DexieRepository<T extends Record<string, unknown>>
     }
 
     try {
-      const storeMap = getActiveStoreMap().getState();
+      const storeMap = getCurrentStoreMapStore().getState();
       // Non-monthly sheets (master, main)
       const meta = storeMap.getSheetMeta(this.sheetName);
       if (meta?.spreadsheet_id) return meta.spreadsheet_id;

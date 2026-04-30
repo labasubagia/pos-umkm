@@ -13,7 +13,7 @@ import {
 } from "../../components/ui/table";
 import { formatDateTimeTZ, formatIDR } from "../../lib/formatters";
 import { useAuthStore } from "../../store/authStore";
-import { getActiveStoreMap } from "../../store/storeMapStore";
+import { getCurrentStoreMapStore } from "../../store/storeMapStore";
 import { listMembers } from "../settings/members.service";
 import { printReport } from "./export.service";
 import {
@@ -174,7 +174,7 @@ export function SalesReport() {
             {isOwner &&
               (() => {
                 try {
-                  const txSheetId = getActiveStoreMap()
+                  const txSheetId = getCurrentStoreMapStore()
                     .getState()
                     .getCurrentMonthSheets()?.Transactions?.spreadsheet_id;
                   return txSheetId ? (

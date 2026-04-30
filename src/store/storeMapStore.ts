@@ -14,6 +14,7 @@ import type {
   MonthlySheetMeta,
   SheetMeta,
 } from "../lib/adapters/StoreFolderService";
+import { useAuthStore } from "./authStore";
 
 interface StoreMapState {
   /** The store's root Drive folder ID. */
@@ -88,44 +89,59 @@ export function createStoreMapStore(storeId: string) {
   );
 }
 
-/**
- * Singleton store instance — set by setActiveStoreMap() when the user
- * activates a store. Feature modules import this.
- */
-let _activeStoreMap: ReturnType<typeof createStoreMapStore> | null = null;
+type StoreMapStore = ReturnType<typeof createStoreMapStore>;
 
-export function setActiveStoreMap(storeId: string): void {
-  _activeStoreMap = createStoreMapStore(storeId);
+const storeMapStores = new Map<string, StoreMapStore>();
+
+/**
+ * Returns the persisted store map store for a specific store ID.
+ * Store instances are memoized in-memory so callers share one zustand store
+ * per store while persistence remains isolated per localStorage key.
+ */
+export function getStoreMapStore(storeId: string): StoreMapStore {
+  const existing = storeMapStores.get(storeId);
+  if (existing) return existing;
+
+  const created = createStoreMapStore(storeId);
+  storeMapStores.set(storeId, created);
+  return created;
 }
 
 /**
- * Returns the active store map. If not yet initialized, auto-initializes
- * from the activeStoreId in localStorage (handles page refresh where
- * activateStore hasn't been called yet but the persisted store map exists).
+ * Returns the current store map using the derived active store context.
+ * The route is authoritative; authStore mirrors the URL in AppShell.
+ * When authStore has not synced yet (e.g. very early bootstrap), fall back
+ * to parsing the current browser path.
  */
-export function getActiveStoreMap(): ReturnType<typeof createStoreMapStore> {
-  if (!_activeStoreMap) {
-    // Auto-initialize from localStorage (authStore persists activeStoreId)
-    try {
-      const authRaw = localStorage.getItem("pos-umkm-auth");
-      if (authRaw) {
-        const auth = JSON.parse(authRaw);
-        const storeId = auth?.state?.activeStoreId;
-        if (storeId) {
-          _activeStoreMap = createStoreMapStore(storeId);
-          return _activeStoreMap;
-        }
-      }
-    } catch {
-      // ignore parse errors
-    }
-    throw new Error(
-      "storeMapStore: no active store — call setActiveStoreMap(storeId) first",
-    );
+export function getCurrentStoreMapStore(): StoreMapStore {
+  const storeId = useAuthStore.getState().activeStoreId ?? getStoreIdFromUrl();
+  if (!storeId) {
+    throw new Error("storeMapStore: no current store in auth state or URL");
   }
-  return _activeStoreMap;
+  return getStoreMapStore(storeId);
 }
 
-export function resetActiveStoreMap(): void {
-  _activeStoreMap = null;
+export function resetStoreMapStore(storeId?: string): void {
+  if (storeId) {
+    storeMapStores.delete(storeId);
+    return;
+  }
+
+  storeMapStores.clear();
+}
+
+function getStoreIdFromUrl(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const segments = window.location.pathname.split("/").filter(Boolean);
+  const routeSegments =
+    segments[0] === "pos-umkm" ? segments.slice(1) : segments;
+  const candidate = routeSegments[0];
+
+  if (!candidate) return null;
+  if (["login", "join", "setup", "stores"].includes(candidate)) {
+    return null;
+  }
+
+  return candidate;
 }

@@ -31,8 +31,9 @@ import {
   storeFolderService,
   syncManager,
 } from "../lib/adapters";
+import { STORES_QUERY_KEY_PREFIX } from "../hooks/useStores";
 import { useAuthStore } from "../store/authStore";
-import { getActiveStoreMap, setActiveStoreMap } from "../store/storeMapStore";
+import { getStoreMapStore } from "../store/storeMapStore";
 import { BottomNav } from "./BottomNav";
 import { NavBar } from "./NavBar";
 import { SyncStatus } from "./SyncStatus";
@@ -76,10 +77,10 @@ export function AppShell() {
     const gen = ++hydrateGen.current;
     const storeIdAtLaunch = activeStoreId;
 
-    // Ensure the store map is initialized and populated before rendering children.
-    // On page refresh, getActiveStoreMap() auto-initializes from localStorage
-    // but the sheets may be empty if no traversal happened in this session.
-    // In that case, traverse the Drive folder to populate the map.
+    // Ensure the current store's map is initialized and populated before
+    // rendering children. On page refresh the persisted keyed store map may
+    // already exist, but the sheets can still be empty if no traversal
+    // happened in this session. In that case, traverse the Drive folder.
     void ensureStoreMapReady(storeIdAtLaunch)
       .then(() => {
         if (gen !== hydrateGen.current) return;
@@ -91,7 +92,8 @@ export function AppShell() {
         void queryClient.invalidateQueries({
           predicate: (query) =>
             Array.isArray(query.queryKey) &&
-            query.queryKey[1] === storeIdAtLaunch,
+            (query.queryKey[0] === STORES_QUERY_KEY_PREFIX[0] ||
+              query.queryKey[1] === storeIdAtLaunch),
         });
       });
   }, [activeStoreId, queryClient]);
@@ -129,14 +131,13 @@ export function AppShell() {
 
 /**
  * Ensures the store map is initialized and has sheet data.
- * On first activation the map is populated by activateStore().
- * On page refresh the map is auto-initialized from localStorage by
- * getActiveStoreMap(), but sheets may be empty — this function traverses
- * the Drive folder to populate them.
+ * On first activation the map is populated by activateStore(). On page
+ * refresh the keyed persisted store map is reopened for the URL-selected
+ * store, but sheets may be empty — this function traverses the Drive folder
+ * to populate them.
  */
 async function ensureStoreMapReady(storeId: string): Promise<void> {
-  setActiveStoreMap(storeId);
-  const storeMap = getActiveStoreMap().getState();
+  const storeMap = getStoreMapStore(storeId).getState();
 
   // Already populated (e.g. from a recent activateStore call)
   if (

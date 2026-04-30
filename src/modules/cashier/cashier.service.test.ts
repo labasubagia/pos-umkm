@@ -27,7 +27,7 @@ vi.mock("../auth/setup.service", () => ({
 }));
 
 vi.mock("../../store/storeMapStore", () => ({
-  getActiveStoreMap: vi.fn().mockReturnValue({
+  getCurrentStoreMapStore: vi.fn().mockReturnValue({
     getState: vi.fn().mockReturnValue({
       sheets: {
         Transactions: {
