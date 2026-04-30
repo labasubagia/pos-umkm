@@ -362,9 +362,11 @@ async function createMonthlySheetForStore(
     String(year),
   ]);
 
-  const id = await driveClient.createSpreadsheet(name, yearFolderId ?? undefined, [
-    ...MONTHLY_TABS,
-  ]);
+  const id = await driveClient.createSpreadsheet(
+    name,
+    yearFolderId ?? undefined,
+    [...MONTHLY_TABS],
+  );
 
   // Write headers
   await initializeMonthlySheets(id);
@@ -522,9 +524,11 @@ export async function runStoreSetup(
     "transactions",
     String(year),
   ]);
-  const monthlyId = await driveClient.createSpreadsheet(name, yearFolderId ?? undefined, [
-    ...MONTHLY_TABS,
-  ]);
+  const monthlyId = await driveClient.createSpreadsheet(
+    name,
+    yearFolderId ?? undefined,
+    [...MONTHLY_TABS],
+  );
   await initializeMonthlySheets(monthlyId);
 
   // Register in Monthly_Sheets

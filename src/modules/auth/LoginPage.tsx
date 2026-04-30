@@ -27,7 +27,9 @@ export default function LoginPage() {
   // Guard against the case where we're mid sign-in and isAuthenticated just flipped.
   if (isAuthenticated && !signingIn) {
     const storeId = useAuthStore.getState().activeStoreId;
-    return <Navigate to={storeId ? `/${storeId}/cashier` : "/stores"} replace />;
+    return (
+      <Navigate to={storeId ? `/${storeId}/cashier` : "/stores"} replace />
+    );
   }
 
   /**

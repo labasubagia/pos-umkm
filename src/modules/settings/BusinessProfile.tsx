@@ -45,12 +45,11 @@ export function BusinessProfile() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       await saveSettings(form);
-      if (
-        form.business_name !== initialName &&
-        activeStoreId
-      ) {
+      if (form.business_name !== initialName && activeStoreId) {
         await updateStoreName(activeStoreId, form.business_name);
-        void queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY_PREFIX });
+        void queryClient.invalidateQueries({
+          queryKey: STORES_QUERY_KEY_PREFIX,
+        });
         setInitialName(form.business_name);
       }
       void queryClient.invalidateQueries({

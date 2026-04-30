@@ -100,7 +100,10 @@ describe("AppShell", () => {
     localStorage.setItem("storeFolderId", "wrong-global-folder");
 
     const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     });
 
     await act(async () => {
