@@ -256,7 +256,7 @@ export const pendingActivations = new Map<string, Promise<void>>();
  * API call and only runs ensureMonthlySheets() (which is itself a no-op when
  * both current + next month sheets already exist).
  */
-const STORE_MAP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+export const STORE_MAP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function activateStore(store: StoreRecord): Promise<void> {
   const { store_id: storeId, drive_folder_id: storeFolderId } = store;
