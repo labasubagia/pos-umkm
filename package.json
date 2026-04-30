@@ -25,6 +25,7 @@
     "clsx": "^2.1.1",
     "date-fns-tz": "^3.2.0",
     "dexie": "^4.4.2",
+    "dexie-react-hooks": "^4.4.0",
     "i18next": "^26.0.5",
     "i18next-browser-languagedetector": "^8.2.1",
     "i18next-http-backend": "^3.0.4",
@@ -68,10 +69,12 @@
     "vitest": "^4.1.4"
   },
   "lint-staged": {
-    "*": "npx secretlint",
+    "*.{js,jsx,ts,tsx,json,md,env,yaml,yml}": "npx secretlint",
     "*.{js,jsx,ts,tsx,json,css}": [
-      "npx tsc --noEmit",
       "npx biome check --write --error-on-warnings --files-ignore-unknown=true"
+    ],
+    "*.{ts,tsx}": [
+      "bash -c 'npm run check'"
     ]
   }
 }

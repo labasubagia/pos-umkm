@@ -5,19 +5,16 @@
  * Save invalidates the query to reflect the update.
  */
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { QRIS_QUERY_KEY, useQRISImage } from "../../hooks/useQRISImage";
-import { useAuthStore } from "../../store/authStore";
+import { useQRISImage } from "../../hooks/useQRISImage";
 import { SettingsError, saveQRISImage } from "./settings.service";
 
 export function QRISConfig() {
-  const queryClient = useQueryClient();
-  const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const { data: storedUrl = "" } = useQRISImage();
 
   const [url, setUrl] = useState("");
@@ -37,9 +34,6 @@ export function QRISConfig() {
     mutationFn: (urlToSave: string) => saveQRISImage(urlToSave),
     onSuccess: () => {
       setSuccess(true);
-      void queryClient.invalidateQueries({
-        queryKey: QRIS_QUERY_KEY(activeStoreId),
-      });
     },
     onError: () => setSuccess(false),
   });

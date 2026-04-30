@@ -6,22 +6,19 @@
  * Mutations call the service and invalidate the relevant queries.
  */
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
-import { CATEGORIES_QUERY_KEY, useCategories } from "../../hooks/useCategories";
-import { PRODUCTS_QUERY_KEY, useProducts } from "../../hooks/useProducts";
+import { useCategories } from "../../hooks/useCategories";
+import { useProducts } from "../../hooks/useProducts";
 import { formatIDR } from "../../lib/formatters";
-import { useAuthStore } from "../../store/authStore";
 import type { NewProduct, ProductChanges } from "./catalog.service";
 import { addProduct, deleteProduct, updateProduct } from "./catalog.service";
 import { ProductForm } from "./ProductForm";
 import { VariantManager } from "./VariantManager";
 
 export function ProductList() {
-  const queryClient = useQueryClient();
-  const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const { data: categories = [] } = useCategories();
   const { data: products = [], isLoading, error: fetchError } = useProducts();
 
@@ -30,21 +27,10 @@ export function ProductList() {
   const [variantProductId, setVariantProductId] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
-  const invalidateProducts = () =>
-    queryClient.invalidateQueries({
-      queryKey: PRODUCTS_QUERY_KEY(activeStoreId),
-    });
-  const invalidateCategories = () =>
-    queryClient.invalidateQueries({
-      queryKey: CATEGORIES_QUERY_KEY(activeStoreId),
-    });
-
   const addMutation = useMutation({
     mutationFn: (product: NewProduct) => addProduct(product),
     onSuccess: () => {
       setShowAddForm(false);
-      void invalidateProducts();
-      void invalidateCategories();
     },
     onError: (err: Error) => setMutationError(err.message),
   });
@@ -54,7 +40,6 @@ export function ProductList() {
       updateProduct(id, changes),
     onSuccess: () => {
       setEditingId(null);
-      void invalidateProducts();
     },
     onError: (err: Error) => setMutationError(err.message),
   });
@@ -63,7 +48,6 @@ export function ProductList() {
     mutationFn: (id: string) => deleteProduct(id),
     onSuccess: () => {
       setMutationError(null);
-      void invalidateProducts();
     },
     onError: (err: Error) => setMutationError(err.message),
   });

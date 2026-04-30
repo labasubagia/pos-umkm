@@ -6,23 +6,19 @@
  * to the main spreadsheet and invalidates the stores query.
  */
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { SETTINGS_QUERY_KEY, useSettings } from "../../hooks/useSettings";
-import { STORES_QUERY_KEY_PREFIX } from "../../hooks/useStores";
-import { useAuthStore } from "../../store/authStore";
+import { useSettings } from "../../hooks/useSettings";
 import { updateStoreName } from "../auth/setup.service";
 import { useAuth } from "../auth/useAuth";
 import { type BusinessSettings, saveSettings } from "./settings.service";
 
 export function BusinessProfile() {
   const { activeStoreId } = useAuth();
-  const zustandActiveStoreId = useAuthStore((s) => s.activeStoreId);
-  const queryClient = useQueryClient();
   const { data: settings, isLoading } = useSettings();
 
   const [form, setForm] = useState<BusinessSettings>({
@@ -47,14 +43,8 @@ export function BusinessProfile() {
       await saveSettings(form);
       if (form.business_name !== initialName && activeStoreId) {
         await updateStoreName(activeStoreId, form.business_name);
-        void queryClient.invalidateQueries({
-          queryKey: STORES_QUERY_KEY_PREFIX,
-        });
         setInitialName(form.business_name);
       }
-      void queryClient.invalidateQueries({
-        queryKey: SETTINGS_QUERY_KEY(zustandActiveStoreId),
-      });
     },
     onSuccess: () => setSuccess(true),
     onError: () => setSuccess(false),

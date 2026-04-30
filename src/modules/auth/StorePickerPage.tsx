@@ -12,12 +12,10 @@
  * No AppShell / NavBar — this is part of the auth/onboarding flow.
  */
 
-import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
-import { STORES_QUERY_KEY } from "../../hooks/useStores";
 import type { StoreRecord } from "./setup.service";
 import { activateStore, findOrCreateMain } from "./setup.service";
 import { useAuth } from "./useAuth";
@@ -25,7 +23,6 @@ import { useAuth } from "./useAuth";
 export default function StorePickerPage() {
   const navigate = useNavigate();
   const { user, setActiveStoreId } = useAuth();
-  const queryClient = useQueryClient();
 
   const [loading, setLoading] = useState(true);
   const [localStores, setLocalStores] = useState<StoreRecord[]>([]);
@@ -50,11 +47,7 @@ export default function StorePickerPage() {
 
   const resolveStores = useCallback(async () => {
     try {
-      const { mainSpreadsheetId, stores: list } = await findOrCreateMain(
-        user?.email ?? "",
-      );
-      // Seed React Query cache — NavBar and other consumers get the list immediately.
-      queryClient.setQueryData(STORES_QUERY_KEY(mainSpreadsheetId), list);
+      const { stores: list } = await findOrCreateMain(user?.email ?? "");
       if (list.length === 0) {
         navigate("/setup", { replace: true });
         return;
@@ -69,7 +62,7 @@ export default function StorePickerPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, queryClient, navigate, activate]);
+  }, [user, navigate, activate]);
 
   useEffect(() => {
     if (initialized.current) return;

@@ -1,16 +1,16 @@
 /**
  * StoreManagementPage — lets an owner add, edit, and remove stores.
  *
- * All data reads come from useStores() (React Query → service → Dexie/Sheets).
- * All mutations call useMutation + invalidateQueries(['stores']) so every
- * subscriber (NavBar, this page) auto-refetches without manual sync.
+ * All data reads come from useStores() (Dexie useLiveQuery → auto-reactive).
+ * All mutations call useMutation; the store list updates automatically
+ * because useLiveQuery re-runs whenever the Stores table changes.
  *
  * Post-action redirects:
  *   - removeOwnedStore of active store → first remaining store, or /setup if empty
  *   - removeAccessToStore               → /stores (store picker)
  */
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -32,16 +32,13 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import {
-  STORES_QUERY_KEY,
-  STORES_QUERY_KEY_PREFIX,
-  useStores,
-} from "../hooks/useStores";
+import { useStores } from "../hooks/useStores";
 import { syncManager } from "../lib/adapters";
 import type { StoreRecord } from "../modules/auth/setup.service";
 import { activateStore } from "../modules/auth/setup.service";
 import {
   createStore,
+  listStores,
   removeAccessToStore,
   removeOwnedStore,
   StoreManagementError,
@@ -51,10 +48,7 @@ import { useAuthStore } from "../store/authStore";
 
 export default function StoreManagementPage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { user, activeStoreId, mainSpreadsheetId, setActiveStoreId } =
-    useAuthStore();
-  const storesQueryKey = STORES_QUERY_KEY(mainSpreadsheetId);
+  const { user, activeStoreId, setActiveStoreId } = useAuthStore();
 
   const { data: stores = [], error: storesError } = useStores();
   const [mutationError, setMutationError] = useState<string | null>(null);
@@ -74,8 +68,7 @@ export default function StoreManagementPage() {
   // ── Leave confirmation dialog ─────────────────────────────────────────────
   const [leaveStore, setLeaveStore] = useState<StoreRecord | null>(null);
 
-  const invalidateStores = () =>
-    queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY_PREFIX });
+  // ── Mutations ─────────────────────────────────────────────────────────────
 
   // ── Mutations ─────────────────────────────────────────────────────────────
 
@@ -84,7 +77,6 @@ export default function StoreManagementPage() {
     onSuccess: () => {
       setNewName("");
       setShowAdd(false);
-      void invalidateStores();
     },
     onError: (err) =>
       setMutationError(String(err instanceof Error ? err.message : err)),
@@ -95,7 +87,6 @@ export default function StoreManagementPage() {
       updateStore(storeId, { store_name: name }),
     onSuccess: () => {
       setEditStore(null);
-      void invalidateStores();
     },
     onError: (err) =>
       setMutationError(String(err instanceof Error ? err.message : err)),
@@ -104,10 +95,9 @@ export default function StoreManagementPage() {
   const deleteMutation = useMutation({
     mutationFn: async (storeId: string) => {
       await removeOwnedStore(storeId);
-      await invalidateStores();
       if (storeId === activeStoreId) {
-        const remaining =
-          queryClient.getQueryData<StoreRecord[]>(storesQueryKey) ?? [];
+        // Read fresh list from Dexie after soft-delete so redirect uses up-to-date data.
+        const remaining = await listStores();
         if (remaining.length > 0) {
           await activateStore(remaining[0]);
           setActiveStoreId(remaining[0].store_id);

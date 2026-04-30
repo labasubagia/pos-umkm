@@ -1,11 +1,10 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { ShoppingBag, ShoppingCart } from "lucide-react";
 import { useState } from "react";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
-import { PRODUCTS_QUERY_KEY, useProducts } from "../hooks/useProducts";
+import { useProducts } from "../hooks/useProducts";
 import { useQRISImage } from "../hooks/useQRISImage";
-import { useVariants, VARIANTS_QUERY_KEY } from "../hooks/useVariants";
+import { useVariants } from "../hooks/useVariants";
 import { logger } from "../lib/logger";
 import { CartPanel } from "../modules/cashier/CartPanel";
 import type {
@@ -38,8 +37,6 @@ type MobileView = "products" | "cart";
 
 export default function CashierPage() {
   const { user } = useAuthStore();
-  const activeStoreId = useAuthStore((s) => s.activeStoreId);
-  const queryClient = useQueryClient();
   const { data: products = [] } = useProducts();
   const { data: variants = [] } = useVariants();
   const { data: qrisImageUrl = "" } = useQRISImage();
@@ -93,17 +90,6 @@ export default function CashierPage() {
         variants,
       );
       setSelectedCustomer(null);
-
-      // Invalidate product/variant caches so stock decrements are reflected
-      // immediately when the user navigates to catalog or cashier.
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: PRODUCTS_QUERY_KEY(activeStoreId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: VARIANTS_QUERY_KEY(activeStoreId),
-        }),
-      ]);
 
       // Build TransactionItem list for receipt (derived from cart + tx id)
       const txItems: TransactionItem[] = items.map((item, i) => ({

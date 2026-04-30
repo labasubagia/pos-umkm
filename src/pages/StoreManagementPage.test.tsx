@@ -16,6 +16,7 @@ import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { clearDbCache, getDb } from "../lib/adapters/dexie/db";
 import type { StoreRecord } from "../modules/auth/setup.service";
 import * as svc from "../modules/settings/store-management.service";
 import { useAuthStore } from "../store/authStore";
@@ -23,19 +24,32 @@ import StoreManagementPage from "./StoreManagementPage";
 
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
-vi.mock("../modules/settings/store-management.service", () => ({
-  listStores: vi.fn(),
-  createStore: vi.fn(),
-  updateStore: vi.fn(),
-  removeOwnedStore: vi.fn(),
-  removeAccessToStore: vi.fn(),
-  StoreManagementError: class StoreManagementError extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = "StoreManagementError";
-    }
+vi.mock(
+  "../modules/settings/store-management.service",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("../modules/settings/store-management.service")
+      >();
+    return {
+      ...actual, // keeps real listStores + StoreManagementError
+      createStore: vi.fn(),
+      updateStore: vi.fn(),
+      removeOwnedStore: vi.fn(),
+      removeAccessToStore: vi.fn(),
+    };
   },
-}));
+);
+
+// Also mock the adapters module so getRepos() doesn't need a real Google token.
+// DexieRepository reads from fake-indexeddb instead.
+vi.mock("../lib/adapters", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/adapters")>();
+  return {
+    ...actual,
+    syncManager: { start: vi.fn(), stop: vi.fn(), triggerSync: vi.fn() },
+  };
+});
 
 vi.mock("../modules/auth/setup.service", async (importOriginal) => {
   const actual =
@@ -79,6 +93,13 @@ const joinedStore: StoreRecord = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Populate the Stores table in fake-indexeddb for the given store's db. */
+async function seedDexie(stores: StoreRecord[], storeId = ownedStore.store_id) {
+  const db = getDb(storeId);
+  await db.Stores.clear();
+  await db.Stores.bulkPut(stores.map((s) => ({ ...s, id: s.store_id })));
+}
+
 function seedOwner() {
   act(() => {
     useAuthStore
@@ -107,16 +128,30 @@ function renderPage() {
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  // Clear Dexie for all storeIds tests might use.
+  for (const id of [
+    ownedStore.store_id,
+    joinedStore.store_id,
+    "another-store",
+  ]) {
+    await getDb(id).Stores.clear();
+  }
+  clearDbCache();
   useAuthStore.getState().clearAuth();
   vi.clearAllMocks();
+  // Default: write functions succeed silently (each test overrides as needed).
+  vi.mocked(svc.createStore).mockResolvedValue({} as StoreRecord);
+  vi.mocked(svc.updateStore).mockResolvedValue(undefined);
+  vi.mocked(svc.removeOwnedStore).mockResolvedValue(undefined);
+  vi.mocked(svc.removeAccessToStore).mockResolvedValue(undefined);
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("StoreManagementPage", () => {
   it("renders store list with correct action buttons per ownership", async () => {
-    vi.mocked(svc.listStores).mockResolvedValue([ownedStore, joinedStore]);
+    await seedDexie([ownedStore, joinedStore]);
     seedOwner();
     renderPage();
 
@@ -149,7 +184,7 @@ describe("StoreManagementPage", () => {
   });
 
   it("does not show Delete button for non-owned stores", async () => {
-    vi.mocked(svc.listStores).mockResolvedValue([joinedStore]);
+    await seedDexie([joinedStore]);
     seedOwner();
     renderPage();
 
@@ -160,7 +195,7 @@ describe("StoreManagementPage", () => {
   });
 
   it("does not show Leave button for owned stores", async () => {
-    vi.mocked(svc.listStores).mockResolvedValue([ownedStore]);
+    await seedDexie([ownedStore]);
     seedOwner();
     renderPage();
 
@@ -177,10 +212,14 @@ describe("StoreManagementPage", () => {
       store_id: "store-new",
       store_name: "Toko Baru",
     };
-    vi.mocked(svc.listStores)
-      .mockResolvedValueOnce([ownedStore]) // initial load
-      .mockResolvedValueOnce([ownedStore, newStore]); // after add
-    vi.mocked(svc.createStore).mockResolvedValue(newStore);
+    await seedDexie([ownedStore]);
+    vi.mocked(svc.createStore).mockImplementation(async () => {
+      await getDb(ownedStore.store_id).Stores.put({
+        ...newStore,
+        id: newStore.store_id,
+      });
+      return newStore;
+    });
     seedOwner();
     renderPage();
 
@@ -198,7 +237,7 @@ describe("StoreManagementPage", () => {
 
   it("Edit dialog pre-fills store name and submits updateStore", async () => {
     const user = userEvent.setup();
-    vi.mocked(svc.listStores).mockResolvedValue([ownedStore]);
+    await seedDexie([ownedStore]);
     vi.mocked(svc.updateStore).mockResolvedValue(undefined);
     seedOwner();
     renderPage();
@@ -226,10 +265,14 @@ describe("StoreManagementPage", () => {
 
   it("Delete confirmation calls removeOwnedStore and removes row from list", async () => {
     const user = userEvent.setup();
-    vi.mocked(svc.listStores)
-      .mockResolvedValueOnce([ownedStore, joinedStore]) // initial
-      .mockResolvedValueOnce([joinedStore]); // after delete
-    vi.mocked(svc.removeOwnedStore).mockResolvedValue(undefined);
+    // Active store is joinedStore; seed that db.
+    await seedDexie([ownedStore, joinedStore], joinedStore.store_id);
+    // Mock removeOwnedStore to also soft-delete from the active store's Dexie.
+    vi.mocked(svc.removeOwnedStore).mockImplementation(async (storeId) => {
+      await getDb(joinedStore.store_id).Stores.update(storeId, {
+        deleted_at: "2026-01-01T00:00:00Z",
+      });
+    });
     seedOwner();
     act(() => useAuthStore.getState().setActiveStoreId(joinedStore.store_id));
     renderPage();
@@ -251,7 +294,7 @@ describe("StoreManagementPage", () => {
 
   it("Leave confirmation calls removeAccessToStore", async () => {
     const user = userEvent.setup();
-    vi.mocked(svc.listStores).mockResolvedValue([ownedStore, joinedStore]);
+    await seedDexie([ownedStore, joinedStore]);
     vi.mocked(svc.removeAccessToStore).mockResolvedValue(undefined);
     seedOwner();
     renderPage();
@@ -274,7 +317,7 @@ describe("StoreManagementPage", () => {
 
   it("shows error Alert when createStore fails", async () => {
     const user = userEvent.setup();
-    vi.mocked(svc.listStores).mockResolvedValue([ownedStore]);
+    await seedDexie([ownedStore]);
     vi.mocked(svc.createStore).mockRejectedValue(
       new Error("Drive quota exceeded"),
     );
@@ -294,7 +337,8 @@ describe("StoreManagementPage", () => {
 
   it("shows error Alert when removeOwnedStore fails", async () => {
     const user = userEvent.setup();
-    vi.mocked(svc.listStores).mockResolvedValue([ownedStore]);
+    // Active store is "another-store"; seed that db.
+    await seedDexie([ownedStore], "another-store");
     vi.mocked(svc.removeOwnedStore).mockRejectedValue(
       new Error("Network error"),
     );
@@ -319,9 +363,9 @@ describe("StoreManagementPage", () => {
   // ── T062: React Query auto-fetch + Aktifkan button ─────────────────────────
 
   it("fetches fresh store list on mount (simulates stale localStorage refresh scenario)", async () => {
-    // With React Query, stores are never in localStorage — listStores() is always called.
-    // This test ensures both stores from the server are shown regardless of prior state.
-    vi.mocked(svc.listStores).mockResolvedValue([ownedStore, joinedStore]);
+    // With useLiveQuery, stores are read directly from Dexie on mount.
+    // This test ensures both stores from Dexie are shown regardless of prior state.
+    await seedDexie([ownedStore, joinedStore]);
     seedOwner();
     renderPage();
 
@@ -329,10 +373,9 @@ describe("StoreManagementPage", () => {
       expect(screen.getByText("Toko Sendiri")).toBeInTheDocument();
       expect(screen.getByText("Toko Orang Lain")).toBeInTheDocument();
     });
-    expect(svc.listStores).toHaveBeenCalledTimes(1);
   });
 
-  it("refetches store list after createStore so NavBar cache is invalidated", async () => {
+  it("reflects new store in list after createStore (NavBar also auto-updates)", async () => {
     const user = userEvent.setup();
     const newStore: StoreRecord = {
       store_id: "store-new",
@@ -343,10 +386,15 @@ describe("StoreManagementPage", () => {
       my_role: "owner",
       joined_at: "2026-03-01T00:00:00Z",
     };
-    vi.mocked(svc.listStores)
-      .mockResolvedValueOnce([ownedStore])
-      .mockResolvedValueOnce([ownedStore, newStore]);
-    vi.mocked(svc.createStore).mockResolvedValue(newStore);
+    await seedDexie([ownedStore]);
+    // Mock createStore to write to Dexie so useLiveQuery auto-updates the list.
+    vi.mocked(svc.createStore).mockImplementation(async () => {
+      await getDb(ownedStore.store_id).Stores.put({
+        ...newStore,
+        id: newStore.store_id,
+      });
+      return newStore;
+    });
     seedOwner();
     renderPage();
 
@@ -355,18 +403,20 @@ describe("StoreManagementPage", () => {
     await user.type(screen.getByTestId("input-store-name"), "Toko Baru");
     await user.click(screen.getByTestId("btn-save-store"));
 
-    // After mutation, invalidateQueries triggers a refetch → listStores called twice
-    await waitFor(() => expect(svc.listStores).toHaveBeenCalledTimes(2));
+    await waitFor(() => {
+      expect(svc.createStore).toHaveBeenCalledWith("Toko Baru");
+    });
+    // useLiveQuery automatically re-renders when Dexie is updated.
     await waitFor(() => screen.getByText("Toko Baru"));
   });
 
-  it("refetches store list after updateStore so renamed store is visible", async () => {
+  it("reflects renamed store in list after updateStore (useLiveQuery auto-updates)", async () => {
     const user = userEvent.setup();
-    const renamedStore = { ...ownedStore, store_name: "Toko Ganti Nama" };
-    vi.mocked(svc.listStores)
-      .mockResolvedValueOnce([ownedStore, joinedStore])
-      .mockResolvedValueOnce([renamedStore, joinedStore]);
-    vi.mocked(svc.updateStore).mockResolvedValue(undefined);
+    await seedDexie([ownedStore, joinedStore]);
+    // Mock updateStore to also update Dexie so useLiveQuery reflects the rename.
+    vi.mocked(svc.updateStore).mockImplementation(async (storeId, changes) => {
+      await getDb(ownedStore.store_id).Stores.update(storeId, changes);
+    });
     seedOwner();
     renderPage();
 
@@ -381,13 +431,12 @@ describe("StoreManagementPage", () => {
     await user.type(input, "Toko Ganti Nama");
     await user.click(screen.getByTestId("btn-save-store-edit"));
 
-    // After mutation, invalidateQueries triggers a refetch
-    await waitFor(() => expect(svc.listStores).toHaveBeenCalledTimes(2));
+    // useLiveQuery automatically re-renders when Dexie is updated.
     await waitFor(() => screen.getByText("Toko Ganti Nama"));
   });
 
   it("shows Aktifkan button only for inactive stores", async () => {
-    vi.mocked(svc.listStores).mockResolvedValue([ownedStore, joinedStore]);
+    await seedDexie([ownedStore, joinedStore]);
     seedOwner(); // activeStoreId = ownedStore.store_id
     renderPage();
 
@@ -402,7 +451,7 @@ describe("StoreManagementPage", () => {
   it("calls activateStore and syncs activeStoreId when Aktifkan is clicked", async () => {
     const { activateStore } = await import("../modules/auth/setup.service");
     const user = userEvent.setup();
-    vi.mocked(svc.listStores).mockResolvedValue([ownedStore, joinedStore]);
+    await seedDexie([ownedStore, joinedStore]);
     seedOwner();
     renderPage();
 
@@ -425,7 +474,7 @@ describe("StoreManagementPage", () => {
       new Error("Activate failed"),
     );
     const user = userEvent.setup();
-    vi.mocked(svc.listStores).mockResolvedValue([ownedStore, joinedStore]);
+    await seedDexie([ownedStore, joinedStore]);
     seedOwner();
     renderPage();
 

@@ -8,7 +8,7 @@
  * T035 deliverable.
  */
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
@@ -29,15 +29,11 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { PRODUCTS_QUERY_KEY, useProducts } from "../../hooks/useProducts";
-import {
-  PURCHASE_ORDERS_QUERY_KEY,
-  usePurchaseOrders,
-} from "../../hooks/usePurchaseOrders";
+import { useProducts } from "../../hooks/useProducts";
+import { usePurchaseOrders } from "../../hooks/usePurchaseOrders";
 import { formatDateTimeTZ, formatIDR } from "../../lib/formatters";
 import { logger } from "../../lib/logger";
 import { generateId } from "../../lib/uuid";
-import { useAuthStore } from "../../store/authStore";
 import {
   createPurchaseOrder,
   fetchPurchaseOrderItems,
@@ -48,8 +44,6 @@ import {
 } from "./inventory.service";
 
 export function PurchaseOrders() {
-  const queryClient = useQueryClient();
-  const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const {
     data: orders = [],
     isLoading,
@@ -78,15 +72,6 @@ export function PurchaseOrders() {
   const [detailItems, setDetailItems] = useState<PurchaseOrderItemRow[]>([]);
   const [receivingId, setReceivingId] = useState<string | null>(null);
 
-  const invalidateOrders = () =>
-    queryClient.invalidateQueries({
-      queryKey: PURCHASE_ORDERS_QUERY_KEY(activeStoreId),
-    });
-  const invalidateProducts = () =>
-    queryClient.invalidateQueries({
-      queryKey: PRODUCTS_QUERY_KEY(activeStoreId),
-    });
-
   const createMutation = useMutation({
     mutationFn: () => {
       if (!supplier.trim()) throw new Error("Nama supplier wajib diisi");
@@ -98,7 +83,6 @@ export function PurchaseOrders() {
     onSuccess: () => {
       setShowForm(false);
       setFormError(null);
-      void invalidateOrders();
     },
     onError: (err: Error) => setFormError(err.message),
   });
@@ -109,8 +93,6 @@ export function PurchaseOrders() {
     onSuccess: () => {
       setDetailOrder(null);
       setReceivingId(null);
-      void invalidateOrders();
-      void invalidateProducts();
     },
     onError: (_err) => setReceivingId(null),
   });

@@ -6,18 +6,15 @@
  * service directly and invalidate the query to trigger a refetch.
  */
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
-import { CATEGORIES_QUERY_KEY, useCategories } from "../../hooks/useCategories";
-import { useAuthStore } from "../../store/authStore";
+import { useCategories } from "../../hooks/useCategories";
 import { CategoryForm } from "./CategoryForm";
 import { addCategory, deleteCategory, updateCategory } from "./catalog.service";
 
 export function CategoryList() {
-  const queryClient = useQueryClient();
-  const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const {
     data: categories = [],
     isLoading,
@@ -28,16 +25,10 @@ export function CategoryList() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({
-      queryKey: CATEGORIES_QUERY_KEY(activeStoreId),
-    });
-
   const addMutation = useMutation({
     mutationFn: (name: string) => addCategory(name),
     onSuccess: () => {
       setShowAddForm(false);
-      void invalidate();
     },
     onError: (err: Error) => setMutationError(err.message),
   });
@@ -47,7 +38,6 @@ export function CategoryList() {
       updateCategory(id, name),
     onSuccess: () => {
       setEditingId(null);
-      void invalidate();
     },
     onError: (err: Error) => setMutationError(err.message),
   });
@@ -56,7 +46,6 @@ export function CategoryList() {
     mutationFn: (id: string) => deleteCategory(id),
     onSuccess: () => {
       setMutationError(null);
-      void invalidate();
     },
     onError: (err: Error) => setMutationError(err.message),
   });

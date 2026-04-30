@@ -8,7 +8,6 @@
  *   4. On confirm, bulkImportProducts writes all rows + store is refreshed
  */
 
-import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
@@ -21,10 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { CATEGORIES_QUERY_KEY } from "../../hooks/useCategories";
-import { PRODUCTS_QUERY_KEY } from "../../hooks/useProducts";
 import { formatIDR } from "../../lib/formatters";
-import { useAuthStore } from "../../store/authStore";
 import type { ParsedProduct, RowValidationResult } from "./csv.service";
 import {
   bulkImportProducts,
@@ -39,8 +35,6 @@ export function CSVImport() {
   const [importError, setImportError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [successCount, setSuccessCount] = useState<number | null>(null);
-  const queryClient = useQueryClient();
-  const activeStoreId = useAuthStore((s) => s.activeStoreId);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -66,12 +60,6 @@ export function CSVImport() {
       setRows([]);
       setResults([]);
       if (fileInputRef.current) fileInputRef.current.value = "";
-      await queryClient.invalidateQueries({
-        queryKey: PRODUCTS_QUERY_KEY(activeStoreId),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: CATEGORIES_QUERY_KEY(activeStoreId),
-      });
     } catch (err) {
       setImportError(err instanceof Error ? err.message : String(err));
     } finally {

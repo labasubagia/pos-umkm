@@ -7,7 +7,7 @@
  * T034 deliverable.
  */
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
@@ -20,11 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import {
-  STOCK_OPNAME_QUERY_KEY,
-  useStockOpname,
-} from "../../hooks/useStockOpname";
-import { useAuthStore } from "../../store/authStore";
+import { useStockOpname } from "../../hooks/useStockOpname";
 import {
   InventoryError,
   type OpnameRow,
@@ -32,8 +28,6 @@ import {
 } from "./inventory.service";
 
 export function StockOpname() {
-  const queryClient = useQueryClient();
-  const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const {
     data: fetchedRows = [],
     isLoading,
@@ -59,9 +53,6 @@ export function StockOpname() {
           ? "Tidak ada perubahan stok yang perlu disimpan."
           : `Stok opname selesai — ${changedCount} produk diperbarui.`,
       );
-      void queryClient.invalidateQueries({
-        queryKey: STOCK_OPNAME_QUERY_KEY(activeStoreId),
-      });
     },
     onError: (_err) => setSuccessMsg(null),
   });

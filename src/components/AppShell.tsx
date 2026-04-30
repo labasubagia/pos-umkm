@@ -22,10 +22,8 @@
  *   Only the most-recent hydration call is allowed to trigger invalidation.
  */
 
-import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Outlet, useParams } from "react-router-dom";
-import { STORES_QUERY_KEY_PREFIX } from "../hooks/useStores";
 import {
   hydrationService,
   reinitDexieLayer,
@@ -41,7 +39,6 @@ import { SyncStatus } from "./SyncStatus";
 
 export function AppShell() {
   const { activeStoreId, setActiveStoreId } = useAuthStore();
-  const queryClient = useQueryClient();
   const { storeId: urlStoreId } = useParams<{ storeId: string }>();
   const [storeMapReady, setStoreMapReady] = useState(false);
 
@@ -82,22 +79,12 @@ export function AppShell() {
     // rendering children. On page refresh the persisted keyed store map may
     // already exist, but the sheets can still be empty if no traversal
     // happened in this session. In that case, traverse the Drive folder.
-    void ensureStoreMapReady(storeIdAtLaunch)
-      .then(() => {
-        if (gen !== hydrateGen.current) return;
-        setStoreMapReady(true);
-        return hydrationService.hydrateAll();
-      })
-      .then(() => {
-        if (gen !== hydrateGen.current) return;
-        void queryClient.invalidateQueries({
-          predicate: (query) =>
-            Array.isArray(query.queryKey) &&
-            (query.queryKey[0] === STORES_QUERY_KEY_PREFIX[0] ||
-              query.queryKey[1] === storeIdAtLaunch),
-        });
-      });
-  }, [activeStoreId, queryClient]);
+    void ensureStoreMapReady(storeIdAtLaunch).then(() => {
+      if (gen !== hydrateGen.current) return;
+      setStoreMapReady(true);
+      return hydrationService.hydrateAll();
+    });
+  }, [activeStoreId]);
 
   if (!storeMapReady) {
     return (

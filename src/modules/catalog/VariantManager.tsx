@@ -5,15 +5,14 @@
  * Data comes from useVariants() (React Query). Mutations invalidate the query.
  */
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { useVariants, VARIANTS_QUERY_KEY } from "../../hooks/useVariants";
+import { useVariants } from "../../hooks/useVariants";
 import { formatIDR } from "../../lib/formatters";
-import { useAuthStore } from "../../store/authStore";
 import type { Product } from "./catalog.service";
 import { addVariant, deleteVariant } from "./catalog.service";
 
@@ -22,8 +21,6 @@ interface Props {
 }
 
 export function VariantManager({ product }: Props) {
-  const queryClient = useQueryClient();
-  const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const { data: variants = [] } = useVariants();
 
   const productVariants = variants.filter((v) => v.product_id === product.id);
@@ -33,11 +30,6 @@ export function VariantManager({ product }: Props) {
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("0");
   const [error, setError] = useState<string | null>(null);
-
-  const invalidate = () =>
-    queryClient.invalidateQueries({
-      queryKey: VARIANTS_QUERY_KEY(activeStoreId),
-    });
 
   const addMutation = useMutation({
     mutationFn: () => {
@@ -60,14 +52,13 @@ export function VariantManager({ product }: Props) {
       setPrice("");
       setStock("0");
       setError(null);
-      void invalidate();
     },
     onError: (err: Error) => setError(err.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (variantId: string) => deleteVariant(variantId),
-    onSuccess: () => void invalidate(),
+    onSuccess: () => {},
     onError: (err: Error) => setError(err.message),
   });
 

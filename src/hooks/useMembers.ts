@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useLiveQuery } from "dexie-react-hooks";
+import type { Member } from "../modules/settings/members.service";
 import { listMembers } from "../modules/settings/members.service";
 import { useAuthStore } from "../store/authStore";
 
+// Kept for backward-compat.
 export const MEMBERS_QUERY_KEY = (storeId: string | null) => [
   "members",
   storeId,
@@ -9,9 +11,13 @@ export const MEMBERS_QUERY_KEY = (storeId: string | null) => [
 
 export function useMembers() {
   const activeStoreId = useAuthStore((s) => s.activeStoreId);
-  return useQuery({
-    queryKey: MEMBERS_QUERY_KEY(activeStoreId),
-    queryFn: listMembers,
-    enabled: !!activeStoreId,
-  });
+  const result = useLiveQuery(
+    () => (activeStoreId ? listMembers() : Promise.resolve([] as Member[])),
+    [activeStoreId],
+  );
+  return {
+    data: result ?? ([] as Member[]),
+    isLoading: result === undefined,
+    error: null as Error | null,
+  };
 }

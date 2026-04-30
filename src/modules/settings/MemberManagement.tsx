@@ -4,13 +4,13 @@
  * Data comes from useMembers() (React Query). Mutations invalidate the query.
  */
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { MEMBERS_QUERY_KEY, useMembers } from "../../hooks/useMembers";
+import { useMembers } from "../../hooks/useMembers";
 import { logger } from "../../lib/logger";
 import { useAuthStore } from "../../store/authStore";
 import { getStoreMapStore } from "../../store/storeMapStore";
@@ -22,7 +22,6 @@ import {
 
 export function MemberManagement() {
   const activeStoreId = useAuthStore((s) => s.activeStoreId);
-  const queryClient = useQueryClient();
   const { data: members = [], isLoading } = useMembers();
 
   // Master spreadsheet ID from the store map (used for invite + store link)
@@ -46,24 +45,18 @@ export function MemberManagement() {
   const [role, setRole] = useState<"manager" | "cashier">("cashier");
   const [storeLink, setStoreLink] = useState<string | null>(null);
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({
-      queryKey: MEMBERS_QUERY_KEY(activeStoreId),
-    });
-
   const inviteMutation = useMutation({
     mutationFn: async () => {
       if (!spreadsheetId) throw new Error("No spreadsheet ID");
       await inviteMember(email, role, spreadsheetId);
       setStoreLink(generateStoreLink(spreadsheetId));
       setEmail("");
-      await invalidate();
     },
   });
 
   const revokeMutation = useMutation({
     mutationFn: (userId: string) => revokeMember(userId),
-    onSuccess: () => void invalidate(),
+    onSuccess: () => {},
   });
 
   function handleInvite(e: React.FormEvent) {
