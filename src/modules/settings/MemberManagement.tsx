@@ -12,7 +12,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { MEMBERS_QUERY_KEY, useMembers } from "../../hooks/useMembers";
 import { useAuthStore } from "../../store/authStore";
-import { useAuth } from "../auth/useAuth";
+import { getActiveStoreMap } from "../../store/storeMapStore";
 import {
   generateStoreLink,
   inviteMember,
@@ -20,10 +20,20 @@ import {
 } from "./members.service";
 
 export function MemberManagement() {
-  const { spreadsheetId } = useAuth();
   const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const queryClient = useQueryClient();
   const { data: members = [], isLoading } = useMembers();
+
+  // Master spreadsheet ID from the store map (used for invite + store link)
+  const spreadsheetId = (() => {
+    try {
+      return (
+        getActiveStoreMap().getState().sheets.Members?.spreadsheet_id ?? null
+      );
+    } catch {
+      return null;
+    }
+  })();
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"manager" | "cashier">("cashier");
