@@ -31,6 +31,7 @@ import {
   syncManager,
 } from "../lib/adapters";
 import { logger } from "../lib/logger";
+import { pendingActivations } from "../modules/auth/setup.service";
 import { useAuthStore } from "../store/authStore";
 import { getStoreMapStore } from "../store/storeMapStore";
 import { BottomNav } from "./BottomNav";
@@ -128,6 +129,25 @@ export function AppShell() {
  * to populate them.
  */
 async function ensureStoreMapReady(storeId: string): Promise<void> {
+  // If activateStore() is still in-flight for this store (triggered by NavBar
+  // or StoreManagementPage before navigate()), await it first so we don't
+  // race with a concurrent Drive traversal and hydrate with an empty sheet map.
+  const pending = pendingActivations.get(storeId);
+  if (pending) {
+    try {
+      await pending;
+    } catch {
+      // activateStore failed — fall through to attempt our own traversal below
+    }
+    // Store map was populated by activateStore; nothing more to do.
+    const storeMapAfterActivation = getStoreMapStore(storeId).getState();
+    if (
+      Object.keys(storeMapAfterActivation.sheets).length > 0 ||
+      storeMapAfterActivation.monthlySheets.length > 0
+    )
+      return;
+  }
+
   const storeMap = getStoreMapStore(storeId).getState();
 
   // Already populated (e.g. from a recent activateStore call)

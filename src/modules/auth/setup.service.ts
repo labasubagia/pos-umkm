@@ -243,6 +243,13 @@ export async function findOrCreateMain(
  *
  * @param store  The store record from main.Stores (must have drive_folder_id).
  */
+/**
+ * Tracks in-flight activateStore() calls keyed by storeId.
+ * AppShell reads this so ensureStoreMapReady() can await the activation
+ * promise instead of racing it with its own Drive traversal.
+ */
+export const pendingActivations = new Map<string, Promise<void>>();
+
 export async function activateStore(store: StoreRecord): Promise<void> {
   const { store_id: storeId, drive_folder_id: storeFolderId } = store;
 
@@ -253,14 +260,23 @@ export async function activateStore(store: StoreRecord): Promise<void> {
     );
   }
 
-  // Traverse the folder to build the sheet map
-  const result = await storeFolderService.traverse(storeFolderId);
-  getStoreMapStore(storeId)
-    .getState()
-    .setStoreMap(storeFolderId, result.sheets, result.monthlySheets);
+  const activation = (async () => {
+    // Traverse the folder to build the sheet map
+    const result = await storeFolderService.traverse(storeFolderId);
+    getStoreMapStore(storeId)
+      .getState()
+      .setStoreMap(storeFolderId, result.sheets, result.monthlySheets);
 
-  // Option B: Pre-create current + next month's sheets if missing
-  await ensureMonthlySheets(storeId, storeFolderId);
+    // Option B: Pre-create current + next month's sheets if missing
+    await ensureMonthlySheets(storeId, storeFolderId);
+  })();
+
+  pendingActivations.set(storeId, activation);
+  try {
+    await activation;
+  } finally {
+    pendingActivations.delete(storeId);
+  }
 }
 
 /**
