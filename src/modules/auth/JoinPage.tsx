@@ -25,7 +25,7 @@ import { useAuth } from "./useAuth";
 export default function JoinPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { setUser, setSpreadsheetId } = useAuth();
+  const { setUser } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -45,10 +45,7 @@ export default function JoinPage() {
       const userWithRole = { ...user, role };
       const token = authAdapter.getAccessToken() ?? "";
       setUser(userWithRole, role, token);
-      setSpreadsheetId(sid);
-      // Navigate to /stores so StorePickerPage resolves the active store and
-      // sets the correct :storeId in the URL (member may not know their storeId
-      // from the invite link alone).
+      // Navigate to /stores so StorePickerPage resolves the active store.
       navigate("/stores");
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);

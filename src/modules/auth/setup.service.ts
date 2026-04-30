@@ -366,7 +366,7 @@ async function createMonthlySheetForStore(
     String(year),
   ]);
 
-  const id = await driveClient.createSpreadsheet(name, yearFolderId, [
+  const id = await driveClient.createSpreadsheet(name, yearFolderId ?? undefined, [
     ...MONTHLY_TABS,
   ]);
 
@@ -376,7 +376,7 @@ async function createMonthlySheetForStore(
   // Register in Monthly_Sheets tab (read from master spreadsheet in the store map)
   const masterMeta = storeMap.sheets.Monthly_Sheets;
   if (masterMeta) {
-    await makeRepo(masterMeta.spreadsheet_id, "Monthly_Sheets").batchInsert([
+    await makeRepo(masterMeta.spreadsheet_id, "Monthly_Sheets").batchAppend([
       {
         id: generateId(),
         year_month: yearMonth,
@@ -530,13 +530,13 @@ export async function runStoreSetup(
     "transactions",
     String(year),
   ]);
-  const monthlyId = await driveClient.createSpreadsheet(name, yearFolderId, [
+  const monthlyId = await driveClient.createSpreadsheet(name, yearFolderId ?? undefined, [
     ...MONTHLY_TABS,
   ]);
   await initializeMonthlySheets(monthlyId);
 
   // Register in Monthly_Sheets
-  await makeRepo(masterId, "Monthly_Sheets").batchInsert([
+  await makeRepo(masterId, "Monthly_Sheets").batchAppend([
     {
       id: generateId(),
       year_month: yearMonth,

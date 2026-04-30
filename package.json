@@ -7,7 +7,7 @@
     "prepare": "husky install",
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "check": "tsc --noEmit",
+    "check": "tsc -b --noEmit",
     "lint": "biome check --write --no-errors-on-unmatched --error-on-warnings --files-ignore-unknown=true",
     "preview": "vite preview",
     "test": "vitest run",
@@ -70,6 +70,7 @@
   "lint-staged": {
     "*": "npx secretlint",
     "*.{js,jsx,ts,tsx,json,css}": [
+      "npx tsc --noEmit",
       "npx biome check --write --error-on-warnings --files-ignore-unknown=true"
     ]
   }
