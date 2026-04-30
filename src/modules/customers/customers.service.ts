@@ -11,20 +11,15 @@
  */
 
 import { getRepos } from "../../lib/adapters";
+import type { CustomerRow } from "../../lib/adapters/entity-types";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
 import { validatePhone } from "../../lib/validators";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
-export interface Customer {
-  id: string;
-  name: string;
-  phone: string;
-  email?: string;
-  created_at: string;
-  deleted_at?: string | null;
-}
+/** Customer row — matches the Customers sheet tab columns. */
+export type Customer = CustomerRow;
 
 // ─── Custom errors ─────────────────────────────────────────────────────────────
 
@@ -45,19 +40,7 @@ export class CustomerError extends Error {
  */
 export async function fetchCustomers(): Promise<Customer[]> {
   const rows = await getRepos().customers.getAll();
-  return rows
-    .filter((r) => (r as Record<string, unknown>).name)
-    .map((r) => ({
-      id: (r as Record<string, unknown>).id as string,
-      name: (r as Record<string, unknown>).name as string,
-      phone: (r as Record<string, unknown>).phone as string,
-      email:
-        ((r as Record<string, unknown>).email as string | undefined) ??
-        undefined,
-      created_at: (r as Record<string, unknown>).created_at as string,
-      deleted_at:
-        ((r as Record<string, unknown>).deleted_at as string | null) ?? null,
-    }));
+  return rows.filter((r) => r.name); // skip sentinel rows
 }
 
 /**
@@ -79,11 +62,7 @@ export async function addCustomer(
 
   // Check for duplicate phone in existing customers
   const existing = await getRepos().customers.getAll();
-  const duplicate = existing.find(
-    (r) =>
-      (r as Record<string, unknown>).name &&
-      (r as Record<string, unknown>).phone === phone,
-  );
+  const duplicate = existing.find((r) => r.name && r.phone === phone);
   if (duplicate) {
     throw new CustomerError(`Nomor telepon ${phone} sudah terdaftar`);
   }
@@ -100,7 +79,14 @@ export async function addCustomer(
       deleted_at: null,
     },
   ]);
-  return { id, name: name.trim(), phone, email, created_at, deleted_at: null };
+  return {
+    id,
+    name: name.trim(),
+    phone,
+    email: email ?? "",
+    created_at,
+    deleted_at: null,
+  };
 }
 
 /**

@@ -14,6 +14,7 @@
  */
 
 import { getRepos } from "../../lib/adapters";
+import type { PurchaseOrderItemRow as DbPurchaseOrderItemRow } from "../../lib/adapters/entity-types";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
 
@@ -60,11 +61,7 @@ export interface PurchaseOrderItem {
 }
 
 /** Stored purchase order item row (includes IDs and timestamps). */
-export interface PurchaseOrderItemRow extends PurchaseOrderItem {
-  id: string;
-  order_id: string;
-  created_at: string;
-}
+export type PurchaseOrderItemRow = DbPurchaseOrderItemRow;
 
 // ─── T034 — Stock Opname ──────────────────────────────────────────────────────
 
@@ -76,13 +73,13 @@ export interface PurchaseOrderItemRow extends PurchaseOrderItem {
 export async function fetchStockOpnameData(): Promise<OpnameRow[]> {
   const rows = await getRepos().products.getAll();
   return rows
-    .filter((r) => (r as Record<string, unknown>).name) // skip sentinel rows
+    .filter((r) => r.name) // skip sentinel rows
     .map((r) => ({
-      product_id: (r as Record<string, unknown>).id as string,
-      product_name: (r as Record<string, unknown>).name as string,
-      sku: ((r as Record<string, unknown>).sku as string) ?? "",
-      system_stock: Number((r as Record<string, unknown>).stock),
-      physical_count: Number((r as Record<string, unknown>).stock),
+      product_id: r.id,
+      product_name: r.name,
+      sku: r.sku,
+      system_stock: r.stock,
+      physical_count: r.stock,
     }));
 }
 
@@ -200,13 +197,11 @@ export async function createPurchaseOrder(
 export async function receivePurchaseOrder(orderId: string): Promise<void> {
   // Step 1: Load order and validate state
   const orders = await getRepos().purchaseOrders.getAll();
-  const order = orders.find(
-    (o) => (o as Record<string, unknown>).id === orderId,
-  );
+  const order = orders.find((o) => o.id === orderId);
   if (!order) {
     throw new InventoryError(`Purchase order "${orderId}" tidak ditemukan`);
   }
-  if ((order as Record<string, unknown>).status === "received") {
+  if (order.status === "received") {
     throw new InventoryError(
       `Purchase order "${orderId}" sudah berstatus "received" dan tidak dapat diproses ulang`,
     );
@@ -218,23 +213,19 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
     getRepos().products.getAll(),
   ]);
 
-  const orderItems = allItems.filter(
-    (i) => (i as Record<string, unknown>).order_id === orderId,
-  ) as unknown as PurchaseOrderItemRow[];
+  const orderItems = allItems.filter((i) => i.order_id === orderId);
 
   // Compute all new stock values and validate products exist
   const created_at = nowUTC();
   const stockData = orderItems.map((item) => {
-    const product = products.find(
-      (p) => (p as Record<string, unknown>).id === item.product_id,
-    );
+    const product = products.find((p) => p.id === item.product_id);
     if (!product) {
       throw new InventoryError(
         `Produk dengan id "${item.product_id}" tidak ditemukan saat menerima purchase order`,
       );
     }
-    const qtyBefore = Number((product as Record<string, unknown>).stock);
-    const qtyAfter = qtyBefore + Number(item.qty);
+    const qtyBefore = product.stock;
+    const qtyAfter = qtyBefore + item.qty;
     return { item, qtyBefore, qtyAfter };
   });
 
@@ -272,12 +263,6 @@ export async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
   const rows = await getRepos().purchaseOrders.getAll();
   return rows
     .filter((r) => r.supplier)
-    .map((r) => ({
-      id: r.id as string,
-      supplier: r.supplier as string,
-      status: r.status as "pending" | "received",
-      created_at: r.created_at as string,
-    }))
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
@@ -288,15 +273,5 @@ export async function fetchPurchaseOrderItems(
   orderId: string,
 ): Promise<PurchaseOrderItemRow[]> {
   const rows = await getRepos().purchaseOrderItems.getAll();
-  return rows
-    .filter((r) => r.order_id === orderId)
-    .map((r) => ({
-      id: r.id as string,
-      order_id: r.order_id as string,
-      product_id: r.product_id as string,
-      product_name: r.product_name as string,
-      qty: Number(r.qty),
-      cost_price: Number(r.cost_price),
-      created_at: r.created_at as string,
-    }));
+  return rows.filter((r) => r.order_id === orderId);
 }

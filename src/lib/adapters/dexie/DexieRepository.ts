@@ -55,7 +55,7 @@ export class DexieRepository<T extends Record<string, unknown>>
 
   async getAll(): Promise<T[]> {
     const rows = await this.db.table<T>(this.sheetName).toArray();
-    return rows.filter((r) => !(r as Record<string, unknown>).deleted_at);
+    return rows.filter((r) => !r.deleted_at);
   }
 
   // ─── Writes (IndexedDB + outbox) ─────────────────────────────────────────────

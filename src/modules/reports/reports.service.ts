@@ -107,25 +107,25 @@ export async function fetchDailySummary(date: string): Promise<DailySummary> {
     throw new ReportError("Belum ada data transaksi untuk bulan ini");
   }
 
-  const transactions = txRows.map((r) => ({
-    id: String(r.id),
-    receipt_number: String(r.receipt_number ?? ""),
-    created_at: String(r.created_at),
-    cashier_id: String(r.cashier_id),
-    payment_method: String(r.payment_method),
-    total: Number(r.total),
-    cash_received: Number(r.cash_received),
-  })) as TransactionRow[];
+  const transactions: TransactionRow[] = txRows.map((r) => ({
+    id: r.id,
+    receipt_number: r.receipt_number,
+    created_at: r.created_at,
+    cashier_id: r.cashier_id,
+    payment_method: r.payment_method,
+    total: r.total,
+    cash_received: r.cash_received,
+  }));
 
-  const items = itemRows.map((r) => ({
-    id: String(r.id),
-    transaction_id: String(r.transaction_id),
-    product_id: String(r.product_id),
-    name: String(r.name),
-    price: Number(r.price),
-    quantity: Number(r.quantity),
-    subtotal: Number(r.subtotal),
-  })) as TransactionItemRow[];
+  const items: TransactionItemRow[] = itemRows.map((r) => ({
+    id: r.id,
+    transaction_id: r.transaction_id,
+    product_id: r.product_id,
+    name: r.name,
+    price: r.price,
+    quantity: r.quantity,
+    subtotal: r.subtotal,
+  }));
 
   return { date, ...aggregateTransactions(transactions, items, date) };
 }
@@ -163,19 +163,17 @@ export async function fetchTransactionsForRange(
   for (const _month of months) {
     const rows = await getRepos().transactions.getAll();
     for (const r of rows) {
-      const id = String(r.id);
-      const created_at = String(r.created_at);
-      if (seen.has(id)) continue;
-      if (created_at >= startDate && created_at <= endBound) {
-        seen.add(id);
+      if (seen.has(r.id)) continue;
+      if (r.created_at >= startDate && r.created_at <= endBound) {
+        seen.add(r.id);
         allRows.push({
-          id,
-          receipt_number: String(r.receipt_number ?? ""),
-          created_at,
-          cashier_id: String(r.cashier_id),
-          payment_method: String(r.payment_method),
-          total: Number(r.total),
-          cash_received: Number(r.cash_received),
+          id: r.id,
+          receipt_number: r.receipt_number,
+          created_at: r.created_at,
+          cashier_id: r.cashier_id,
+          payment_method: r.payment_method,
+          total: r.total,
+          cash_received: r.cash_received,
         });
       }
     }

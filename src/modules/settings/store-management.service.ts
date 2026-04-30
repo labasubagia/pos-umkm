@@ -15,6 +15,7 @@ import {
   getRepos,
   localCachePut,
 } from "../../lib/adapters";
+import type { StoreRow } from "../../lib/adapters/entity-types";
 import { nowUTC } from "../../lib/formatters";
 import { useAuthStore } from "../../store/authStore";
 import {
@@ -46,27 +47,15 @@ function requireMainId(): string {
 }
 
 /** Maps a raw Stores-tab row to a typed StoreRecord. */
-function toStoreRecord(r: Record<string, unknown>): StoreRecord {
+function toStoreRecord(r: StoreRow): StoreRecord {
   return {
-    store_id: String((r as Record<string, unknown>).store_id),
-    store_name: String(
-      ((r as Record<string, unknown>).store_name ?? "") as string,
-    ),
-    master_spreadsheet_id: String(
-      (r as Record<string, unknown>).master_spreadsheet_id,
-    ),
-    drive_folder_id: String(
-      ((r as Record<string, unknown>).drive_folder_id ?? "") as string,
-    ),
-    owner_email: String(
-      ((r as Record<string, unknown>).owner_email ?? "") as string,
-    ),
-    my_role: String(
-      ((r as Record<string, unknown>).my_role ?? "owner") as string,
-    ),
-    joined_at: String(
-      ((r as Record<string, unknown>).joined_at ?? "") as string,
-    ),
+    store_id: r.store_id,
+    store_name: r.store_name ?? "",
+    master_spreadsheet_id: r.master_spreadsheet_id,
+    drive_folder_id: r.drive_folder_id ?? "",
+    owner_email: r.owner_email ?? "",
+    my_role: r.my_role ?? "owner",
+    joined_at: r.joined_at ?? "",
   };
 }
 
@@ -82,11 +71,7 @@ export async function listStores(): Promise<StoreRecord[]> {
   requireMainId();
   const rows = await getRepos().stores.getAll();
   return rows
-    .filter(
-      (r) =>
-        (r as Record<string, unknown>).store_id &&
-        (r as Record<string, unknown>).master_spreadsheet_id,
-    )
+    .filter((r) => r.store_id && r.master_spreadsheet_id)
     .map(toStoreRecord);
 }
 

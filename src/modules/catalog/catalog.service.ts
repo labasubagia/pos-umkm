@@ -17,41 +17,24 @@
  */
 
 import { getRepos } from "../../lib/adapters";
+import type {
+  CategoryRow,
+  ProductRow,
+  VariantRow,
+} from "../../lib/adapters/entity-types";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
 
-// ─── Domain types ─────────────────────────────────────────────────────────────
+// ─── Domain types (re-exported from entity layer) ─────────────────────────────
 
-export interface Category {
-  id: string;
-  name: string;
-  created_at: string;
-  deleted_at?: string | null;
-}
+/** Category row — matches the Categories sheet tab columns. */
+export type Category = CategoryRow;
 
-export interface Product {
-  id: string;
-  category_id: string;
-  name: string;
-  sku: string;
-  price: number;
-  stock: number;
-  /** When true, the cashier screen shows a variant selector, not a direct add. */
-  has_variants: boolean;
-  created_at: string;
-  deleted_at?: string | null;
-}
+/** Product row — matches the Products sheet tab columns. */
+export type Product = ProductRow;
 
-export interface Variant {
-  id: string;
-  product_id: string;
-  option_name: string;
-  option_value: string;
-  price: number;
-  stock: number;
-  created_at: string;
-  deleted_at?: string | null;
-}
+/** Variant row — matches the Variants sheet tab columns. */
+export type Variant = VariantRow;
 
 // ─── Custom errors ─────────────────────────────────────────────────────────────
 
@@ -72,15 +55,7 @@ export class CatalogError extends Error {
  */
 export async function fetchCategories(): Promise<Category[]> {
   const rows = await getRepos().categories.getAll();
-  return rows
-    .filter((r) => (r as Record<string, unknown>).name) // skip sentinel/header rows without a name
-    .map((r) => ({
-      id: (r as Record<string, unknown>).id as string,
-      name: (r as Record<string, unknown>).name as string,
-      created_at: (r as Record<string, unknown>).created_at as string,
-      deleted_at:
-        ((r as Record<string, unknown>).deleted_at as string | null) ?? null,
-    }));
+  return rows.filter((r) => r.name); // skip sentinel/header rows without a name
 }
 
 /**
@@ -129,9 +104,7 @@ export async function updateCategory(id: string, name: string): Promise<void> {
  */
 export async function deleteCategory(id: string): Promise<void> {
   const products = await getRepos().products.getAll();
-  const hasProducts = products.some(
-    (p) => (p as Record<string, unknown>).category_id === id,
-  );
+  const hasProducts = products.some((p) => p.category_id === id);
   if (hasProducts) {
     throw new CatalogError(
       "Kategori tidak dapat dihapus karena masih ada produk yang menggunakan kategori ini",
@@ -145,24 +118,16 @@ export async function deleteCategory(id: string): Promise<void> {
 /**
  * Fetches all non-soft-deleted products.
  * Adapter's getSheet already filters deleted rows.
+ * has_variants is normalised to boolean by the db.ts reading hook.
  */
 export async function fetchProducts(): Promise<Product[]> {
   const rows = await getRepos().products.getAll();
   return rows
-    .filter((r) => (r as Record<string, unknown>).name)
+    .filter((r) => r.name)
     .map((r) => ({
-      id: (r as Record<string, unknown>).id as string,
-      category_id: (r as Record<string, unknown>).category_id as string,
-      name: (r as Record<string, unknown>).name as string,
-      sku: ((r as Record<string, unknown>).sku as string) ?? "",
-      price: Number((r as Record<string, unknown>).price),
-      stock: Number((r as Record<string, unknown>).stock),
-      has_variants:
-        (r as Record<string, unknown>).has_variants === true ||
-        (r as Record<string, unknown>).has_variants === "TRUE",
-      created_at: (r as Record<string, unknown>).created_at as string,
-      deleted_at:
-        ((r as Record<string, unknown>).deleted_at as string | null) ?? null,
+      ...r,
+      price: Number(r.price),
+      stock: Number(r.stock),
     }));
 }
 
@@ -190,18 +155,19 @@ export async function addProduct(product: NewProduct): Promise<Product> {
 
   const id = generateId();
   const created_at = nowUTC();
-  const row: Record<string, unknown> = {
-    id,
-    category_id: product.category_id,
-    name: product.name.trim(),
-    sku: product.sku ?? "",
-    price: product.price,
-    stock: product.stock ?? 0,
-    has_variants: product.has_variants ?? false,
-    created_at,
-    deleted_at: null,
-  };
-  await getRepos().products.batchInsert([row]);
+  await getRepos().products.batchInsert([
+    {
+      id,
+      category_id: product.category_id,
+      name: product.name.trim(),
+      sku: product.sku ?? "",
+      price: product.price,
+      stock: product.stock ?? 0,
+      has_variants: product.has_variants ?? false,
+      created_at,
+      deleted_at: null,
+    },
+  ]);
   return {
     id,
     category_id: product.category_id,
@@ -253,13 +219,11 @@ export async function decrementStock(
   qty: number,
 ): Promise<void> {
   const rows = await getRepos().products.getAll();
-  const product = rows.find(
-    (r) => (r as Record<string, unknown>).id === productId,
-  );
+  const product = rows.find((r) => r.id === productId);
   if (!product) {
     throw new CatalogError(`Produk dengan id "${productId}" tidak ditemukan`);
   }
-  const currentStock = Number((product as Record<string, unknown>).stock);
+  const currentStock = product.stock;
   const newStock = currentStock - qty;
   if (newStock < 0) {
     throw new CatalogError(
@@ -279,17 +243,11 @@ export async function decrementStock(
 export async function fetchVariants(): Promise<Variant[]> {
   const rows = await getRepos().variants.getAll();
   return rows
-    .filter((r) => (r as Record<string, unknown>).product_id)
+    .filter((r) => r.product_id)
     .map((r) => ({
-      id: (r as Record<string, unknown>).id as string,
-      product_id: (r as Record<string, unknown>).product_id as string,
-      option_name: (r as Record<string, unknown>).option_name as string,
-      option_value: (r as Record<string, unknown>).option_value as string,
-      price: Number((r as Record<string, unknown>).price),
-      stock: Number((r as Record<string, unknown>).stock),
-      created_at: (r as Record<string, unknown>).created_at as string,
-      deleted_at:
-        ((r as Record<string, unknown>).deleted_at as string | null) ?? null,
+      ...r,
+      price: Number(r.price),
+      stock: Number(r.stock),
     }));
 }
 
@@ -351,13 +309,11 @@ export async function decrementVariantStock(
   qty: number,
 ): Promise<void> {
   const rows = await getRepos().variants.getAll();
-  const variant = rows.find(
-    (r) => (r as Record<string, unknown>).id === variantId,
-  );
+  const variant = rows.find((r) => r.id === variantId);
   if (!variant) {
     throw new CatalogError(`Varian dengan id "${variantId}" tidak ditemukan`);
   }
-  const currentStock = Number((variant as Record<string, unknown>).stock);
+  const currentStock = variant.stock;
   const newStock = currentStock - qty;
   if (newStock < 0) {
     throw new CatalogError(

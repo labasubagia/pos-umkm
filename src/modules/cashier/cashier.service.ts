@@ -372,7 +372,7 @@ export async function commitTransaction(
       cashier_id: cashierId,
       customer_id: customerId ?? "",
       subtotal,
-      discount_type: discount?.type ?? "",
+      discount_type: discount?.type ?? null,
       discount_value: discount?.value ?? 0,
       discount_amount: discountAmount,
       tax,
