@@ -250,6 +250,14 @@ export async function findOrCreateMain(
  */
 export const pendingActivations = new Map<string, Promise<void>>();
 
+/**
+ * Store-map entries are considered fresh for this many milliseconds after
+ * the last Drive traversal. Within the TTL, activateStore() skips the Drive
+ * API call and only runs ensureMonthlySheets() (which is itself a no-op when
+ * both current + next month sheets already exist).
+ */
+const STORE_MAP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 export async function activateStore(store: StoreRecord): Promise<void> {
   const { store_id: storeId, drive_folder_id: storeFolderId } = store;
 
@@ -261,11 +269,20 @@ export async function activateStore(store: StoreRecord): Promise<void> {
   }
 
   const activation = (async () => {
-    // Traverse the folder to build the sheet map
-    const result = await storeFolderService.traverse(storeFolderId);
-    getStoreMapStore(storeId)
-      .getState()
-      .setStoreMap(storeFolderId, result.sheets, result.monthlySheets);
+    const cachedMap = getStoreMapStore(storeId).getState();
+    const isFresh =
+      cachedMap.lastTraversedAt !== null &&
+      Date.now() - cachedMap.lastTraversedAt < STORE_MAP_TTL_MS &&
+      (Object.keys(cachedMap.sheets).length > 0 ||
+        cachedMap.monthlySheets.length > 0);
+
+    if (!isFresh) {
+      // Traverse the folder to build the sheet map
+      const result = await storeFolderService.traverse(storeFolderId);
+      getStoreMapStore(storeId)
+        .getState()
+        .setStoreMap(storeFolderId, result.sheets, result.monthlySheets);
+    }
 
     // Option B: Pre-create current + next month's sheets if missing
     await ensureMonthlySheets(storeId, storeFolderId);
