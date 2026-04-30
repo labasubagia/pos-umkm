@@ -54,7 +54,6 @@ export default function CashierPage() {
     txItems: TransactionItem[];
   } | null>(null);
   const [txError, setTxError] = useState("");
-  const [receiptSeq, setReceiptSeq] = useState(1);
   const [mobileView, setMobileView] = useState<MobileView>("products");
 
   const subtotal = calculateSubtotal(items);
@@ -85,12 +84,9 @@ export default function CashierPage() {
         payment,
         user.id,
         selectedCustomer?.id ?? null,
-        "",
-        receiptSeq,
         products,
         variants,
       );
-      setReceiptSeq((s) => s + 1);
       setSelectedCustomer(null);
 
       // Invalidate product/variant caches so stock decrements are reflected

@@ -40,12 +40,7 @@ vi.mock("../modules/auth/setup.service", async (importOriginal) => {
     await importOriginal<typeof import("../modules/auth/setup.service")>();
   return {
     ...actual,
-    activateStore: vi.fn().mockImplementation((store) =>
-      Promise.resolve({
-        spreadsheetId: store.master_spreadsheet_id,
-        monthlySpreadsheetId: null,
-      }),
-    ),
+    activateStore: vi.fn().mockImplementation(() => Promise.resolve()),
   };
 });
 

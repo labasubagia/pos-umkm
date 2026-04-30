@@ -264,8 +264,6 @@ export async function commitTransaction(
   payment: PaymentInfo,
   cashierId: string,
   customerId: string | null,
-  _masterSpreadsheetId: string,
-  _receiptSequence: number,
   preloadedProducts?: Product[],
   preloadedVariants?: Variant[],
 ): Promise<Transaction> {

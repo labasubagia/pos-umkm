@@ -2,9 +2,8 @@
  * StoreFolderService.ts — Single entry point for data source discovery.
  *
  * Given a store's root Drive folder ID, traverses the folder tree and builds
- * a flat map of sheet_name → SheetMeta. This replaces the previous approach
- * of manually tracking mainSpreadsheetId, masterSpreadsheetId, and
- * monthlySpreadsheetId across multiple localStorage keys.
+ * a flat sheet map. This replaces the previous approach
+ * of manually tracking spreadsheet IDs across multiple localStorage keys.
  *
  * The folder structure convention:
  *   <store_folder>/

@@ -308,7 +308,6 @@ describe("commitTransaction", () => {
     cashReceived: 50000,
     change: 15000,
   };
-  const masterSpreadsheetId = "master-id";
 
   beforeEach(async () => {
     mockRepos.products.getAll.mockResolvedValue([
@@ -318,31 +317,13 @@ describe("commitTransaction", () => {
   });
 
   it("appends 1 row to Transactions tab", async () => {
-    await commitTransaction(
-      items,
-      null,
-      0,
-      payment,
-      "user-1",
-      null,
-      masterSpreadsheetId,
-      1,
-    );
+    await commitTransaction(items, null, 0, payment, "user-1", null);
 
     expect(mockRepos.transactions.batchInsert).toHaveBeenCalledTimes(1);
   });
 
   it("appends all cart items to Transaction_Items tab in a single call", async () => {
-    await commitTransaction(
-      items,
-      null,
-      0,
-      payment,
-      "user-1",
-      null,
-      masterSpreadsheetId,
-      1,
-    );
+    await commitTransaction(items, null, 0, payment, "user-1", null);
 
     expect(mockRepos.transactionItems.batchInsert).toHaveBeenCalledTimes(1);
     const appended = mockRepos.transactionItems.batchInsert.mock.calls[0][0];
@@ -350,16 +331,7 @@ describe("commitTransaction", () => {
   });
 
   it("decrements stock for each distinct product", async () => {
-    await commitTransaction(
-      items,
-      null,
-      0,
-      payment,
-      "user-1",
-      null,
-      masterSpreadsheetId,
-      1,
-    );
+    await commitTransaction(items, null, 0, payment, "user-1", null);
 
     const updates = mockRepos.products.batchUpdate.mock.calls[0][0];
     expect(updates.find((u: { id: string }) => u.id === "prod-1")?.stock).toBe(
@@ -378,8 +350,6 @@ describe("commitTransaction", () => {
       payment,
       "user-1",
       null,
-      masterSpreadsheetId,
-      1,
     );
 
     expect(result.id).toBeTruthy();
@@ -390,16 +360,7 @@ describe("commitTransaction", () => {
 
   it("throws if cart is empty", async () => {
     await expect(
-      commitTransaction(
-        [],
-        null,
-        0,
-        payment,
-        "user-1",
-        null,
-        masterSpreadsheetId,
-        1,
-      ),
+      commitTransaction([], null, 0, payment, "user-1", null),
     ).rejects.toThrow(CashierError);
   });
 });
