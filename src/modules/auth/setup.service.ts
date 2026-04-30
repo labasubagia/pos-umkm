@@ -252,10 +252,6 @@ export async function activateStore(store: StoreRecord): Promise<void> {
     );
   }
 
-  // Set activeStoreId synchronously for downstream services
-  localStorage.setItem("activeStoreId", storeId);
-  localStorage.setItem("storeFolderId", storeFolderId);
-
   // Initialize the store map store for this store_id
   setActiveStoreMap(storeId);
 
@@ -510,10 +506,6 @@ export async function runStoreSetup(
     driveFolderId,
   } = await createMasterSpreadsheet(businessName, ownerEmail, mainId);
   await initializeMasterSheets(masterId);
-
-  // Set activeStoreId so downstream services can locate the folder
-  localStorage.setItem("activeStoreId", newStoreId);
-  localStorage.setItem("storeFolderId", driveFolderId);
 
   // Create current month's transaction spreadsheet
   const now = new Date();

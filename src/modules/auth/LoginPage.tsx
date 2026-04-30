@@ -3,12 +3,11 @@
  *
  * `AuthInitializer` (mounted at the root) already calls restoreSession() and
  * populates the Zustand auth store on page load. If the user arrives at /login
- * while already authenticated (persisted state), they are redirected to /cashier
- * immediately via <Navigate> — no effect needed.
+ * while already authenticated (persisted state), they are redirected to the
+ * store picker immediately via <Navigate> — no effect needed.
  *
- * For a fresh login: signIn() is called, then the user is routed either to
- * /cashier (fast path — spreadsheetId already persisted in Zustand) or /stores
- * (slow path — StorePickerPage resolves the active store).
+ * For a fresh login: signIn() is called, then the user is routed to /stores
+ * so StorePickerPage can resolve the active store from the live store list.
  */
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
@@ -27,32 +26,20 @@ export default function LoginPage() {
   // Already authenticated from persisted Zustand state (e.g. refresh, back-navigation).
   // Guard against the case where we're mid sign-in and isAuthenticated just flipped.
   if (isAuthenticated && !signingIn) {
-    const storeId =
-      useAuthStore.getState().activeStoreId ??
-      localStorage.getItem("activeStoreId");
-    return (
-      <Navigate to={storeId ? `/${storeId}/cashier` : "/stores"} replace />
-    );
+    const storeId = useAuthStore.getState().activeStoreId;
+    return <Navigate to={storeId ? `/${storeId}/cashier` : "/stores"} replace />;
   }
 
   /**
    * Navigation after a successful fresh sign-in.
    *
-   * If activeStoreId is persisted, go straight to /:storeId/cashier.
-   * Otherwise navigate to /stores so StorePickerPage resolves the store.
+   * Navigate to /stores so StorePickerPage can resolve the active store from
+   * the current main.Stores contents instead of stale localStorage.
    * The store map + monthly sheets are loaded by AppShell on mount.
    */
   function onAuthenticated(user: Parameters<typeof setUser>[0], token: string) {
     setUser(user, user.role, token);
-
-    const restoredStoreId =
-      useAuthStore.getState().activeStoreId ??
-      localStorage.getItem("activeStoreId");
-    if (restoredStoreId) {
-      navigate(`/${restoredStoreId}/cashier`);
-    } else {
-      navigate("/stores");
-    }
+    navigate("/stores");
   }
 
   async function handleSignIn() {

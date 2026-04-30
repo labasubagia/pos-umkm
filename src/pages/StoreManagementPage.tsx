@@ -32,7 +32,11 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { STORES_QUERY_KEY, useStores } from "../hooks/useStores";
+import {
+  STORES_QUERY_KEY,
+  STORES_QUERY_KEY_PREFIX,
+  useStores,
+} from "../hooks/useStores";
 import { syncManager } from "../lib/adapters";
 import type { StoreRecord } from "../modules/auth/setup.service";
 import { activateStore } from "../modules/auth/setup.service";
@@ -49,6 +53,7 @@ export default function StoreManagementPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, activeStoreId, setActiveStoreId } = useAuthStore();
+  const storesQueryKey = STORES_QUERY_KEY(activeStoreId);
 
   const { data: stores = [], error: storesError } = useStores();
   const [mutationError, setMutationError] = useState<string | null>(null);
@@ -69,7 +74,7 @@ export default function StoreManagementPage() {
   const [leaveStore, setLeaveStore] = useState<StoreRecord | null>(null);
 
   const invalidateStores = () =>
-    queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY_PREFIX });
 
   // ── Mutations ─────────────────────────────────────────────────────────────
 
@@ -101,7 +106,7 @@ export default function StoreManagementPage() {
       await invalidateStores();
       if (storeId === activeStoreId) {
         const remaining =
-          queryClient.getQueryData<StoreRecord[]>(STORES_QUERY_KEY) ?? [];
+          queryClient.getQueryData<StoreRecord[]>(storesQueryKey) ?? [];
         if (remaining.length > 0) {
           await activateStore(remaining[0]);
           setActiveStoreId(remaining[0].store_id);

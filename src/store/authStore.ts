@@ -31,6 +31,9 @@ interface AuthState {
  * in the store map (storeMapStore.ts) which is populated by traversing the
  * store's Drive folder on activation.
  *
+ * activeStoreId is session-only. The authoritative source is the URL /:storeId;
+ * AppShell syncs that into Zustand at runtime, so it must not be persisted.
+ *
  * The stores list is NOT kept here — it lives in React Query (useStores hook)
  * so mutations auto-invalidate all subscribers without manual setStores() calls.
  */
@@ -67,7 +70,6 @@ export const useAuthStore = create<AuthState>()(
         role: state.role,
         mainSpreadsheetId: state.mainSpreadsheetId,
         isAuthenticated: state.isAuthenticated,
-        activeStoreId: state.activeStoreId,
       }),
     },
   ),

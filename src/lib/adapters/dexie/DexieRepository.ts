@@ -20,6 +20,7 @@
  */
 
 import { getActiveStoreMap } from "../../../store/storeMapStore";
+import { useAuthStore } from "../../../store/authStore";
 import { useSyncStore } from "../../../store/syncStore";
 import { generateId } from "../../uuid";
 import type { ILocalRepository } from "../ILocalRepository";
@@ -189,6 +190,11 @@ export class DexieRepository<T extends Record<string, unknown>>
    * falls back to the constructor-provided value.
    */
   private resolveSpreadsheetId(): string {
+    if (this.sheetName === "Stores") {
+      const mainSpreadsheetId = useAuthStore.getState().mainSpreadsheetId;
+      if (mainSpreadsheetId) return mainSpreadsheetId;
+    }
+
     try {
       const storeMap = getActiveStoreMap().getState();
       // Non-monthly sheets (master, main)
@@ -202,7 +208,12 @@ export class DexieRepository<T extends Record<string, unknown>>
     } catch {
       // Store map not initialized (e.g. during setup) — use fallback
     }
-    return this.fallbackSpreadsheetId;
+
+    if (this.fallbackSpreadsheetId) return this.fallbackSpreadsheetId;
+
+    throw new Error(
+      `DexieRepository: spreadsheetId for "${this.sheetName}" could not be resolved`,
+    );
   }
 
   private refreshPendingCount(): void {

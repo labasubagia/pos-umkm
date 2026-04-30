@@ -2,7 +2,7 @@
  * AuthInitializer — restores OAuth token on every page load.
  *
  * Zustand `persist` middleware rehydrates user, role, isAuthenticated,
- * spreadsheetId, and activeStoreId from localStorage. Two things it cannot restore:
+ * and mainSpreadsheetId from localStorage. Two things it cannot restore:
  *
  *   1. accessToken — intentionally excluded for XSS safety. Restored by
  *      calling authAdapter.restoreSession() in a useEffect.
@@ -42,6 +42,11 @@ interface Props {
 export function AuthInitializer({ children }: Props) {
   const { setAccessToken, clearAuth } = useAuth();
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Remove legacy store-selection keys. The URL is authoritative for storeId,
+  // and storeFolderId now comes from the persisted per-store mapping.
+  localStorage.removeItem("activeStoreId");
+  localStorage.removeItem("storeFolderId");
 
   // ── Synchronous token restoration ───────────────────────────────────────────
   if (!authAdapter.getAccessToken()) {

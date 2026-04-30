@@ -22,6 +22,7 @@
  */
 
 import { getActiveStoreMap } from "../../../store/storeMapStore";
+import { useAuthStore } from "../../../store/authStore";
 import { useSyncStore } from "../../../store/syncStore";
 import { ALL_TAB_HEADERS } from "../../schema";
 import { SheetRepository } from "../SheetRepository";
@@ -54,6 +55,11 @@ export class HydrationService {
   async hydrateAll(): Promise<void> {
     const storeMap = getActiveStoreMap().getState();
     const targets: HydrationTarget[] = [];
+    const mainSpreadsheetId = useAuthStore.getState().mainSpreadsheetId;
+
+    if (mainSpreadsheetId) {
+      targets.push({ sheetName: "Stores", spreadsheetId: mainSpreadsheetId });
+    }
 
     // Non-monthly sheets (master, main)
     for (const [sheetName, meta] of Object.entries(storeMap.sheets)) {

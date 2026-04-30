@@ -13,7 +13,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { SETTINGS_QUERY_KEY, useSettings } from "../../hooks/useSettings";
-import { STORES_QUERY_KEY } from "../../hooks/useStores";
+import { STORES_QUERY_KEY_PREFIX } from "../../hooks/useStores";
 import { useAuthStore } from "../../store/authStore";
 import { updateStoreName } from "../auth/setup.service";
 import { useAuth } from "../auth/useAuth";
@@ -50,7 +50,7 @@ export function BusinessProfile() {
         activeStoreId
       ) {
         await updateStoreName(activeStoreId, form.business_name);
-        void queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY });
+        void queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY_PREFIX });
         setInitialName(form.business_name);
       }
       void queryClient.invalidateQueries({

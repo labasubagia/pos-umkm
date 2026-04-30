@@ -1,3 +1,5 @@
+/// <reference types="@testing-library/jest-dom" />
+
 /**
  * Unit tests for StoreManagementPage.
  *
@@ -297,7 +299,7 @@ describe("StoreManagementPage", () => {
       new Error("Network error"),
     );
     seedOwner();
-    act(() => useAuthStore.getState().setActiveStoreId(null));
+    act(() => useAuthStore.getState().setActiveStoreId("another-store"));
     renderPage();
 
     await waitFor(() =>
@@ -344,7 +346,7 @@ describe("StoreManagementPage", () => {
     vi.mocked(svc.listStores)
       .mockResolvedValueOnce([ownedStore])
       .mockResolvedValueOnce([ownedStore, newStore]);
-    vi.mocked(svc.createStore).mockResolvedValue(undefined);
+    vi.mocked(svc.createStore).mockResolvedValue(newStore);
     seedOwner();
     renderPage();
 

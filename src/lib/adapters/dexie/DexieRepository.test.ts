@@ -29,6 +29,7 @@ function makeRepo(sheetName = "Products") {
 
 // Reset Dexie tables between tests
 beforeEach(async () => {
+  localStorage.clear();
   const db = getDb(TEST_STORE_ID);
   await db.Products.clear();
   await db._outbox.clear();
@@ -108,6 +109,21 @@ describe("batchInsert", () => {
   it("is a no-op for empty rows array", async () => {
     const db = getDb(TEST_STORE_ID);
     await makeRepo().batchInsert([]);
+    expect(await db._outbox.count()).toBe(0);
+  });
+
+  it("rejects writes when no spreadsheetId can be resolved", async () => {
+    const db = getDb(TEST_STORE_ID);
+    const repo = new DexieRepository<ProductRow>(db, {
+      spreadsheetId: "",
+      sheetName: "Products",
+    });
+
+    await expect(
+      repo.batchInsert([{ id: "p1", name: "Indomie", price: 3500 }]),
+    ).rejects.toThrow(/spreadsheetId/i);
+
+    expect(await db.Products.count()).toBe(0);
     expect(await db._outbox.count()).toBe(0);
   });
 });

@@ -145,11 +145,12 @@ async function ensureStoreMapReady(storeId: string): Promise<void> {
   )
     return;
 
-  // Sheets empty — read the store folder ID from localStorage and traverse.
-  const storeFolderId = localStorage.getItem("storeFolderId");
+  // Sheets empty — use the active store map's persisted folder ID so refresh
+  // cannot accidentally traverse a different store's folder.
+  const storeFolderId = storeMap.storeFolderId;
   if (!storeFolderId) {
     console.warn(
-      "[AppShell] storeFolderId not found — cannot traverse Drive folder.",
+      "[AppShell] storeFolderId not found in active store map — cannot traverse Drive folder.",
     );
     return;
   }

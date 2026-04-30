@@ -390,10 +390,10 @@ describe("activateStore", () => {
     );
   });
 
-  it("sets activeStoreId and storeFolderId in localStorage", async () => {
+  it("does not persist activeStoreId or storeFolderId to localStorage", async () => {
     await activateStore(store);
-    expect(localStorage.getItem("activeStoreId")).toBe("store-abc");
-    expect(localStorage.getItem("storeFolderId")).toBe("folder-id");
+    expect(localStorage.getItem("activeStoreId")).toBeNull();
+    expect(localStorage.getItem("storeFolderId")).toBeNull();
   });
 
   it("traverses the store folder", async () => {

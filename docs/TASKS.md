@@ -1592,7 +1592,9 @@
 - ✅ `store map is populated on activation via Drive folder traversal`
 - ✅ `store map is loaded from localStorage on page refresh`
 - ✅ `AppShell blocks children until store map is ready`
+- ✅ `AppShell refresh bootstrap reads storeFolderId from the active store map, not the global localStorage key`
 - ✅ `DexieRepository resolves spreadsheetId from store map`
+- ✅ `DexieRepository rejects writes when no spreadsheetId can be resolved`
 - ✅ `HydrationService reads from store map`
 - ✅ `monthlySheets array supports multiple months`
 
