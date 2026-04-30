@@ -25,13 +25,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Outlet, useParams } from "react-router-dom";
+import { STORES_QUERY_KEY_PREFIX } from "../hooks/useStores";
 import {
   hydrationService,
   reinitDexieLayer,
   storeFolderService,
   syncManager,
 } from "../lib/adapters";
-import { STORES_QUERY_KEY_PREFIX } from "../hooks/useStores";
+import { logger } from "../lib/logger";
 import { useAuthStore } from "../store/authStore";
 import { getStoreMapStore } from "../store/storeMapStore";
 import { BottomNav } from "./BottomNav";
@@ -150,7 +151,7 @@ async function ensureStoreMapReady(storeId: string): Promise<void> {
   // cannot accidentally traverse a different store's folder.
   const storeFolderId = storeMap.storeFolderId;
   if (!storeFolderId) {
-    console.warn(
+    logger.warn(
       "[AppShell] storeFolderId not found in active store map — cannot traverse Drive folder.",
     );
     return;
@@ -160,6 +161,6 @@ async function ensureStoreMapReady(storeId: string): Promise<void> {
     const result = await storeFolderService.traverse(storeFolderId);
     storeMap.setStoreMap(storeFolderId, result.sheets, result.monthlySheets);
   } catch (err) {
-    console.warn("[AppShell] Failed to traverse store folder on refresh:", err);
+    logger.warn("[AppShell] Failed to traverse store folder on refresh:", err);
   }
 }

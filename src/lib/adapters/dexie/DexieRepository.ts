@@ -19,9 +19,10 @@
  * This avoids serialising makeNewRow into the outbox.
  */
 
-import { getCurrentStoreMapStore } from "../../../store/storeMapStore";
 import { useAuthStore } from "../../../store/authStore";
+import { getCurrentStoreMapStore } from "../../../store/storeMapStore";
 import { useSyncStore } from "../../../store/syncStore";
+import { logger } from "../../logger";
 import { generateId } from "../../uuid";
 import type { ILocalRepository } from "../ILocalRepository";
 import type { OutboxEntry, OutboxOperation, PosUmkmDatabase } from "./db";
@@ -176,7 +177,7 @@ export class DexieRepository<T extends Record<string, unknown>>
       retries: 0,
       createdAt: new Date().toISOString(),
     };
-    console.debug("[DexieRepository] enqueue outbox entry", {
+    logger.debug("[DexieRepository] enqueue outbox entry", {
       spreadsheetId: entry.spreadsheetId,
       sheetName: entry.sheetName,
       mutationId: entry.mutationId,
@@ -207,6 +208,9 @@ export class DexieRepository<T extends Record<string, unknown>>
       }
     } catch {
       // Store map not initialized (e.g. during setup) — use fallback
+      logger.debug(
+        "[DexieRepository] store map not yet initialized, using fallback spreadsheetId",
+      );
     }
 
     if (this.fallbackSpreadsheetId) return this.fallbackSpreadsheetId;

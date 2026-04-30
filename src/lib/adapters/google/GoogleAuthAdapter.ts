@@ -15,6 +15,8 @@
  * By keeping all GIS-specific code in this file, future migration to a
  * different auth provider only requires replacing this adapter.
  */
+
+import { logger } from "../../logger";
 import type { AuthAdapter, User } from "../types";
 import { AdapterError } from "../types";
 
@@ -228,6 +230,10 @@ export class GoogleAuthAdapter implements AuthAdapter {
         silentTimer = setTimeout(() => resolve(false), 5000);
         tokenClient.requestAccessToken({ prompt: "" });
       } catch (_reqErr) {
+        logger.debug(
+          "[GoogleAuthAdapter] silentRefresh requestAccessToken threw synchronously",
+          _reqErr,
+        );
         if (silentTimer) clearTimeout(silentTimer);
         resolve(false);
       }

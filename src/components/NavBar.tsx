@@ -16,6 +16,7 @@ import { NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useStores } from "../hooks/useStores";
 import { authAdapter, resetDexieLayer, syncManager } from "../lib/adapters";
 import type { Role } from "../lib/adapters/types";
+import { logger } from "../lib/logger";
 import { queryClient } from "../lib/queryClient";
 import {
   activateStore,
@@ -83,6 +84,7 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
       // Navigate to the new store's cashier — updates the URL so :storeId matches.
       navigate(`/${storeId}/cashier`);
     } catch {
+      logger.warn("[NavBar] activateStore failed for store", storeId);
       // Silent — store picker reverts visually on next render
     }
   }

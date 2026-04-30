@@ -13,6 +13,7 @@ import type { OutboxEntry } from "../lib/adapters/dexie/db";
 import { getDb } from "../lib/adapters/dexie/db";
 
 import { formatDateTimeTZ } from "../lib/formatters";
+import { logger } from "../lib/logger";
 import { useAuthStore } from "../store/authStore";
 import { useSyncStore } from "../store/syncStore";
 
@@ -25,7 +26,7 @@ export default function OutboxPage() {
 
   const fetchOutbox = useCallback(async () => {
     // Log DB info so we can compare with SyncManager's DB when debugging
-    console.info("[OutboxPage] activeStoreId and DB name", {
+    logger.info("[OutboxPage] activeStoreId and DB name", {
       activeStoreId,
       dbName: db.name ?? "unknown",
     });
@@ -63,7 +64,7 @@ export default function OutboxPage() {
         <div className="flex gap-2">
           <Button
             onClick={() => {
-              console.log("[OutboxPage] Sync Now clicked");
+              logger.log("[OutboxPage] Sync Now clicked");
               syncManager.triggerSync();
               fetchOutbox();
             }}
@@ -74,7 +75,7 @@ export default function OutboxPage() {
           <Button
             variant="secondary"
             onClick={async () => {
-              console.log("[OutboxPage] Retry All Failed clicked");
+              logger.log("[OutboxPage] Retry All Failed clicked");
               await syncManager.resetFailedEntries();
               fetchOutbox();
             }}

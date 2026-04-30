@@ -14,6 +14,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { authAdapter } from "../../lib/adapters";
+import { logger } from "../../lib/logger";
 import { useAuthStore } from "../../store/authStore";
 import { useAuth } from "./useAuth";
 
@@ -52,7 +53,7 @@ export default function LoginPage() {
       onAuthenticated(user, authAdapter.getAccessToken() ?? "");
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      console.error("[LoginPage] sign-in failed:", err);
+      logger.error("[LoginPage] sign-in failed:", err);
       setSignInError(errMsg);
       setSigningIn(false);
     }

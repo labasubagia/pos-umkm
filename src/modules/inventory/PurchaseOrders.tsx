@@ -35,6 +35,7 @@ import {
   usePurchaseOrders,
 } from "../../hooks/usePurchaseOrders";
 import { formatDateTimeTZ, formatIDR } from "../../lib/formatters";
+import { logger } from "../../lib/logger";
 import { generateId } from "../../lib/uuid";
 import { useAuthStore } from "../../store/authStore";
 import {
@@ -156,6 +157,10 @@ export function PurchaseOrders() {
       const items = await fetchPurchaseOrderItems(order.id);
       setDetailItems(items);
     } catch {
+      logger.warn(
+        "[PurchaseOrders] fetchPurchaseOrderItems failed for order",
+        order.id,
+      );
       setDetailItems([]);
     }
   }

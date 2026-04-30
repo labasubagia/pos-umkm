@@ -21,6 +21,7 @@
 
 import { useAuthStore } from "../../../store/authStore";
 import { useSyncStore } from "../../../store/syncStore";
+import { logger } from "../../logger";
 import { ALL_TAB_HEADERS } from "../../schema";
 import { SheetRepository } from "../SheetRepository";
 import type { OutboxEntry, OutboxOperation, PosUmkmDatabase } from "./db";
@@ -66,7 +67,7 @@ export class SyncManager {
         .equals("syncing")
         .modify({ status: "pending" })
         .catch((err) => {
-          console.warn(
+          logger.warn(
             "[SyncManager] failed to reset stale 'syncing' entries (startupDb)",
             err,
           );
@@ -82,7 +83,7 @@ export class SyncManager {
         .equals("syncing")
         .modify({ status: "pending" })
         .catch((err) => {
-          console.warn(
+          logger.warn(
             "[SyncManager] failed to reset stale 'syncing' entries (instance db)",
             err,
           );
@@ -110,14 +111,14 @@ export class SyncManager {
 
   /** Public entry point. No-op if offline, already syncing, rate-limited, or no token. */
   triggerSync(): void {
-    console.info("[SyncManager] triggerSync called", {
+    logger.info("[SyncManager] triggerSync called", {
       online: navigator.onLine,
       isSyncing: this.isSyncing,
       rateLimited: this.rateLimited,
     });
 
     if (!navigator.onLine || this.isSyncing || this.rateLimited) {
-      console.info(
+      logger.info(
         "[SyncManager] triggerSync skipped: offline/isSyncing/rateLimited",
         {
           online: navigator.onLine,
@@ -130,13 +131,13 @@ export class SyncManager {
 
     const token = this.getToken();
     if (!token) {
-      console.info("[SyncManager] triggerSync skipped: no access token");
+      logger.info("[SyncManager] triggerSync skipped: no access token");
       return;
     }
 
-    console.info("[SyncManager] triggerSync proceeding (token present)");
+    logger.info("[SyncManager] triggerSync proceeding (token present)");
     this.drain().catch((err) => {
-      console.error("[SyncManager] Unexpected drain error:", err);
+      logger.error("[SyncManager] Unexpected drain error:", err);
     });
   }
 
@@ -155,6 +156,9 @@ export class SyncManager {
         .modify({ status: "pending", retries: 0, errorMessage: undefined });
     } catch {
       // Fallback to the instance-bound DB if anything goes wrong
+      logger.debug(
+        "[SyncManager] activeStoreId lookup failed in resetFailedEntries(), using instance DB",
+      );
       await this.db._outbox
         .where("status")
         .equals("failed")
@@ -177,7 +181,7 @@ export class SyncManager {
     this.isSyncing = true;
     useSyncStore.getState().setIsSyncing(true);
 
-    console.info("[SyncManager] drain started");
+    logger.info("[SyncManager] drain started");
     try {
       // Log which DB this SyncManager instance is using and the currently
       // active store DB to help diagnose cases where the exported
@@ -187,13 +191,13 @@ export class SyncManager {
         const activeStoreId =
           useAuthStore.getState().activeStoreId ?? "__init__";
         const activeDb = getDb(activeStoreId);
-        console.info("[SyncManager] instance DB vs active store DB", {
+        logger.info("[SyncManager] instance DB vs active store DB", {
           instanceDbName: this.db.name ?? "unknown",
           activeStoreId,
           activeDbName: activeDb.name ?? "unknown",
         });
       } catch (dbLogErr) {
-        console.warn(
+        logger.warn(
           "[SyncManager] failed to determine active DB info",
           dbLogErr,
         );
@@ -204,6 +208,9 @@ export class SyncManager {
         try {
           return getDb(activeStoreId);
         } catch {
+          logger.debug(
+            "[SyncManager] getDb() failed in drain(), using instance DB",
+          );
           return this.db;
         }
       })();
@@ -214,7 +221,7 @@ export class SyncManager {
         .and((entry) => entry.retries < MAX_RETRIES)
         .sortBy("id");
 
-      console.info(
+      logger.info(
         "[SyncManager] drain found pending outbox entries",
         pending.map((p) => ({
           id: p.id,
@@ -225,7 +232,7 @@ export class SyncManager {
 
       for (const entry of pending) {
         if (entry.id == null) {
-          console.warn("[SyncManager] skipping outbox entry with no id", entry);
+          logger.warn("[SyncManager] skipping outbox entry with no id", entry);
           continue;
         }
         const id = entry.id;
@@ -233,7 +240,7 @@ export class SyncManager {
         await dbToUse._outbox.update(id, { status: "syncing" });
 
         try {
-          console.info("[SyncManager] processing outbox entry", {
+          logger.info("[SyncManager] processing outbox entry", {
             id,
             mutationId: entry.mutationId,
             sheetName: entry.sheetName,
@@ -242,7 +249,7 @@ export class SyncManager {
           await this.applyToSheets(entry);
           await dbToUse._outbox.delete(id);
           useSyncStore.getState().setLastError(null);
-          console.info("[SyncManager] successfully processed entry", { id });
+          logger.info("[SyncManager] successfully processed entry", { id });
         } catch (err) {
           const isRateLimit = isRateLimitError(err);
           const errStr = String(err);
@@ -258,7 +265,7 @@ export class SyncManager {
           // may succeed when the token is expired but the user still has a
           // valid session. Use dynamic import to avoid circular deps.
           if (errStr.includes("401") || errStr.includes("UNAUTHENTICATED")) {
-            console.warn(
+            logger.warn(
               "[SyncManager] 401/UNAUTHENTICATED from Sheets API — attempting silent refresh before logout",
               { entryId: id, mutationId: entry.mutationId },
             );
@@ -273,7 +280,7 @@ export class SyncManager {
               const silentRefresh = maybeAuth.silentRefresh;
               if (typeof silentRefresh === "function") {
                 const ok = await silentRefresh.call(authAdapter);
-                console.info("[SyncManager] silentRefresh result:", ok);
+                logger.info("[SyncManager] silentRefresh result:", ok);
                 if (ok) {
                   // Pull the refreshed token (if the adapter provides it)
                   const refreshedToken =
@@ -288,7 +295,7 @@ export class SyncManager {
                 }
               }
             } catch (refreshErr) {
-              console.warn(
+              logger.warn(
                 "[SyncManager] silentRefresh attempt threw an error",
                 refreshErr,
               );
@@ -299,7 +306,7 @@ export class SyncManager {
               const { authAdapter } = await import("../index");
               await authAdapter.signOut?.();
             } catch (signOutErr) {
-              console.warn("[SyncManager] signOut failed:", signOutErr);
+              logger.warn("[SyncManager] signOut failed:", signOutErr);
             }
             useAuthStore.getState().clearAuth();
             if (typeof window !== "undefined") window.location.replace("/");
@@ -314,12 +321,12 @@ export class SyncManager {
           }
 
           // Non-rate-limit errors: log and continue with next entry
-          console.error("[SyncManager]", entry, err);
+          logger.error("[SyncManager]", entry, err);
         }
       }
 
       useSyncStore.getState().setLastSyncedAt(new Date().toISOString());
-      console.info("[SyncManager] drain completed");
+      logger.info("[SyncManager] drain completed");
     } finally {
       this.isSyncing = false;
       useSyncStore.getState().setIsSyncing(false);
@@ -339,11 +346,11 @@ export class SyncManager {
       this.getToken,
       ALL_TAB_HEADERS[entry.sheetName],
     );
-    console.info("[SyncManager] applyToSheets repo created", {
+    logger.info("[SyncManager] applyToSheets repo created", {
       spreadsheetId: repo.spreadsheetId,
       sheetName: repo.sheetName,
     });
-    console.info("[SyncManager] applyToSheets operation", entry.operation);
+    logger.info("[SyncManager] applyToSheets operation", entry.operation);
 
     const op: OutboxOperation = entry.operation;
     switch (op.op) {
@@ -385,20 +392,23 @@ export class SyncManager {
           useSyncStore.getState().setPendingCount(count);
         })
         .catch((err) => {
-          console.warn(
+          logger.warn(
             "[SyncManager] failed to refresh pending count (active store db)",
             err,
           );
         });
     } catch {
       // Fallback to the instance-bound DB if anything goes wrong
+      logger.debug(
+        "[SyncManager] activeStoreId lookup failed in refreshPendingCount(), using instance DB",
+      );
       this.db._outbox
         .count()
         .then((count) => {
           useSyncStore.getState().setPendingCount(count);
         })
         .catch((err) => {
-          console.warn(
+          logger.warn(
             "[SyncManager] failed to refresh pending count (instance-bound db)",
             err,
           );

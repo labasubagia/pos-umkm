@@ -6,6 +6,7 @@ import { Button } from "../components/ui/button";
 import { PRODUCTS_QUERY_KEY, useProducts } from "../hooks/useProducts";
 import { useQRISImage } from "../hooks/useQRISImage";
 import { useVariants, VARIANTS_QUERY_KEY } from "../hooks/useVariants";
+import { logger } from "../lib/logger";
 import { CartPanel } from "../modules/cashier/CartPanel";
 import type {
   PaymentInfo,
@@ -61,7 +62,11 @@ export default function CashierPage() {
     ? (() => {
         try {
           return applyDiscount(subtotal, discount);
-        } catch {
+        } catch (e) {
+          logger.debug(
+            "[CashierPage] applyDiscount invalid, defaulting to 0",
+            e,
+          );
           return 0;
         }
       })()
@@ -122,7 +127,7 @@ export default function CashierPage() {
       } else {
         setTxError("Terjadi kesalahan saat memproses transaksi");
       }
-      console.error(err);
+      logger.error(err);
     } finally {
       setSubmitting(false);
     }

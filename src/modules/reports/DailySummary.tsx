@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { formatIDR } from "../../lib/formatters";
+import { logger } from "../../lib/logger";
 import { useAuthStore } from "../../store/authStore";
 import { getCurrentStoreMapStore } from "../../store/storeMapStore";
 import { fetchDailySummary, ReportError } from "./reports.service";
@@ -120,7 +121,11 @@ export function DailySummary() {
                 </a>
               </div>
             ) : null;
-          } catch {
+          } catch (e) {
+            logger.debug(
+              "[DailySummary] failed to get transaction spreadsheet link",
+              e,
+            );
             return null;
           }
         })()}

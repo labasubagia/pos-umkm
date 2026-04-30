@@ -19,6 +19,7 @@ import {
 } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { logger } from "../../lib/logger";
 import type { PaymentInfo } from "./cashier.service";
 import {
   applyDiscount,
@@ -57,7 +58,11 @@ export function PaymentModal({
     ? (() => {
         try {
           return applyDiscount(subtotal, discount);
-        } catch {
+        } catch (e) {
+          logger.debug(
+            "[PaymentModal] applyDiscount invalid, defaulting to 0",
+            e,
+          );
           return 0;
         }
       })()

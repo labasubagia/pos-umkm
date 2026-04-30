@@ -18,6 +18,7 @@
 
 // Lazy import to avoid circular dependency (authStore imports from here indirectly via services)
 import { useAuthStore } from "../../store/authStore";
+import { logger } from "../logger";
 import { ALL_TAB_HEADERS } from "../schema";
 import type { IDriveClient } from "./DriveClient";
 import { GoogleDriveClient } from "./DriveClient";
@@ -74,7 +75,7 @@ function _getInstanceDbName(obj: unknown): string | undefined {
   return (obj as { db?: { name?: string } })?.db?.name;
 }
 
-console.info("[adapters] initial syncManager created (db)", {
+logger.info("[adapters] initial syncManager created (db)", {
   dbName: _getInstanceDbName(syncManager) ?? "unknown",
 });
 
@@ -95,12 +96,12 @@ export let hydrationService: HydrationService = new HydrationService(
  * and starts the new SyncManager.
  */
 export function reinitDexieLayer(storeId: string): void {
-  console.info("[adapters] reinitDexieLayer called", { storeId });
+  logger.info("[adapters] reinitDexieLayer called", { storeId });
   syncManager.stop();
   const db = getDb(storeId);
   syncManager = new SyncManager(getToken, db);
   hydrationService = new HydrationService(getToken, db);
-  console.info("[adapters] syncManager reinitialized", {
+  logger.info("[adapters] syncManager reinitialized", {
     dbName: _getInstanceDbName(syncManager) ?? "unknown",
   });
   syncManager.start();

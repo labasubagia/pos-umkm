@@ -15,6 +15,7 @@ import { CheckCircle, CloudOff, CloudUpload, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { syncManager } from "../lib/adapters";
 import { formatDateTimeTZ } from "../lib/formatters";
+import { logger } from "../lib/logger";
 import { cn } from "../lib/utils";
 import { useSyncStore } from "../store/syncStore";
 
@@ -34,7 +35,7 @@ export function SyncStatus() {
   }, []);
 
   const handleManualSync = () => {
-    console.log("[SyncStatus] manual sync clicked", {
+    logger.log("[SyncStatus] manual sync clicked", {
       pendingCount,
       isSyncing,
       lastError,

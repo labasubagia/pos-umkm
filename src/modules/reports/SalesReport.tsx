@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { formatDateTimeTZ, formatIDR } from "../../lib/formatters";
+import { logger } from "../../lib/logger";
 import { useAuthStore } from "../../store/authStore";
 import { getCurrentStoreMapStore } from "../../store/storeMapStore";
 import { listMembers } from "../settings/members.service";
@@ -188,7 +189,11 @@ export function SalesReport() {
                       Buka Spreadsheet Transaksi
                     </a>
                   ) : null;
-                } catch {
+                } catch (e) {
+                  logger.debug(
+                    "[SalesReport] failed to get transaction spreadsheet link",
+                    e,
+                  );
                   return null;
                 }
               })()}

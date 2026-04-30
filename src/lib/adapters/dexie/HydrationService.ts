@@ -21,9 +21,10 @@
  * writeHeaders is never called during hydration — headers are Sheets-side only.
  */
 
-import { getCurrentStoreMapStore } from "../../../store/storeMapStore";
 import { useAuthStore } from "../../../store/authStore";
+import { getCurrentStoreMapStore } from "../../../store/storeMapStore";
 import { useSyncStore } from "../../../store/syncStore";
+import { logger } from "../../logger";
 import { ALL_TAB_HEADERS } from "../../schema";
 import { SheetRepository } from "../SheetRepository";
 import type { PosUmkmDatabase } from "./db";
@@ -178,7 +179,7 @@ export class HydrationService {
       });
     } catch (err) {
       // Log but don't throw — partial hydration is better than none
-      console.warn(`[HydrationService] Failed to hydrate "${sheetName}":`, err);
+      logger.warn(`[HydrationService] Failed to hydrate "${sheetName}":`, err);
     }
   }
 

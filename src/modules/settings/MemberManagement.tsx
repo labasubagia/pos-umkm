@@ -11,6 +11,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { MEMBERS_QUERY_KEY, useMembers } from "../../hooks/useMembers";
+import { logger } from "../../lib/logger";
 import { useAuthStore } from "../../store/authStore";
 import { getStoreMapStore } from "../../store/storeMapStore";
 import {
@@ -32,7 +33,11 @@ export function MemberManagement() {
         getStoreMapStore(activeStoreId).getState().sheets.Members
           ?.spreadsheet_id ?? null
       );
-    } catch {
+    } catch (e) {
+      logger.debug(
+        "[MemberManagement] getStoreMapStore failed, spreadsheetId unavailable",
+        e,
+      );
       return null;
     }
   })();

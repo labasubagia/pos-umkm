@@ -18,6 +18,7 @@ import {
   storeFolderService,
 } from "../../lib/adapters";
 import { nowUTC } from "../../lib/formatters";
+import { logger } from "../../lib/logger";
 import {
   MAIN_TAB_HEADERS,
   MAIN_TABS,
@@ -310,7 +311,7 @@ async function ensureMonthlySheets(
       }
     } catch (err) {
       // Cashiers may lack drive scope — log and continue
-      console.warn(
+      logger.warn(
         `[setup] Failed to pre-create monthly sheet for ${yearMonth}:`,
         err,
       );
@@ -560,7 +561,7 @@ export async function runStoreSetup(
       .getState()
       .setStoreMap(driveFolderId, updated.sheets, updated.monthlySheets);
   } catch (err) {
-    console.warn("[setup] Failed to pre-create next month's sheet:", err);
+    logger.warn("[setup] Failed to pre-create next month's sheet:", err);
   }
 
   return { storeId: newStoreId, driveFolderId };
