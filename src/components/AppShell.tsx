@@ -75,14 +75,16 @@ export function AppShell() {
     const gen = ++hydrateGen.current;
     const storeIdAtLaunch = activeStoreId;
 
-    // Ensure the current store's map is initialized and populated before
-    // rendering children. On page refresh the persisted keyed store map may
-    // already exist, but the sheets can still be empty if no traversal
-    // happened in this session. In that case, traverse the Drive folder.
-    void ensureStoreMapReady(storeIdAtLaunch).then(() => {
+    // Wait for both the store map and the initial hydration before showing
+    // page content. Hydration populates IndexedDB from Google Sheets so
+    // components never render with stale/empty Dexie data.
+    // The generation guard (T074) discards the result if the user switches
+    // stores before this resolves.
+    void ensureStoreMapReady(storeIdAtLaunch).then(async () => {
+      if (gen !== hydrateGen.current) return;
+      await hydrationService.hydrateAll();
       if (gen !== hydrateGen.current) return;
       setStoreMapReady(true);
-      return hydrationService.hydrateAll();
     });
   }, [activeStoreId]);
 
@@ -93,8 +95,9 @@ export function AppShell() {
         data-testid="app-shell"
       >
         <NavBar syncStatusSlot={<SyncStatus />} />
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-muted-foreground">Memuat data toko…</p>
+        <div className="flex-1 flex items-center justify-center flex-col gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Memuat data toko…</p>
         </div>
       </div>
     );

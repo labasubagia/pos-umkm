@@ -40,10 +40,17 @@ interface HydrationTarget {
 export class HydrationService {
   private readonly getToken: () => string;
   private readonly db: PosUmkmDatabase;
+  /** Global DB for cross-store tables (Stores). Never swapped on store switch. */
+  private readonly mainDb: PosUmkmDatabase;
 
-  constructor(getToken: () => string, db: PosUmkmDatabase) {
+  constructor(
+    getToken: () => string,
+    db: PosUmkmDatabase,
+    mainDb: PosUmkmDatabase,
+  ) {
     this.getToken = getToken;
     this.db = db;
+    this.mainDb = mainDb;
   }
 
   /**
@@ -59,7 +66,14 @@ export class HydrationService {
     const mainSpreadsheetId = useAuthStore.getState().mainSpreadsheetId;
 
     if (mainSpreadsheetId) {
-      targets.push({ sheetName: "Stores", spreadsheetId: mainSpreadsheetId });
+      // Stores is cross-store (lives in the main spreadsheet).
+      // Hydrate it directly into the global mainDb so every store sees the
+      // same list and per-store outbox entries never block this hydration.
+      await this.hydrateTable(
+        { sheetName: "Stores", spreadsheetId: mainSpreadsheetId },
+        false,
+        this.mainDb,
+      );
     }
 
     // Non-monthly sheets (master, main)
@@ -101,7 +115,8 @@ export class HydrationService {
    * Used when the user explicitly triggers a "Sync now" from the UI.
    */
   async forceHydrate(sheetName: string, spreadsheetId: string): Promise<void> {
-    await this.hydrateTable({ sheetName, spreadsheetId }, true);
+    const db = sheetName === "Stores" ? this.mainDb : this.db;
+    await this.hydrateTable({ sheetName, spreadsheetId }, true, db);
   }
 
   // ─── Internal ──────────────────────────────────────────────────────────────
@@ -109,14 +124,16 @@ export class HydrationService {
   private async hydrateTable(
     { sheetName, spreadsheetId }: HydrationTarget,
     force = false,
+    db?: PosUmkmDatabase,
   ): Promise<void> {
+    const targetDb = db ?? this.db;
     // Key is scoped to spreadsheetId so different stores (and monthly sheet
     // rollovers with new spreadsheetIds) get independent freshness tracking.
     const metaKey = `${spreadsheetId}_${sheetName}`;
 
     // Skip if recently hydrated and no force flag
     if (!force) {
-      const meta = await this.db._syncMeta.get(metaKey);
+      const meta = await targetDb._syncMeta.get(metaKey);
       if (meta) {
         const age = Date.now() - new Date(meta.value).getTime();
         if (age < STALE_MS) return;
@@ -125,7 +142,7 @@ export class HydrationService {
 
     // Skip if there are pending outbox entries for this table —
     // applying remote data would overwrite unsynced local writes.
-    const pendingForTable = await this.db._outbox
+    const pendingForTable = await targetDb._outbox
       .where("sheetName")
       .equals(sheetName)
       .and((e) => e.status !== "failed" || e.retries < 5)
@@ -166,14 +183,14 @@ export class HydrationService {
       // This removes rows that were deleted in Sheets and ensures the local cache
       // is an exact replica of the remote sheet — not an accumulation of upserts.
       // Wrapping in a transaction makes the clear + put atomic.
-      await this.db.transaction("rw", this.db.table(sheetName), async () => {
-        await this.db.table(sheetName).clear();
+      await targetDb.transaction("rw", targetDb.table(sheetName), async () => {
+        await targetDb.table(sheetName).clear();
         if (validRows.length > 0) {
-          await this.db.table(sheetName).bulkPut(validRows);
+          await targetDb.table(sheetName).bulkPut(validRows);
         }
       });
       void repo; // suppress unused warning — used above for type inference context
-      await this.db._syncMeta.put({
+      await targetDb._syncMeta.put({
         key: metaKey,
         value: new Date().toISOString(),
       });

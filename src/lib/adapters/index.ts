@@ -90,6 +90,16 @@ export let syncManager: SyncManager = new SyncManager(
   getToken,
   getDb("__init__"),
 );
+/**
+ * SyncManager for the global __main__ DB (drains Stores/cross-store outbox).
+ * Runs independently of the per-store syncManager so store-management mutations
+ * (updateStore, removeOwnedStore) are synced to the main spreadsheet regardless
+ * of which per-store DB is currently active.
+ */
+export let mainSyncManager: SyncManager = new SyncManager(
+  getToken,
+  getDb("__main__"),
+);
 function _getInstanceDbName(obj: unknown): string | undefined {
   return (obj as { db?: { name?: string } })?.db?.name;
 }
@@ -106,6 +116,7 @@ logger.info("[adapters] initial syncManager created (db)", {
 export let hydrationService: HydrationService = new HydrationService(
   getToken,
   getDb("__init__"),
+  getDb("__main__"),
 );
 
 /**
@@ -117,13 +128,17 @@ export let hydrationService: HydrationService = new HydrationService(
 export function reinitDexieLayer(storeId: string): void {
   logger.info("[adapters] reinitDexieLayer called", { storeId });
   syncManager.stop();
+  mainSyncManager.stop();
   const db = getDb(storeId);
+  const mainDb = getDb("__main__");
   syncManager = new SyncManager(getToken, db);
-  hydrationService = new HydrationService(getToken, db);
+  mainSyncManager = new SyncManager(getToken, mainDb);
+  hydrationService = new HydrationService(getToken, db, mainDb);
   logger.info("[adapters] syncManager reinitialized", {
     dbName: _getInstanceDbName(syncManager) ?? "unknown",
   });
   syncManager.start();
+  mainSyncManager.start();
 }
 
 /**
@@ -132,7 +147,9 @@ export function reinitDexieLayer(storeId: string): void {
  */
 export function resetDexieLayer(): void {
   syncManager.stop();
+  mainSyncManager.stop();
   syncManager = noopSyncManager;
+  mainSyncManager = noopSyncManager;
   hydrationService = noopHydrationService;
   clearDbCache();
 }
@@ -179,6 +196,11 @@ export function makeRepo<T extends Record<string, unknown>>(
  */
 function createDexieRepos(storeId: string): Repos {
   const storeDb = getDb(storeId);
+  // Stores is a cross-store (main-spreadsheet) table — always use the global
+  // __main__ DB so the list is identical regardless of which store is active,
+  // and per-store outbox entries never block Stores hydration.
+  const mainDb = getDb("__main__");
+  const mainSpreadsheetId = useAuthStore.getState().mainSpreadsheetId ?? "";
 
   function dexie<T extends Record<string, unknown>>(
     sheetName: string,
@@ -191,7 +213,11 @@ function createDexieRepos(storeId: string): Repos {
   }
 
   return {
-    stores: dexie<StoreRow>("Stores"),
+    stores: new DexieRepository<StoreRow>(
+      mainDb,
+      { spreadsheetId: mainSpreadsheetId, sheetName: "Stores" },
+      () => mainSyncManager.triggerSync(),
+    ),
     monthlySheets: dexie<MonthlySheetRow>("Monthly_Sheets"),
     categories: dexie<CategoryRow>("Categories"),
     products: new DexieProductRepository(
@@ -268,7 +294,12 @@ export async function localCachePut(
   rows: Record<string, unknown>[],
 ): Promise<void> {
   const { activeStoreId } = useAuthStore.getState();
-  const db = getDb(activeStoreId ?? "__init__");
+  // Stores is a cross-store table — always write to the global __main__ DB
+  // so every per-store view sees the same list.
+  const db =
+    tableName === "Stores"
+      ? getDb("__main__")
+      : getDb(activeStoreId ?? "__init__");
   await db.table(tableName).bulkPut(rows);
 }
 
