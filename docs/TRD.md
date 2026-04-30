@@ -377,8 +377,8 @@ ISheetRepository<T>          — used by sync layer only
 5. The app stores the access token **in memory only** (never localStorage, never a cookie)
 6. All `SheetRepository` calls include `Authorization: Bearer <token>` header
 7. When the token expires, GIS silently refreshes it (`prompt: 'none'`) as long as the browser session is active
-8. After successful auth, `LoginPage` checks for a cached `masterSpreadsheetId` in `localStorage`:
-   - **Fast path (returning user):** `masterSpreadsheetId` and `activeStoreId` found → restores adapter routing → navigates to `/<storeId>/cashier`
+8. After successful auth, `LoginPage` checks for a cached `activeStoreId` in `localStorage`:
+   - **Fast path (returning user):** `activeStoreId` found → navigates to `/<storeId>/cashier` (AppShell loads store map)
    - **Slow path (new session):** no cached ID → navigates to `/stores` (StorePickerPage)
 
 ### 3.2 Google OAuth Scopes
@@ -395,7 +395,7 @@ ISheetRepository<T>          — used by sync layer only
 
 ### 3.3 First-Time Setup (Owner) and Post-Login Store Resolution
 
-Every login (first-time and returning) goes through `/stores` (StorePickerPage) unless `masterSpreadsheetId` is already in `localStorage`. StorePickerPage calls `findOrCreateMain()` which:
+Every login (first-time and returning) goes through `/stores` (StorePickerPage) unless `activeStoreId` is already in `localStorage`. StorePickerPage calls `findOrCreateMain()` which:
 
 1. Checks `localStorage` for a cached `mainSpreadsheetId`
 2. If not found: calls Drive API to create `apps/pos_umkm/main` spreadsheet with a `Stores` tab, saves ID to `localStorage`
@@ -415,7 +415,7 @@ Every login (first-time and returning) goes through `/stores` (StorePickerPage) 
 5. Initializes all master sheet tabs with frozen header rows (see §4.3); writes `store_id` to `Settings` tab
 6. Creates the current month's transaction spreadsheet inside `transactions/<year>/`
 7. Adds a row to `main.Stores` with the new store's details
-8. Saves `masterSpreadsheetId`, `activeStoreId`, and `mainSpreadsheetId` to `localStorage`
+8. Saves `activeStoreId` and `storeFolderId` to `localStorage`
 9. Saves the owner's profile in the `Members` sheet with role `owner`
 
 **Multiple branches:** From the Settings screen, the owner can add branches. Each branch goes through steps 2–9 above. The owner's `main.Stores` tab accumulates one row per branch.
@@ -519,16 +519,16 @@ My Drive (owner's Google account)
                             └── Refunds
 ```
 
-**Active store context** is stored in `localStorage` (`activeStoreId`, `masterSpreadsheetId`, `mainSpreadsheetId`). On app load the app reads from localStorage for fast startup; the `main.Stores` tab is the source of truth for the full store list.
+**Active store context** is stored in the Zustand store map (`pos_umkm_storemap_<storeId>`, persisted to localStorage) and `localStorage` (`activeStoreId`, `storeFolderId`). On app load, AppShell reads the store map from localStorage; if empty, it traverses the Drive folder to populate it. The `main.Stores` tab is the source of truth for the full store list.
 
 | localStorage key | Value | Set by |
 |---|---|---|
 | `mainSpreadsheetId` | ID of the owner's `main` spreadsheet | `findOrCreateMain()` |
-| `masterSpreadsheetId` | ID of the active store's master spreadsheet | `activateStore()` / `runStoreSetup()` |
 | `activeStoreId` | UUID of the active store | `createMasterSpreadsheet()` / `activateStore()` |
-| `txSheet_<year>-<mm>` | ID of the monthly spreadsheet for that month | `runStoreSetup()` / `activateStore()` |
+| `storeFolderId` | Drive folder ID for the active store | `createMasterSpreadsheet()` / `activateStore()` |
+| `pos_umkm_storemap_<storeId>` | Zustand-persisted store map (sheets + monthlySheets) | `activateStore()` / AppShell traversal |
 
-**`Monthly_Sheets` registry tab** — the master sheet keeps a tab listing all monthly spreadsheet IDs. This allows any user (including members who don't have Drive folder listing access) to discover the correct monthly spreadsheet ID for any month without a Drive API call.
+**Store map** — on activation, `activateStore()` traverses the store's Drive folder and builds a map of all spreadsheets and their sheet tabs. Non-transaction sheets (master) are stored in `sheets` (keyed by sheet name). Monthly transaction spreadsheets are stored in `monthlySheets[]` (array, one per month with `yearMonth` field). This allows multiple monthly spreadsheets to coexist without overwriting each other.
 
 | Column | Detail |
 |---|---|
@@ -586,7 +586,7 @@ My Drive (owner's Google account)
 
 - **Master data (products, categories, customers):** Fetched once on app load; cached in Zustand store; refreshed when the user navigates to the catalog.
 - **Product search:** Performed client-side against the Zustand store (no API call per keystroke).
-- **Active store context:** Read from `localStorage` on startup (`activeStoreId`, `masterSpreadsheetId`). The `main.Stores` tab is the source of truth for multi-branch store lists.
+- **Active store context:** Read from the store map on startup (loaded from `pos_umkm_storemap_<storeId>` in localStorage; populated by Drive folder traversal on activation). The `main.Stores` tab is the source of truth for multi-branch store lists.
 - **Monthly sheet lookup:** The app reads `Monthly_Sheets` tab in the master sheet to resolve `year_month → spreadsheetId` — no Drive folder listing needed.
 - **Reports:** Fetch the relevant Monthly spreadsheet's `Transactions` and `Transaction_Items` tabs in full; aggregate in JavaScript. For multi-month reports, fetch each monthly spreadsheet sequentially.
 
@@ -1112,7 +1112,7 @@ Tapping the error or pending indicator calls `syncManager.triggerSync()` to forc
 | Trade-off | Detail |
 |---|---|
 | Absolute stock writes | The outbox stores absolute stock values (not deltas). If two devices write the same product's stock offline simultaneously, the last-synced value wins. This is acceptable for single-cashier UMKM (the primary target persona). |
-| Monthly sheet rollover | When `monthlySpreadsheetId` changes at month start, old transaction rows remain in IndexedDB indefinitely. A pruning strategy for long-running installations is deferred. |
+| Monthly sheet rollover | When a new monthly spreadsheet is created at month start, old transaction rows remain in IndexedDB indefinitely. A pruning strategy for long-running installations is deferred. |
 | No app-shell offline cache | The HTML/JS/CSS bundle is not cached by a service worker. After a hard refresh on a device without network, the app shell will fail to load. IndexedDB data is preserved but inaccessible. |
 | First-load requires network | A completely fresh browser (empty IndexedDB) must be online for `HydrationService` to populate the local cache. |
 
@@ -1132,7 +1132,7 @@ Tapping the error or pending indicator calls `syncManager.triggerSync()` to forc
 | **`values.append`** | Sheets API method to add rows — used for all new record writes |
 | **`values.update`** | Sheets API method to overwrite specific cells — used for stock decrements and settings changes |
 | **spreadsheetId** | Unique identifier for a Google Sheets file; found in the file's URL |
-| **Store Link** | A URL containing the `masterSpreadsheetId` that the owner shares with members to join the store (`/join?sid=<id>`) |
+| **Store Link** | A URL containing the master spreadsheet ID that the owner shares with members to join the store (`/join?sid=<id>`) |
 | **Main Sheet** | The private `apps/pos_umkm/main` spreadsheet in each user's Drive; tracks which stores they belong to (`Stores` tab) |
 | **Master Sheet** | The permanent Google Spreadsheet inside `stores/<store_id>/` containing all reference data (products, members, settings) |
 | **Monthly Sheet** | A Google Spreadsheet created per calendar month inside `transactions/<year>/` containing only that month's transactions |

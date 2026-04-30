@@ -7,7 +7,7 @@
     "prepare": "husky install",
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "check": "tsc --noEmit",
+    "check": "tsc -b --noEmit",
     "lint": "biome check --write --no-errors-on-unmatched --error-on-warnings --files-ignore-unknown=true",
     "preview": "vite preview",
     "test": "vitest run",
@@ -29,6 +29,7 @@
     "i18next-browser-languagedetector": "^8.2.1",
     "i18next-http-backend": "^3.0.4",
     "lucide-react": "^1.8.0",
+    "p-limit": "^7.3.0",
     "papaparse": "^5.5.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -69,6 +70,7 @@
   "lint-staged": {
     "*": "npx secretlint",
     "*.{js,jsx,ts,tsx,json,css}": [
+      "npx tsc --noEmit",
       "npx biome check --write --error-on-warnings --files-ignore-unknown=true"
     ]
   }

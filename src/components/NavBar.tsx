@@ -36,7 +36,7 @@ interface NavBarProps {
 }
 
 export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
-  const { user, role, activeStoreId, clearAuth, setStoreSession } = useAuth();
+  const { user, role, activeStoreId, clearAuth, setActiveStoreId } = useAuth();
   const { data: stores = [] } = useStores();
   const navigate = useNavigate();
   const location = useLocation();
@@ -78,12 +78,8 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
     const store = stores.find((s) => s.store_id === storeId);
     if (!store || store.store_id === activeStoreId) return;
     try {
-      const session = await activateStore(store);
-      setStoreSession(
-        session.spreadsheetId,
-        session.monthlySpreadsheetId,
-        storeId,
-      );
+      await activateStore(store);
+      setActiveStoreId(storeId);
       // Navigate to the new store's cashier — updates the URL so :storeId matches.
       navigate(`/${storeId}/cashier`);
     } catch {

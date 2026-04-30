@@ -20,7 +20,7 @@ import { useAuth } from "../auth/useAuth";
 import { type BusinessSettings, saveSettings } from "./settings.service";
 
 export function BusinessProfile() {
-  const { activeStoreId, spreadsheetId } = useAuth();
+  const { activeStoreId } = useAuth();
   const zustandActiveStoreId = useAuthStore((s) => s.activeStoreId);
   const queryClient = useQueryClient();
   const { data: settings, isLoading } = useSettings();
@@ -47,8 +47,7 @@ export function BusinessProfile() {
       await saveSettings(form);
       if (
         form.business_name !== initialName &&
-        activeStoreId &&
-        spreadsheetId
+        activeStoreId
       ) {
         await updateStoreName(activeStoreId, form.business_name);
         void queryClient.invalidateQueries({ queryKey: STORES_QUERY_KEY });

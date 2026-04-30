@@ -20,8 +20,7 @@ import { useAuth } from "./useAuth";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, spreadsheetId, setUser, setSpreadsheetId } =
-    useAuth();
+  const { isAuthenticated, setUser } = useAuth();
   const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
 
@@ -39,35 +38,18 @@ export default function LoginPage() {
   /**
    * Navigation after a successful fresh sign-in.
    *
-   * Fast path: if masterSpreadsheetId is already persisted in Zustand, restore
-   * adapter routing and go straight to /cashier.
-   * Slow path: navigate to /stores so StorePickerPage can resolve the store.
+   * If activeStoreId is persisted, go straight to /:storeId/cashier.
+   * Otherwise navigate to /stores so StorePickerPage resolves the store.
+   * The store map + monthly sheets are loaded by AppShell on mount.
    */
   function onAuthenticated(user: Parameters<typeof setUser>[0], token: string) {
     setUser(user, user.role, token);
 
-    const masterId =
-      spreadsheetId ?? localStorage.getItem("masterSpreadsheetId");
-    if (masterId) {
-      setSpreadsheetId(masterId);
-      const now = new Date();
-      const mm = String(now.getMonth() + 1).padStart(2, "0");
-      const restoredStoreId =
-        useAuthStore.getState().activeStoreId ??
-        localStorage.getItem("activeStoreId") ??
-        "";
-      // Use store-scoped key (txSheet_<storeId>_YYYY-MM). Fall back to legacy
-      // unscoped key (txSheet_YYYY-MM) for sessions created before T073.
-      const monthlyId =
-        localStorage.getItem(
-          `txSheet_${restoredStoreId}_${now.getFullYear()}-${mm}`,
-        ) ?? localStorage.getItem(`txSheet_${now.getFullYear()}-${mm}`);
-      if (monthlyId) useAuthStore.getState().setMonthlySpreadsheetId(monthlyId);
-      if (restoredStoreId) {
-        navigate(`/${restoredStoreId}/cashier`);
-      } else {
-        navigate("/stores");
-      }
+    const restoredStoreId =
+      useAuthStore.getState().activeStoreId ??
+      localStorage.getItem("activeStoreId");
+    if (restoredStoreId) {
+      navigate(`/${restoredStoreId}/cashier`);
     } else {
       navigate("/stores");
     }

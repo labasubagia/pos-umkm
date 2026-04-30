@@ -383,7 +383,7 @@
 - **Section:** Authentication
 - **Depends on:** T045, T046
 - **Test type:** unit
-- **Architecture note:** `@react-oauth/google` is used as a thin React wrapper around GIS. The access token is stored in the Zustand `authStore` in memory only — never in `localStorage` or cookies. This prevents XSS token theft. Token refresh is triggered silently by GIS when the token nears expiry; the store is updated via the `onSuccess` callback. After sign-in, `LoginPage` checks for a cached `masterSpreadsheetId`; if found, routes to `/cashier` (fast path); otherwise routes to `/stores` (StorePickerPage) for store resolution.
+- **Architecture note:** `@react-oauth/google` is used as a thin React wrapper around GIS. The access token is stored in the Zustand `authStore` in memory only — never in `localStorage` or cookies. This prevents XSS token theft. Token refresh is triggered silently by GIS when the token nears expiry; the store is updated via the `onSuccess` callback. After sign-in, `LoginPage` checks for a cached `activeStoreId`; if found, routes to `/cashier` (AppShell loads the store map); otherwise routes to `/stores` (StorePickerPage) for store resolution.
 - **Deliverables:**
   - `src/modules/auth/AuthProvider.tsx` — wraps app with `GoogleOAuthProvider`
   - `src/modules/auth/useAuth.ts` — Zustand store: `{ user, role, accessToken, spreadsheetId, isAuthenticated }`
@@ -406,29 +406,25 @@
 - **Section:** Authentication
 - **Depends on:** T014, T046, T011
 - **Test type:** unit
-- **Architecture note:** The Drive API calls use the `drive` scope, which is requested only for the owner at first-time setup (and when inviting members or creating branches). Subsequent cashier/member logins only need the `spreadsheets` scope. On setup the owner session creates the full folder hierarchy (`apps/pos_umkm/stores/<store_id>/`), the `main` spreadsheet (via `findOrCreateMain`), and the `master` spreadsheet. The `mainSpreadsheetId`, `masterSpreadsheetId`, and `activeStoreId` are saved to `localStorage`. `SetupWizard` calls `runStoreSetup()` (not `runFirstTimeSetup`) — `findOrCreateMain()` is called earlier by `StorePickerPage` before navigating to `/setup`.
+- **Architecture note:** The Drive API calls use the `drive` scope, which is requested only for the owner at first-time setup (and when inviting members or creating branches). Subsequent cashier/member logins only need the `spreadsheets` scope. On setup the owner session creates the full folder hierarchy (`apps/pos_umkm/stores/<store_id>/`), the `main` spreadsheet (via `findOrCreateMain`), and the `master` spreadsheet. The `activeStoreId` and `storeFolderId` are saved to `localStorage`. The store map (sheet metadata) is persisted to `pos_umkm_storemap_<storeId>` in localStorage. `SetupWizard` calls `runStoreSetup()` (not `runFirstTimeSetup`) — `findOrCreateMain()` is called earlier by `StorePickerPage` before navigating to `/setup`.
 - **Deliverables:**
   - `src/modules/auth/setup.service.ts`:
     - `findOrCreateMain(ownerEmail?)` → `{ mainSpreadsheetId, stores[] }` — creates `apps/pos_umkm/main` if absent
-    - `createMasterSpreadsheet(businessName, ownerEmail, mainSpreadsheetId)` → returns `masterSpreadsheetId`
-    - `initializeMasterSheets(spreadsheetId)` → creates all tab headers (Settings, Members, Categories, Products, Variants, Customers, Purchase_Orders, Purchase_Order_Items, Stock_Log, Audit_Log, Monthly_Sheets)
-    - `activateStore(store)` → routes adapter to master + monthly sheets, saves IDs to localStorage
-    - `runStoreSetup(businessName, ownerEmail?)` → orchestrates master + monthly sheet creation
-    - `saveSpreadsheetId(spreadsheetId)` → writes to `localStorage`
+    - `createMasterSpreadsheet(businessName, ownerEmail, mainSpreadsheetId)` → returns `masterId, storeId, driveFolderId`
+    - `initializeMasterSheets(spreadsheetId)` → creates all tab headers
+    - `activateStore(store)` → traverses Drive folder, builds store map, pre-creates monthly sheets (Option B)
+    - `runStoreSetup(businessName, ownerEmail?)` → orchestrates master + monthly sheet creation, traverses folder
   - `src/modules/auth/SetupWizard.tsx` — onboarding form: business name, timezone, PPN toggle; calls `runStoreSetup()`
 - **Test cases (`setup.service.test.ts`):**
   - ✅ `createMasterSpreadsheet creates only master spreadsheet (not main)`
   - ✅ `createMasterSpreadsheet registers store in main.Stores tab`
-  - ✅ `createMasterSpreadsheet saves activeStoreId to localStorage`
   - ✅ `initializeMasterSheets creates all 11 required tabs`
-  - ✅ `initializeMasterSheets writes correct headers for each tab`
-  - ✅ `saveSpreadsheetId writes to localStorage key "masterSpreadsheetId"`
   - ✅ `findOrCreateMain creates main and returns empty stores when mainSpreadsheetId is not in localStorage`
   - ✅ `findOrCreateMain reads stores from existing main when mainSpreadsheetId is cached`
-  - ✅ `activateStore saves masterSpreadsheetId and activeStoreId to localStorage`
-  - ✅ `activateStore creates monthly sheet when none exists for current month`
-  - ✅ `runStoreSetup throws SetupError when mainSpreadsheetId is not in localStorage`
-  - ✅ `runStoreSetup returns masterSpreadsheetId and monthlySpreadsheetId`
+  - ✅ `activateStore traverses the store folder`
+  - ✅ `activateStore sets the store map`
+  - ✅ `runStoreSetup creates main, master, and monthly spreadsheets`
+  - ✅ `runStoreSetup returns storeId and driveFolderId`
   - ❌ `createMasterSpreadsheet throws SetupError on Drive API failure`
   - ❌ `initializeMasterSheets throws if spreadsheetId is invalid`
 
@@ -440,20 +436,15 @@
 - **Section:** Authentication
 - **Depends on:** T015, T046
 - **Test type:** unit
-- **Architecture note:** A new monthly spreadsheet is created on the first transaction of each new calendar month (lazy creation) — by an owner or manager session only (cashiers lack the `drive` scope to create files). The recommended pattern is to pre-create next month's sheet during the last week of the current month when an owner/manager session is active. The `spreadsheetId` for each month is registered in the master sheet's `Monthly_Sheets` tab (`year_month → spreadsheetId`). On app load, the auth flow reads `Monthly_Sheets` to resolve the current month's sheet — no Drive folder listing needed.
+- **Architecture note:** Monthly spreadsheets are pre-created during store activation (Option B: current + next month). The `spreadsheetId` for each month is registered in the master sheet's `Monthly_Sheets` tab (`year_month → spreadsheetId`). The store map tracks monthly sheets in a `monthlySheets[]` array (one entry per month). On app load, AppShell loads the store map from localStorage; if empty, it traverses the Drive folder to populate it.
 - **Deliverables:**
   - `src/modules/auth/setup.service.ts` (additions):
-    - `getCurrentMonthSheetId(token, masterSpreadsheetId): string | null` — reads from `Monthly_Sheets` tab in master sheet
-    - `createMonthlySheet(year, month, token, masterSpreadsheetId)` → `spreadsheetId`
-    - `initializeMonthlySheets(spreadsheetId, token)` → creates Transactions, Transaction_Items, Refunds tabs
-    - `shareSheetWithAllMembers(spreadsheetId, token, masterSpreadsheetId)` — reads Members tab, shares with each member
+    - `initializeMonthlySheets(spreadsheetId)` → creates Transactions, Transaction_Items, Refunds tabs
+    - `ensureMonthlySheets(storeId, storeFolderId)` → pre-creates current + next month sheets
+    - `shareSheetWithAllMembers(spreadsheetId)` — reads Members tab, shares with each member
 - **Test cases (`setup.service.test.ts` additions):**
-  - ✅ `getCurrentMonthSheetId returns null when localStorage is empty`
-  - ✅ `getCurrentMonthSheetId returns stored id for current month key`
-  - ✅ `createMonthlySheet names spreadsheet "transaction_<year>-<month>" inside the year folder`
   - ✅ `initializeMonthlySheets creates Transactions, Transaction_Items, Refunds tabs`
   - ✅ `shareSheetWithAllMembers reads Members tab and calls Drive API share for each active member`
-  - ❌ `createMonthlySheet throws on Drive API error`
 
 ---
 
@@ -463,13 +454,13 @@
 - **Section:** Authentication
 - **Depends on:** T015, T046, T012
 - **Test type:** unit + e2e
-- **Architecture note:** Inviting a member requires two actions: (1) share the `stores/<store_id>/` folder via Drive API (granting access to all current and future files inside), (2) append a row to the `Members` tab. The Store Link is a URL containing the `masterSpreadsheetId` encoded in a query param (`/join?sid=<id>`). The owner never needs to share a password — the link is the invite mechanism. The invited user must still authenticate with Google.
+- **Architecture note:** Inviting a member requires two actions: (1) share the `stores/<store_id>/` folder via Drive API (granting access to all current and future files inside), (2) append a row to the `Members` tab. The Store Link is a URL containing the master spreadsheet ID encoded in a query param (`/join?sid=<id>`). The owner never needs to share a password — the link is the invite mechanism. The invited user must still authenticate with Google.
 - **Deliverables:**
   - `src/modules/settings/members.service.ts`:
-    - `inviteMember(email, role, token, masterSpreadsheetId)` — shares `stores/<store_id>/` folder + appends to Members tab
+    - `inviteMember(email, role, masterSpreadsheetId)` — shares `stores/<store_id>/` folder + appends to Members tab
     - `generateStoreLink(masterSpreadsheetId): string` — returns `https://<domain>/join?sid=<masterSpreadsheetId>`
-    - `revokeMember(userId, token, masterSpreadsheetId)` — sets `deleted_at` in Members tab (soft delete); does not unshare Drive folder (must be done manually)
-    - `listMembers(token, masterSpreadsheetId): Member[]`
+    - `revokeMember(userId)` — sets `deleted_at` in Members tab (soft delete); does not unshare Drive folder (must be done manually)
+    - `listMembers(): Member[]`
   - `src/modules/settings/MemberManagement.tsx` — UI for invite + list + revoke
 - **Test cases (`members.service.test.ts`):**
   - ✅ `inviteMember appends correct row to Members tab with role and invited_at`
@@ -492,12 +483,12 @@
 - **Section:** Authentication
 - **Depends on:** T017, T014
 - **Test type:** unit + e2e
-- **Architecture note:** When a member opens a Store Link (`/join?sid=<masterSpreadsheetId>`), the app stores the `masterSpreadsheetId` in `localStorage` before prompting Google Login. Members only request the `spreadsheets` scope (not `drive`) because they access spreadsheets shared via the store folder — they don't need Drive API access. Their role is resolved by reading the `Members` tab and matching by email. After joining, the app reads `Settings` to get `store_id` and `drive_folder_id`, then creates/updates the member's own `main` spreadsheet with a `Stores` row for this store.
+- **Architecture note:** When a member opens a Store Link (`/join?sid=<masterSpreadsheetId>`), the app signs in the user and navigates to `/stores` so StorePickerPage resolves the active store. Members only request the `spreadsheets` scope (not `drive`) because they access spreadsheets shared via the store folder — they don't need Drive API access. Their role is resolved by reading the `Members` tab and matching by email. After joining, the app reads `Settings` to get `store_id` and `drive_folder_id`, then creates/updates the member's own `main` spreadsheet with a `Stores` row for this store.
 - **Deliverables:**
   - `src/modules/auth/JoinPage.tsx` — reads `?sid` param, stores it, shows Google Login
   - `src/modules/auth/auth.service.ts`:
-    - `resolveUserRole(email, token, masterSpreadsheetId): Role` — reads Members tab
-    - `isFirstTimeOwner(masterSpreadsheetId): boolean` — checks if Members tab is empty
+    - `resolveUserRole(email): Role` — reads Members tab
+    - `isFirstTimeOwner(): boolean` — checks if Members tab is empty
 - **Test cases (`auth.service.test.ts`):**
   - ✅ `resolveUserRole returns "cashier" for a known member email`
   - ✅ `resolveUserRole returns "owner" for the store owner email`
@@ -852,8 +843,8 @@
 - **Architecture note:** Transaction commit is a multi-step write sequence: (1) append to `Transactions` tab, (2) append to `Transaction_Items` tab (all items in one `values.append` call), (3) decrement stock for each distinct product. Steps are attempted sequentially. If step 3 partially fails (e.g., rate limit on product N), the transaction header is already written — the cashier is shown an alert to manually verify stock. This is safer than rolling back (which would require deleting the appended row, which is complex with Sheets API).
 - **Deliverables:**
   - `src/modules/cashier/cashier.service.ts` (addition):
-    - `commitTransaction(cart, payment, token, masterSpreadsheetId, monthlySpreadsheetId)`
-    - `ensureMonthlySheetExists(token, masterSpreadsheetId)` — creates monthly sheet if needed
+    - `commitTransaction(cart, payment)` — writes to current month's transaction sheets via store map
+    - `ensureMonthlySheetExists()` — checks store map for current month's sheet (pre-created by Option B)
 - **Test cases (`cashier.service.test.ts` additions):**
   - ✅ `commitTransaction appends 1 row to Transactions tab`
   - ✅ `commitTransaction appends all cart items in 1 call to Transaction_Items tab`
@@ -1004,7 +995,7 @@
 - **Architecture note:** The daily summary aggregates data from the current month's `Transactions` and `Transaction_Items` tabs. All aggregation (sum, count, average, top products) is done in JavaScript after fetching the full tabs. This is efficient because a single month's transaction data fits comfortably in memory for typical UMKM volumes (<5,000 transactions/month).
 - **Deliverables:**
   - `src/modules/reports/reports.service.ts`:
-    - `fetchDailySummary(date, token, monthlySpreadsheetId): DailySummary`
+    - `fetchDailySummary(date): DailySummary`
     - `aggregateTransactions(transactions, items): SummaryStats`
   - `src/modules/reports/DailySummary.tsx`
 - **Test cases (`reports.service.test.ts`):**
@@ -1028,7 +1019,7 @@
 - **Architecture note:** For date ranges spanning multiple months, the service fetches each relevant Monthly Sheet sequentially (not in parallel, to stay within API rate limits). Results are merged and aggregated client-side. The UI allows filtering by cashier (user email), category, and payment method.
 - **Deliverables:**
   - `src/modules/reports/reports.service.ts` (additions):
-    - `fetchTransactionsForRange(startDate, endDate, token, masterSpreadsheetId): Transaction[]`
+    - `fetchTransactionsForRange(startDate, endDate): Transaction[]`
     - `filterTransactions(transactions, filters: ReportFilters): Transaction[]`
   - `src/modules/reports/SalesReport.tsx` — date pickers + filter controls + results table
 - **Test cases:**
@@ -1299,7 +1290,7 @@
 - **Architecture note:** `HydrationService.hydrateAll()` fetches all entity tables from Google Sheets in parallel (`Promise.allSettled`) and writes them into IndexedDB via `bulkPut`. Two skip conditions prevent unnecessary fetches and data loss: (a) table hydrated within the last 5 minutes (`_syncMeta.lastHydratedAt`) — avoids redundant Sheets API reads on rapid app restarts; (b) table has pending/unretried outbox entries — avoids overwriting local writes that have not yet been synced to Sheets. `getRawRows()` fetches including soft-deleted rows (unlike `ISheetRepository.getAll()`) to preserve the full dataset.
 - **Deliverables:**
   - `src/lib/adapters/dexie/HydrationService.ts`
-    - `hydrateAll(mainSpreadsheetId, masterSpreadsheetId, monthlySpreadsheetId)` — hydrates all 15 tables in parallel; records `lastHydratedAt` per table; resolves all errors individually via `allSettled`
+    - `hydrateAll()` — reads spreadsheet IDs from the store map; hydrates all 15 tables in parallel; records `lastHydratedAt` per table; resolves all errors individually via `allSettled`
     - `hydrateTable(spreadsheetId, sheetName)` — fetches raw rows, writes to Dexie, updates `_syncMeta`
     - Skip logic: freshness check (5 min) + pending outbox guard
 - **Test cases:**
@@ -1467,7 +1458,7 @@
 
   This is a stopgap fix that works within the single-DB design. T057 (per-store Dexie DB) will fully isolate `_syncMeta` once implemented; at that point, the key can revert to `${sheetName}` because each DB is already store-scoped. For now, this fix prevents data from the wrong store being silently served after a store switch.
 
-  **Monthly sheet tables** (`Transactions`, `Transaction_Items`, `Refunds`) use `monthlySpreadsheetId` which changes every calendar month. A month-rollover also creates a new spreadsheetId, so scoping by `spreadsheetId` naturally forces a re-hydration for the new monthly sheet without any extra logic.
+  **Monthly sheet tables** (`Transactions`, `Transaction_Items`, `Refunds`) are stored in the `monthlySheets[]` array in the store map, one entry per month. A month-rollover creates a new spreadsheet, and the store map is updated via re-traversal. Old transaction rows remain in IndexedDB indefinitely. A pruning strategy for long-running installations is deferred.
 
   **Side effect — stale `_syncMeta` entries accumulate:** old keys like `old_sid_Products` are never cleaned up. This is acceptable until T057 replaces the single DB with per-store DBs (at which point the entire `_syncMeta` table is per-store and stale entries are impossible).
 
@@ -1479,7 +1470,7 @@
   - ✅ `hydrateTable writes _syncMeta key scoped to spreadsheetId`
   - ✅ `switching to a different spreadsheetId for the same sheetName triggers a fresh hydration`
   - ✅ `same spreadsheetId + sheetName within staleness window is still skipped`
-  - ✅ `month rollover (new monthlySpreadsheetId) triggers re-hydration of Transactions`
+  - ✅ `month rollover (new monthly spreadsheet) triggers re-hydration of Transactions`
   - ❌ `stale key from previous spreadsheetId does not block hydration for new spreadsheetId`
 
 ---
@@ -1503,7 +1494,7 @@
     - `createStore(name: string)` → `IStore` — provisions a new master spreadsheet via `SetupService.initMasterSheet()`; appends the new store row to the `Stores` tab; returns the created store
     - `updateStore(storeId: string, patch: Partial<Pick<IStore, 'store_name'>>)` → `void` — `batchUpdateCells` on the matching row in `Stores`
     - `removeOwnedStore(storeId: string)` → `void` — soft-deletes the store row in the user's `Stores` tab (`deleted_at = now`)
-    - `removeAccessToStore(storeId: string)` → `void` — locates the caller's row in `${masterSpreadsheetId}/Members` by `email`; soft-deletes it
+    - `removeAccessToStore(masterSpreadsheetId: string)` → `void` — locates the caller's row in the store's `Members` by `email`; soft-deletes it
 - **Test cases:**
   - ✅ `listStores returns all non-deleted stores`
   - ✅ `listStores excludes stores with deleted_at set`
@@ -1577,7 +1568,7 @@
 
 ### T063 — Remove spreadsheetId & monthlySpreadsheetId from Zustand Persistence
 
-- **Status:** ⬜ todo
+- **Status:** ✅ done
 - **Section:** Store Management
 - **Depends on:** T062
 - **Test type:** unit
@@ -1586,22 +1577,24 @@
 1. On page refresh, the persisted `spreadsheetId` / `monthlySpreadsheetId` may belong to a different store than `activeStoreId` if a store switch was interrupted.
 2. The `txSheet_YYYY-MM` localStorage cache key is not scoped per store, so switching stores can write the wrong monthly ID into the cache.
 
-**Proposed approach**:
-- Remove `spreadsheetId` and `monthlySpreadsheetId` from `partialize` in `authStore.ts` (stop persisting them).
-- Add a derived getter `getActiveSpreadsheetId()` that computes `stores.find(s => s.store_id === activeStoreId)?.master_spreadsheet_id ?? null` instead of reading from Zustand state.
-- Keep `monthlySpreadsheetId` in Zustand in-memory state (not persisted); on refresh, call `activateStore(activeStore)` in `AppShell` (or `AuthInitializer`) to re-derive it.
-- Scope `txSheet_YYYY-MM` per store: key becomes `txSheet_<storeId>_YYYY-MM` so switching stores never overwrites another store's cached ID.
-- Audit all callers of `spreadsheetId` and `monthlySpreadsheetId` from Zustand and replace with the derived getter or re-activate on refresh.
-
-**Architecture note**: This is a correctness improvement. The root cause of T063 was exposed by a race condition fix in `activateStore` (T062 + cross-store contamination fix). Deriving `spreadsheetId` from `stores[activeStoreId]` is the single-source-of-truth pattern; it cannot go stale.
+**Actual approach (implemented):**
+- Removed `spreadsheetId` and `monthlySpreadsheetId` from `authStore.ts` entirely.
+- Introduced `StoreFolderService` that traverses the store's Drive folder to discover all spreadsheets.
+- Introduced `storeMapStore.ts` — a Zustand store (persisted per store ID as `pos_umkm_storemap_<storeId>`) that holds the sheet map.
+- `DexieRepository.resolveSpreadsheetId()` resolves from the store map at write time.
+- `HydrationService.hydrateAll()` reads from the store map (no explicit IDs needed).
+- `AppShell` blocks rendering until the store map is populated (traverses on page refresh if needed).
+- Monthly sheets tracked in `monthlySheets[]` array (supports multiple months without overwriting).
+- Option B: pre-creates current + next month sheets on store activation.
 
 **Test cases**:
-- ✅ `getActiveSpreadsheetId() returns master_spreadsheet_id of the active store`
-- ✅ `getActiveSpreadsheetId() returns null when activeStoreId is null`
-- ✅ `spreadsheetId is not written to localStorage after store switch`
-- ✅ `monthlySpreadsheetId is not read from localStorage on refresh (re-derived via activateStore)`
-- ✅ `txSheet key is scoped per store (txSheet_<storeId>_YYYY-MM)`
-- ❌ `stale spreadsheetId in localStorage does not bleed into new store session`
+- ✅ `spreadsheetId and monthlySpreadsheetId removed from authStore`
+- ✅ `store map is populated on activation via Drive folder traversal`
+- ✅ `store map is loaded from localStorage on page refresh`
+- ✅ `AppShell blocks children until store map is ready`
+- ✅ `DexieRepository resolves spreadsheetId from store map`
+- ✅ `HydrationService reads from store map`
+- ✅ `monthlySheets array supports multiple months`
 
 ---
 

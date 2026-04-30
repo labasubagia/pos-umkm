@@ -36,7 +36,7 @@ const TAX_RATE = 0; // PPN disabled by default; owner can enable in Settings (po
 type MobileView = "products" | "cart";
 
 export default function CashierPage() {
-  const { user, spreadsheetId } = useAuthStore();
+  const { user } = useAuthStore();
   const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const queryClient = useQueryClient();
   const { data: products = [] } = useProducts();
@@ -54,7 +54,6 @@ export default function CashierPage() {
     txItems: TransactionItem[];
   } | null>(null);
   const [txError, setTxError] = useState("");
-  const [receiptSeq, setReceiptSeq] = useState(1);
   const [mobileView, setMobileView] = useState<MobileView>("products");
 
   const subtotal = calculateSubtotal(items);
@@ -71,13 +70,13 @@ export default function CashierPage() {
   const total = calculateTotal(subtotal, discountAmount, tax);
 
   async function handlePaymentConfirm(payment: PaymentInfo) {
-    if (!user || !spreadsheetId || submitting) return;
+    if (!user || submitting) return;
     setTxError("");
     setSubmitting(true);
     try {
       // Ensure the monthly transaction sheet exists before writing to it.
-      // Creates it (with headers) on the first transaction of each month.
-      await ensureMonthlySheetExists(spreadsheetId);
+      // With Option B, this is pre-created during store activation.
+      await ensureMonthlySheetExists();
       const tx = await commitTransaction(
         items,
         discount,
@@ -85,12 +84,9 @@ export default function CashierPage() {
         payment,
         user.id,
         selectedCustomer?.id ?? null,
-        spreadsheetId,
-        receiptSeq,
         products,
         variants,
       );
-      setReceiptSeq((s) => s + 1);
       setSelectedCustomer(null);
 
       // Invalidate product/variant caches so stock decrements are reflected
@@ -126,6 +122,7 @@ export default function CashierPage() {
       } else {
         setTxError("Terjadi kesalahan saat memproses transaksi");
       }
+      console.error(err);
     } finally {
       setSubmitting(false);
     }

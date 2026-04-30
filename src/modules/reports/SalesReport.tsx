@@ -13,6 +13,7 @@ import {
 } from "../../components/ui/table";
 import { formatDateTimeTZ, formatIDR } from "../../lib/formatters";
 import { useAuthStore } from "../../store/authStore";
+import { getActiveStoreMap } from "../../store/storeMapStore";
 import { listMembers } from "../settings/members.service";
 import { printReport } from "./export.service";
 import {
@@ -39,10 +40,7 @@ export function SalesReport() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const user = useAuthStore((s) => s.user);
-  const monthlySpreadsheetId = useAuthStore((s) => s.monthlySpreadsheetId);
-  const spreadsheetId = useAuthStore((s) => s.spreadsheetId);
   const isOwner = user?.role === "owner";
-  const txSheetId = monthlySpreadsheetId ?? spreadsheetId;
 
   async function load() {
     setLoading(true);
@@ -173,17 +171,27 @@ export function SalesReport() {
             >
               Cetak
             </Button>
-            {isOwner && txSheetId && (
-              <a
-                data-testid="link-transaction-sheet"
-                href={`https://docs.google.com/spreadsheets/d/${txSheetId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 underline self-center"
-              >
-                Buka Spreadsheet Transaksi
-              </a>
-            )}
+            {isOwner &&
+              (() => {
+                try {
+                  const txSheetId = getActiveStoreMap()
+                    .getState()
+                    .getCurrentMonthSheets()?.Transactions?.spreadsheet_id;
+                  return txSheetId ? (
+                    <a
+                      data-testid="link-transaction-sheet"
+                      href={`https://docs.google.com/spreadsheets/d/${txSheetId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 underline self-center"
+                    >
+                      Buka Spreadsheet Transaksi
+                    </a>
+                  ) : null;
+                } catch {
+                  return null;
+                }
+              })()}
           </div>
 
           <Table data-testid="report-results-table">

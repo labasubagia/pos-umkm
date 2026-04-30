@@ -24,7 +24,7 @@ import { useAuth } from "./useAuth";
 
 export default function StorePickerPage() {
   const navigate = useNavigate();
-  const { user, setStoreSession } = useAuth();
+  const { user, setActiveStoreId } = useAuth();
   const queryClient = useQueryClient();
 
   const [loading, setLoading] = useState(true);
@@ -37,19 +37,15 @@ export default function StorePickerPage() {
     async (store: StoreRecord) => {
       setActivating(true);
       try {
-        const session = await activateStore(store);
-        setStoreSession(
-          session.spreadsheetId,
-          session.monthlySpreadsheetId,
-          store.store_id,
-        );
+        await activateStore(store);
+        setActiveStoreId(store.store_id);
         navigate(`/${store.store_id}/cashier`, { replace: true });
       } catch (err) {
         setError(`Gagal mengaktifkan toko: ${String(err)}`);
         setActivating(false);
       }
     },
-    [setStoreSession, navigate],
+    [setActiveStoreId, navigate],
   );
 
   const resolveStores = useCallback(async () => {

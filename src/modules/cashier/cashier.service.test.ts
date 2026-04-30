@@ -22,10 +22,29 @@ import {
 
 // Mock the auth setup service so ensureMonthlySheetExists doesn't touch localStorage
 vi.mock("../auth/setup.service", () => ({
-  getCurrentMonthSheetId: vi.fn().mockResolvedValue("monthly-id"),
-  createMonthlySheet: vi.fn().mockResolvedValue("monthly-id"),
   initializeMonthlySheets: vi.fn().mockResolvedValue(undefined),
   shareSheetWithAllMembers: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../../store/storeMapStore", () => ({
+  getActiveStoreMap: vi.fn().mockReturnValue({
+    getState: vi.fn().mockReturnValue({
+      sheets: {
+        Transactions: {
+          spreadsheet_id: "monthly-id",
+          spreadsheet_name: "transaction_2026-04",
+          folder_path: "transactions/2026",
+          sheet_name: "Transactions",
+          sheet_id: 123,
+          headers: ["id", "created_at"],
+        },
+      },
+      getSheetMeta: vi.fn().mockReturnValue({
+        spreadsheet_id: "monthly-id",
+        spreadsheet_name: "transaction_2026-04",
+      }),
+    }),
+  }),
 }));
 
 function mockRepo(overrides = {}) {
@@ -289,7 +308,6 @@ describe("commitTransaction", () => {
     cashReceived: 50000,
     change: 15000,
   };
-  const masterSpreadsheetId = "master-id";
 
   beforeEach(async () => {
     mockRepos.products.getAll.mockResolvedValue([
@@ -299,31 +317,13 @@ describe("commitTransaction", () => {
   });
 
   it("appends 1 row to Transactions tab", async () => {
-    await commitTransaction(
-      items,
-      null,
-      0,
-      payment,
-      "user-1",
-      null,
-      masterSpreadsheetId,
-      1,
-    );
+    await commitTransaction(items, null, 0, payment, "user-1", null);
 
     expect(mockRepos.transactions.batchInsert).toHaveBeenCalledTimes(1);
   });
 
   it("appends all cart items to Transaction_Items tab in a single call", async () => {
-    await commitTransaction(
-      items,
-      null,
-      0,
-      payment,
-      "user-1",
-      null,
-      masterSpreadsheetId,
-      1,
-    );
+    await commitTransaction(items, null, 0, payment, "user-1", null);
 
     expect(mockRepos.transactionItems.batchInsert).toHaveBeenCalledTimes(1);
     const appended = mockRepos.transactionItems.batchInsert.mock.calls[0][0];
@@ -331,16 +331,7 @@ describe("commitTransaction", () => {
   });
 
   it("decrements stock for each distinct product", async () => {
-    await commitTransaction(
-      items,
-      null,
-      0,
-      payment,
-      "user-1",
-      null,
-      masterSpreadsheetId,
-      1,
-    );
+    await commitTransaction(items, null, 0, payment, "user-1", null);
 
     const updates = mockRepos.products.batchUpdate.mock.calls[0][0];
     expect(updates.find((u: { id: string }) => u.id === "prod-1")?.stock).toBe(
@@ -359,8 +350,6 @@ describe("commitTransaction", () => {
       payment,
       "user-1",
       null,
-      masterSpreadsheetId,
-      1,
     );
 
     expect(result.id).toBeTruthy();
@@ -371,16 +360,7 @@ describe("commitTransaction", () => {
 
   it("throws if cart is empty", async () => {
     await expect(
-      commitTransaction(
-        [],
-        null,
-        0,
-        payment,
-        "user-1",
-        null,
-        masterSpreadsheetId,
-        1,
-      ),
+      commitTransaction([], null, 0, payment, "user-1", null),
     ).rejects.toThrow(CashierError);
   });
 });

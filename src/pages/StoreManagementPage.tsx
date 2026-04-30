@@ -48,7 +48,7 @@ import { useAuthStore } from "../store/authStore";
 export default function StoreManagementPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, activeStoreId, setStoreSession } = useAuthStore();
+  const { user, activeStoreId, setActiveStoreId } = useAuthStore();
 
   const { data: stores = [], error: storesError } = useStores();
   const [mutationError, setMutationError] = useState<string | null>(null);
@@ -103,12 +103,8 @@ export default function StoreManagementPage() {
         const remaining =
           queryClient.getQueryData<StoreRecord[]>(STORES_QUERY_KEY) ?? [];
         if (remaining.length > 0) {
-          const session = await activateStore(remaining[0]);
-          setStoreSession(
-            session.spreadsheetId,
-            session.monthlySpreadsheetId,
-            remaining[0].store_id,
-          );
+          await activateStore(remaining[0]);
+          setActiveStoreId(remaining[0].store_id);
         } else {
           syncManager.triggerSync();
           useAuthStore.getState().clearAuth();
@@ -139,12 +135,8 @@ export default function StoreManagementPage() {
 
   const activateMutation = useMutation({
     mutationFn: async (store: StoreRecord) => {
-      const session = await activateStore(store);
-      setStoreSession(
-        session.spreadsheetId,
-        session.monthlySpreadsheetId,
-        store.store_id,
-      );
+      await activateStore(store);
+      setActiveStoreId(store.store_id);
     },
     onError: (err) =>
       setMutationError(String(err instanceof Error ? err.message : err)),

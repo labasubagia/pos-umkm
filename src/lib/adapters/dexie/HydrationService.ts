@@ -21,6 +21,7 @@
  * writeHeaders is never called during hydration — headers are Sheets-side only.
  */
 
+import { getActiveStoreMap } from "../../../store/storeMapStore";
 import { useSyncStore } from "../../../store/syncStore";
 import { ALL_TAB_HEADERS } from "../../schema";
 import { SheetRepository } from "../SheetRepository";
@@ -47,32 +48,29 @@ export class HydrationService {
    * Hydrates all tables for the active store context.
    * Called once after successful login and store activation.
    * Skips tables that already have fresh (< STALE_MS) data.
+   *
+   * Reads spreadsheet IDs from the store map — no need to pass them explicitly.
    */
-  async hydrateAll(
-    mainSpreadsheetId: string,
-    masterSpreadsheetId: string,
-    monthlySpreadsheetId: string,
-  ): Promise<void> {
-    const targets: HydrationTarget[] = [
-      // Main spreadsheet
-      { sheetName: "Stores", spreadsheetId: mainSpreadsheetId },
-      // Master spreadsheet
-      { sheetName: "Settings", spreadsheetId: masterSpreadsheetId },
-      { sheetName: "Members", spreadsheetId: masterSpreadsheetId },
-      { sheetName: "Categories", spreadsheetId: masterSpreadsheetId },
-      { sheetName: "Products", spreadsheetId: masterSpreadsheetId },
-      { sheetName: "Variants", spreadsheetId: masterSpreadsheetId },
-      { sheetName: "Customers", spreadsheetId: masterSpreadsheetId },
-      { sheetName: "Purchase_Orders", spreadsheetId: masterSpreadsheetId },
-      { sheetName: "Purchase_Order_Items", spreadsheetId: masterSpreadsheetId },
-      { sheetName: "Stock_Log", spreadsheetId: masterSpreadsheetId },
-      { sheetName: "Audit_Log", spreadsheetId: masterSpreadsheetId },
-      { sheetName: "Monthly_Sheets", spreadsheetId: masterSpreadsheetId },
-      // Current month's transactions
-      { sheetName: "Transactions", spreadsheetId: monthlySpreadsheetId },
-      { sheetName: "Transaction_Items", spreadsheetId: monthlySpreadsheetId },
-      { sheetName: "Refunds", spreadsheetId: monthlySpreadsheetId },
-    ];
+  async hydrateAll(): Promise<void> {
+    const storeMap = getActiveStoreMap().getState();
+    const targets: HydrationTarget[] = [];
+
+    // Non-monthly sheets (master, main)
+    for (const [sheetName, meta] of Object.entries(storeMap.sheets)) {
+      if (meta.spreadsheet_id) {
+        targets.push({ sheetName, spreadsheetId: meta.spreadsheet_id });
+      }
+    }
+
+    // Current month's transaction sheets
+    const currentMonthSheets = storeMap.getCurrentMonthSheets();
+    if (currentMonthSheets) {
+      for (const [sheetName, meta] of Object.entries(currentMonthSheets)) {
+        if (meta.spreadsheet_id) {
+          targets.push({ sheetName, spreadsheetId: meta.spreadsheet_id });
+        }
+      }
+    }
 
     // Filter out empty spreadsheetIds (e.g. monthlySpreadsheetId not yet created)
     const validTargets = targets.filter((t) => Boolean(t.spreadsheetId));
