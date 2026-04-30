@@ -155,31 +155,22 @@ export async function fetchTransactionsForRange(
   }
 
   const months = getMonthsInRange(startDate, endDate);
-  const endBound = `${endDate}T23:59:59.999Z`;
 
-  const allRows: TransactionRow[] = [];
-  const seen = new Set<string>();
-
-  for (const _month of months) {
-    const rows = await getRepos().transactions.getAll();
-    for (const r of rows) {
-      if (seen.has(r.id)) continue;
-      if (r.created_at >= startDate && r.created_at <= endBound) {
-        seen.add(r.id);
-        allRows.push({
-          id: r.id,
-          receipt_number: r.receipt_number,
-          created_at: r.created_at,
-          cashier_id: r.cashier_id,
-          payment_method: r.payment_method,
-          total: r.total,
-          cash_received: r.cash_received,
-        });
-      }
-    }
-  }
-
-  return allRows;
+  // Use the indexed findByDateRange — single query instead of full-table scan per month
+  void months; // months kept for future multi-sheet routing
+  const allRows = await getRepos().transactions.findByDateRange(
+    startDate,
+    endDate,
+  );
+  return allRows.map((r) => ({
+    id: r.id,
+    receipt_number: r.receipt_number,
+    created_at: r.created_at,
+    cashier_id: r.cashier_id,
+    payment_method: r.payment_method,
+    total: r.total,
+    cash_received: r.cash_received,
+  }));
 }
 
 export function filterTransactions(

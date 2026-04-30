@@ -208,12 +208,10 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
   }
 
   // Step 2: Load order items and current product stocks
-  const [allItems, products] = await Promise.all([
-    getRepos().purchaseOrderItems.getAll(),
+  const [orderItems, products] = await Promise.all([
+    getRepos().purchaseOrderItems.findByOrderId(orderId),
     getRepos().products.getAll(),
   ]);
-
-  const orderItems = allItems.filter((i) => i.order_id === orderId);
 
   // Compute all new stock values and validate products exist
   const created_at = nowUTC();
@@ -272,6 +270,5 @@ export async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
 export async function fetchPurchaseOrderItems(
   orderId: string,
 ): Promise<PurchaseOrderItemRow[]> {
-  const rows = await getRepos().purchaseOrderItems.getAll();
-  return rows.filter((r) => r.order_id === orderId);
+  return getRepos().purchaseOrderItems.findByOrderId(orderId);
 }

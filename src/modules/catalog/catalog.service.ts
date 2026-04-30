@@ -252,6 +252,21 @@ export async function fetchVariants(): Promise<Variant[]> {
 }
 
 /**
+ * Fetches all non-deleted variants for a specific product.
+ * Prefers the indexed Dexie query over filtering the full variant list.
+ */
+export async function fetchVariantsForProduct(
+  productId: string,
+): Promise<Variant[]> {
+  const rows = await getRepos().variants.findByProductId(productId);
+  return rows.map((r) => ({
+    ...r,
+    price: Number(r.price),
+    stock: Number(r.stock),
+  }));
+}
+
+/**
  * Appends a variant row linked to a parent product.
  * Price must be a positive integer. optionValue must not be empty.
  */

@@ -15,18 +15,20 @@ import type {
   CustomerRow,
   MemberRow,
   MonthlySheetRow,
-  ProductRow,
-  PurchaseOrderItemRow,
   PurchaseOrderRow,
   RefundRow,
   SettingRow,
   StockLogRow,
   StoreRow,
-  TransactionItemRow,
-  TransactionRow,
-  VariantRow,
 } from "./entity-types";
 import type { ILocalRepository } from "./ILocalRepository";
+import type {
+  IProductRepository,
+  IPurchaseOrderItemRepository,
+  ITransactionItemRepository,
+  ITransactionRepository,
+  IVariantRepository,
+} from "./repo-interfaces";
 
 export interface Repos {
   // Main spreadsheet (owner's personal store registry)
@@ -34,17 +36,17 @@ export interface Repos {
   // Master spreadsheet
   monthlySheets: ILocalRepository<MonthlySheetRow>;
   categories: ILocalRepository<CategoryRow>;
-  products: ILocalRepository<ProductRow>;
-  variants: ILocalRepository<VariantRow>;
+  products: IProductRepository;
+  variants: IVariantRepository;
   members: ILocalRepository<MemberRow>;
   settings: ILocalRepository<SettingRow>;
   stockLog: ILocalRepository<StockLogRow>;
   purchaseOrders: ILocalRepository<PurchaseOrderRow>;
-  purchaseOrderItems: ILocalRepository<PurchaseOrderItemRow>;
+  purchaseOrderItems: IPurchaseOrderItemRepository;
   customers: ILocalRepository<CustomerRow>;
   auditLog: ILocalRepository<AuditLogRow>;
   // Monthly spreadsheet
-  transactions: ILocalRepository<TransactionRow>;
-  transactionItems: ILocalRepository<TransactionItemRow>;
+  transactions: ITransactionRepository;
+  transactionItems: ITransactionItemRepository;
   refunds: ILocalRepository<RefundRow>;
 }

@@ -26,22 +26,24 @@ import { DexieRepository } from "./dexie/DexieRepository";
 import { clearDbCache, getDb } from "./dexie/db";
 import { HydrationService } from "./dexie/HydrationService";
 import { SyncManager } from "./dexie/SyncManager";
+import {
+  DexieProductRepository,
+  DexiePurchaseOrderItemRepository,
+  DexieTransactionItemRepository,
+  DexieTransactionRepository,
+  DexieVariantRepository,
+} from "./dexie/typed-repos";
 import type {
   AuditLogRow,
   CategoryRow,
   CustomerRow,
   MemberRow,
   MonthlySheetRow,
-  ProductRow,
-  PurchaseOrderItemRow,
   PurchaseOrderRow,
   RefundRow,
   SettingRow,
   StockLogRow,
   StoreRow,
-  TransactionItemRow,
-  TransactionRow,
-  VariantRow,
 } from "./entity-types";
 import { GoogleAuthAdapter } from "./google/GoogleAuthAdapter";
 import type { Repos } from "./repos";
@@ -192,17 +194,37 @@ function createDexieRepos(storeId: string): Repos {
     stores: dexie<StoreRow>("Stores"),
     monthlySheets: dexie<MonthlySheetRow>("Monthly_Sheets"),
     categories: dexie<CategoryRow>("Categories"),
-    products: dexie<ProductRow>("Products"),
-    variants: dexie<VariantRow>("Variants"),
+    products: new DexieProductRepository(
+      storeDb,
+      { spreadsheetId: "", sheetName: "Products" },
+      () => syncManager.triggerSync(),
+    ),
+    variants: new DexieVariantRepository(
+      storeDb,
+      { spreadsheetId: "", sheetName: "Variants" },
+      () => syncManager.triggerSync(),
+    ),
     members: dexie<MemberRow>("Members"),
     settings: dexie<SettingRow>("Settings"),
     stockLog: dexie<StockLogRow>("Stock_Log"),
     purchaseOrders: dexie<PurchaseOrderRow>("Purchase_Orders"),
-    purchaseOrderItems: dexie<PurchaseOrderItemRow>("Purchase_Order_Items"),
+    purchaseOrderItems: new DexiePurchaseOrderItemRepository(
+      storeDb,
+      { spreadsheetId: "", sheetName: "Purchase_Order_Items" },
+      () => syncManager.triggerSync(),
+    ),
     customers: dexie<CustomerRow>("Customers"),
     auditLog: dexie<AuditLogRow>("Audit_Log"),
-    transactions: dexie<TransactionRow>("Transactions"),
-    transactionItems: dexie<TransactionItemRow>("Transaction_Items"),
+    transactions: new DexieTransactionRepository(
+      storeDb,
+      { spreadsheetId: "", sheetName: "Transactions" },
+      () => syncManager.triggerSync(),
+    ),
+    transactionItems: new DexieTransactionItemRepository(
+      storeDb,
+      { spreadsheetId: "", sheetName: "Transaction_Items" },
+      () => syncManager.triggerSync(),
+    ),
     refunds: dexie<RefundRow>("Refunds"),
   };
 }
@@ -225,6 +247,13 @@ export type {
   VariantRow,
 } from "./entity-types";
 export type { ILocalRepository } from "./ILocalRepository";
+export type {
+  IProductRepository,
+  IPurchaseOrderItemRepository,
+  ITransactionItemRepository,
+  ITransactionRepository,
+  IVariantRepository,
+} from "./repo-interfaces";
 export type { Role, User } from "./types";
 export { AdapterError } from "./types";
 export type { AuthAdapter, IDriveClient, ISheetRepository, Repos };

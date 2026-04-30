@@ -15,6 +15,13 @@ function mockRepo(overrides = {}) {
     batchUpsert: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
+    // per-model query methods
+    findById: vi.fn().mockResolvedValue(undefined),
+    findByProductId: vi.fn().mockResolvedValue([]),
+    findByCategoryId: vi.fn().mockResolvedValue([]),
+    findByDateRange: vi.fn().mockResolvedValue([]),
+    findByTransactionId: vi.fn().mockResolvedValue([]),
+    findByOrderId: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
@@ -86,7 +93,7 @@ const REFUND_ITEM = {
 
 describe("fetchTransaction", () => {
   it("returns the transaction when found", async () => {
-    mockRepos.transactions.getAll.mockResolvedValue([TRANSACTION_ROW]);
+    mockRepos.transactions.findById.mockResolvedValue(TRANSACTION_ROW);
 
     const tx = await fetchTransaction("tx-001");
 
@@ -95,7 +102,7 @@ describe("fetchTransaction", () => {
   });
 
   it("throws RefundError when transaction not found", async () => {
-    mockRepos.transactions.getAll.mockResolvedValue([]);
+    mockRepos.transactions.findById.mockResolvedValue(undefined);
 
     await expect(fetchTransaction("tx-999")).rejects.toThrow(RefundError);
   });
@@ -105,7 +112,7 @@ describe("fetchTransaction", () => {
 
 describe("createRefund", () => {
   it("appends row to Refunds tab", async () => {
-    mockRepos.transactions.getAll.mockResolvedValue([TRANSACTION_ROW]);
+    mockRepos.transactions.findById.mockResolvedValue(TRANSACTION_ROW);
     mockRepos.products.getAll.mockResolvedValue([PRODUCT_ROW]);
 
     await createRefund("tx-001", [REFUND_ITEM], "Produk rusak");
@@ -123,7 +130,7 @@ describe("createRefund", () => {
   });
 
   it("re-increments stock for each returned product", async () => {
-    mockRepos.transactions.getAll.mockResolvedValue([TRANSACTION_ROW]);
+    mockRepos.transactions.findById.mockResolvedValue(TRANSACTION_ROW);
     mockRepos.products.getAll.mockResolvedValue([PRODUCT_ROW]);
 
     await createRefund("tx-001", [REFUND_ITEM], "Produk rusak");
@@ -135,7 +142,7 @@ describe("createRefund", () => {
   });
 
   it("appends Audit_Log entry with event=REFUND", async () => {
-    mockRepos.transactions.getAll.mockResolvedValue([TRANSACTION_ROW]);
+    mockRepos.transactions.findById.mockResolvedValue(TRANSACTION_ROW);
     mockRepos.products.getAll.mockResolvedValue([PRODUCT_ROW]);
 
     await createRefund("tx-001", [REFUND_ITEM], "Produk rusak");
@@ -150,7 +157,7 @@ describe("createRefund", () => {
   });
 
   it("throws RefundError if transaction not found", async () => {
-    mockRepos.transactions.getAll.mockResolvedValue([]);
+    mockRepos.transactions.findById.mockResolvedValue(undefined);
 
     await expect(createRefund("tx-999", [REFUND_ITEM], "test")).rejects.toThrow(
       RefundError,
@@ -158,7 +165,7 @@ describe("createRefund", () => {
   });
 
   it("throws RefundError if refund amount exceeds original transaction total", async () => {
-    mockRepos.transactions.getAll.mockResolvedValue([TRANSACTION_ROW]);
+    mockRepos.transactions.findById.mockResolvedValue(TRANSACTION_ROW);
     mockRepos.products.getAll.mockResolvedValue([PRODUCT_ROW]);
 
     // 3 items × 15000 = 45000 > 30000 (original total)

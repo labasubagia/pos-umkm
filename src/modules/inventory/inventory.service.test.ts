@@ -24,6 +24,13 @@ function mockRepo(overrides = {}) {
     batchUpsert: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
+    // per-model query methods
+    findById: vi.fn().mockResolvedValue(undefined),
+    findByProductId: vi.fn().mockResolvedValue([]),
+    findByCategoryId: vi.fn().mockResolvedValue([]),
+    findByDateRange: vi.fn().mockResolvedValue([]),
+    findByTransactionId: vi.fn().mockResolvedValue([]),
+    findByOrderId: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
@@ -268,7 +275,7 @@ describe("receivePurchaseOrder", () => {
 
   it("increments stock for each item in the purchase order", async () => {
     mockRepos.purchaseOrders.getAll.mockResolvedValue([mockOrder]);
-    mockRepos.purchaseOrderItems.getAll.mockResolvedValue(mockItems);
+    mockRepos.purchaseOrderItems.findByOrderId.mockResolvedValue(mockItems);
     mockRepos.products.getAll.mockResolvedValue(mockProducts);
 
     await receivePurchaseOrder(orderId);
@@ -287,7 +294,7 @@ describe("receivePurchaseOrder", () => {
 
   it('appends Stock_Log entry with reason "purchase_order" for each item', async () => {
     mockRepos.purchaseOrders.getAll.mockResolvedValue([mockOrder]);
-    mockRepos.purchaseOrderItems.getAll.mockResolvedValue(mockItems);
+    mockRepos.purchaseOrderItems.findByOrderId.mockResolvedValue(mockItems);
     mockRepos.products.getAll.mockResolvedValue(mockProducts);
 
     await receivePurchaseOrder(orderId);

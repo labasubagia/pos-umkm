@@ -23,6 +23,13 @@ function mockRepo(overrides = {}) {
     batchUpsert: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
+    // per-model query methods
+    findById: vi.fn().mockResolvedValue(undefined),
+    findByProductId: vi.fn().mockResolvedValue([]),
+    findByCategoryId: vi.fn().mockResolvedValue([]),
+    findByDateRange: vi.fn().mockResolvedValue([]),
+    findByTransactionId: vi.fn().mockResolvedValue([]),
+    findByOrderId: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
@@ -220,7 +227,7 @@ describe("fetchDailySummary", () => {
 
 describe("fetchTransactionsForRange", () => {
   it("fetches single monthly sheet for same-month range", async () => {
-    mockRepos.transactions.getAll.mockResolvedValue([
+    mockRepos.transactions.findByDateRange.mockResolvedValue([
       {
         id: "tx-1",
         created_at: "2026-06-15T10:00:00.000Z",
@@ -231,34 +238,31 @@ describe("fetchTransactionsForRange", () => {
       },
     ]);
     const result = await fetchTransactionsForRange("2026-06-01", "2026-06-30");
-    expect(mockRepos.transactions.getAll).toHaveBeenCalledTimes(1);
+    expect(mockRepos.transactions.findByDateRange).toHaveBeenCalledTimes(1);
     expect(result).toHaveLength(1);
   });
 
   it("fetches and merges two monthly sheets for cross-month range", async () => {
-    mockRepos.transactions.getAll
-      .mockResolvedValueOnce([
-        {
-          id: "tx-1",
-          created_at: "2026-06-20T10:00:00.000Z",
-          cashier_id: "a@b.com",
-          payment_method: "CASH",
-          total: 10000,
-          cash_received: 10000,
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: "tx-2",
-          created_at: "2026-07-05T10:00:00.000Z",
-          cashier_id: "a@b.com",
-          payment_method: "QRIS",
-          total: 20000,
-          cash_received: 0,
-        },
-      ]);
+    mockRepos.transactions.findByDateRange.mockResolvedValue([
+      {
+        id: "tx-1",
+        created_at: "2026-06-20T10:00:00.000Z",
+        cashier_id: "a@b.com",
+        payment_method: "CASH",
+        total: 10000,
+        cash_received: 10000,
+      },
+      {
+        id: "tx-2",
+        created_at: "2026-07-05T10:00:00.000Z",
+        cashier_id: "a@b.com",
+        payment_method: "QRIS",
+        total: 20000,
+        cash_received: 0,
+      },
+    ]);
     const result = await fetchTransactionsForRange("2026-06-15", "2026-07-10");
-    expect(mockRepos.transactions.getAll).toHaveBeenCalledTimes(2);
+    expect(mockRepos.transactions.findByDateRange).toHaveBeenCalledTimes(1);
     expect(result).toHaveLength(2);
   });
 

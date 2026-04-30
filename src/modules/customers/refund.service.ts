@@ -60,8 +60,7 @@ export class RefundError extends Error {
 export async function fetchTransaction(
   transactionId: string,
 ): Promise<Transaction> {
-  const rows = await getRepos().transactions.getAll();
-  const row = rows.find((r) => r.id === transactionId);
+  const row = await getRepos().transactions.findById(transactionId);
   if (!row) {
     throw new RefundError(
       `Transaksi dengan id "${transactionId}" tidak ditemukan`,

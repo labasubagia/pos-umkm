@@ -35,7 +35,7 @@ export interface SyncTarget {
 export class DexieRepository<T extends Record<string, unknown>>
   implements ILocalRepository<T>
 {
-  private readonly db: PosUmkmDatabase;
+  protected readonly db: PosUmkmDatabase;
   private readonly sheetName: string;
   private readonly fallbackSpreadsheetId: string;
   private readonly onAfterWrite: () => void;
