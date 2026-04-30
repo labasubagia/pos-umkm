@@ -37,7 +37,7 @@ interface NavBarProps {
 }
 
 export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
-  const { user, role, activeStoreId, clearAuth, setActiveStoreId } = useAuth();
+  const { user, role, activeStoreId, clearAuth } = useAuth();
   const { data: stores = [] } = useStores();
   const navigate = useNavigate();
   const location = useLocation();
@@ -78,11 +78,11 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
     const storeId = e.target.value;
     const store = stores.find((s) => s.store_id === storeId);
     if (!store || store.store_id === activeStoreId) return;
+    // Navigate immediately so AppShell's URL-sync sets activeStoreId and shows
+    // the loading screen before the slow Drive traversal in activateStore begins.
+    navigate(`/${storeId}/cashier`);
     try {
       await activateStore(store);
-      setActiveStoreId(storeId);
-      // Navigate to the new store's cashier — updates the URL so :storeId matches.
-      navigate(`/${storeId}/cashier`);
     } catch {
       logger.warn("[NavBar] activateStore failed for store", storeId);
       // Silent — store picker reverts visually on next render

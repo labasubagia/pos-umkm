@@ -448,7 +448,7 @@ describe("StoreManagementPage", () => {
     ).toBeNull();
   });
 
-  it("calls activateStore and syncs activeStoreId when Aktifkan is clicked", async () => {
+  it("calls activateStore and navigates to new store when Aktifkan is clicked", async () => {
     const { activateStore } = await import("../modules/auth/setup.service");
     const user = userEvent.setup();
     await seedDexie([ownedStore, joinedStore]);
@@ -462,10 +462,15 @@ describe("StoreManagementPage", () => {
       screen.getByTestId(`btn-activate-store-${joinedStore.store_id}`),
     );
 
+    // navigate is called first (before activateStore awaits), then activateStore runs.
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith(
+        `/${joinedStore.store_id}/cashier`,
+      ),
+    );
     await waitFor(() =>
       expect(activateStore).toHaveBeenCalledWith(joinedStore),
     );
-    expect(useAuthStore.getState().activeStoreId).toBe(joinedStore.store_id);
   });
 
   it("shows error Alert when activateStore fails", async () => {
