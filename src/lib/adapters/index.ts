@@ -34,10 +34,10 @@ import {
   VariantRepository,
 } from "./dexie/typed-repos";
 import { GoogleAuthAdapter } from "./google/GoogleAuthAdapter";
-import type { ISheetRepository } from "./google/SheetRepository";
 import { SheetRepository } from "./google/SheetRepository";
 import { StoreFolderService } from "./google/StoreFolderService";
-import type { Repos } from "./repos";
+import type { Repos } from "./LocalRepository";
+import type { IRemoteRepository } from "./RemoteRepository";
 import type { AuthAdapter } from "./types";
 import type {
   AuditLog,
@@ -174,7 +174,7 @@ export function getRepos(): Repos {
 export function makeRepo<T extends Record<string, unknown>>(
   spreadsheetId: string,
   sheetName: string,
-): ISheetRepository<T> {
+): IRemoteRepository<T> {
   return new SheetRepository<T>(
     spreadsheetId,
     sheetName,
@@ -244,14 +244,14 @@ function createDexieRepos(storeId: string): Repos {
   };
 }
 
-export type { ILocalRepository } from "./ILocalRepository";
 export type {
+  ILocalRepository,
   IProductRepository,
   IPurchaseOrderItemRepository,
   ITransactionItemRepository,
   ITransactionRepository,
   IVariantRepository,
-} from "./repo-interfaces";
+} from "./LocalRepository";
 export type { Role, User } from "./types";
 export { AdapterError } from "./types";
 export type {
@@ -271,7 +271,12 @@ export type {
   TransactionItem,
   Variant,
 } from "./zod-schemas";
-export type { AuthAdapter, IDriveClient, ISheetRepository, Repos };
+export type {
+  AuthAdapter,
+  IDriveClient,
+  IRemoteRepository as ISheetRepository,
+  Repos,
+};
 
 /**
  * Writes rows directly to the Dexie table for the active store, bypassing the outbox.

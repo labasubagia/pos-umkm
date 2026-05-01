@@ -102,7 +102,7 @@ describe("SheetRepository", () => {
     });
   });
 
-  describe("batchAppend", () => {
+  describe("batchInsert", () => {
     it("maps object fields to ordered row array", async () => {
       let capturedBody: unknown;
       server.use(
@@ -121,7 +121,7 @@ describe("SheetRepository", () => {
           });
         }),
       );
-      await makeRepo().batchAppend([
+      await makeRepo().batchInsert([
         { id: "prod-3", name: "Mie Goreng", price: 12000 },
       ]);
       expect(capturedBody).toBeDefined();
@@ -137,13 +137,13 @@ describe("SheetRepository", () => {
           () => new HttpResponse(null, { status: 429 }),
         ),
       );
-      await expect(makeRepo().batchAppend([{ name: "Test" }])).rejects.toThrow(
-        "batchAppendRows failed",
+      await expect(makeRepo().batchInsert([{ name: "Test" }])).rejects.toThrow(
+        "batchInsert failed",
       );
     });
   });
 
-  describe("batchUpdateCells", () => {
+  describe("batchUpdate", () => {
     it("reads only headers + ID column then sends targeted batchUpdate", async () => {
       let capturedBody: unknown;
       server.use(
@@ -175,7 +175,7 @@ describe("SheetRepository", () => {
           });
         }),
       );
-      await makeRepo().batchUpdateCells([
+      await makeRepo().batchUpdate([
         {
           rowId: "prod-1",
           column: "deleted_at",
@@ -192,20 +192,38 @@ describe("SheetRepository", () => {
     it("sets deleted_at on correct cell", async () => {
       let capturedBody: unknown;
       server.use(
-        http.put(`${BASE}/values/:range`, async ({ request }) => {
+        http.get(`${BASE}/values\\:batchGet`, () => {
+          return HttpResponse.json({
+            spreadsheetId: SPREADSHEET_ID,
+            valueRanges: [
+              {
+                range: "Products!A1:Z1000",
+                majorDimension: "ROWS",
+                values: [
+                  ["id", "name", "price", "deleted_at"],
+                  ["prod-1", "Product 1", "10000", null],
+                  ["prod-2", "Product 2", "20000", null],
+                ],
+              },
+              {
+                range: "Products!A:A",
+                majorDimension: "ROWS",
+                values: [["id"], ["prod-1"], ["prod-2"]],
+              },
+            ],
+          });
+        }),
+        http.post(`${BASE}/values:batchUpdate`, async ({ request }) => {
           capturedBody = await request.json();
           return HttpResponse.json({
             spreadsheetId: SPREADSHEET_ID,
-            updatedRange: "Products!D2",
-            updatedRows: 1,
-            updatedColumns: 1,
-            updatedCells: 1,
+            totalUpdatedCells: 1,
           });
         }),
       );
       await makeRepo().softDelete("prod-1");
-      const body = capturedBody as { values: string[][] };
-      expect(body.values[0][0]).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      const body = capturedBody as { data: Array<{ values: string[][] }> };
+      expect(body.data[0].values[0][0]).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     });
   });
 });

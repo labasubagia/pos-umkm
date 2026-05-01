@@ -64,7 +64,7 @@ describe("drain", () => {
       "./adapters/google/SheetRepository"
     );
     const spy = vi
-      .spyOn(SheetRepository.prototype, "batchAppend")
+      .spyOn(SheetRepository.prototype, "batchInsert")
       .mockResolvedValue(undefined);
     await db._outbox.add(makeEntry());
     await manager.drain();
@@ -80,7 +80,7 @@ describe("drain", () => {
       "./adapters/google/SheetRepository"
     );
     const spy = vi
-      .spyOn(SheetRepository.prototype, "batchAppend")
+      .spyOn(SheetRepository.prototype, "batchInsert")
       .mockResolvedValue(undefined);
     await db._outbox.add(makeEntry());
     await manager.drain();
@@ -95,7 +95,7 @@ describe("drain", () => {
       "./adapters/google/SheetRepository"
     );
     const spy = vi
-      .spyOn(SheetRepository.prototype, "batchAppend")
+      .spyOn(SheetRepository.prototype, "batchInsert")
       .mockRejectedValue(new Error("Network error"));
     const id = await db._outbox.add(makeEntry());
     await manager.drain();
@@ -112,7 +112,7 @@ describe("drain", () => {
       "./adapters/google/SheetRepository"
     );
     const spy = vi
-      .spyOn(SheetRepository.prototype, "batchAppend")
+      .spyOn(SheetRepository.prototype, "batchInsert")
       .mockRejectedValue(
         new Error("Sheets API error 429: rate limit exceeded"),
       );
@@ -133,7 +133,7 @@ describe("drain", () => {
       "./adapters/google/SheetRepository"
     );
     const spy = vi
-      .spyOn(SheetRepository.prototype, "batchAppend")
+      .spyOn(SheetRepository.prototype, "batchInsert")
       .mockResolvedValue(undefined);
     await db._outbox.add(makeEntry({ status: "failed", retries: 5 }));
     await manager.drain();
@@ -153,7 +153,7 @@ describe("drain", () => {
       "./adapters/google/SheetRepository"
     );
     const spy = vi
-      .spyOn(SheetRepository.prototype, "batchAppend")
+      .spyOn(SheetRepository.prototype, "batchInsert")
       .mockResolvedValue(undefined);
     await db._outbox.add(makeEntry());
     manager.triggerSync();
@@ -172,7 +172,7 @@ describe("operation routing", () => {
       "./adapters/google/SheetRepository"
     );
     const spy = vi
-      .spyOn(SheetRepository.prototype, "batchUpdateCells")
+      .spyOn(SheetRepository.prototype, "batchUpdate")
       .mockResolvedValue(undefined);
     await db._outbox.add(
       makeEntry({

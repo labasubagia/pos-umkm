@@ -19,7 +19,7 @@ import type {
   ITransactionItemRepository,
   ITransactionRepository,
   IVariantRepository,
-} from "../repo-interfaces";
+} from "../LocalRepository";
 import type {
   Product,
   PurchaseOrderItem,

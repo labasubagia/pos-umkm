@@ -1,15 +1,9 @@
-// Google Sheets API client
+// Google Sheets API operations
 export {
-  sheetsAppend,
-  sheetsBatchGet,
-  sheetsGet,
-  sheetsUpdate,
-} from "./sheets.client";
-export type {
-  SheetsAppendResponse,
-  SheetsBatchGetResponse,
-  SheetsGetResponse,
-  SheetsUpdateResponse,
-  SheetValues,
-} from "./sheets.types";
+  batchInsert as batchAppendRows,
+  batchUpdate as batchUpdateCells,
+  getAll as getSheet,
+  softDelete,
+  writeHeaders,
+} from "./sheets.ops";
 export { SheetsApiError } from "./sheets.types";

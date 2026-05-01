@@ -58,15 +58,14 @@ function mockRepo(overrides = {}) {
     spreadsheetId: "test-id",
     sheetName: "mock",
     getAll: vi.fn().mockResolvedValue([]),
-    // ISheetRepository methods — used by sharedMakeRepo (makeRepo() path)
-    batchAppend: vi.fn().mockResolvedValue(undefined),
-    batchUpdateCells: vi.fn().mockResolvedValue(undefined),
-    // ILocalRepository methods — used by mockRepos (getRepos() path)
+    // IRemoteRepository methods — used by makeRepo() path
     batchInsert: vi.fn().mockResolvedValue(undefined),
     batchUpdate: vi.fn().mockResolvedValue(undefined),
+    // ILocalRepository methods — used by getRepos() path
     batchUpsert: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
+    _createTable: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -198,7 +197,7 @@ describe("createMainSpreadsheet", () => {
 
   it("writes Stores header row after creation", async () => {
     await createMainSpreadsheet();
-    expect(sharedMakeRepo.writeHeaders).toHaveBeenCalledWith(
+    expect(sharedMakeRepo._createTable).toHaveBeenCalledWith(
       MAIN_TAB_HEADERS.Stores,
     );
   });
@@ -328,7 +327,7 @@ describe("createMasterSpreadsheet", () => {
       "folder-id",
       [...MASTER_TABS],
     );
-    expect(sharedMakeRepo.batchAppend).toHaveBeenCalledWith(
+    expect(sharedMakeRepo.batchInsert).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
           store_name: "Toko Baru",
@@ -349,7 +348,7 @@ describe("createMasterSpreadsheet", () => {
 describe("initializeMasterSheets", () => {
   it("writes headers to every master tab", async () => {
     await initializeMasterSheets("master-id");
-    expect(sharedMakeRepo.writeHeaders).toHaveBeenCalledTimes(
+    expect(sharedMakeRepo._createTable).toHaveBeenCalledTimes(
       MASTER_TABS.length,
     );
   });
@@ -366,7 +365,7 @@ describe("initializeMasterSheets", () => {
 describe("initializeMonthlySheets", () => {
   it("writes headers to every monthly tab", async () => {
     await initializeMonthlySheets("monthly-id");
-    expect(sharedMakeRepo.writeHeaders).toHaveBeenCalledTimes(
+    expect(sharedMakeRepo._createTable).toHaveBeenCalledTimes(
       MONTHLY_TABS.length,
     );
   });
@@ -489,7 +488,7 @@ describe("updateStoreName", () => {
   it("updates store_name in main.Stores", async () => {
     saveMainSpreadsheetId("main-id");
     await updateStoreName("store-1", "Nama Baru");
-    expect(sharedMakeRepo.batchUpdateCells).toHaveBeenCalledWith([
+    expect(sharedMakeRepo.batchUpdate).toHaveBeenCalledWith([
       { rowId: "store-1", column: "store_name", value: "Nama Baru" },
     ]);
   });

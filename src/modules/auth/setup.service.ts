@@ -134,7 +134,7 @@ export async function createMainSpreadsheet(ownerEmail = ""): Promise<string> {
     const mainId = await driveClient.createSpreadsheet("main", parentFolderId, [
       ...MAIN_TABS,
     ]);
-    await makeRepo(mainId, "Stores").writeHeaders(
+    await makeRepo(mainId, "Stores")._createTable(
       MAIN_TAB_HEADERS.Stores ?? [],
     );
     void ownerEmail; // reserved for future row insertion on member join flow
@@ -180,7 +180,7 @@ export async function updateStoreName(
     throw new SetupError("updateStoreName: mainSpreadsheetId not found");
 
   try {
-    await makeRepo(mainId, "Stores").batchUpdateCells([
+    await makeRepo(mainId, "Stores").batchUpdate([
       { rowId: storeId, column: "store_name", value: newName },
     ]);
   } catch (err) {
@@ -405,7 +405,7 @@ async function createMonthlySheetForStore(
   // Register in Monthly_Sheets tab (read from master spreadsheet in the store map)
   const masterMeta = storeMap.sheets.Monthly_Sheets;
   if (masterMeta) {
-    await makeRepo(masterMeta.spreadsheet_id, "Monthly_Sheets").batchAppend([
+    await makeRepo(masterMeta.spreadsheet_id, "Monthly_Sheets").batchInsert([
       {
         id: generateId(),
         year_month: yearMonth,
@@ -452,7 +452,7 @@ export async function createMasterSpreadsheet(
     );
 
     // ── 3. Register new store in main.Stores ──────────────────────────────────
-    await makeRepo(mainSpreadsheetId, "Stores").batchAppend([
+    await makeRepo(mainSpreadsheetId, "Stores").batchInsert([
       {
         store_id: storeId,
         store_name: businessName,
@@ -481,7 +481,7 @@ export async function initializeMasterSheets(
   }
   await Promise.all(
     MASTER_TABS.map((tab) =>
-      makeRepo(spreadsheetId, tab).writeHeaders(MASTER_TAB_HEADERS[tab] ?? []),
+      makeRepo(spreadsheetId, tab)._createTable(MASTER_TAB_HEADERS[tab] ?? []),
     ),
   );
 }
@@ -499,7 +499,7 @@ export async function initializeMonthlySheets(
   }
   await Promise.all(
     MONTHLY_TABS.map((tab) =>
-      makeRepo(spreadsheetId, tab).writeHeaders(MONTHLY_TAB_HEADERS[tab] ?? []),
+      makeRepo(spreadsheetId, tab)._createTable(MONTHLY_TAB_HEADERS[tab] ?? []),
     ),
   );
 }
@@ -563,7 +563,7 @@ export async function runStoreSetup(
   await initializeMonthlySheets(monthlyId);
 
   // Register in Monthly_Sheets
-  await makeRepo(masterId, "Monthly_Sheets").batchAppend([
+  await makeRepo(masterId, "Monthly_Sheets").batchInsert([
     {
       id: generateId(),
       year_month: yearMonth,

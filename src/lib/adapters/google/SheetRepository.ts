@@ -9,31 +9,11 @@
  * MockSheetRepository which uses localStorage instead.
  */
 
+import type { IRemoteRepository } from "../RemoteRepository";
 import * as sheetsOps from "./sheets/sheets.ops";
 
-export interface ISheetRepository<T extends Record<string, unknown>> {
-  readonly spreadsheetId: string;
-  readonly sheetName: string;
-  getAll(): Promise<T[]>;
-  batchAppend(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void>;
-  batchUpdateCells(
-    updates: Array<{ rowId: string; column: string; value: unknown }>,
-  ): Promise<void>;
-  batchUpsertByKey(
-    lookupColumn: string,
-    updateColumn: string,
-    entries: Array<{ lookupValue: string; value: unknown }>,
-    makeNewRow: (
-      lookupValue: string,
-      value: unknown,
-    ) => Record<string, unknown>,
-  ): Promise<void>;
-  softDelete(rowId: string): Promise<void>;
-  writeHeaders(headers: string[]): Promise<void>;
-}
-
 export class SheetRepository<T extends Record<string, unknown>>
-  implements ISheetRepository<T>
+  implements IRemoteRepository<T>
 {
   readonly spreadsheetId: string;
   readonly sheetName: string;
@@ -53,17 +33,17 @@ export class SheetRepository<T extends Record<string, unknown>>
   }
 
   async getAll(): Promise<T[]> {
-    return sheetsOps.getSheet(
+    return sheetsOps.getAll(
       this.spreadsheetId,
       this.sheetName,
       this.getToken(),
     ) as Promise<T[]>;
   }
 
-  async batchAppend(
+  async batchInsert(
     rows: Array<Partial<T> & Record<string, unknown>>,
   ): Promise<void> {
-    await sheetsOps.batchAppendRows(
+    await sheetsOps.batchInsert(
       this.spreadsheetId,
       this.sheetName,
       rows as Record<string, unknown>[],
@@ -72,33 +52,13 @@ export class SheetRepository<T extends Record<string, unknown>>
     );
   }
 
-  async batchUpdateCells(
+  async batchUpdate(
     updates: Array<{ rowId: string; column: string; value: unknown }>,
   ): Promise<void> {
-    await sheetsOps.batchUpdateCells(
+    await sheetsOps.batchUpdate(
       this.spreadsheetId,
       this.sheetName,
       updates,
-      this.getToken(),
-    );
-  }
-
-  async batchUpsertByKey(
-    lookupColumn: string,
-    updateColumn: string,
-    entries: Array<{ lookupValue: string; value: unknown }>,
-    makeNewRow: (
-      lookupValue: string,
-      value: unknown,
-    ) => Record<string, unknown>,
-  ): Promise<void> {
-    await sheetsOps.batchUpsertByKey(
-      this.spreadsheetId,
-      this.sheetName,
-      lookupColumn,
-      updateColumn,
-      entries,
-      makeNewRow,
       this.getToken(),
     );
   }
@@ -112,7 +72,7 @@ export class SheetRepository<T extends Record<string, unknown>>
     );
   }
 
-  async writeHeaders(headers: string[]): Promise<void> {
+  async _createTable(headers: string[]): Promise<void> {
     await sheetsOps.writeHeaders(
       this.spreadsheetId,
       this.sheetName,

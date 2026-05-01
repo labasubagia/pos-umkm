@@ -361,7 +361,7 @@ export class SyncManager {
     const op: OutboxOperation = entry.operation;
     switch (op.op) {
       case "batchInsert":
-        await repo.batchAppend(op.items);
+        await repo.batchInsert(op.items);
         break;
       case "batchUpdate": {
         const updates = op.items.flatMap(({ id, ...fields }) =>
@@ -371,19 +371,7 @@ export class SyncManager {
             value,
           })),
         );
-        await repo.batchUpdateCells(updates);
-        break;
-      }
-      case "batchUpsert": {
-        const updates = op.items.flatMap(({ id, ...fields }) =>
-          Object.entries(fields).map(([column, value]) => ({
-            rowId: id as string,
-            column,
-            value,
-          })),
-        );
-        await repo.batchUpdateCells(updates);
-        await repo.batchAppend(op.items);
+        await repo.batchUpdate(updates);
         break;
       }
       case "softDelete":

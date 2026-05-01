@@ -39,7 +39,6 @@ import type {
 export type OutboxOperation =
   | { op: "batchInsert"; items: Record<string, unknown>[] }
   | { op: "batchUpdate"; items: Record<string, unknown>[] }
-  | { op: "batchUpsert"; items: Record<string, unknown>[] }
   | { op: "softDelete"; id: string };
 
 export interface OutboxEntry {

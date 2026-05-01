@@ -20,7 +20,7 @@
 import { useSyncStore } from "../../../store/syncStore";
 import { logger } from "../../logger";
 import { generateId } from "../../uuid";
-import type { ILocalRepository } from "../ILocalRepository";
+import type { ILocalRepository } from "../LocalRepository";
 import type { Database, OutboxEntry, OutboxOperation } from "./db";
 
 export class DexieRepository<T extends Record<string, unknown>>
