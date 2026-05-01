@@ -53,8 +53,15 @@ export class SheetRepository<T extends Record<string, unknown>>
   }
 
   async batchUpdate(
-    updates: Array<{ rowId: string; column: string; value: unknown }>,
+    rows: Array<Partial<T> & Record<string, unknown>>,
   ): Promise<void> {
+    const updates = rows.flatMap(({ id, ...fields }) =>
+      Object.entries(fields).map(([column, value]) => ({
+        rowId: id as string,
+        column,
+        value,
+      })),
+    );
     await sheetsOps.batchUpdate(
       this.spreadsheetId,
       this.sheetName,

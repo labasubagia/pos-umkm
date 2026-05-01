@@ -177,9 +177,8 @@ describe("SheetRepository", () => {
       );
       await makeRepo().batchUpdate([
         {
-          rowId: "prod-1",
-          column: "deleted_at",
-          value: "2026-01-01T00:00:00.000Z",
+          id: "prod-1",
+          deleted_at: "2026-01-01T00:00:00.000Z",
         },
       ]);
       // D is column index 3 (id=A, name=B, price=C, deleted_at=D), row 2 (first data row)

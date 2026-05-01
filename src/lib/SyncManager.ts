@@ -363,17 +363,9 @@ export class SyncManager {
       case "batchInsert":
         await repo.batchInsert(op.items);
         break;
-      case "batchUpdate": {
-        const updates = op.items.flatMap(({ id, ...fields }) =>
-          Object.entries(fields).map(([column, value]) => ({
-            rowId: id as string,
-            column,
-            value,
-          })),
-        );
-        await repo.batchUpdate(updates);
+      case "batchUpdate":
+        await repo.batchUpdate(op.items);
         break;
-      }
       case "softDelete":
         await repo.softDelete(op.id);
         break;
