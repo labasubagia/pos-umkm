@@ -137,7 +137,7 @@ export const TransactionRowSchema = z.object({
   cashier_id: coerceString,
   customer_id: coerceString.optional().nullable(),
   subtotal: coerceNumber,
-  discount_type: z.enum(["flat", "percent"]).optional().nullable(),
+  discount_type: z.enum(["flat", "percent", "none"]).optional().nullable(),
   discount_value: coerceNumber,
   discount_amount: coerceNumber,
   tax: coerceNumber,
