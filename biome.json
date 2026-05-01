@@ -6,7 +6,12 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!!**/dist"]
+    "includes": [
+      "**",
+      "!!**/dist",
+      "!!**/public/mockServiceWorker.js",
+      "!!**/node_modules"
+    ]
   },
   "formatter": {
     "enabled": true,
