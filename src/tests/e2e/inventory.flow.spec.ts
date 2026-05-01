@@ -179,7 +179,7 @@ test.describe("Products CRUD (T022)", () => {
         {
           id: monthlySheetId,
           year_month: now.slice(0, 7),
-          spreadsheetId: store.monthlySpreadsheetId,
+          spreadsheetId: monthlySheetId,
           created_at: now,
         },
       ],
@@ -260,7 +260,7 @@ test.describe("Stock Opname (T034)", () => {
     const stockLog = await page.evaluate(
       async ({ storeId }) => {
         const db = (
-          window as Record<
+          window as unknown as Record<
             string,
             (id: string) => {
               Stock_Log: { toArray: () => Promise<Record<string, unknown>[]> };
@@ -340,7 +340,7 @@ test.describe("Purchase Orders (T035)", () => {
     const updatedStock = await page.evaluate(
       async ({ storeId, prodId }) => {
         const db = (
-          window as Record<
+          window as unknown as Record<
             string,
             (id: string) => {
               Products: {
@@ -360,7 +360,7 @@ test.describe("Purchase Orders (T035)", () => {
     const stockLog = await page.evaluate(
       async ({ storeId }) => {
         const db = (
-          window as Record<
+          window as unknown as Record<
             string,
             (id: string) => {
               Stock_Log: { toArray: () => Promise<Record<string, unknown>[]> };

@@ -27,16 +27,12 @@ export const BASE = "/pos-umkm";
 
 export interface StoreConfig {
   storeId: string;
-  masterSpreadsheetId: string;
   mainSpreadsheetId: string;
-  monthlySpreadsheetId: string;
 }
 
 export const DEFAULT_STORE: StoreConfig = {
   storeId: "e2e-store-1",
-  masterSpreadsheetId: "e2e-master-id",
   mainSpreadsheetId: "e2e-main-id",
-  monthlySpreadsheetId: "e2e-monthly-id",
 };
 
 /**
@@ -86,8 +82,6 @@ export async function injectAuthState(
 
       // Legacy keys used by setup.service helpers.
       localStorage.setItem("mainSpreadsheetId", store.mainSpreadsheetId);
-      localStorage.setItem("activeStoreId", store.storeId);
-      localStorage.setItem("storeFolderId", "e2e-folder-id");
 
       // Store map — pre-populated so AppShell doesn't need to traverse Drive.
       const now = new Date();
@@ -115,16 +109,16 @@ export async function injectAuthState(
                 ],
               },
               Settings: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Settings",
                 sheet_id: 2,
                 headers: ["id", "key", "value", "updated_at"],
               },
               Members: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Members",
                 sheet_id: 3,
@@ -139,16 +133,16 @@ export async function injectAuthState(
                 ],
               },
               Categories: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Categories",
                 sheet_id: 4,
                 headers: ["id", "name", "created_at", "deleted_at"],
               },
               Products: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Products",
                 sheet_id: 5,
@@ -165,8 +159,8 @@ export async function injectAuthState(
                 ],
               },
               Variants: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Variants",
                 sheet_id: 6,
@@ -182,8 +176,8 @@ export async function injectAuthState(
                 ],
               },
               Customers: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Customers",
                 sheet_id: 7,
@@ -197,8 +191,8 @@ export async function injectAuthState(
                 ],
               },
               Purchase_Orders: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Purchase_Orders",
                 sheet_id: 8,
@@ -211,8 +205,8 @@ export async function injectAuthState(
                 ],
               },
               Purchase_Order_Items: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Purchase_Order_Items",
                 sheet_id: 9,
@@ -227,8 +221,8 @@ export async function injectAuthState(
                 ],
               },
               Stock_Log: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Stock_Log",
                 sheet_id: 10,
@@ -242,16 +236,16 @@ export async function injectAuthState(
                 ],
               },
               Audit_Log: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Audit_Log",
                 sheet_id: 11,
                 headers: ["id", "event", "data", "created_at"],
               },
               Monthly_Sheets: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Monthly_Sheets",
                 sheet_id: 12,
@@ -263,7 +257,7 @@ export async function injectAuthState(
                 yearMonth,
                 sheets: {
                   Transactions: {
-                    spreadsheet_id: store.monthlySpreadsheetId,
+                    spreadsheet_id: store.mainSpreadsheetId,
                     spreadsheet_name: `transaction_${yearMonth}`,
                     folder_path: `transactions/${now.getFullYear()}`,
                     sheet_name: "Transactions",
@@ -287,7 +281,7 @@ export async function injectAuthState(
                     ],
                   },
                   Transaction_Items: {
-                    spreadsheet_id: store.monthlySpreadsheetId,
+                    spreadsheet_id: store.mainSpreadsheetId,
                     spreadsheet_name: `transaction_${yearMonth}`,
                     folder_path: `transactions/${now.getFullYear()}`,
                     sheet_name: "Transaction_Items",
@@ -304,7 +298,7 @@ export async function injectAuthState(
                     ],
                   },
                   Refunds: {
-                    spreadsheet_id: store.monthlySpreadsheetId,
+                    spreadsheet_id: store.mainSpreadsheetId,
                     spreadsheet_name: `transaction_${yearMonth}`,
                     folder_path: `transactions/${now.getFullYear()}`,
                     sheet_name: "Refunds",

@@ -58,7 +58,7 @@ function buildFixtures(testInfo: ReturnType<typeof test.info>) {
     {
       id: monthlySheetId,
       year_month: now.slice(0, 7),
-      spreadsheetId: STORE.monthlySpreadsheetId,
+      spreadsheetId: monthlySheetId,
       created_at: now,
     },
   ];
