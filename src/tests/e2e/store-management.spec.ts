@@ -6,7 +6,6 @@
  * stubbed via page.route() to return a fake spreadsheetId.
  */
 import { expect, test } from "@playwright/test";
-import { navigateTo } from "./helpers/auth";
 import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
 import { seedDexie } from "./helpers/dexie-seed";
 import { setMswFixtures } from "./helpers/msw-state";
@@ -38,12 +37,6 @@ const SEED_STORES = [
   },
 ];
 
-async function _openStoresTab(page: Parameters<typeof injectAuthState>[0]) {
-  await navigateTo(page, `${BASE}/${STORE.storeId}/settings`);
-
-  await page.getByRole("heading", { name: /kelola toko/i }).waitFor();
-}
-
 async function signInToSettings(page: Parameters<typeof injectAuthState>[0]) {
   // Stores live in the global __main__ DB; they are keyed by mainSpreadsheetId.
   // setMswFixtures maps Stores → mainSpreadsheetId so HydrationService
@@ -60,58 +53,8 @@ test.describe("Store Management", () => {
   test("owner can add a new store", async ({ page }) => {
     await signInToSettings(page);
 
-    // Register specific API stubs that override the general googleapis.com catch-all
-    // registered by stubGoogleApis(). We use page.unroute() first to ensure clean
-    // precedence, then register the more specific routes.
-    await page.unroute("**googleapis.com/drive/v3/files**");
-    await page.unroute("**googleapis.com/v4/spreadsheets**");
-
-    // Drive stub distinguishes GET (search → empty files list) from POST/PATCH (create/move → id).
-    await page.route("**googleapis.com/drive/v3/files**", (route) => {
-      const req = route.request();
-      if (req.method() === "GET" && req.url().includes("?fields=parents")) {
-        route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({ parents: ["root"] }),
-        });
-      } else if (req.method() === "GET") {
-        // Search query — return no existing items so createStore always creates fresh.
-        route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({ files: [] }),
-        });
-      } else {
-        // POST create folder / PATCH move
-        route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({ id: "new-folder-id" }),
-        });
-      }
-    });
-    await page.route("**googleapis.com/v4/spreadsheets**", (route) => {
-      const req = route.request();
-      if (req.method() === "POST" && /\/v4\/spreadsheets$/.test(req.url())) {
-        // Create spreadsheet
-        route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            spreadsheetId: "new-sheet-id",
-            properties: { title: "Cabang Baru" },
-          }),
-        });
-      } else {
-        // batchUpdate, values.append, values.get, etc.
-        route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({}),
-        });
-      }
-    });
+    // Drive and Sheets API calls are handled by the MSW service worker
+    // (driveHandlers in src/mocks/handlers/drive.ts). No page.route() stubs needed.
     await page.getByTestId("btn-add-store").click();
     await page.getByTestId("input-store-name").fill("Cabang Baru");
     await page.getByTestId("btn-save-store").click();
