@@ -125,39 +125,22 @@ export class StoreFolderService {
   > {
     const token = this.getToken();
 
-    // Build ranges for header rows (Sheet1!1:1, Sheet2!1:1, etc.)
-    // First get sheet list
-    const listUrl = `${SHEETS_API}/spreadsheets/${spreadsheetId}?fields=sheets(properties(sheetId,title))`;
-    const listRes = await fetch(listUrl, {
+    const url = `${SHEETS_API}/spreadsheets/${spreadsheetId}?fields=sheets(properties(sheetId,title),data(rowData(values(formattedValue))))`;
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!listRes.ok) {
+    if (!res.ok) {
       throw new Error(
-        `StoreFolderService: Sheets API ${listRes.status} for ${spreadsheetId}`,
+        `StoreFolderService: Sheets API ${res.status} for ${spreadsheetId} detail`,
       );
     }
-    const listData = await listRes.json();
-    const sheets = (listData.sheets ?? []) as Array<{
-      properties: { sheetId: number; title: string };
-    }>;
-
-    const ranges = sheets.map((s) => `${s.properties.title}!1:1`);
-    const detailUrl = `${SHEETS_API}/spreadsheets/${spreadsheetId}?fields=sheets(properties(sheetId,title),data(rowData(values(formattedValue))))&${ranges.map((r) => `ranges=${encodeURIComponent(r)}`).join("&")}`;
-    const detailRes = await fetch(detailUrl, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!detailRes.ok) {
-      throw new Error(
-        `StoreFolderService: Sheets API ${detailRes.status} for ${spreadsheetId} detail`,
-      );
-    }
-    const detailData = await detailRes.json();
+    const data = await res.json();
 
     const result: Record<
       string,
       { sheetId: number; spreadsheetId: string; headers: string[] }
     > = {};
-    for (const sheet of detailData.sheets ?? []) {
+    for (const sheet of data.sheets ?? []) {
       const props = sheet.properties;
       const headers: string[] = [];
       for (const gridData of sheet.data ?? []) {
