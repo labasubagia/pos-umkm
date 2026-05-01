@@ -2140,6 +2140,52 @@
 
 ---
 
+## Architecture Cleanup (cont.)
+
+### T083 — Typed Entity Row Interfaces
+
+- **Status:** ✅ done
+- **Section:** Architecture Cleanup
+- **Depends on:** T082
+- **Test type:** unit
+- **Architecture note:** `DexieRepository.ts` originally declared all Dexie tables as `Table<Record<string, unknown>>`. This erased all type information at the table level — service files received plain `Record<string, unknown>[]` from `getAll()` and had to cast every field individually. Introducing typed row interfaces (`ProductRow`, `TransactionRow`, etc.) moves type checking to the table boundary so service files receive correctly-typed arrays. All row interfaces extend `Record<string, unknown>` to satisfy the `ILocalRepository<T extends Record<string, unknown>>` constraint. The `has_variants: boolean` field required a Dexie reading hook (mapped on version 1) with an `if (!obj) return obj` guard because Dexie calls the hook with `undefined` for rows fetched via `bulkGet` with missing keys. `SettingRow.value` is `string | number` (not just `string`) because `tax_rate` is stored as an integer by the `SetupWizard`. `TransactionRow.discount_type` is `"flat" | "percent" | null` (the empty-string fallback `?? ""` was changed to `?? null` to match the union).
+- **Deliverables:**
+  - `src/lib/adapters/entity-types.ts` (new) — 15 typed row interfaces: `StoreRow`, `SettingRow`, `MemberRow`, `CategoryRow`, `ProductRow`, `VariantRow`, `CustomerRow`, `PurchaseOrderRow`, `PurchaseOrderItemRow`, `StockLogRow`, `AuditLogRow`, `MonthlySheetRow`, `TransactionRow`, `TransactionItemRow`, `RefundRow`
+  - `src/lib/adapters/dexie/db.ts` updated — all `Table<Record<string, unknown>>` replaced with typed tables; `has_variants` reading hook with `if (!obj) return obj` guard
+  - `src/modules/cashier/cashier.service.ts` updated — `discount_type: discount?.type ?? null`
+  - `src/modules/customers/customers.service.ts` updated — `email: email ?? ""`
+  - `src/modules/settings/settings.service.ts` updated — `map: Record<string, string | number>` with `String()`/`parseInt()` coercions
+- **Test cases:**
+  - ✅ All existing 337 unit tests pass with typed tables (no new tests added — types are compile-time only)
+
+---
+
+### T084 — Per-Model Repository Interfaces with Indexed Query Methods
+
+- **Status:** ✅ done
+- **Section:** Architecture Cleanup
+- **Depends on:** T083
+- **Test type:** unit
+- **Architecture note:** `ILocalRepository<T>` only exposes `getAll()` — no way to fetch a subset by a foreign key. Service files worked around this by calling `getAll()` then filtering in memory (O(n) scan). Five entities have Dexie-indexed foreign-key columns that enable O(log n) queries: `Products.category_id`, `Variants.product_id`, `Transactions.created_at`, `Transaction_Items.transaction_id`, `Purchase_Order_Items.order_id`. Per-model sub-interfaces add typed query methods for each. The concrete Dexie subclasses use `this.db.table(...).where(...).equals(...)` / `.between(...)` (Dexie's native index API). `DexieRepository.db` was changed from `private` to `protected` to allow subclass access. `index.ts` re-exports all five per-model interfaces so callers can reference them without a deep import path.
+- **Deliverables:**
+  - `src/lib/adapters/repo-interfaces.ts` (new) — 5 per-model sub-interfaces extending `ILocalRepository<T>`: `IProductRepository` (`findById`, `findByCategoryId`), `IVariantRepository` (`findById`, `findByProductId`), `ITransactionRepository` (`findById`, `findByDateRange`), `ITransactionItemRepository` (`findByTransactionId`), `IPurchaseOrderItemRepository` (`findByOrderId`)
+  - `src/lib/adapters/dexie/typed-repos.ts` (new) — 5 Dexie subclasses implementing the per-model interfaces using `where().equals()` / `.between()`
+  - `src/lib/adapters/dexie/DexieRepository.ts` updated — `db` field changed from `private` to `protected`
+  - `src/lib/adapters/repos.ts` updated — 5 `Repos` fields use narrow per-model interface types
+  - `src/lib/adapters/index.ts` updated — `createDexieRepos()` instantiates typed subclasses; re-exports 5 per-model interfaces
+  - `src/modules/catalog/catalog.service.ts` updated — `fetchVariantsForProduct(productId)` uses `variants.findByProductId(productId)`
+  - `src/modules/customers/refund.service.ts` updated — `fetchTransaction` uses `transactions.findById(transactionId)`
+  - `src/modules/inventory/inventory.service.ts` updated — `receivePurchaseOrder` and `fetchPurchaseOrderItems` use `purchaseOrderItems.findByOrderId(orderId)`
+  - `src/modules/reports/reports.service.ts` updated — `fetchTransactionsForRange` replaced N-loop `getAll` with single `transactions.findByDateRange(startDate, endDate)` call
+  - Test files updated to include per-model methods in `mockRepo()` helpers
+- **Test cases:**
+  - ✅ All existing unit tests pass after per-model repo introduction (337/337)
+  - ✅ `refund.service`: `fetchTransaction` calls `findById` instead of `getAll`
+  - ✅ `inventory.service`: `receivePurchaseOrder` calls `findByOrderId` instead of `getAll`
+  - ✅ `reports.service`: `fetchTransactionsForRange` calls `findByDateRange` instead of N `getAll` calls
+
+---
+
 ## Appendix: Parallelization Map
 
 The following tasks within each section have no mutual dependencies and can be worked on by different agents simultaneously:
@@ -2161,6 +2207,7 @@ The following tasks within each section have no mutual dependencies and can be w
 | State Management | T065 first (install React Query), then T066 (migrate stores); then T067–T071 in parallel (all depend on T066); then T072 (depends on T067–T071) |
 | Store Isolation Fixes | T073 and T074 in parallel (both depend on T072); T075 depends on T073+T074; T076 depends on T074; T077 depends on T075 |
 | Testing Overhaul | T078 first (remove mock adapter); T079 and T080 in parallel (both depend on T078) |
+| Architecture Cleanup | T082 first (ILocalRepository rename); T083 depends on T082; T084 depends on T083 |
 
 ---
 

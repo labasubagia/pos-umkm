@@ -413,6 +413,74 @@ describe("activateStore", () => {
       expect.any(Array),
     );
   });
+
+  it("skips Drive traversal when store map is fresh (within TTL)", async () => {
+    // Include current + next month transaction sheets so ensureMonthlySheets
+    // is a no-op (no new creation, no re-traverse).
+    const now = new Date();
+    const ym = (y: number, m: number) => `${y}-${String(m).padStart(2, "0")}`;
+    const curY = now.getFullYear();
+    const curM = now.getMonth() + 1;
+    const nextM = curM === 12 ? 1 : curM + 1;
+    const nextY = curM === 12 ? curY + 1 : curY;
+    const curYM = ym(curY, curM);
+    const nextYM = ym(nextY, nextM);
+
+    mockStoreMapState = {
+      ...mockStoreMapState,
+      sheets: {
+        Products: {
+          spreadsheet_id: "sp-1",
+          spreadsheet_name: "master",
+          tab_name: "Products",
+          sheet_id: 1,
+        },
+        [`transaction_${curYM}`]: {
+          spreadsheet_id: "sp-cur",
+          spreadsheet_name: `transaction_${curYM}`,
+          tab_name: "Transactions",
+          sheet_id: 2,
+        },
+        [`transaction_${nextYM}`]: {
+          spreadsheet_id: "sp-next",
+          spreadsheet_name: `transaction_${nextYM}`,
+          tab_name: "Transactions",
+          sheet_id: 3,
+        },
+      },
+      monthlySheets: [],
+      lastTraversedAt: Date.now(),
+    };
+    vi.mocked(adapters.storeFolderService.traverse).mockClear();
+
+    await activateStore(store);
+
+    expect(adapters.storeFolderService.traverse).not.toHaveBeenCalled();
+  });
+
+  it("re-traverses Drive when store map is stale (beyond TTL)", async () => {
+    // Pre-populate with stale timestamp (10 minutes ago)
+    mockStoreMapState = {
+      ...mockStoreMapState,
+      sheets: {
+        Products: {
+          spreadsheet_id: "sp-1",
+          spreadsheet_name: "master",
+          tab_name: "Products",
+          sheet_id: 1,
+        },
+      },
+      monthlySheets: [],
+      lastTraversedAt: Date.now() - 10 * 60 * 1000,
+    };
+    vi.mocked(adapters.storeFolderService.traverse).mockClear();
+
+    await activateStore(store);
+
+    expect(adapters.storeFolderService.traverse).toHaveBeenCalledWith(
+      "folder-id",
+    );
+  });
 });
 
 // ─── updateStoreName ──────────────────────────────────────────────────────────

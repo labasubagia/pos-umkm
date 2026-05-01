@@ -26,6 +26,25 @@ import { DexieRepository } from "./dexie/DexieRepository";
 import { clearDbCache, getDb } from "./dexie/db";
 import { HydrationService } from "./dexie/HydrationService";
 import { SyncManager } from "./dexie/SyncManager";
+import {
+  DexieProductRepository,
+  DexiePurchaseOrderItemRepository,
+  DexieTransactionItemRepository,
+  DexieTransactionRepository,
+  DexieVariantRepository,
+} from "./dexie/typed-repos";
+import type {
+  AuditLogRow,
+  CategoryRow,
+  CustomerRow,
+  MemberRow,
+  MonthlySheetRow,
+  PurchaseOrderRow,
+  RefundRow,
+  SettingRow,
+  StockLogRow,
+  StoreRow,
+} from "./entity-types";
 import { GoogleAuthAdapter } from "./google/GoogleAuthAdapter";
 import type { Repos } from "./repos";
 import type { ISheetRepository } from "./SheetRepository";
@@ -71,6 +90,16 @@ export let syncManager: SyncManager = new SyncManager(
   getToken,
   getDb("__init__"),
 );
+/**
+ * SyncManager for the global __main__ DB (drains Stores/cross-store outbox).
+ * Runs independently of the per-store syncManager so store-management mutations
+ * (updateStore, removeOwnedStore) are synced to the main spreadsheet regardless
+ * of which per-store DB is currently active.
+ */
+export let mainSyncManager: SyncManager = new SyncManager(
+  getToken,
+  getDb("__main__"),
+);
 function _getInstanceDbName(obj: unknown): string | undefined {
   return (obj as { db?: { name?: string } })?.db?.name;
 }
@@ -87,6 +116,7 @@ logger.info("[adapters] initial syncManager created (db)", {
 export let hydrationService: HydrationService = new HydrationService(
   getToken,
   getDb("__init__"),
+  getDb("__main__"),
 );
 
 /**
@@ -98,13 +128,17 @@ export let hydrationService: HydrationService = new HydrationService(
 export function reinitDexieLayer(storeId: string): void {
   logger.info("[adapters] reinitDexieLayer called", { storeId });
   syncManager.stop();
+  mainSyncManager.stop();
   const db = getDb(storeId);
+  const mainDb = getDb("__main__");
   syncManager = new SyncManager(getToken, db);
-  hydrationService = new HydrationService(getToken, db);
+  mainSyncManager = new SyncManager(getToken, mainDb);
+  hydrationService = new HydrationService(getToken, db, mainDb);
   logger.info("[adapters] syncManager reinitialized", {
     dbName: _getInstanceDbName(syncManager) ?? "unknown",
   });
   syncManager.start();
+  mainSyncManager.start();
 }
 
 /**
@@ -113,7 +147,9 @@ export function reinitDexieLayer(storeId: string): void {
  */
 export function resetDexieLayer(): void {
   syncManager.stop();
+  mainSyncManager.stop();
   syncManager = noopSyncManager;
+  mainSyncManager = noopSyncManager;
   hydrationService = noopHydrationService;
   clearDbCache();
 }
@@ -160,6 +196,11 @@ export function makeRepo<T extends Record<string, unknown>>(
  */
 function createDexieRepos(storeId: string): Repos {
   const storeDb = getDb(storeId);
+  // Stores is a cross-store (main-spreadsheet) table — always use the global
+  // __main__ DB so the list is identical regardless of which store is active,
+  // and per-store outbox entries never block Stores hydration.
+  const mainDb = getDb("__main__");
+  const mainSpreadsheetId = useAuthStore.getState().mainSpreadsheetId ?? "";
 
   function dexie<T extends Record<string, unknown>>(
     sheetName: string,
@@ -172,25 +213,73 @@ function createDexieRepos(storeId: string): Repos {
   }
 
   return {
-    stores: dexie("Stores"),
-    monthlySheets: dexie("Monthly_Sheets"),
-    categories: dexie("Categories"),
-    products: dexie("Products"),
-    variants: dexie("Variants"),
-    members: dexie("Members"),
-    settings: dexie("Settings"),
-    stockLog: dexie("Stock_Log"),
-    purchaseOrders: dexie("Purchase_Orders"),
-    purchaseOrderItems: dexie("Purchase_Order_Items"),
-    customers: dexie("Customers"),
-    auditLog: dexie("Audit_Log"),
-    transactions: dexie("Transactions"),
-    transactionItems: dexie("Transaction_Items"),
-    refunds: dexie("Refunds"),
+    stores: new DexieRepository<StoreRow>(
+      mainDb,
+      { spreadsheetId: mainSpreadsheetId, sheetName: "Stores" },
+      () => mainSyncManager.triggerSync(),
+    ),
+    monthlySheets: dexie<MonthlySheetRow>("Monthly_Sheets"),
+    categories: dexie<CategoryRow>("Categories"),
+    products: new DexieProductRepository(
+      storeDb,
+      { spreadsheetId: "", sheetName: "Products" },
+      () => syncManager.triggerSync(),
+    ),
+    variants: new DexieVariantRepository(
+      storeDb,
+      { spreadsheetId: "", sheetName: "Variants" },
+      () => syncManager.triggerSync(),
+    ),
+    members: dexie<MemberRow>("Members"),
+    settings: dexie<SettingRow>("Settings"),
+    stockLog: dexie<StockLogRow>("Stock_Log"),
+    purchaseOrders: dexie<PurchaseOrderRow>("Purchase_Orders"),
+    purchaseOrderItems: new DexiePurchaseOrderItemRepository(
+      storeDb,
+      { spreadsheetId: "", sheetName: "Purchase_Order_Items" },
+      () => syncManager.triggerSync(),
+    ),
+    customers: dexie<CustomerRow>("Customers"),
+    auditLog: dexie<AuditLogRow>("Audit_Log"),
+    transactions: new DexieTransactionRepository(
+      storeDb,
+      { spreadsheetId: "", sheetName: "Transactions" },
+      () => syncManager.triggerSync(),
+    ),
+    transactionItems: new DexieTransactionItemRepository(
+      storeDb,
+      { spreadsheetId: "", sheetName: "Transaction_Items" },
+      () => syncManager.triggerSync(),
+    ),
+    refunds: dexie<RefundRow>("Refunds"),
   };
 }
 
+export type {
+  AuditLogRow,
+  CategoryRow,
+  CustomerRow,
+  MemberRow,
+  MonthlySheetRow,
+  ProductRow,
+  PurchaseOrderItemRow,
+  PurchaseOrderRow,
+  RefundRow,
+  SettingRow,
+  StockLogRow,
+  StoreRow,
+  TransactionItemRow,
+  TransactionRow,
+  VariantRow,
+} from "./entity-types";
 export type { ILocalRepository } from "./ILocalRepository";
+export type {
+  IProductRepository,
+  IPurchaseOrderItemRepository,
+  ITransactionItemRepository,
+  ITransactionRepository,
+  IVariantRepository,
+} from "./repo-interfaces";
 export type { Role, User } from "./types";
 export { AdapterError } from "./types";
 export type { AuthAdapter, IDriveClient, ISheetRepository, Repos };
@@ -205,7 +294,12 @@ export async function localCachePut(
   rows: Record<string, unknown>[],
 ): Promise<void> {
   const { activeStoreId } = useAuthStore.getState();
-  const db = getDb(activeStoreId ?? "__init__");
+  // Stores is a cross-store table — always write to the global __main__ DB
+  // so every per-store view sees the same list.
+  const db =
+    tableName === "Stores"
+      ? getDb("__main__")
+      : getDb(activeStoreId ?? "__init__");
   await db.table(tableName).bulkPut(rows);
 }
 
@@ -217,9 +311,9 @@ export async function localCachePut(
  */
 export function getMembersForStore(
   targetStoreId: string,
-): DexieRepository<Record<string, unknown>> {
+): DexieRepository<MemberRow> {
   const db = getDb(targetStoreId);
-  return new DexieRepository<Record<string, unknown>>(
+  return new DexieRepository<MemberRow>(
     db,
     { spreadsheetId: "", sheetName: "Members" },
     () => syncManager.triggerSync(),

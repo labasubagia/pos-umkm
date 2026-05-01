@@ -93,9 +93,11 @@ const joinedStore: StoreRecord = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Populate the Stores table in fake-indexeddb for the given store's db. */
-async function seedDexie(stores: StoreRecord[], storeId = ownedStore.store_id) {
-  const db = getDb(storeId);
+/** Populate the Stores table in fake-indexeddb.
+ * Stores are cross-store (global) — write to the __main__ DB, matching
+ * the production path in createDexieRepos() and localCachePut("Stores",...). */
+async function seedDexie(stores: StoreRecord[]) {
+  const db = getDb("__main__");
   await db.Stores.clear();
   await db.Stores.bulkPut(stores.map((s) => ({ ...s, id: s.store_id })));
 }
@@ -214,7 +216,7 @@ describe("StoreManagementPage", () => {
     };
     await seedDexie([ownedStore]);
     vi.mocked(svc.createStore).mockImplementation(async () => {
-      await getDb(ownedStore.store_id).Stores.put({
+      await getDb("__main__").Stores.put({
         ...newStore,
         id: newStore.store_id,
       });
@@ -265,11 +267,10 @@ describe("StoreManagementPage", () => {
 
   it("Delete confirmation calls removeOwnedStore and removes row from list", async () => {
     const user = userEvent.setup();
-    // Active store is joinedStore; seed that db.
-    await seedDexie([ownedStore, joinedStore], joinedStore.store_id);
-    // Mock removeOwnedStore to also soft-delete from the active store's Dexie.
+    await seedDexie([ownedStore, joinedStore]);
+    // Mock removeOwnedStore to also soft-delete from the __main__ Dexie store.
     vi.mocked(svc.removeOwnedStore).mockImplementation(async (storeId) => {
-      await getDb(joinedStore.store_id).Stores.update(storeId, {
+      await getDb("__main__").Stores.update(storeId, {
         deleted_at: "2026-01-01T00:00:00Z",
       });
     });
@@ -337,8 +338,7 @@ describe("StoreManagementPage", () => {
 
   it("shows error Alert when removeOwnedStore fails", async () => {
     const user = userEvent.setup();
-    // Active store is "another-store"; seed that db.
-    await seedDexie([ownedStore], "another-store");
+    await seedDexie([ownedStore]);
     vi.mocked(svc.removeOwnedStore).mockRejectedValue(
       new Error("Network error"),
     );
@@ -387,9 +387,9 @@ describe("StoreManagementPage", () => {
       joined_at: "2026-03-01T00:00:00Z",
     };
     await seedDexie([ownedStore]);
-    // Mock createStore to write to Dexie so useLiveQuery auto-updates the list.
+    // Mock createStore to write to __main__ Dexie so useLiveQuery auto-updates the list.
     vi.mocked(svc.createStore).mockImplementation(async () => {
-      await getDb(ownedStore.store_id).Stores.put({
+      await getDb("__main__").Stores.put({
         ...newStore,
         id: newStore.store_id,
       });
@@ -413,9 +413,9 @@ describe("StoreManagementPage", () => {
   it("reflects renamed store in list after updateStore (useLiveQuery auto-updates)", async () => {
     const user = userEvent.setup();
     await seedDexie([ownedStore, joinedStore]);
-    // Mock updateStore to also update Dexie so useLiveQuery reflects the rename.
+    // Mock updateStore to also update __main__ Dexie so useLiveQuery reflects the rename.
     vi.mocked(svc.updateStore).mockImplementation(async (storeId, changes) => {
-      await getDb(ownedStore.store_id).Stores.update(storeId, changes);
+      await getDb("__main__").Stores.update(storeId, changes);
     });
     seedOwner();
     renderPage();
@@ -448,7 +448,7 @@ describe("StoreManagementPage", () => {
     ).toBeNull();
   });
 
-  it("calls activateStore and syncs activeStoreId when Aktifkan is clicked", async () => {
+  it("calls activateStore and navigates to new store when Aktifkan is clicked", async () => {
     const { activateStore } = await import("../modules/auth/setup.service");
     const user = userEvent.setup();
     await seedDexie([ownedStore, joinedStore]);
@@ -462,10 +462,15 @@ describe("StoreManagementPage", () => {
       screen.getByTestId(`btn-activate-store-${joinedStore.store_id}`),
     );
 
+    // navigate is called first (before activateStore awaits), then activateStore runs.
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith(
+        `/${joinedStore.store_id}/cashier`,
+      ),
+    );
     await waitFor(() =>
       expect(activateStore).toHaveBeenCalledWith(joinedStore),
     );
-    expect(useAuthStore.getState().activeStoreId).toBe(joinedStore.store_id);
   });
 
   it("shows error Alert when activateStore fails", async () => {

@@ -31,6 +31,10 @@ import {
   syncManager,
 } from "../lib/adapters";
 import { logger } from "../lib/logger";
+import {
+  pendingActivations,
+  STORE_MAP_TTL_MS,
+} from "../modules/auth/setup.service";
 import { useAuthStore } from "../store/authStore";
 import { getStoreMapStore } from "../store/storeMapStore";
 import { BottomNav } from "./BottomNav";
@@ -75,14 +79,16 @@ export function AppShell() {
     const gen = ++hydrateGen.current;
     const storeIdAtLaunch = activeStoreId;
 
-    // Ensure the current store's map is initialized and populated before
-    // rendering children. On page refresh the persisted keyed store map may
-    // already exist, but the sheets can still be empty if no traversal
-    // happened in this session. In that case, traverse the Drive folder.
-    void ensureStoreMapReady(storeIdAtLaunch).then(() => {
+    // Wait for both the store map and the initial hydration before showing
+    // page content. Hydration populates IndexedDB from Google Sheets so
+    // components never render with stale/empty Dexie data.
+    // The generation guard (T074) discards the result if the user switches
+    // stores before this resolves.
+    void ensureStoreMapReady(storeIdAtLaunch).then(async () => {
+      if (gen !== hydrateGen.current) return;
+      await hydrationService.hydrateAll();
       if (gen !== hydrateGen.current) return;
       setStoreMapReady(true);
-      return hydrationService.hydrateAll();
     });
   }, [activeStoreId]);
 
@@ -93,8 +99,9 @@ export function AppShell() {
         data-testid="app-shell"
       >
         <NavBar syncStatusSlot={<SyncStatus />} />
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-muted-foreground">Memuat data toko…</p>
+        <div className="flex-1 flex items-center justify-center flex-col gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Memuat data toko…</p>
         </div>
       </div>
     );
@@ -125,14 +132,35 @@ export function AppShell() {
  * to populate them.
  */
 async function ensureStoreMapReady(storeId: string): Promise<void> {
+  // If activateStore() is still in-flight for this store (triggered by NavBar
+  // or StoreManagementPage before navigate()), await it first so we don't
+  // race with a concurrent Drive traversal and hydrate with an empty sheet map.
+  const pending = pendingActivations.get(storeId);
+  if (pending) {
+    try {
+      await pending;
+    } catch {
+      // activateStore failed — fall through to attempt our own traversal below
+    }
+    // Store map was populated by activateStore; nothing more to do.
+    const storeMapAfterActivation = getStoreMapStore(storeId).getState();
+    if (
+      Object.keys(storeMapAfterActivation.sheets).length > 0 ||
+      storeMapAfterActivation.monthlySheets.length > 0
+    )
+      return;
+  }
+
   const storeMap = getStoreMapStore(storeId).getState();
 
-  // Already populated (e.g. from a recent activateStore call)
-  if (
+  // Already populated AND fresh enough — no traversal needed.
+  const hasSheets =
     Object.keys(storeMap.sheets).length > 0 ||
-    storeMap.monthlySheets.length > 0
-  )
-    return;
+    storeMap.monthlySheets.length > 0;
+  const isFresh =
+    storeMap.lastTraversedAt !== null &&
+    Date.now() - storeMap.lastTraversedAt < STORE_MAP_TTL_MS;
+  if (hasSheets && isFresh) return;
 
   // Sheets empty — use the active store map's persisted folder ID so refresh
   // cannot accidentally traverse a different store's folder.

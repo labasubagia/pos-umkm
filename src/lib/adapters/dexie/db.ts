@@ -16,6 +16,23 @@
  * switching stores never mixes data between tenants.
  */
 import Dexie, { type Table } from "dexie";
+import type {
+  AuditLogRow,
+  CategoryRow,
+  CustomerRow,
+  MemberRow,
+  MonthlySheetRow,
+  ProductRow,
+  PurchaseOrderItemRow,
+  PurchaseOrderRow,
+  RefundRow,
+  SettingRow,
+  StockLogRow,
+  StoreRow,
+  TransactionItemRow,
+  TransactionRow,
+  VariantRow,
+} from "../entity-types";
 
 // ─── Outbox ───────────────────────────────────────────────────────────────────
 
@@ -53,25 +70,25 @@ export interface SyncMetaEntry {
 
 export class PosUmkmDatabase extends Dexie {
   // Main spreadsheet
-  Stores!: Table<Record<string, unknown>>;
+  Stores!: Table<StoreRow>;
 
   // Master spreadsheet
-  Settings!: Table<Record<string, unknown>>;
-  Members!: Table<Record<string, unknown>>;
-  Categories!: Table<Record<string, unknown>>;
-  Products!: Table<Record<string, unknown>>;
-  Variants!: Table<Record<string, unknown>>;
-  Customers!: Table<Record<string, unknown>>;
-  Purchase_Orders!: Table<Record<string, unknown>>;
-  Purchase_Order_Items!: Table<Record<string, unknown>>;
-  Stock_Log!: Table<Record<string, unknown>>;
-  Audit_Log!: Table<Record<string, unknown>>;
-  Monthly_Sheets!: Table<Record<string, unknown>>;
+  Settings!: Table<SettingRow>;
+  Members!: Table<MemberRow>;
+  Categories!: Table<CategoryRow>;
+  Products!: Table<ProductRow>;
+  Variants!: Table<VariantRow>;
+  Customers!: Table<CustomerRow>;
+  Purchase_Orders!: Table<PurchaseOrderRow>;
+  Purchase_Order_Items!: Table<PurchaseOrderItemRow>;
+  Stock_Log!: Table<StockLogRow>;
+  Audit_Log!: Table<AuditLogRow>;
+  Monthly_Sheets!: Table<MonthlySheetRow>;
 
   // Monthly spreadsheet
-  Transactions!: Table<Record<string, unknown>>;
-  Transaction_Items!: Table<Record<string, unknown>>;
-  Refunds!: Table<Record<string, unknown>>;
+  Transactions!: Table<TransactionRow>;
+  Transaction_Items!: Table<TransactionItemRow>;
+  Refunds!: Table<RefundRow>;
 
   // Infrastructure tables
   _outbox!: Table<OutboxEntry>;
@@ -106,6 +123,14 @@ export class PosUmkmDatabase extends Dexie {
       // Infrastructure
       _outbox: "++id, mutationId, status, sheetName",
       _syncMeta: "key",
+    });
+
+    // Normalise has_variants: Google Sheets hydration writes the string "TRUE"/"FALSE"
+    // instead of booleans. This hook ensures reads always return a boolean.
+    this.Products.hook("reading", (obj) => {
+      if (!obj) return obj; // bulkGet returns undefined for missing keys
+      const raw = (obj as unknown as Record<string, unknown>).has_variants;
+      return { ...obj, has_variants: raw === true || raw === "TRUE" };
     });
   }
 }

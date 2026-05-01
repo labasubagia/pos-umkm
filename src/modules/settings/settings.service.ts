@@ -11,6 +11,7 @@
  */
 
 import { getRepos } from "../../lib/adapters";
+import type { SettingRow } from "../../lib/adapters/entity-types";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
 
@@ -24,18 +25,19 @@ export interface BusinessSettings {
 /** Reads all settings rows and returns them as a flat object. */
 export async function getSettings(): Promise<BusinessSettings> {
   const rows = await getRepos().settings.getAll();
-  const map: Record<string, string> = {};
+  const map: Record<string, string | number> = {};
   for (const row of rows) {
-    const rr = row as Record<string, unknown>;
-    if (rr.key && rr.value !== undefined) {
-      map[rr.key as string] = String(rr.value);
+    if (row.key && row.value !== undefined) {
+      map[row.key] = row.value;
     }
   }
   return {
-    business_name: map.business_name ?? "POS UMKM",
-    tax_rate: parseInt(map.tax_rate ?? "11", 10),
-    receipt_footer: map.receipt_footer ?? "Terima kasih sudah berbelanja!",
-    qris_image_url: map.qris_image_url ?? "",
+    business_name: String(map.business_name ?? "POS UMKM"),
+    tax_rate: parseInt(String(map.tax_rate ?? "11"), 10),
+    receipt_footer: String(
+      map.receipt_footer ?? "Terima kasih sudah berbelanja!",
+    ),
+    qris_image_url: String(map.qris_image_url ?? ""),
   };
 }
 
@@ -95,10 +97,8 @@ export async function saveSettings(
   if (entries.length === 0) return;
 
   const existing = await getRepos().settings.getAll();
-  const rows = entries.map(([key, value]) => {
-    const found = existing.find(
-      (r) => (r as Record<string, unknown>).key === key,
-    );
+  const rows: SettingRow[] = entries.map(([key, value]) => {
+    const found = existing.find((r) => r.key === key);
     return found
       ? { ...found, value: String(value), updated_at: nowUTC() }
       : { id: generateId(), key, value: String(value), updated_at: nowUTC() };

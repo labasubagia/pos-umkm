@@ -28,6 +28,11 @@ const mocks = vi.hoisted(() => {
   };
 });
 
+vi.mock("../modules/auth/setup.service", () => ({
+  pendingActivations: new Map(),
+  STORE_MAP_TTL_MS: 5 * 60 * 1000,
+}));
+
 vi.mock("../lib/adapters", () => ({
   hydrationService: { hydrateAll: mocks.hydrateAllMock },
   reinitDexieLayer: mocks.reinitDexieLayerMock,
@@ -139,5 +144,89 @@ describe("AppShell", () => {
       expect.any(Object),
       expect.any(Array),
     );
+  });
+
+  it("skips Drive traversal when store map is fresh (within TTL)", async () => {
+    mocks.storeMapState.sheets = {
+      Products: {
+        spreadsheet_id: "sp-1",
+        spreadsheet_name: "master",
+        tab_name: "Products",
+        sheet_id: 1,
+      },
+    };
+    mocks.storeMapState.monthlySheets = [];
+    mocks.storeMapState.lastTraversedAt = Date.now(); // fresh
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    await act(async () => {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/store-a/cashier"]}>
+            <Routes>
+              <Route path="/:storeId" element={<AppShell />}>
+                <Route
+                  path="cashier"
+                  element={<div data-testid="page-content" />}
+                />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("page-content")).toBeTruthy();
+    });
+
+    expect(mocks.traverseMock).not.toHaveBeenCalled();
+  });
+
+  it("re-traverses Drive when store map is stale (beyond TTL)", async () => {
+    mocks.storeMapState.sheets = {
+      Products: {
+        spreadsheet_id: "sp-1",
+        spreadsheet_name: "master",
+        tab_name: "Products",
+        sheet_id: 1,
+      },
+    };
+    mocks.storeMapState.monthlySheets = [];
+    mocks.storeMapState.lastTraversedAt = Date.now() - 10 * 60 * 1000; // 10 min ago
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    await act(async () => {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/store-a/cashier"]}>
+            <Routes>
+              <Route path="/:storeId" element={<AppShell />}>
+                <Route
+                  path="cashier"
+                  element={<div data-testid="page-content" />}
+                />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+    });
+
+    await waitFor(() => {
+      expect(mocks.traverseMock).toHaveBeenCalledWith("folder-from-store-map");
+    });
   });
 });

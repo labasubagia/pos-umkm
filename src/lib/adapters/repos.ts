@@ -9,25 +9,44 @@
  *   Master spreadsheet  — all other non-transaction tabs
  *   Monthly spreadsheet — Transactions, Transaction_Items, Refunds
  */
+import type {
+  AuditLogRow,
+  CategoryRow,
+  CustomerRow,
+  MemberRow,
+  MonthlySheetRow,
+  PurchaseOrderRow,
+  RefundRow,
+  SettingRow,
+  StockLogRow,
+  StoreRow,
+} from "./entity-types";
 import type { ILocalRepository } from "./ILocalRepository";
+import type {
+  IProductRepository,
+  IPurchaseOrderItemRepository,
+  ITransactionItemRepository,
+  ITransactionRepository,
+  IVariantRepository,
+} from "./repo-interfaces";
 
 export interface Repos {
   // Main spreadsheet (owner's personal store registry)
-  stores: ILocalRepository<Record<string, unknown>>;
+  stores: ILocalRepository<StoreRow>;
   // Master spreadsheet
-  monthlySheets: ILocalRepository<Record<string, unknown>>;
-  categories: ILocalRepository<Record<string, unknown>>;
-  products: ILocalRepository<Record<string, unknown>>;
-  variants: ILocalRepository<Record<string, unknown>>;
-  members: ILocalRepository<Record<string, unknown>>;
-  settings: ILocalRepository<Record<string, unknown>>;
-  stockLog: ILocalRepository<Record<string, unknown>>;
-  purchaseOrders: ILocalRepository<Record<string, unknown>>;
-  purchaseOrderItems: ILocalRepository<Record<string, unknown>>;
-  customers: ILocalRepository<Record<string, unknown>>;
-  auditLog: ILocalRepository<Record<string, unknown>>;
+  monthlySheets: ILocalRepository<MonthlySheetRow>;
+  categories: ILocalRepository<CategoryRow>;
+  products: IProductRepository;
+  variants: IVariantRepository;
+  members: ILocalRepository<MemberRow>;
+  settings: ILocalRepository<SettingRow>;
+  stockLog: ILocalRepository<StockLogRow>;
+  purchaseOrders: ILocalRepository<PurchaseOrderRow>;
+  purchaseOrderItems: IPurchaseOrderItemRepository;
+  customers: ILocalRepository<CustomerRow>;
+  auditLog: ILocalRepository<AuditLogRow>;
   // Monthly spreadsheet
-  transactions: ILocalRepository<Record<string, unknown>>;
-  transactionItems: ILocalRepository<Record<string, unknown>>;
-  refunds: ILocalRepository<Record<string, unknown>>;
+  transactions: ITransactionRepository;
+  transactionItems: ITransactionItemRepository;
+  refunds: ILocalRepository<RefundRow>;
 }

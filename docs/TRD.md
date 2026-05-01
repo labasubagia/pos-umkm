@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.13                              |
+| Version     | 2.14                              |
 | Status      | Draft                             |
 | Date        | April 2026                        |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -187,7 +187,9 @@ src/
 ├── lib/
 │   ├── adapters/        # Data access + auth layer
 │   │   ├── types.ts             # AuthAdapter interface + shared types (AdapterError, User, Role)
-│   │   ├── repos.ts             # Repos type map (logical name → ILocalRepository)
+│   │   ├── entity-types.ts      # Typed row interfaces for all 15 Dexie entity tables
+│   │   ├── repo-interfaces.ts   # Per-model ILocalRepository sub-interfaces (IProductRepository, etc.)
+│   │   ├── repos.ts             # Repos type map (logical name → ILocalRepository or per-model sub-interface)
 │   │   ├── schema.ts            # ALL_TAB_HEADERS — column header registry
 │   │   ├── index.ts             # Exports active repos, syncManager, hydrationService
 │   │   ├── google/
@@ -199,6 +201,7 @@ src/
 │   │   └── dexie/               # Offline-first layer (browser IndexedDB)
 │   │       ├── db.ts            # Dexie DB class — all entity tables + _outbox + _syncMeta
 │   │       ├── DexieRepository.ts       # ILocalRepository backed by IndexedDB + outbox
+│   │       ├── typed-repos.ts           # Per-model Dexie subclasses with indexed query methods
 │   │       ├── SyncManager.ts           # Drains _outbox to Sheets; rate-limit backoff
 │   │       ├── HydrationService.ts      # Pulls Sheets → IndexedDB on login
 │   │       ├── DexieRepository.test.ts
@@ -360,7 +363,19 @@ ISheetRepository<T>          — used by sync layer only
 
 **`GoogleAuthAdapter`** — wraps `@react-oauth/google`. Stores access token in memory. Implements `AuthAdapter`.
 
-**Key rule:** `getRepos()` returns `Repos` (typed as `ILocalRepository<T>` per field). `makeRepo()` returns `ISheetRepository<T>`. Feature modules only ever call `getRepos()`.
+**Key rule:** `getRepos()` returns `Repos`. `makeRepo()` returns `ISheetRepository<T>`. Feature modules only ever call `getRepos()`.
+
+**Per-model sub-interfaces:** Five entries in `Repos` use narrower sub-interfaces instead of bare `ILocalRepository<T>`:
+
+| Field | Interface | Extra methods |
+|---|---|---|
+| `products` | `IProductRepository` | `findById(id)`, `findByCategoryId(categoryId)` |
+| `variants` | `IVariantRepository` | `findById(id)`, `findByProductId(productId)` |
+| `transactions` | `ITransactionRepository` | `findById(id)`, `findByDateRange(start, end)` |
+| `transactionItems` | `ITransactionItemRepository` | `findByTransactionId(transactionId)` |
+| `purchaseOrderItems` | `IPurchaseOrderItemRepository` | `findByOrderId(orderId)` |
+
+Each sub-interface extends `ILocalRepository<T>` — the five base methods are always available. The additional methods use Dexie's indexed columns (e.g. `category_id`, `product_id`, `created_at`) for O(log n) lookups instead of full-table scans. The concrete implementations are `DexieProductRepository`, `DexieVariantRepository`, `DexieTransactionRepository`, `DexieTransactionItemRepository`, and `DexiePurchaseOrderItemRepository` (all in `dexie/typed-repos.ts`), each extending the base `DexieRepository<T>`. `DexieRepository.db` is `protected` (not `private`) to allow subclass access.
 
 ---
 
@@ -1156,7 +1171,10 @@ Tapping the error or pending indicator calls `syncManager.triggerSync()` to forc
 | **HydrationService** | Service (`src/lib/adapters/dexie/HydrationService.ts`) that pulls all Google Sheets data into IndexedDB on login; skips recently-hydrated and outbox-pending tables |
 | **syncStore** | Zustand store (`src/store/syncStore.ts`) tracking `pendingCount`, `isSyncing`, `lastSyncedAt`, and `lastError` for the sync status UI |
 | **IDR integers** | Monetary values stored as plain integers in IDR (no decimals) to avoid floating-point errors |
+| **`entity-types.ts`** | Central module (`src/lib/adapters/entity-types.ts`) declaring typed row interfaces for all 15 Dexie entity tables (e.g. `ProductRow`, `TransactionRow`). All interfaces extend `Record<string, unknown>` for `ILocalRepository<T>` compatibility. Previously tables used `Record<string, unknown>` directly. |
+| **`IProductRepository`** | Per-model sub-interface of `ILocalRepository<ProductRow>` adding `findById(id)` and `findByCategoryId(categoryId)` for Dexie index queries. Siblings: `IVariantRepository`, `ITransactionRepository`, `ITransactionItemRepository`, `IPurchaseOrderItemRepository`. All defined in `src/lib/adapters/repo-interfaces.ts`. |
+| **`DexieProductRepository`** | Dexie subclass of `DexieRepository<ProductRow>` implementing `IProductRepository` using `where().equals()` for indexed lookups. Siblings: `DexieVariantRepository`, `DexieTransactionRepository`, `DexieTransactionItemRepository`, `DexiePurchaseOrderItemRepository`. All defined in `src/lib/adapters/dexie/typed-repos.ts`. |
 
 ---
 
-*End of Document — POS UMKM TRD v2.7*
+*End of Document — POS UMKM TRD v2.14*

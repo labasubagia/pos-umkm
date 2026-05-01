@@ -83,12 +83,17 @@ describe("HydrationService", () => {
     useAuthStore.getState().clearAuth();
   });
 
-  it("hydrates the Stores table from mainSpreadsheetId into the active store DB", async () => {
-    const service = new HydrationService(() => "token", getDb(TEST_STORE_ID));
+  it("hydrates the Stores table from mainSpreadsheetId into the global __main__ DB", async () => {
+    const service = new HydrationService(
+      () => "token",
+      getDb(TEST_STORE_ID),
+      getDb("__main__"),
+    );
 
     await service.hydrateAll();
 
-    expect(await getDb(TEST_STORE_ID).Stores.toArray()).toEqual([
+    // Stores data must land in the global __main__ DB, not the per-store DB.
+    expect(await getDb("__main__").Stores.toArray()).toEqual([
       expect.objectContaining({
         id: "store-a",
         store_id: "store-a",
@@ -96,5 +101,7 @@ describe("HydrationService", () => {
         drive_folder_id: "folder-a",
       }),
     ]);
+    // The per-store DB Stores table must stay empty.
+    expect(await getDb(TEST_STORE_ID).Stores.toArray()).toHaveLength(0);
   });
 });

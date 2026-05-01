@@ -16,6 +16,7 @@
  */
 
 import { driveClient, getRepos } from "../../lib/adapters";
+import type { MemberRow } from "../../lib/adapters/entity-types";
 import type { Role } from "../../lib/adapters/types";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
@@ -32,15 +33,8 @@ function appBaseUrl(): string {
   );
 }
 
-export interface Member {
-  id: string;
-  google_user_id: string;
-  email: string;
-  name: string;
-  role: Role;
-  invited_at: string;
-  deleted_at: string | null;
-}
+/** Member row — matches the Members sheet tab columns. */
+export type Member = MemberRow;
 
 export class MemberError extends Error {
   constructor(message: string) {
@@ -87,9 +81,7 @@ export async function inviteMember(
     deleted_at: null,
   };
 
-  await getRepos().members.batchInsert([
-    member as unknown as Record<string, unknown>,
-  ]);
+  await getRepos().members.batchInsert([member]);
   return member;
 }
 
@@ -115,23 +107,7 @@ export async function revokeMember(userId: string): Promise<void> {
  */
 export async function listMembers(): Promise<Member[]> {
   const rows = await getRepos().members.getAll();
-  return rows
-    .filter((r) => {
-      const rr = r as Record<string, unknown>;
-      return !rr.deleted_at && typeof rr.email === "string" && rr.email !== "";
-    })
-    .map((r) => {
-      const rr = r as Record<string, unknown>;
-      return {
-        id: rr.id as string,
-        google_user_id: (rr.google_user_id as string) ?? "",
-        email: rr.email as string,
-        name: (rr.name as string) ?? "",
-        role: rr.role as Role,
-        invited_at: rr.invited_at as string,
-        deleted_at: null,
-      };
-    });
+  return rows.filter((r) => !r.deleted_at && r.email);
 }
 
 /**
@@ -144,16 +120,9 @@ export async function recordGoogleUserId(
   googleUserId: string,
 ): Promise<void> {
   const rows = await getRepos().members.getAll();
-  const existing = rows.find(
-    (r) =>
-      (r as Record<string, unknown>).email === email &&
-      !(r as Record<string, unknown>).deleted_at,
-  );
+  const existing = rows.find((r) => r.email === email && !r.deleted_at);
   if (!existing) return;
   await getRepos().members.batchUpdate([
-    {
-      id: (existing as Record<string, unknown>).id as string,
-      google_user_id: googleUserId,
-    },
+    { id: existing.id, google_user_id: googleUserId },
   ]);
 }

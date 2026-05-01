@@ -131,8 +131,10 @@ export default function StoreManagementPage() {
 
   const activateMutation = useMutation({
     mutationFn: async (store: StoreRecord) => {
+      // Navigate first so AppShell's URL-sync shows loading while activateStore
+      // traverses the Drive folder and pre-creates monthly sheets.
+      navigate(`/${store.store_id}/cashier`);
       await activateStore(store);
-      setActiveStoreId(store.store_id);
     },
     onError: (err) =>
       setMutationError(String(err instanceof Error ? err.message : err)),

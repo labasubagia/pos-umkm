@@ -200,7 +200,6 @@ describe("NavBar", () => {
     await user.selectOptions(screen.getByRole("combobox"), store2.store_id);
 
     await waitFor(() => expect(activateStore).toHaveBeenCalledWith(store2));
-    expect(useAuthStore.getState().activeStoreId).toBe(store2.store_id);
     expect(mockNavigate).toHaveBeenCalledWith(`/${store2.store_id}/cashier`);
   });
 
