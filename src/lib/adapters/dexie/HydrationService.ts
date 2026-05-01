@@ -27,6 +27,7 @@ import { useSyncStore } from "../../../store/syncStore";
 import { logger } from "../../logger";
 import { ALL_TAB_HEADERS } from "../../schema";
 import { SheetRepository } from "../SheetRepository";
+import { parseSheetRows } from "../zod-schemas";
 import type { PosUmkmDatabase } from "./db";
 
 const STALE_MS = 5 * 60 * 1000;
@@ -156,10 +157,11 @@ export class HydrationService {
         ALL_TAB_HEADERS[sheetName],
       );
       const rawRows = await repo.getAll();
+      const parsedRows = parseSheetRows(sheetName, rawRows);
       // Normalize rows that use store_id as their primary identifier (Stores table).
       // Google Sheets headers for Stores are ['store_id', ...] with no 'id' column.
       // Dexie requires 'id' as primary key, so we map store_id → id when id is absent.
-      const normalizedRows = rawRows.map((r) => {
+      const normalizedRows = parsedRows.map((r) => {
         if (
           (r.id == null || r.id === "") &&
           r.store_id != null &&
