@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { logger } from "@/lib/logger";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import type { StoreRecord } from "./setup.service";
@@ -39,6 +40,10 @@ export default function StorePickerPage() {
         navigate(`/${store.store_id}/cashier`, { replace: true });
       } catch (err) {
         setError(`Gagal mengaktifkan toko: ${String(err)}`);
+        logger.error("Failed to activate store", {
+          storeId: store.store_id,
+          error: err,
+        });
         setActivating(false);
       }
     },

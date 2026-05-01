@@ -29,7 +29,6 @@ import { ALL_TAB_HEADERS } from "../../schema";
 import { SheetRepository } from "../SheetRepository";
 import type { PosUmkmDatabase } from "./db";
 
-/** How old a hydration timestamp must be before we re-fetch (5 minutes). */
 const STALE_MS = 5 * 60 * 1000;
 
 interface HydrationTarget {
@@ -156,10 +155,7 @@ export class HydrationService {
         this.getToken,
         ALL_TAB_HEADERS[sheetName],
       );
-      // getAll() already filters soft-deleted rows in Google adapter.
-      // We store all rows including soft-deleted ones in Dexie so that
-      // DexieSheetRepository.getAll() can filter them too.
-      const rawRows = await this.getRawRows(spreadsheetId, sheetName);
+      const rawRows = await repo.getAll();
       // Normalize rows that use store_id as their primary identifier (Stores table).
       // Google Sheets headers for Stores are ['store_id', ...] with no 'id' column.
       // Dexie requires 'id' as primary key, so we map store_id → id when id is absent.
@@ -198,38 +194,5 @@ export class HydrationService {
       // Log but don't throw — partial hydration is better than none
       logger.warn(`[HydrationService] Failed to hydrate "${sheetName}":`, err);
     }
-  }
-
-  /**
-   * Fetches raw rows (including soft-deleted) from Google Sheets.
-   * We bypass SheetRepository.getAll() which filters deleted rows because
-   * we want the full dataset in Dexie to match Sheets exactly.
-   */
-  private async getRawRows(
-    spreadsheetId: string,
-    sheetName: string,
-  ): Promise<Record<string, unknown>[]> {
-    const token = this.getToken();
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(
-        `HydrationService: Sheets API ${res.status} for "${sheetName}": ${body}`,
-      );
-    }
-    const data = await res.json();
-    const rows: (string | number | boolean)[][] = data.values ?? [];
-    if (rows.length < 2) return []; // header-only or empty
-    const headers = rows[0] as string[];
-    return rows.slice(1).map((row) => {
-      const obj: Record<string, unknown> = {};
-      headers.forEach((h, i) => {
-        obj[h] = row[i] ?? null;
-      });
-      return obj;
-    });
   }
 }

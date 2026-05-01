@@ -5,9 +5,12 @@
  * management, and file sharing. All functions take an explicit token
  * argument so they are stateless and independently testable.
  */
+
+import { queryClient } from "../../../queryClient";
 import { AdapterError } from "../../types";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
+const STALE_TIME = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
  * Creates a new Google Spreadsheet via the Sheets API (not Drive API) so
@@ -29,19 +32,27 @@ export async function createSpreadsheet(
 ): Promise<string> {
   // ── "Find or create" ────────────────────────────────────────────────────
   if (parentFolderId) {
-    const q = `name=${JSON.stringify(name)} and mimeType='application/vnd.google-apps.spreadsheet' and '${parentFolderId}' in parents and trashed=false`;
-    const searchRes = await fetch(
-      `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`,
-      { headers: { Authorization: `Bearer ${token}` } },
-    );
-    if (searchRes.ok) {
-      const searchData = await searchRes.json();
-      const files = searchData.files as Array<{ id: string }>;
-      if (files.length > 0) return files[0].id;
-    }
+    const existingId = await queryClient.fetchQuery({
+      queryKey: ["drive-find-spreadsheet", parentFolderId, name],
+      queryFn: async () => {
+        const q = `name=${JSON.stringify(name)} and mimeType='application/vnd.google-apps.spreadsheet' and '${parentFolderId}' in parents and trashed=false`;
+        const searchRes = await fetch(
+          `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          const files = searchData.files as Array<{ id: string }>;
+          if (files.length > 0) return files[0].id;
+        }
+        return null;
+      },
+      staleTime: STALE_TIME,
+    });
+    if (existingId) return existingId;
   }
 
-  // ── Create via Sheets API ────────────────────────────────────────────────
+  // ── Create via Sheets API ───────────────────────────────────────────────
   const sheetsBody: Record<string, unknown> = { properties: { title: name } };
   if (tabs && tabs.length > 0) {
     sheetsBody.sheets = tabs.map((title) => ({ properties: { title } }));
@@ -64,7 +75,7 @@ export async function createSpreadsheet(
   const data = await createRes.json();
   const spreadsheetId = data.spreadsheetId as string;
 
-  // ── Move to target folder ────────────────────────────────────────────────
+  // ── Move to target folder ───────────────────────────────────────────────
   if (parentFolderId) {
     const metaRes = await fetch(
       `${DRIVE_API}/files/${spreadsheetId}?fields=parents`,
@@ -136,19 +147,28 @@ async function ensureDriveFolderUnder(
   name: string,
   token: string,
 ): Promise<string> {
-  const q = `name=${JSON.stringify(name)} and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
-  const searchUrl = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`;
-  const searchRes = await fetch(searchUrl, {
-    headers: { Authorization: `Bearer ${token}` },
+  const existingId = await queryClient.fetchQuery({
+    queryKey: ["drive-find-folder", parentId, name],
+    queryFn: async () => {
+      const q = `name=${JSON.stringify(name)} and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+      const searchUrl = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`;
+      const searchRes = await fetch(searchUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!searchRes.ok) {
+        throw new AdapterError(
+          `ensureFolder: search failed for "${name}" (HTTP ${searchRes.status})`,
+        );
+      }
+      const searchData = await searchRes.json();
+      const files = searchData.files as Array<{ id: string }>;
+      if (files.length > 0) return files[0].id;
+      return null;
+    },
+    staleTime: STALE_TIME,
   });
-  if (!searchRes.ok) {
-    throw new AdapterError(
-      `ensureFolder: search failed for "${name}" (HTTP ${searchRes.status})`,
-    );
-  }
-  const searchData = await searchRes.json();
-  const files = searchData.files as Array<{ id: string }>;
-  if (files.length > 0) return files[0].id;
+
+  if (existingId) return existingId;
 
   const createRes = await fetch(`${DRIVE_API}/files`, {
     method: "POST",

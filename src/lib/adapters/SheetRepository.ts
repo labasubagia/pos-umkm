@@ -8,6 +8,7 @@
  * Backed by sheetsOps (Google Sheets API v4). The mock equivalent is
  * MockSheetRepository which uses localStorage instead.
  */
+
 import * as sheetsOps from "./google/sheets/sheets.ops";
 
 export interface ISheetRepository<T extends Record<string, unknown>> {
@@ -51,7 +52,7 @@ export class SheetRepository<T extends Record<string, unknown>>
     this.knownHeaders = knownHeaders;
   }
 
-  getAll(): Promise<T[]> {
+  async getAll(): Promise<T[]> {
     return sheetsOps.getSheet(
       this.spreadsheetId,
       this.sheetName,
@@ -59,10 +60,10 @@ export class SheetRepository<T extends Record<string, unknown>>
     ) as Promise<T[]>;
   }
 
-  batchAppend(
+  async batchAppend(
     rows: Array<Partial<T> & Record<string, unknown>>,
   ): Promise<void> {
-    return sheetsOps.batchAppendRows(
+    await sheetsOps.batchAppendRows(
       this.spreadsheetId,
       this.sheetName,
       rows as Record<string, unknown>[],
@@ -71,10 +72,10 @@ export class SheetRepository<T extends Record<string, unknown>>
     );
   }
 
-  batchUpdateCells(
+  async batchUpdateCells(
     updates: Array<{ rowId: string; column: string; value: unknown }>,
   ): Promise<void> {
-    return sheetsOps.batchUpdateCells(
+    await sheetsOps.batchUpdateCells(
       this.spreadsheetId,
       this.sheetName,
       updates,
@@ -82,7 +83,7 @@ export class SheetRepository<T extends Record<string, unknown>>
     );
   }
 
-  batchUpsertByKey(
+  async batchUpsertByKey(
     lookupColumn: string,
     updateColumn: string,
     entries: Array<{ lookupValue: string; value: unknown }>,
@@ -91,7 +92,7 @@ export class SheetRepository<T extends Record<string, unknown>>
       value: unknown,
     ) => Record<string, unknown>,
   ): Promise<void> {
-    return sheetsOps.batchUpsertByKey(
+    await sheetsOps.batchUpsertByKey(
       this.spreadsheetId,
       this.sheetName,
       lookupColumn,
@@ -102,8 +103,8 @@ export class SheetRepository<T extends Record<string, unknown>>
     );
   }
 
-  softDelete(rowId: string): Promise<void> {
-    return sheetsOps.softDelete(
+  async softDelete(rowId: string): Promise<void> {
+    await sheetsOps.softDelete(
       this.spreadsheetId,
       this.sheetName,
       rowId,
@@ -111,8 +112,8 @@ export class SheetRepository<T extends Record<string, unknown>>
     );
   }
 
-  writeHeaders(headers: string[]): Promise<void> {
-    return sheetsOps.writeHeaders(
+  async writeHeaders(headers: string[]): Promise<void> {
+    await sheetsOps.writeHeaders(
       this.spreadsheetId,
       this.sheetName,
       headers,

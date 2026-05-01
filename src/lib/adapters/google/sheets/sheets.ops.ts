@@ -8,6 +8,7 @@
  * SheetsApiError → AdapterError happens here so GoogleDataAdapter stays thin.
  */
 
+import { queryClient } from "../../../queryClient";
 import { generateId } from "../../../uuid";
 import { AdapterError } from "../../types";
 import {
@@ -19,51 +20,58 @@ import {
 import { SheetsApiError } from "./sheets.types";
 
 const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
+const STALE_TIME = 10 * 60 * 1000; // 10 minutes
 
 /**
  * Fetches all rows from the sheet, maps header columns to object keys,
- * and filters out soft-deleted rows.
+ * and filters out soft-deleted rows. Results are cached via TanStack Query.
  */
 export async function getSheet(
   spreadsheetId: string,
   sheetName: string,
   token: string,
 ): Promise<Record<string, unknown>[]> {
-  try {
-    const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new SheetsApiError(
-        res.status,
-        `Sheets API error ${res.status}: ${body}`,
-      );
-    }
-    const data = await res.json();
-    const rows: (string | number | boolean)[][] = data.values ?? [];
-    if (rows.length < 1) return [];
-    const headers = rows[0] as string[];
-    return rows
-      .slice(1)
-      .map((row) => {
-        const obj: Record<string, unknown> = {};
-        headers.forEach((h, i) => {
-          obj[h] = row[i] ?? null;
+  return queryClient.fetchQuery({
+    queryKey: ["sheetData", spreadsheetId, sheetName],
+    queryFn: async () => {
+      try {
+        const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        return obj;
-      })
-      .filter((r) => !r.deleted_at);
-  } catch (err) {
-    if (err instanceof SheetsApiError) {
-      throw new AdapterError(
-        `getSheet failed for "${sheetName}": ${err.message}`,
-        err,
-      );
-    }
-    throw err;
-  }
+        if (!res.ok) {
+          const body = await res.text().catch(() => "");
+          throw new SheetsApiError(
+            res.status,
+            `Sheets API error ${res.status}: ${body}`,
+          );
+        }
+        const data = await res.json();
+        const rows: (string | number | boolean)[][] = data.values ?? [];
+        if (rows.length < 1) return [];
+        const headers = rows[0] as string[];
+        return rows
+          .slice(1)
+          .map((row) => {
+            const obj: Record<string, unknown> = {};
+            headers.forEach((h, i) => {
+              obj[h] = row[i] ?? null;
+            });
+            return obj;
+          })
+          .filter((r) => !r.deleted_at);
+      } catch (err) {
+        if (err instanceof SheetsApiError) {
+          throw new AdapterError(
+            `getSheet failed for "${sheetName}": ${err.message}`,
+            err,
+          );
+        }
+        throw err;
+      }
+    },
+    staleTime: STALE_TIME,
+  });
 }
 
 /**
@@ -98,6 +106,9 @@ export async function writeHeaders(
     const body = await res.text().catch(() => "");
     throw new AdapterError(`writeHeaders failed for "${sheetName}": ${body}`);
   }
+  void queryClient.invalidateQueries({
+    queryKey: ["sheetData", spreadsheetId, sheetName],
+  });
 }
 
 /**
@@ -143,6 +154,9 @@ export async function batchAppendRows(
       valueRows as (string | number | boolean)[][],
       token,
     );
+    void queryClient.invalidateQueries({
+      queryKey: ["sheetData", spreadsheetId, sheetName],
+    });
   } catch (err) {
     if (err instanceof SheetsApiError) {
       throw new AdapterError(
@@ -223,6 +237,9 @@ export async function softDelete(
     new Date().toISOString(),
     token,
   );
+  void queryClient.invalidateQueries({
+    queryKey: ["sheetData", spreadsheetId, sheetName],
+  });
 }
 
 /** Converts a 0-based column index to a spreadsheet column letter (0 → A, 1 → B, …). */
@@ -299,6 +316,9 @@ export async function batchUpdateCells(
     }
 
     await sheetsBatchUpdate(spreadsheetId, rangeUpdates, token);
+    void queryClient.invalidateQueries({
+      queryKey: ["sheetData", spreadsheetId, sheetName],
+    });
   } catch (err) {
     if (err instanceof AdapterError) throw err;
     if (err instanceof SheetsApiError)
@@ -389,6 +409,9 @@ export async function batchUpsertByKey(
         token,
       );
     }
+    void queryClient.invalidateQueries({
+      queryKey: ["sheetData", spreadsheetId, sheetName],
+    });
   } catch (err) {
     if (err instanceof AdapterError) throw err;
     if (err instanceof SheetsApiError)

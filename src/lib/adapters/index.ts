@@ -66,7 +66,7 @@ const getToken = (): string => {
 
 export const driveClient: IDriveClient = new GoogleDriveClient(getToken);
 
-export const storeFolderService = new StoreFolderService(getToken);
+export const storeFolderService = new StoreFolderService();
 
 /** No-op SyncManager used as the initial value and after logout. */
 const noopSyncManager = {
