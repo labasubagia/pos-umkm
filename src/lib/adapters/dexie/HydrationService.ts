@@ -28,7 +28,7 @@ import { logger } from "../../logger";
 import { ALL_TAB_HEADERS } from "../../schema";
 import { SheetRepository } from "../SheetRepository";
 import { parseSheetRows } from "../zod-schemas";
-import type { PosUmkmDatabase } from "./db";
+import type { IndexedDB } from "./db";
 
 const STALE_MS = 5 * 60 * 1000;
 
@@ -39,15 +39,11 @@ interface HydrationTarget {
 
 export class HydrationService {
   private readonly getToken: () => string;
-  private readonly db: PosUmkmDatabase;
+  private readonly db: IndexedDB;
   /** Global DB for cross-store tables (Stores). Never swapped on store switch. */
-  private readonly mainDb: PosUmkmDatabase;
+  private readonly mainDb: IndexedDB;
 
-  constructor(
-    getToken: () => string,
-    db: PosUmkmDatabase,
-    mainDb: PosUmkmDatabase,
-  ) {
+  constructor(getToken: () => string, db: IndexedDB, mainDb: IndexedDB) {
     this.getToken = getToken;
     this.db = db;
     this.mainDb = mainDb;
@@ -124,7 +120,7 @@ export class HydrationService {
   private async hydrateTable(
     { sheetName, spreadsheetId }: HydrationTarget,
     force = false,
-    db?: PosUmkmDatabase,
+    db?: IndexedDB,
   ): Promise<void> {
     const targetDb = db ?? this.db;
     // Key is scoped to spreadsheetId so different stores (and monthly sheet
@@ -143,7 +139,7 @@ export class HydrationService {
     // Skip if there are pending outbox entries for this table —
     // applying remote data would overwrite unsynced local writes.
     const pendingForTable = await targetDb._outbox
-      .where("sheetName")
+      .where("tableName")
       .equals(sheetName)
       .and((e) => e.status !== "failed" || e.retries < 5)
       .count();

@@ -4,78 +4,64 @@
  * Serves reads from IndexedDB (instant, offline-capable) and queues writes to
  * the _outbox table for later sync to Google Sheets by SyncManager.
  *
- * The `sheetName` constructor argument identifies which sheet tab this repo
- * targets. The spreadsheetId is resolved from the store map at enqueue time,
- * with the constructor-provided `spreadsheetId` as a fallback for setup code
- * that runs before the store map is populated.
+ * The `tableName` constructor argument identifies which IndexedDB table this
+ * repo targets. SyncManager resolves the corresponding spreadsheet/sheet when
+ * draining the outbox.
  *
  * Write → IndexedDB immediately (ACID via Dexie transaction)
  *       → _outbox entry queued in the same transaction
  * Read  → IndexedDB always (SyncManager keeps it up-to-date with Sheets)
  *
- * batchUpsertBy is decomposed locally:
- *   - entries whose lookupValue exists in Dexie → batchUpdate
- *   - entries that are new                      → batchInsert
- * This avoids serialising makeNewRow into the outbox.
+ * batchUpsert is decomposed locally:
+ *   - entries whose id exists in Dexie → batchUpdate
+ *   - entries that are new            → batchInsert
  */
 
-import { useAuthStore } from "../../../store/authStore";
-import { getCurrentStoreMapStore } from "../../../store/storeMapStore";
 import { useSyncStore } from "../../../store/syncStore";
 import { logger } from "../../logger";
 import { generateId } from "../../uuid";
 import type { ILocalRepository } from "../ILocalRepository";
-import type { OutboxEntry, OutboxOperation, PosUmkmDatabase } from "./db";
-
-export interface SyncTarget {
-  spreadsheetId: string;
-  sheetName: string;
-}
+import type { IndexedDB as Database, OutboxEntry, OutboxOperation } from "./db";
 
 export class DexieRepository<T extends Record<string, unknown>>
   implements ILocalRepository<T>
 {
-  protected readonly db: PosUmkmDatabase;
-  private readonly sheetName: string;
-  private readonly fallbackSpreadsheetId: string;
+  protected readonly db: Database;
+  private readonly tableName: string;
   private readonly onAfterWrite: () => void;
 
   constructor(
-    db: PosUmkmDatabase,
-    syncTarget: SyncTarget,
+    db: Database,
+    tableName: string,
     onAfterWrite: () => void = () => {},
   ) {
     this.db = db;
-    this.sheetName = syncTarget.sheetName;
-    this.fallbackSpreadsheetId = syncTarget.spreadsheetId;
+    this.tableName = tableName;
     this.onAfterWrite = onAfterWrite;
   }
 
   // ─── Reads (always from IndexedDB) ──────────────────────────────────────────
 
   async getAll(): Promise<T[]> {
-    const rows = await this.db.table<T>(this.sheetName).toArray();
-    return rows.filter((r) => !r.deleted_at);
+    const items = await this.db.table<T>(this.tableName).toArray();
+    return items.filter((r) => !r.deleted_at);
   }
 
   // ─── Writes (IndexedDB + outbox) ─────────────────────────────────────────────
 
   async batchInsert(
-    rows: Array<Partial<T> & Record<string, unknown>>,
+    payload: Array<Partial<T> & Record<string, unknown>>,
   ): Promise<void> {
-    if (rows.length === 0) return;
-    const rowsWithIds = rows.map((r) =>
-      r.id ? r : { id: generateId(), ...r },
-    );
-    const tableName = this.sheetName;
+    if (payload.length === 0) return;
+    const items = payload.map((r) => (r.id ? r : { id: generateId(), ...r }));
     await this.db.transaction(
       "rw",
-      [this.db.table(tableName), this.db._outbox],
+      [this.db.table(this.tableName), this.db._outbox],
       async () => {
-        await this.db.table(tableName).bulkPut(rowsWithIds);
+        await this.db.table(this.tableName).bulkPut(items);
         await this.enqueue({
-          op: "append",
-          rows: rowsWithIds as Record<string, unknown>[],
+          op: "batchInsert",
+          items: items as Record<string, unknown>[],
         });
       },
     );
@@ -84,77 +70,86 @@ export class DexieRepository<T extends Record<string, unknown>>
   }
 
   async batchUpdate(
-    rows: Array<Partial<T> & Record<string, unknown>>,
+    payload: Array<Partial<T> & Record<string, unknown>>,
   ): Promise<void> {
-    if (rows.length === 0) return;
-    const tableName = this.sheetName;
+    if (payload.length === 0) return;
     await this.db.transaction(
       "rw",
-      [this.db.table(tableName), this.db._outbox],
+      [this.db.table(this.tableName), this.db._outbox],
       async () => {
-        const ids = rows.map((r) => r.id as string);
-        const existingRows = await this.db.table(tableName).bulkGet(ids);
+        const ids = payload.map((r) => r.id as string);
+        const existingItems = await this.db.table(this.tableName).bulkGet(ids);
 
-        const mergedRows: Record<string, unknown>[] = [];
-        for (let i = 0; i < rows.length; i++) {
-          const existing = existingRows[i];
-          if (!existing) continue; // row not locally cached yet — skip local update
-          mergedRows.push({ ...existing, ...rows[i] });
+        const mergedItems: Record<string, unknown>[] = [];
+        for (let i = 0; i < payload.length; i++) {
+          const existing = existingItems[i];
+          if (!existing) continue;
+          mergedItems.push({ ...existing, ...payload[i] });
         }
-        if (mergedRows.length > 0) {
-          await this.db.table(tableName).bulkPut(mergedRows);
+        if (mergedItems.length > 0) {
+          await this.db.table(this.tableName).bulkPut(mergedItems);
         }
 
-        // Translate to outbox vocabulary for SyncManager compatibility
-        const updates = rows.flatMap(({ id, ...fields }) =>
-          Object.entries(fields).map(([column, value]) => ({
-            rowId: id as string,
-            column,
-            value,
-          })),
-        );
-        await this.enqueue({ op: "batchUpdateCells", updates });
+        await this.enqueue({
+          op: "batchUpdate",
+          items: payload as Record<string, unknown>[],
+        });
       },
     );
     this.refreshPendingCount();
     this.onAfterWrite();
   }
 
-  /**
-   * Insert-or-update rows by `id`. Checks which IDs exist in the local table,
-   * routes existing rows to batchUpdate and new rows to batchInsert so each
-   * part gets the correct outbox operation type.
-   */
   async batchUpsert(
-    rows: Array<Partial<T> & Record<string, unknown>>,
+    payload: Array<Partial<T> & Record<string, unknown>>,
   ): Promise<void> {
-    if (rows.length === 0) return;
-    const tableName = this.sheetName;
+    if (payload.length === 0) return;
 
-    const ids = rows.map((r) => r.id as string);
-    const existingRows = await this.db.table(tableName).bulkGet(ids);
+    const ids = payload.map((r) => r.id as string);
+    const existingItems = await this.db.table(this.tableName).bulkGet(ids);
     const existingSet = new Set(
-      existingRows
+      existingItems
         .map((r, i) => (r ? ids[i] : null))
         .filter((id): id is string => id !== null),
     );
 
-    const toUpdate = rows.filter((r) => existingSet.has(r.id as string));
-    const toInsert = rows.filter((r) => !existingSet.has(r.id as string));
+    const toUpdate = payload.filter((r) => existingSet.has(r.id as string));
+    const toInsert = payload.filter((r) => !existingSet.has(r.id as string));
 
-    if (toUpdate.length > 0) await this.batchUpdate(toUpdate);
-    if (toInsert.length > 0) await this.batchInsert(toInsert);
+    await this.db.transaction(
+      "rw",
+      [this.db.table(this.tableName), this.db._outbox],
+      async () => {
+        if (toUpdate.length > 0) {
+          await this.db.table(this.tableName).bulkPut(toUpdate);
+          await this.enqueue({
+            op: "batchUpdate",
+            items: toUpdate as Record<string, unknown>[],
+          });
+        }
+        if (toInsert.length > 0) {
+          await this.db.table(this.tableName).bulkPut(toInsert);
+          await this.enqueue({
+            op: "batchInsert",
+            items: toInsert as Record<string, unknown>[],
+          });
+        }
+      },
+    );
+    this.refreshPendingCount();
+    this.onAfterWrite();
   }
 
   async softDelete(id: string): Promise<void> {
     const deletedAt = new Date().toISOString();
-    const tableName = this.sheetName;
     await this.db.transaction(
       "rw",
-      [this.db.table(tableName), this.db._outbox],
+      [this.db.table(this.tableName), this.db._outbox],
       async () => {
-        await this.db.table(tableName).update(id, { deleted_at: deletedAt });
-        await this.enqueue({ op: "softDelete", rowId: id });
+        await this.db
+          .table(this.tableName)
+          .update(id, { deleted_at: deletedAt });
+        await this.enqueue({ op: "softDelete", id: id });
       },
     );
     this.refreshPendingCount();
@@ -164,60 +159,20 @@ export class DexieRepository<T extends Record<string, unknown>>
   // ─── Internal helpers ────────────────────────────────────────────────────────
 
   private enqueue(operation: OutboxOperation): Promise<number> {
-    // Resolve spreadsheetId from the store map (preferred) with fallback
-    // to the constructor-provided value for setup code that runs before
-    // the store map is populated.
-    const spreadsheetId = this.resolveSpreadsheetId();
     const entry: OutboxEntry = {
       mutationId: generateId(),
-      spreadsheetId,
-      sheetName: this.sheetName,
+      tableName: this.tableName,
       operation,
       status: "pending",
       retries: 0,
       createdAt: new Date().toISOString(),
     };
     logger.debug("[DexieRepository] enqueue outbox entry", {
-      spreadsheetId: entry.spreadsheetId,
-      sheetName: entry.sheetName,
+      tableName: entry.tableName,
       mutationId: entry.mutationId,
+      op: operation.op,
     });
     return this.db._outbox.add(entry);
-  }
-
-  /**
-   * Resolves the spreadsheetId for this repo's sheetName.
-   * Tries non-monthly sheets first, then current month's monthly sheets,
-   * falls back to the constructor-provided value.
-   */
-  private resolveSpreadsheetId(): string {
-    if (this.sheetName === "Stores") {
-      const mainSpreadsheetId = useAuthStore.getState().mainSpreadsheetId;
-      if (mainSpreadsheetId) return mainSpreadsheetId;
-    }
-
-    try {
-      const storeMap = getCurrentStoreMapStore().getState();
-      // Non-monthly sheets (master, main)
-      const meta = storeMap.getSheetMeta(this.sheetName);
-      if (meta?.spreadsheet_id) return meta.spreadsheet_id;
-      // Current month's transaction sheets
-      const monthSheets = storeMap.getCurrentMonthSheets();
-      if (monthSheets?.[this.sheetName]?.spreadsheet_id) {
-        return monthSheets[this.sheetName].spreadsheet_id;
-      }
-    } catch {
-      // Store map not initialized (e.g. during setup) — use fallback
-      logger.debug(
-        "[DexieRepository] store map not yet initialized, using fallback spreadsheetId",
-      );
-    }
-
-    if (this.fallbackSpreadsheetId) return this.fallbackSpreadsheetId;
-
-    throw new Error(
-      `DexieRepository: spreadsheetId for "${this.sheetName}" could not be resolved`,
-    );
   }
 
   private refreshPendingCount(): void {

@@ -10,7 +10,6 @@ import type { OutboxEntry } from "./db";
 import { clearDbCache, getDb } from "./db";
 import { SyncManager } from "./SyncManager";
 
-const SPREADSHEET_ID = "test-sheet-id";
 const TOKEN = "test-token";
 const TEST_STORE_ID = "sync-test-store";
 
@@ -43,11 +42,10 @@ function makeEntry(
 ): Omit<OutboxEntry, "id"> {
   return {
     mutationId: crypto.randomUUID(),
-    spreadsheetId: SPREADSHEET_ID,
-    sheetName: "Products",
+    tableName: "Products",
     operation: {
-      op: "append",
-      rows: [{ id: "p1", name: "Indomie", price: 3500 }],
+      op: "batchInsert",
+      items: [{ id: "p1", name: "Indomie", price: 3500 }],
     },
     status: "pending",
     retries: 0,
@@ -165,8 +163,8 @@ describe("operation routing", () => {
     await db._outbox.add(
       makeEntry({
         operation: {
-          op: "batchUpdateCells",
-          updates: [{ rowId: "p1", column: "stock", value: 10 }],
+          op: "batchUpdate",
+          items: [{ id: "p1", stock: 10 }],
         },
       }),
     );
@@ -184,7 +182,7 @@ describe("operation routing", () => {
       .mockResolvedValue(undefined);
     await db._outbox.add(
       makeEntry({
-        operation: { op: "softDelete", rowId: "p1" },
+        operation: { op: "softDelete", id: "p1" },
       }),
     );
     await manager.drain();

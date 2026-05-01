@@ -20,11 +20,12 @@
  */
 
 import { useAuthStore } from "../../../store/authStore";
+import { getCurrentStoreMapStore } from "../../../store/storeMapStore";
 import { useSyncStore } from "../../../store/syncStore";
 import { logger } from "../../logger";
 import { ALL_TAB_HEADERS } from "../../schema";
 import { SheetRepository } from "../SheetRepository";
-import type { OutboxEntry, OutboxOperation, PosUmkmDatabase } from "./db";
+import type { IndexedDB, OutboxEntry, OutboxOperation } from "./db";
 import { getDb } from "./db";
 
 const MAX_RETRIES = 5;
@@ -34,12 +35,12 @@ const RATE_LIMIT_BACKOFF_MS = 60_000;
 export class SyncManager {
   private isSyncing = false;
   private readonly getToken: () => string;
-  private readonly db: PosUmkmDatabase;
+  private readonly db: IndexedDB;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private rateLimitTimer: ReturnType<typeof setTimeout> | null = null;
   private rateLimited = false;
 
-  constructor(getToken: () => string, db: PosUmkmDatabase) {
+  constructor(getToken: () => string, db: IndexedDB) {
     this.getToken = getToken;
     this.db = db;
   }
@@ -226,7 +227,7 @@ export class SyncManager {
         pending.map((p) => ({
           id: p.id,
           mutationId: p.mutationId,
-          sheetName: p.sheetName,
+          tableName: p.tableName,
         })),
       );
 
@@ -243,7 +244,7 @@ export class SyncManager {
           logger.info("[SyncManager] processing outbox entry", {
             id,
             mutationId: entry.mutationId,
-            sheetName: entry.sheetName,
+            tableName: entry.tableName,
             op: entry.operation.op,
           });
           await this.applyToSheets(entry);
@@ -336,15 +337,16 @@ export class SyncManager {
 
   /**
    * Replays a single outbox entry against the corresponding SheetRepository.
-   * Creates the repo on the fly using the entry's spreadsheetId so we always
-   * use the current, correct sheet even after monthly sheet rollovers.
+   * Resolves spreadsheetId from store map, creating the repo on the fly so we
+   * always use the current, correct sheet even after monthly sheet rollovers.
    */
   private async applyToSheets(entry: OutboxEntry): Promise<void> {
+    const spreadsheetId = this.resolveSpreadsheetId(entry.tableName);
     const repo = new SheetRepository(
-      entry.spreadsheetId,
-      entry.sheetName,
+      spreadsheetId,
+      entry.tableName,
       this.getToken,
-      ALL_TAB_HEADERS[entry.sheetName],
+      ALL_TAB_HEADERS[entry.tableName],
     );
     logger.info("[SyncManager] applyToSheets repo created", {
       spreadsheetId: repo.spreadsheetId,
@@ -354,14 +356,34 @@ export class SyncManager {
 
     const op: OutboxOperation = entry.operation;
     switch (op.op) {
-      case "append":
-        await repo.batchAppend(op.rows);
+      case "batchInsert":
+        await repo.batchAppend(op.items);
         break;
-      case "batchUpdateCells":
-        await repo.batchUpdateCells(op.updates);
+      case "batchUpdate": {
+        const updates = op.items.flatMap(({ id, ...fields }) =>
+          Object.entries(fields).map(([column, value]) => ({
+            rowId: id as string,
+            column,
+            value,
+          })),
+        );
+        await repo.batchUpdateCells(updates);
         break;
+      }
+      case "batchUpsert": {
+        const updates = op.items.flatMap(({ id, ...fields }) =>
+          Object.entries(fields).map(([column, value]) => ({
+            rowId: id as string,
+            column,
+            value,
+          })),
+        );
+        await repo.batchUpdateCells(updates);
+        await repo.batchAppend(op.items);
+        break;
+      }
       case "softDelete":
-        await repo.softDelete(op.rowId);
+        await repo.softDelete(op.id);
         break;
       default: {
         const _exhaustive: never = op;
@@ -370,6 +392,34 @@ export class SyncManager {
         );
       }
     }
+  }
+
+  /**
+   * Resolves the spreadsheetId for the given sheetName.
+   * Tries non-monthly sheets first, then current month's monthly sheets,
+   * falls back to the entry's spreadsheetId.
+   */
+  private resolveSpreadsheetId(sheetName: string): string {
+    if (sheetName === "Stores") {
+      const mainSpreadsheetId = useAuthStore.getState().mainSpreadsheetId;
+      if (mainSpreadsheetId) return mainSpreadsheetId;
+    }
+
+    try {
+      const storeMap = getCurrentStoreMapStore().getState();
+      const meta = storeMap.getSheetMeta(sheetName);
+      if (meta?.spreadsheet_id) return meta.spreadsheet_id;
+      const monthSheets = storeMap.getCurrentMonthSheets();
+      if (monthSheets?.[sheetName]?.spreadsheet_id) {
+        return monthSheets[sheetName].spreadsheet_id;
+      }
+    } catch {
+      logger.debug(
+        "[SyncManager] store map not yet initialized, using fallback spreadsheetId",
+      );
+    }
+
+    return "";
   }
 
   private activateRateLimit(): void {

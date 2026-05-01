@@ -8,23 +8,29 @@
  * used only by SheetRepository, SyncManager, HydrationService, and makeRepo().
  */
 export interface ILocalRepository<T extends Record<string, unknown>> {
-  /** Read all non-deleted rows from the local IndexedDB table. */
+  /** Read all non-deleted payload from the local IndexedDB table. */
   getAll(): Promise<T[]>;
 
-  /** Insert rows into IndexedDB and queue outbox entries for remote sync. */
-  batchInsert(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void>;
+  /** Insert payload into IndexedDB and queue outbox entries for remote sync. */
+  batchInsert(
+    payload: Array<Partial<T> & Record<string, unknown>>,
+  ): Promise<void>;
 
   /**
-   * Patch records in IndexedDB by id. Each row must contain `id` plus the
+   * Patch records in IndexedDB by id. Each payload must contain `id` plus the
    * fields to update. Only the provided fields are changed.
    */
-  batchUpdate(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void>;
+  batchUpdate(
+    payload: Array<Partial<T> & Record<string, unknown>>,
+  ): Promise<void>;
 
   /**
-   * Insert-or-update records by `id`. Each row must contain `id`.
-   * Rows whose `id` already exists are updated; the rest are inserted.
+   * Insert-or-update records by `id`. Each payload must contain `id`.
+   * Payload whose `id` already exists are updated; the rest are inserted.
    */
-  batchUpsert(rows: Array<Partial<T> & Record<string, unknown>>): Promise<void>;
+  batchUpsert(
+    payload: Array<Partial<T> & Record<string, unknown>>,
+  ): Promise<void>;
 
   /** Stamp `deleted_at` on a record and queue an outbox entry for remote sync. */
   softDelete(id: string): Promise<void>;

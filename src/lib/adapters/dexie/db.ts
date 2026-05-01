@@ -37,20 +37,17 @@ import type {
 // ─── Outbox ───────────────────────────────────────────────────────────────────
 
 export type OutboxOperation =
-  | { op: "append"; rows: Record<string, unknown>[] }
-  | {
-      op: "batchUpdateCells";
-      updates: Array<{ rowId: string; column: string; value: unknown }>;
-    }
-  | { op: "softDelete"; rowId: string };
+  | { op: "batchInsert"; items: Record<string, unknown>[] }
+  | { op: "batchUpdate"; items: Record<string, unknown>[] }
+  | { op: "batchUpsert"; items: Record<string, unknown>[] }
+  | { op: "softDelete"; id: string };
 
 export interface OutboxEntry {
   /** Auto-increment local PK — determines drain order (FIFO). */
   id?: number;
   /** Client-generated UUID — used as idempotency key at the Sheets layer. */
   mutationId: string;
-  spreadsheetId: string;
-  sheetName: string;
+  tableName: string;
   operation: OutboxOperation;
   status: "pending" | "syncing" | "failed";
   retries: number;
@@ -68,7 +65,7 @@ export interface SyncMetaEntry {
 
 // ─── Database class ───────────────────────────────────────────────────────────
 
-export class PosUmkmDatabase extends Dexie {
+export class IndexedDB extends Dexie {
   // Main spreadsheet
   Stores!: Table<Store>;
 
@@ -121,7 +118,7 @@ export class PosUmkmDatabase extends Dexie {
       Refunds: "id, transaction_id",
 
       // Infrastructure
-      _outbox: "++id, mutationId, status, sheetName",
+      _outbox: "++id, mutationId, status, tableName",
       _syncMeta: "key",
     });
   }
@@ -129,16 +126,16 @@ export class PosUmkmDatabase extends Dexie {
 
 // ─── Per-store database factory ───────────────────────────────────────────────
 
-const dbCache = new Map<string, PosUmkmDatabase>();
+const dbCache = new Map<string, IndexedDB>();
 
 /**
  * Returns the Dexie database for the given store. Instances are cached so each
  * storeId opens exactly one connection. Database name: `pos_umkm_<storeId>`.
  */
-export function getDb(storeId: string): PosUmkmDatabase {
+export function getDb(storeId: string): IndexedDB {
   let instance = dbCache.get(storeId);
   if (!instance) {
-    instance = new PosUmkmDatabase(storeId);
+    instance = new IndexedDB(storeId);
     dbCache.set(storeId, instance);
   }
   return instance;

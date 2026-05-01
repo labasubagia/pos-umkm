@@ -6,7 +6,7 @@
  */
 import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it } from "vitest";
-import { clearDbCache, getDb, PosUmkmDatabase } from "./db";
+import { clearDbCache, getDb, IndexedDB } from "./db";
 
 afterEach(() => {
   clearDbCache();
@@ -15,7 +15,7 @@ afterEach(() => {
 describe("getDb", () => {
   it("returns a PosUmkmDatabase instance", () => {
     const db = getDb("store-a");
-    expect(db).toBeInstanceOf(PosUmkmDatabase);
+    expect(db).toBeInstanceOf(IndexedDB);
   });
 
   it("returns the same instance for the same storeId (cache hit)", () => {
@@ -57,7 +57,16 @@ describe("data isolation", () => {
     const dbA = getDb("iso-store-a");
     const dbB = getDb("iso-store-b");
 
-    await dbA.Products.put({ id: "p1", name: "Produk A", price: 1000 });
+    await dbA.Products.put({
+      id: "p1",
+      name: "Produk A",
+      price: 1000,
+      category_id: "",
+      sku: "",
+      stock: 0,
+      has_variants: false,
+      created_at: "",
+    });
 
     const inA = await dbA.Products.toArray();
     const inB = await dbB.Products.toArray();

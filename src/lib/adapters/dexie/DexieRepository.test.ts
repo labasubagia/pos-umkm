@@ -20,11 +20,8 @@ type ProductRow = {
   deleted_at?: string | null;
 };
 
-function makeRepo(sheetName = "Products") {
-  return new DexieRepository<ProductRow>(getDb(TEST_STORE_ID), {
-    spreadsheetId: "spreadsheet-1",
-    sheetName,
-  });
+function makeRepo(tableName = "Products") {
+  return new DexieRepository<ProductRow>(getDb(TEST_STORE_ID), tableName);
 }
 
 // Reset Dexie tables between tests
@@ -95,15 +92,14 @@ describe("batchInsert", () => {
     expect(all[0].id).toBeTruthy();
   });
 
-  it("queues an outbox entry with op=append", async () => {
+  it("queues an outbox entry with op=batchInsert", async () => {
     const db = getDb(TEST_STORE_ID);
     await makeRepo().batchInsert([{ id: "p1", name: "Es Teh", price: 4000 }]);
     const entries = await db._outbox.toArray();
     expect(entries).toHaveLength(1);
-    expect(entries[0].operation.op).toBe("append");
+    expect(entries[0].operation.op).toBe("batchInsert");
     expect(entries[0].status).toBe("pending");
-    expect(entries[0].sheetName).toBe("Products");
-    expect(entries[0].spreadsheetId).toBe("spreadsheet-1");
+    expect(entries[0].tableName).toBe("Products");
   });
 
   it("is a no-op for empty rows array", async () => {
@@ -112,19 +108,14 @@ describe("batchInsert", () => {
     expect(await db._outbox.count()).toBe(0);
   });
 
-  it("rejects writes when no spreadsheetId can be resolved", async () => {
+  it("enqueues entries with empty spreadsheetId for SyncManager to resolve", async () => {
     const db = getDb(TEST_STORE_ID);
-    const repo = new DexieRepository<ProductRow>(db, {
-      spreadsheetId: "",
-      sheetName: "Products",
-    });
+    const repo = new DexieRepository<ProductRow>(db, "Products");
 
-    await expect(
-      repo.batchInsert([{ id: "p1", name: "Indomie", price: 3500 }]),
-    ).rejects.toThrow(/spreadsheetId/i);
+    await repo.batchInsert([{ id: "p1", name: "Indomie", price: 3500 }]);
 
-    expect(await db.Products.count()).toBe(0);
-    expect(await db._outbox.count()).toBe(0);
+    expect(await db.Products.count()).toBe(1);
+    expect(await db._outbox.count()).toBe(1);
   });
 });
 
@@ -154,7 +145,7 @@ describe("batchUpdate", () => {
     });
     await makeRepo().batchUpdate([{ id: "p1", price: 2500 }]);
     const entry = (await db._outbox.toArray())[0];
-    expect(entry.operation.op).toBe("batchUpdateCells");
+    expect(entry.operation.op).toBe("batchUpdate");
   });
 
   it("skips rows not found locally (race condition guard)", async () => {
@@ -199,9 +190,7 @@ describe("softDelete", () => {
     await makeRepo().softDelete("p1");
     const entry = (await db._outbox.toArray())[0];
     expect(entry.operation.op).toBe("softDelete");
-    expect((entry.operation as { op: "softDelete"; rowId: string }).rowId).toBe(
-      "p1",
-    );
+    expect((entry.operation as { op: "softDelete"; id: string }).id).toBe("p1");
   });
 
   it("row no longer returned by getAll() after soft delete", async () => {
@@ -229,10 +218,7 @@ describe("batchUpsert", () => {
       value: "Toko Lama",
       deleted_at: null,
     });
-    const repo = new DexieRepository<Record<string, unknown>>(db, {
-      spreadsheetId: "spreadsheet-1",
-      sheetName: "Settings",
-    });
+    const repo = new DexieRepository<Record<string, unknown>>(db, "Settings");
     await repo.batchUpsert([
       { id: "s1", key: "business_name", value: "Toko Baru", deleted_at: null }, // update
       {

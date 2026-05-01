@@ -20,12 +20,12 @@ import { type RenderResult, render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { act } from "react";
 import { MemoryRouter } from "react-router-dom";
-import type { PosUmkmDatabase } from "../lib/adapters/dexie/db";
+import type { IndexedDB } from "../lib/adapters/dexie/db";
 import { clearDbCache, getDb } from "../lib/adapters/dexie/db";
 import { useCartStore } from "../modules/cashier/useCart";
 import { useAuthStore } from "../store/authStore";
 
-export type { PosUmkmDatabase };
+export type { IndexedDB as PosUmkmDatabase };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,7 +44,7 @@ export interface RenderWithDexieOptions {
   /** Auth state to inject into Zustand before render. */
   user?: TestUser;
   /** Async callback to pre-populate Dexie tables before the component mounts. */
-  seed?: (db: PosUmkmDatabase) => Promise<void>;
+  seed?: (db: IndexedDB) => Promise<void>;
   /** Initial router path. */
   initialPath?: string;
 }
@@ -63,7 +63,7 @@ export interface RenderWithDexieOptions {
 export async function renderWithDexie(
   ui: ReactElement,
   options: RenderWithDexieOptions = {},
-): Promise<RenderResult & { db: PosUmkmDatabase; queryClient: QueryClient }> {
+): Promise<RenderResult & { db: IndexedDB; queryClient: QueryClient }> {
   const {
     storeId = "test-store",
     mainSpreadsheetId = "test-main-id",

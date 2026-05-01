@@ -200,35 +200,26 @@ function createDexieRepos(storeId: string): Repos {
   // __main__ DB so the list is identical regardless of which store is active,
   // and per-store outbox entries never block Stores hydration.
   const mainDb = getDb("__main__");
-  const mainSpreadsheetId = useAuthStore.getState().mainSpreadsheetId ?? "";
 
   function dexie<T extends Record<string, unknown>>(
-    sheetName: string,
+    tableName: string,
   ): DexieRepository<T> {
-    return new DexieRepository<T>(
-      storeDb,
-      { spreadsheetId: "", sheetName },
-      () => syncManager.triggerSync(),
+    return new DexieRepository<T>(storeDb, tableName, () =>
+      syncManager.triggerSync(),
     );
   }
 
   return {
-    stores: new DexieRepository<Store>(
-      mainDb,
-      { spreadsheetId: mainSpreadsheetId, sheetName: "Stores" },
-      () => mainSyncManager.triggerSync(),
+    stores: new DexieRepository<Store>(mainDb, "Stores", () =>
+      mainSyncManager.triggerSync(),
     ),
     monthlySheets: dexie<MonthlySheet>("Monthly_Sheets"),
     categories: dexie<Category>("Categories"),
-    products: new ProductRepository(
-      storeDb,
-      { spreadsheetId: "", sheetName: "Products" },
-      () => syncManager.triggerSync(),
+    products: new ProductRepository(storeDb, "Products", () =>
+      syncManager.triggerSync(),
     ),
-    variants: new VariantRepository(
-      storeDb,
-      { spreadsheetId: "", sheetName: "Variants" },
-      () => syncManager.triggerSync(),
+    variants: new VariantRepository(storeDb, "Variants", () =>
+      syncManager.triggerSync(),
     ),
     members: dexie<Member>("Members"),
     settings: dexie<Setting>("Settings"),
@@ -236,19 +227,17 @@ function createDexieRepos(storeId: string): Repos {
     purchaseOrders: dexie<PurchaseOrder>("Purchase_Orders"),
     purchaseOrderItems: new PurchaseOrderItemRepository(
       storeDb,
-      { spreadsheetId: "", sheetName: "Purchase_Order_Items" },
+      "Purchase_Order_Items",
       () => syncManager.triggerSync(),
     ),
     customers: dexie<Customer>("Customers"),
     auditLog: dexie<AuditLog>("Audit_Log"),
-    transactions: new TransactionRepository(
-      storeDb,
-      { spreadsheetId: "", sheetName: "Transactions" },
-      () => syncManager.triggerSync(),
+    transactions: new TransactionRepository(storeDb, "Transactions", () =>
+      syncManager.triggerSync(),
     ),
     transactionItems: new TransactionItemRepository(
       storeDb,
-      { spreadsheetId: "", sheetName: "Transaction_Items" },
+      "Transaction_Items",
       () => syncManager.triggerSync(),
     ),
     refunds: dexie<Refund>("Refunds"),
@@ -313,9 +302,7 @@ export function getMembersForStore(
   targetStoreId: string,
 ): DexieRepository<Member> {
   const db = getDb(targetStoreId);
-  return new DexieRepository<Member>(
-    db,
-    { spreadsheetId: "", sheetName: "Members" },
-    () => syncManager.triggerSync(),
+  return new DexieRepository<Member>(db, "Members", () =>
+    syncManager.triggerSync(),
   );
 }

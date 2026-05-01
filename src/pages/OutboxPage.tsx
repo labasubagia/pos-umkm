@@ -109,7 +109,7 @@ export default function OutboxPage() {
                   <TableCell className="hidden sm:table-cell">
                     {item.id}
                   </TableCell>
-                  <TableCell>{item.sheetName}</TableCell>
+                  <TableCell>{item.tableName}</TableCell>
                   <TableCell>{item.operation.op}</TableCell>
                   <TableCell>{item.status}</TableCell>
                   <TableCell className="hidden sm:table-cell">
