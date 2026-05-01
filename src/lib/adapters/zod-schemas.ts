@@ -22,7 +22,7 @@ const coerceDate = z.coerce.date().transform((d) => d.toISOString());
 
 const optionalCoerceDate = coerceDate.optional();
 
-export const StoreRowSchema = z.object({
+export const StoreSchema = z.object({
   id: coerceString.optional(),
   store_id: coerceString,
   store_name: coerceString,
@@ -34,14 +34,14 @@ export const StoreRowSchema = z.object({
   deleted_at: optionalCoerceDate.nullable(),
 });
 
-export const SettingRowSchema = z.object({
+export const SettingSchema = z.object({
   id: coerceString,
   key: coerceString,
   value: z.union([coerceString, coerceNumber]),
   updated_at: coerceDate,
 });
 
-export const MemberRowSchema = z.object({
+export const MemberSchema = z.object({
   id: coerceString,
   google_user_id: coerceString,
   email: coerceString,
@@ -51,14 +51,14 @@ export const MemberRowSchema = z.object({
   deleted_at: optionalCoerceDate.nullable(),
 });
 
-export const CategoryRowSchema = z.object({
+export const CategorySchema = z.object({
   id: coerceString,
   name: coerceString,
   created_at: coerceDate,
   deleted_at: optionalCoerceDate.nullable(),
 });
 
-export const ProductRowSchema = z.object({
+export const ProductSchema = z.object({
   id: coerceString,
   category_id: coerceString,
   name: coerceString,
@@ -70,7 +70,7 @@ export const ProductRowSchema = z.object({
   deleted_at: optionalCoerceDate.nullable(),
 });
 
-export const VariantRowSchema = z.object({
+export const VariantSchema = z.object({
   id: coerceString,
   product_id: coerceString,
   option_name: coerceString,
@@ -81,7 +81,7 @@ export const VariantRowSchema = z.object({
   deleted_at: optionalCoerceDate.nullable(),
 });
 
-export const CustomerRowSchema = z.object({
+export const CustomerSchema = z.object({
   id: coerceString,
   name: coerceString,
   phone: coerceString,
@@ -90,7 +90,7 @@ export const CustomerRowSchema = z.object({
   deleted_at: optionalCoerceDate.nullable(),
 });
 
-export const PurchaseOrderRowSchema = z.object({
+export const PurchaseOrderSchema = z.object({
   id: coerceString,
   supplier: coerceString,
   status: z.enum(["pending", "received"]),
@@ -98,7 +98,7 @@ export const PurchaseOrderRowSchema = z.object({
   deleted_at: optionalCoerceDate.nullable(),
 });
 
-export const PurchaseOrderItemRowSchema = z.object({
+export const PurchaseOrderItemSchema = z.object({
   id: coerceString,
   order_id: coerceString,
   product_id: coerceString,
@@ -108,7 +108,7 @@ export const PurchaseOrderItemRowSchema = z.object({
   created_at: coerceDate,
 });
 
-export const StockLogRowSchema = z.object({
+export const StockLogSchema = z.object({
   id: coerceString,
   product_id: coerceString,
   reason: coerceString,
@@ -117,27 +117,30 @@ export const StockLogRowSchema = z.object({
   created_at: coerceDate,
 });
 
-export const AuditLogRowSchema = z.object({
+export const AuditLogSchema = z.object({
   id: coerceString,
   event: coerceString,
   data: coerceString,
   created_at: coerceDate,
 });
 
-export const MonthlySheetRowSchema = z.object({
+export const MonthlySheetSchema = z.object({
   id: coerceString,
   year_month: coerceString,
   spreadsheetId: coerceString,
   created_at: coerceDate,
 });
 
-export const TransactionRowSchema = z.object({
+export const TransactionSchema = z.object({
   id: coerceString,
   created_at: coerceDate,
   cashier_id: coerceString,
   customer_id: coerceString.optional().nullable(),
   subtotal: coerceNumber,
-  discount_type: z.enum(["flat", "percent", "none"]).optional().nullable(),
+  discount_type: z
+    .union([z.enum(["flat", "percent", "none"]), z.literal("")])
+    .optional()
+    .nullable(),
   discount_value: coerceNumber,
   discount_amount: coerceNumber,
   tax: coerceNumber,
@@ -149,7 +152,7 @@ export const TransactionRowSchema = z.object({
   notes: coerceString.optional().nullable(),
 });
 
-export const TransactionItemRowSchema = z.object({
+export const TransactionItemSchema = z.object({
   id: coerceString,
   transaction_id: coerceString,
   product_id: coerceString,
@@ -160,7 +163,7 @@ export const TransactionItemRowSchema = z.object({
   subtotal: coerceNumber,
 });
 
-export const RefundRowSchema = z.object({
+export const RefundSchema = z.object({
   id: coerceString,
   transaction_id: coerceString,
   product_id: coerceString,
@@ -171,43 +174,46 @@ export const RefundRowSchema = z.object({
   created_at: coerceDate,
 });
 
-export type StoreRowZod = z.infer<typeof StoreRowSchema>;
-export type SettingRowZod = z.infer<typeof SettingRowSchema>;
-export type MemberRowZod = z.infer<typeof MemberRowSchema>;
-export type CategoryRowZod = z.infer<typeof CategoryRowSchema>;
-export type ProductRowZod = z.infer<typeof ProductRowSchema>;
-export type VariantRowZod = z.infer<typeof VariantRowSchema>;
-export type CustomerRowZod = z.infer<typeof CustomerRowSchema>;
-export type PurchaseOrderRowZod = z.infer<typeof PurchaseOrderRowSchema>;
-export type PurchaseOrderItemRowZod = z.infer<
-  typeof PurchaseOrderItemRowSchema
->;
-export type StockLogRowZod = z.infer<typeof StockLogRowSchema>;
-export type AuditLogRowZod = z.infer<typeof AuditLogRowSchema>;
-export type MonthlySheetRowZod = z.infer<typeof MonthlySheetRowSchema>;
-export type TransactionRowZod = z.infer<typeof TransactionRowSchema>;
-export type TransactionItemRowZod = z.infer<typeof TransactionItemRowSchema>;
-export type RefundRowZod = z.infer<typeof RefundRowSchema>;
+export type Store = z.infer<typeof StoreSchema> & Record<string, unknown>;
+export type Setting = z.infer<typeof SettingSchema> & Record<string, unknown>;
+export type Member = z.infer<typeof MemberSchema> & Record<string, unknown>;
+export type Category = z.infer<typeof CategorySchema> & Record<string, unknown>;
+export type Product = z.infer<typeof ProductSchema> & Record<string, unknown>;
+export type Variant = z.infer<typeof VariantSchema> & Record<string, unknown>;
+export type Customer = z.infer<typeof CustomerSchema> & Record<string, unknown>;
+export type PurchaseOrder = z.infer<typeof PurchaseOrderSchema> &
+  Record<string, unknown>;
+export type PurchaseOrderItem = z.infer<typeof PurchaseOrderItemSchema> &
+  Record<string, unknown>;
+export type StockLog = z.infer<typeof StockLogSchema> & Record<string, unknown>;
+export type AuditLog = z.infer<typeof AuditLogSchema> & Record<string, unknown>;
+export type MonthlySheet = z.infer<typeof MonthlySheetSchema> &
+  Record<string, unknown>;
+export type Transaction = z.infer<typeof TransactionSchema> &
+  Record<string, unknown>;
+export type TransactionItem = z.infer<typeof TransactionItemSchema> &
+  Record<string, unknown>;
+export type Refund = z.infer<typeof RefundSchema> & Record<string, unknown>;
 
 export const sheetSchemaMap: Record<
   string,
   z.ZodType<Record<string, unknown>>
 > = {
-  Stores: StoreRowSchema,
-  Settings: SettingRowSchema,
-  Members: MemberRowSchema,
-  Categories: CategoryRowSchema,
-  Products: ProductRowSchema,
-  Variants: VariantRowSchema,
-  Customers: CustomerRowSchema,
-  Purchase_Orders: PurchaseOrderRowSchema,
-  Purchase_Order_Items: PurchaseOrderItemRowSchema,
-  Stock_Log: StockLogRowSchema,
-  Audit_Log: AuditLogRowSchema,
-  Monthly_Sheets: MonthlySheetRowSchema,
-  Transactions: TransactionRowSchema,
-  Transaction_Items: TransactionItemRowSchema,
-  Refunds: RefundRowSchema,
+  Stores: StoreSchema,
+  Settings: SettingSchema,
+  Members: MemberSchema,
+  Categories: CategorySchema,
+  Products: ProductSchema,
+  Variants: VariantSchema,
+  Customers: CustomerSchema,
+  Purchase_Orders: PurchaseOrderSchema,
+  Purchase_Order_Items: PurchaseOrderItemSchema,
+  Stock_Log: StockLogSchema,
+  Audit_Log: AuditLogSchema,
+  Monthly_Sheets: MonthlySheetSchema,
+  Transactions: TransactionSchema,
+  Transaction_Items: TransactionItemSchema,
+  Refunds: RefundSchema,
 };
 
 export function parseSheetRows(

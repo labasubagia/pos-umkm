@@ -18,23 +18,20 @@
 
 import { getRepos } from "../../lib/adapters";
 import type {
-  CategoryRow,
-  ProductRow,
-  VariantRow,
-} from "../../lib/adapters/entity-types";
+  Category,
+  Product,
+  Variant,
+} from "../../lib/adapters/zod-schemas";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
 
 // ─── Domain types (re-exported from entity layer) ─────────────────────────────
 
-/** Category row — matches the Categories sheet tab columns. */
-export type Category = CategoryRow;
-
-/** Product row — matches the Products sheet tab columns. */
-export type Product = ProductRow;
-
-/** Variant row — matches the Variants sheet tab columns. */
-export type Variant = VariantRow;
+export type {
+  Category,
+  Product,
+  Variant,
+} from "../../lib/adapters/zod-schemas";
 
 // ─── Custom errors ─────────────────────────────────────────────────────────────
 

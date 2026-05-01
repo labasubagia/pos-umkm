@@ -14,7 +14,7 @@
  */
 
 import { getRepos } from "../../lib/adapters";
-import type { PurchaseOrderItemRow as DbPurchaseOrderItemRow } from "../../lib/adapters/entity-types";
+import type { PurchaseOrderItem as DbPurchaseOrderItem } from "../../lib/adapters/zod-schemas";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
 
@@ -61,7 +61,7 @@ export interface PurchaseOrderItem {
 }
 
 /** Stored purchase order item row (includes IDs and timestamps). */
-export type PurchaseOrderItemRow = DbPurchaseOrderItemRow;
+export type PurchaseOrderItemRow = DbPurchaseOrderItem;
 
 // ─── T034 — Stock Opname ──────────────────────────────────────────────────────
 

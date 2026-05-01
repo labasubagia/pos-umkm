@@ -11,15 +11,14 @@
  */
 
 import { getRepos } from "../../lib/adapters";
-import type { CustomerRow } from "../../lib/adapters/entity-types";
+import type { Customer } from "../../lib/adapters/zod-schemas";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
 import { validatePhone } from "../../lib/validators";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
-/** Customer row — matches the Customers sheet tab columns. */
-export type Customer = CustomerRow;
+export type { Customer } from "../../lib/adapters/zod-schemas";
 
 // ─── Custom errors ─────────────────────────────────────────────────────────────
 

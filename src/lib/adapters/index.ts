@@ -27,30 +27,30 @@ import { clearDbCache, getDb } from "./dexie/db";
 import { HydrationService } from "./dexie/HydrationService";
 import { SyncManager } from "./dexie/SyncManager";
 import {
-  DexieProductRepository,
-  DexiePurchaseOrderItemRepository,
-  DexieTransactionItemRepository,
-  DexieTransactionRepository,
-  DexieVariantRepository,
+  ProductRepository,
+  PurchaseOrderItemRepository,
+  TransactionItemRepository,
+  TransactionRepository,
+  VariantRepository,
 } from "./dexie/typed-repos";
-import type {
-  AuditLogRow,
-  CategoryRow,
-  CustomerRow,
-  MemberRow,
-  MonthlySheetRow,
-  PurchaseOrderRow,
-  RefundRow,
-  SettingRow,
-  StockLogRow,
-  StoreRow,
-} from "./entity-types";
 import { GoogleAuthAdapter } from "./google/GoogleAuthAdapter";
 import type { Repos } from "./repos";
 import type { ISheetRepository } from "./SheetRepository";
 import { SheetRepository } from "./SheetRepository";
 import { StoreFolderService } from "./StoreFolderService";
 import type { AuthAdapter } from "./types";
+import type {
+  AuditLog,
+  Category,
+  Customer,
+  Member,
+  MonthlySheet,
+  PurchaseOrder,
+  Refund,
+  Setting,
+  StockLog,
+  Store,
+} from "./zod-schemas";
 
 export const authAdapter: AuthAdapter = new GoogleAuthAdapter();
 
@@ -213,65 +213,48 @@ function createDexieRepos(storeId: string): Repos {
   }
 
   return {
-    stores: new DexieRepository<StoreRow>(
+    stores: new DexieRepository<Store>(
       mainDb,
       { spreadsheetId: mainSpreadsheetId, sheetName: "Stores" },
       () => mainSyncManager.triggerSync(),
     ),
-    monthlySheets: dexie<MonthlySheetRow>("Monthly_Sheets"),
-    categories: dexie<CategoryRow>("Categories"),
-    products: new DexieProductRepository(
+    monthlySheets: dexie<MonthlySheet>("Monthly_Sheets"),
+    categories: dexie<Category>("Categories"),
+    products: new ProductRepository(
       storeDb,
       { spreadsheetId: "", sheetName: "Products" },
       () => syncManager.triggerSync(),
     ),
-    variants: new DexieVariantRepository(
+    variants: new VariantRepository(
       storeDb,
       { spreadsheetId: "", sheetName: "Variants" },
       () => syncManager.triggerSync(),
     ),
-    members: dexie<MemberRow>("Members"),
-    settings: dexie<SettingRow>("Settings"),
-    stockLog: dexie<StockLogRow>("Stock_Log"),
-    purchaseOrders: dexie<PurchaseOrderRow>("Purchase_Orders"),
-    purchaseOrderItems: new DexiePurchaseOrderItemRepository(
+    members: dexie<Member>("Members"),
+    settings: dexie<Setting>("Settings"),
+    stockLog: dexie<StockLog>("Stock_Log"),
+    purchaseOrders: dexie<PurchaseOrder>("Purchase_Orders"),
+    purchaseOrderItems: new PurchaseOrderItemRepository(
       storeDb,
       { spreadsheetId: "", sheetName: "Purchase_Order_Items" },
       () => syncManager.triggerSync(),
     ),
-    customers: dexie<CustomerRow>("Customers"),
-    auditLog: dexie<AuditLogRow>("Audit_Log"),
-    transactions: new DexieTransactionRepository(
+    customers: dexie<Customer>("Customers"),
+    auditLog: dexie<AuditLog>("Audit_Log"),
+    transactions: new TransactionRepository(
       storeDb,
       { spreadsheetId: "", sheetName: "Transactions" },
       () => syncManager.triggerSync(),
     ),
-    transactionItems: new DexieTransactionItemRepository(
+    transactionItems: new TransactionItemRepository(
       storeDb,
       { spreadsheetId: "", sheetName: "Transaction_Items" },
       () => syncManager.triggerSync(),
     ),
-    refunds: dexie<RefundRow>("Refunds"),
+    refunds: dexie<Refund>("Refunds"),
   };
 }
 
-export type {
-  AuditLogRow,
-  CategoryRow,
-  CustomerRow,
-  MemberRow,
-  MonthlySheetRow,
-  ProductRow,
-  PurchaseOrderItemRow,
-  PurchaseOrderRow,
-  RefundRow,
-  SettingRow,
-  StockLogRow,
-  StoreRow,
-  TransactionItemRow,
-  TransactionRow,
-  VariantRow,
-} from "./entity-types";
 export type { ILocalRepository } from "./ILocalRepository";
 export type {
   IProductRepository,
@@ -282,6 +265,23 @@ export type {
 } from "./repo-interfaces";
 export type { Role, User } from "./types";
 export { AdapterError } from "./types";
+export type {
+  AuditLog,
+  Category,
+  Customer,
+  Member,
+  MonthlySheet,
+  Product,
+  PurchaseOrder,
+  PurchaseOrderItem,
+  Refund,
+  Setting,
+  StockLog,
+  Store,
+  Transaction,
+  TransactionItem,
+  Variant,
+} from "./zod-schemas";
 export type { AuthAdapter, IDriveClient, ISheetRepository, Repos };
 
 /**
@@ -311,9 +311,9 @@ export async function localCachePut(
  */
 export function getMembersForStore(
   targetStoreId: string,
-): DexieRepository<MemberRow> {
+): DexieRepository<Member> {
   const db = getDb(targetStoreId);
-  return new DexieRepository<MemberRow>(
+  return new DexieRepository<Member>(
     db,
     { spreadsheetId: "", sheetName: "Members" },
     () => syncManager.triggerSync(),

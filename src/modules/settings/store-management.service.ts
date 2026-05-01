@@ -15,7 +15,7 @@ import {
   getRepos,
   localCachePut,
 } from "../../lib/adapters";
-import type { StoreRow } from "../../lib/adapters/entity-types";
+import type { Store } from "../../lib/adapters/zod-schemas";
 import { nowUTC } from "../../lib/formatters";
 import { useAuthStore } from "../../store/authStore";
 import {
@@ -47,11 +47,11 @@ function requireMainId(): string {
 }
 
 /** Maps a raw Stores-tab row to a typed StoreRecord. */
-function toStoreRecord(r: StoreRow): StoreRecord {
+function toStoreRecord(r: Store): StoreRecord {
   return {
     store_id: r.store_id,
     store_name: r.store_name ?? "",
-    master_spreadsheet_id: r.master_spreadsheet_id,
+    master_spreadsheet_id: r.master_spreadsheet_id ?? "",
     drive_folder_id: r.drive_folder_id ?? "",
     owner_email: r.owner_email ?? "",
     my_role: r.my_role ?? "owner",

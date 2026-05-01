@@ -11,7 +11,7 @@
  */
 
 import { getRepos } from "../../lib/adapters";
-import type { SettingRow } from "../../lib/adapters/entity-types";
+import type { Setting } from "../../lib/adapters/zod-schemas";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
 
@@ -97,7 +97,7 @@ export async function saveSettings(
   if (entries.length === 0) return;
 
   const existing = await getRepos().settings.getAll();
-  const rows: SettingRow[] = entries.map(([key, value]) => {
+  const rows: Setting[] = entries.map(([key, value]) => {
     const found = existing.find((r) => r.key === key);
     return found
       ? { ...found, value: String(value), updated_at: nowUTC() }

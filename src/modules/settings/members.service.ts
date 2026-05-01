@@ -16,7 +16,10 @@
  */
 
 import { driveClient, getRepos } from "../../lib/adapters";
-import type { MemberRow } from "../../lib/adapters/entity-types";
+import type { Member } from "../../lib/adapters/zod-schemas";
+
+export type { Member };
+
 import type { Role } from "../../lib/adapters/types";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
@@ -32,9 +35,6 @@ function appBaseUrl(): string {
     ""
   );
 }
-
-/** Member row — matches the Members sheet tab columns. */
-export type Member = MemberRow;
 
 export class MemberError extends Error {
   constructor(message: string) {

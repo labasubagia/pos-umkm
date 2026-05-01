@@ -12,13 +12,7 @@
  *   Transaction_Items    → transaction_id
  *   Purchase_Order_Items → order_id
  */
-import type {
-  ProductRow,
-  PurchaseOrderItemRow,
-  TransactionItemRow,
-  TransactionRow,
-  VariantRow,
-} from "../entity-types";
+
 import type {
   IProductRepository,
   IPurchaseOrderItemRepository,
@@ -26,98 +20,73 @@ import type {
   ITransactionRepository,
   IVariantRepository,
 } from "../repo-interfaces";
+import type {
+  Product,
+  PurchaseOrderItem,
+  Transaction,
+  TransactionItem,
+  Variant,
+} from "../zod-schemas";
 import { DexieRepository } from "./DexieRepository";
 
-// ─── Products ─────────────────────────────────────────────────────────────────
-
-export class DexieProductRepository
-  extends DexieRepository<ProductRow>
+export class ProductRepository
+  extends DexieRepository<Product>
   implements IProductRepository
 {
-  async findById(id: string): Promise<ProductRow | undefined> {
-    const row = await this.db.Products.get(id);
-    if (!row || row.deleted_at) return undefined;
-    return row;
+  async findById(id: string): Promise<Product | undefined> {
+    return this.db.Products.get(id);
   }
-
-  async findByCategoryId(categoryId: string): Promise<ProductRow[]> {
-    return this.db.Products.where("category_id")
-      .equals(categoryId)
-      .filter((r) => !r.deleted_at)
-      .toArray();
+  async findByCategoryId(categoryId: string): Promise<Product[]> {
+    return this.db.Products.where("category_id").equals(categoryId).toArray();
   }
 }
 
-// ─── Variants ─────────────────────────────────────────────────────────────────
-
-export class DexieVariantRepository
-  extends DexieRepository<VariantRow>
+export class VariantRepository
+  extends DexieRepository<Variant>
   implements IVariantRepository
 {
-  async findById(id: string): Promise<VariantRow | undefined> {
-    const row = await this.db.Variants.get(id);
-    if (!row || row.deleted_at) return undefined;
-    return row;
+  async findById(id: string): Promise<Variant | undefined> {
+    return this.db.Variants.get(id);
   }
-
-  async findByProductId(productId: string): Promise<VariantRow[]> {
-    return this.db.Variants.where("product_id")
-      .equals(productId)
-      .filter((r) => !r.deleted_at)
-      .toArray();
+  async findByProductId(productId: string): Promise<Variant[]> {
+    return this.db.Variants.where("product_id").equals(productId).toArray();
   }
 }
 
-// ─── Transactions ─────────────────────────────────────────────────────────────
-
-export class DexieTransactionRepository
-  extends DexieRepository<TransactionRow>
+export class TransactionRepository
+  extends DexieRepository<Transaction>
   implements ITransactionRepository
 {
-  async findById(id: string): Promise<TransactionRow | undefined> {
-    const row = await this.db.Transactions.get(id);
-    if (!row || row.deleted_at) return undefined;
-    return row;
+  async findById(id: string): Promise<Transaction | undefined> {
+    return this.db.Transactions.get(id);
   }
-
-  async findByDateRange(
-    startDate: string,
-    endDate: string,
-  ): Promise<TransactionRow[]> {
-    const endBound = `${endDate}T23:59:59.999Z`;
+  async findByDateRange(start: string, end: string): Promise<Transaction[]> {
+    const endBound = `${end}T23:59:59.999Z`;
     return this.db.Transactions.where("created_at")
-      .between(startDate, endBound, true, true)
+      .between(start, endBound, true, true)
       .filter((r) => !r.deleted_at)
       .toArray();
   }
 }
 
-// ─── Transaction Items ────────────────────────────────────────────────────────
-
-export class DexieTransactionItemRepository
-  extends DexieRepository<TransactionItemRow>
+export class TransactionItemRepository
+  extends DexieRepository<TransactionItem>
   implements ITransactionItemRepository
 {
-  async findByTransactionId(
-    transactionId: string,
-  ): Promise<TransactionItemRow[]> {
+  async findByTransactionId(transactionId: string): Promise<TransactionItem[]> {
     return this.db.Transaction_Items.where("transaction_id")
       .equals(transactionId)
-      .filter((r) => !r.deleted_at)
       .toArray();
   }
 }
 
-// ─── Purchase Order Items ─────────────────────────────────────────────────────
-
-export class DexiePurchaseOrderItemRepository
-  extends DexieRepository<PurchaseOrderItemRow>
+export class PurchaseOrderItemRepository
+  extends DexieRepository<PurchaseOrderItem>
   implements IPurchaseOrderItemRepository
 {
-  async findByOrderId(orderId: string): Promise<PurchaseOrderItemRow[]> {
+  async findByOrderId(orderId: string): Promise<PurchaseOrderItem[]> {
     return this.db.Purchase_Order_Items.where("order_id")
       .equals(orderId)
-      .filter((r) => !r.deleted_at)
       .toArray();
   }
 }

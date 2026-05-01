@@ -17,22 +17,22 @@
  */
 import Dexie, { type Table } from "dexie";
 import type {
-  AuditLogRow,
-  CategoryRow,
-  CustomerRow,
-  MemberRow,
-  MonthlySheetRow,
-  ProductRow,
-  PurchaseOrderItemRow,
-  PurchaseOrderRow,
-  RefundRow,
-  SettingRow,
-  StockLogRow,
-  StoreRow,
-  TransactionItemRow,
-  TransactionRow,
-  VariantRow,
-} from "../entity-types";
+  AuditLog,
+  Category,
+  Customer,
+  Member,
+  MonthlySheet,
+  Product,
+  PurchaseOrder,
+  PurchaseOrderItem,
+  Refund,
+  Setting,
+  StockLog,
+  Store,
+  Transaction,
+  TransactionItem,
+  Variant,
+} from "../zod-schemas";
 
 // ─── Outbox ───────────────────────────────────────────────────────────────────
 
@@ -70,25 +70,25 @@ export interface SyncMetaEntry {
 
 export class PosUmkmDatabase extends Dexie {
   // Main spreadsheet
-  Stores!: Table<StoreRow>;
+  Stores!: Table<Store>;
 
   // Master spreadsheet
-  Settings!: Table<SettingRow>;
-  Members!: Table<MemberRow>;
-  Categories!: Table<CategoryRow>;
-  Products!: Table<ProductRow>;
-  Variants!: Table<VariantRow>;
-  Customers!: Table<CustomerRow>;
-  Purchase_Orders!: Table<PurchaseOrderRow>;
-  Purchase_Order_Items!: Table<PurchaseOrderItemRow>;
-  Stock_Log!: Table<StockLogRow>;
-  Audit_Log!: Table<AuditLogRow>;
-  Monthly_Sheets!: Table<MonthlySheetRow>;
+  Settings!: Table<Setting>;
+  Members!: Table<Member>;
+  Categories!: Table<Category>;
+  Products!: Table<Product>;
+  Variants!: Table<Variant>;
+  Customers!: Table<Customer>;
+  Purchase_Orders!: Table<PurchaseOrder>;
+  Purchase_Order_Items!: Table<PurchaseOrderItem>;
+  Stock_Log!: Table<StockLog>;
+  Audit_Log!: Table<AuditLog>;
+  Monthly_Sheets!: Table<MonthlySheet>;
 
   // Monthly spreadsheet
-  Transactions!: Table<TransactionRow>;
-  Transaction_Items!: Table<TransactionItemRow>;
-  Refunds!: Table<RefundRow>;
+  Transactions!: Table<Transaction>;
+  Transaction_Items!: Table<TransactionItem>;
+  Refunds!: Table<Refund>;
 
   // Infrastructure tables
   _outbox!: Table<OutboxEntry>;
@@ -123,14 +123,6 @@ export class PosUmkmDatabase extends Dexie {
       // Infrastructure
       _outbox: "++id, mutationId, status, sheetName",
       _syncMeta: "key",
-    });
-
-    // Normalise has_variants: Google Sheets hydration writes the string "TRUE"/"FALSE"
-    // instead of booleans. This hook ensures reads always return a boolean.
-    this.Products.hook("reading", (obj) => {
-      if (!obj) return obj; // bulkGet returns undefined for missing keys
-      const raw = (obj as unknown as Record<string, unknown>).has_variants;
-      return { ...obj, has_variants: raw === true || raw === "TRUE" };
     });
   }
 }
