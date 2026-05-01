@@ -26,8 +26,7 @@ import type {
   ITransactionRepository,
   IVariantRepository,
 } from "../repo-interfaces";
-import { DexieRepository, type SyncTarget } from "./DexieRepository";
-import type { PosUmkmDatabase } from "./db";
+import { DexieRepository } from "./DexieRepository";
 
 // ─── Products ─────────────────────────────────────────────────────────────────
 
@@ -35,14 +34,6 @@ export class DexieProductRepository
   extends DexieRepository<ProductRow>
   implements IProductRepository
 {
-  constructor(
-    db: PosUmkmDatabase,
-    syncTarget: SyncTarget,
-    onAfterWrite?: () => void,
-  ) {
-    super(db, syncTarget, onAfterWrite);
-  }
-
   async findById(id: string): Promise<ProductRow | undefined> {
     const row = await this.db.Products.get(id);
     if (!row || row.deleted_at) return undefined;
@@ -63,14 +54,6 @@ export class DexieVariantRepository
   extends DexieRepository<VariantRow>
   implements IVariantRepository
 {
-  constructor(
-    db: PosUmkmDatabase,
-    syncTarget: SyncTarget,
-    onAfterWrite?: () => void,
-  ) {
-    super(db, syncTarget, onAfterWrite);
-  }
-
   async findById(id: string): Promise<VariantRow | undefined> {
     const row = await this.db.Variants.get(id);
     if (!row || row.deleted_at) return undefined;
@@ -91,14 +74,6 @@ export class DexieTransactionRepository
   extends DexieRepository<TransactionRow>
   implements ITransactionRepository
 {
-  constructor(
-    db: PosUmkmDatabase,
-    syncTarget: SyncTarget,
-    onAfterWrite?: () => void,
-  ) {
-    super(db, syncTarget, onAfterWrite);
-  }
-
   async findById(id: string): Promise<TransactionRow | undefined> {
     const row = await this.db.Transactions.get(id);
     if (!row || row.deleted_at) return undefined;
@@ -123,14 +98,6 @@ export class DexieTransactionItemRepository
   extends DexieRepository<TransactionItemRow>
   implements ITransactionItemRepository
 {
-  constructor(
-    db: PosUmkmDatabase,
-    syncTarget: SyncTarget,
-    onAfterWrite?: () => void,
-  ) {
-    super(db, syncTarget, onAfterWrite);
-  }
-
   async findByTransactionId(
     transactionId: string,
   ): Promise<TransactionItemRow[]> {
@@ -147,14 +114,6 @@ export class DexiePurchaseOrderItemRepository
   extends DexieRepository<PurchaseOrderItemRow>
   implements IPurchaseOrderItemRepository
 {
-  constructor(
-    db: PosUmkmDatabase,
-    syncTarget: SyncTarget,
-    onAfterWrite?: () => void,
-  ) {
-    super(db, syncTarget, onAfterWrite);
-  }
-
   async findByOrderId(orderId: string): Promise<PurchaseOrderItemRow[]> {
     return this.db.Purchase_Order_Items.where("order_id")
       .equals(orderId)
