@@ -25,7 +25,7 @@ import { useSyncStore } from "../../../store/syncStore";
 import { logger } from "../../logger";
 import { ALL_TAB_HEADERS } from "../../schema";
 import { SheetRepository } from "../SheetRepository";
-import type { IndexedDB, OutboxEntry, OutboxOperation } from "./db";
+import type { Database, OutboxEntry, OutboxOperation } from "./db";
 import { getDb } from "./db";
 
 const MAX_RETRIES = 5;
@@ -35,12 +35,12 @@ const RATE_LIMIT_BACKOFF_MS = 60_000;
 export class SyncManager {
   private isSyncing = false;
   private readonly getToken: () => string;
-  private readonly db: IndexedDB;
+  private readonly db: Database;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private rateLimitTimer: ReturnType<typeof setTimeout> | null = null;
   private rateLimited = false;
 
-  constructor(getToken: () => string, db: IndexedDB) {
+  constructor(getToken: () => string, db: Database) {
     this.getToken = getToken;
     this.db = db;
   }

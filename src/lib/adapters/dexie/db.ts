@@ -65,7 +65,7 @@ export interface SyncMetaEntry {
 
 // ─── Database class ───────────────────────────────────────────────────────────
 
-export class IndexedDB extends Dexie {
+export class Database extends Dexie {
   // Main spreadsheet
   Stores!: Table<Store>;
 
@@ -126,16 +126,16 @@ export class IndexedDB extends Dexie {
 
 // ─── Per-store database factory ───────────────────────────────────────────────
 
-const dbCache = new Map<string, IndexedDB>();
+const dbCache = new Map<string, Database>();
 
 /**
  * Returns the Dexie database for the given store. Instances are cached so each
  * storeId opens exactly one connection. Database name: `pos_umkm_<storeId>`.
  */
-export function getDb(storeId: string): IndexedDB {
+export function getDb(storeId: string): Database {
   let instance = dbCache.get(storeId);
   if (!instance) {
-    instance = new IndexedDB(storeId);
+    instance = new Database(storeId);
     dbCache.set(storeId, instance);
   }
   return instance;

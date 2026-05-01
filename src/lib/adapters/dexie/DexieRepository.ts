@@ -21,7 +21,7 @@ import { useSyncStore } from "../../../store/syncStore";
 import { logger } from "../../logger";
 import { generateId } from "../../uuid";
 import type { ILocalRepository } from "../ILocalRepository";
-import type { IndexedDB as Database, OutboxEntry, OutboxOperation } from "./db";
+import type { Database, OutboxEntry, OutboxOperation } from "./db";
 
 export class DexieRepository<T extends Record<string, unknown>>
   implements ILocalRepository<T>

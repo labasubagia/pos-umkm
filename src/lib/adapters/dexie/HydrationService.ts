@@ -28,7 +28,7 @@ import { logger } from "../../logger";
 import { ALL_TAB_HEADERS } from "../../schema";
 import { SheetRepository } from "../SheetRepository";
 import { parseSheetRows } from "../zod-schemas";
-import type { IndexedDB } from "./db";
+import type { Database } from "./db";
 
 const STALE_MS = 5 * 60 * 1000;
 
@@ -39,11 +39,11 @@ interface HydrationTarget {
 
 export class HydrationService {
   private readonly getToken: () => string;
-  private readonly db: IndexedDB;
+  private readonly db: Database;
   /** Global DB for cross-store tables (Stores). Never swapped on store switch. */
-  private readonly mainDb: IndexedDB;
+  private readonly mainDb: Database;
 
-  constructor(getToken: () => string, db: IndexedDB, mainDb: IndexedDB) {
+  constructor(getToken: () => string, db: Database, mainDb: Database) {
     this.getToken = getToken;
     this.db = db;
     this.mainDb = mainDb;
@@ -120,7 +120,7 @@ export class HydrationService {
   private async hydrateTable(
     { sheetName, spreadsheetId }: HydrationTarget,
     force = false,
-    db?: IndexedDB,
+    db?: Database,
   ): Promise<void> {
     const targetDb = db ?? this.db;
     // Key is scoped to spreadsheetId so different stores (and monthly sheet

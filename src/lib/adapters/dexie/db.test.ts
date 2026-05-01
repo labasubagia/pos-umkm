@@ -6,16 +6,16 @@
  */
 import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it } from "vitest";
-import { clearDbCache, getDb, IndexedDB } from "./db";
+import { clearDbCache, Database, getDb } from "./db";
 
 afterEach(() => {
   clearDbCache();
 });
 
 describe("getDb", () => {
-  it("returns a PosUmkmDatabase instance", () => {
+  it("returns a Database instance", () => {
     const db = getDb("store-a");
-    expect(db).toBeInstanceOf(IndexedDB);
+    expect(db).toBeInstanceOf(Database);
   });
 
   it("returns the same instance for the same storeId (cache hit)", () => {
