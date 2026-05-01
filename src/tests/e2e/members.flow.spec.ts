@@ -8,11 +8,7 @@
 import { expect, test } from "@playwright/test";
 import { navigateTo } from "./helpers/auth";
 import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
-import {
-  reloadAndWait,
-  seedDexie,
-  waitForHydration,
-} from "./helpers/dexie-seed";
+import { setMswFixtures } from "./helpers/msw-state";
 
 const STORE = DEFAULT_STORE;
 
@@ -24,7 +20,6 @@ async function signInAndNavigate(
   await injectAuthState(page, STORE);
   await page.goto(`${BASE}/${STORE.storeId}${path}`);
   await page.getByTestId(waitFor).waitFor();
-  await waitForHydration(page);
 }
 
 test.describe("Member invite and Store Link", () => {
@@ -71,11 +66,7 @@ test.describe("Store Link join flow", () => {
     const now = new Date().toISOString();
 
     // Seed a Members row so resolveUserRole works
-    await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/${STORE.storeId}/cashier`);
-    await page.getByTestId("product-search-input").waitFor();
-    await waitForHydration(page);
-    await seedDexie(page, STORE.storeId, {
+    await setMswFixtures(page, STORE, {
       Members: [
         {
           id: "u1",
@@ -88,7 +79,9 @@ test.describe("Store Link join flow", () => {
         },
       ],
     });
-    await reloadAndWait(page, "product-search-input");
+    await injectAuthState(page, STORE);
+    await page.goto(`${BASE}/${STORE.storeId}/cashier`);
+    await page.getByTestId("product-search-input").waitFor();
     // Navigate to join page with a store link
     await navigateTo(
       page,

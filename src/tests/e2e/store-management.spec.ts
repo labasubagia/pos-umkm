@@ -8,11 +8,8 @@
 import { expect, test } from "@playwright/test";
 import { navigateTo } from "./helpers/auth";
 import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
-import {
-  reloadAndWait,
-  seedDexie,
-  waitForHydration,
-} from "./helpers/dexie-seed";
+import { seedDexie } from "./helpers/dexie-seed";
+import { setMswFixtures } from "./helpers/msw-state";
 
 const STORE = DEFAULT_STORE;
 
@@ -48,13 +45,13 @@ async function _openStoresTab(page: Parameters<typeof injectAuthState>[0]) {
 }
 
 async function signInToSettings(page: Parameters<typeof injectAuthState>[0]) {
+  // Stores live in the global __main__ DB; they are keyed by mainSpreadsheetId.
+  // setMswFixtures maps Stores → mainSpreadsheetId so HydrationService
+  // hydrates them into __main__ naturally.
+  await setMswFixtures(page, STORE, { Stores: SEED_STORES });
   await injectAuthState(page, STORE);
   await page.goto(`${BASE}/${STORE.storeId}/settings/store-management`);
   await page.getByTestId("btn-add-store").waitFor();
-  await waitForHydration(page);
-  // Stores live in the global __main__ DB (not per-store) since the __main__ refactor.
-  await seedDexie(page, "__main__", { Stores: SEED_STORES });
-  await reloadAndWait(page, "btn-add-store");
 
   await page.getByRole("heading", { name: /kelola toko/i }).waitFor();
 }
@@ -164,14 +161,16 @@ test.describe("Store Management", () => {
       },
     ];
 
+    // Stores keyed under the main spreadsheet (DEFAULT_STORE.mainSpreadsheetId).
+    await setMswFixtures(page, STORE, { Stores: SEED_STORES });
     await injectAuthState(page, STORE);
     await page.goto(`${BASE}/${STORE.storeId}/settings/store-management`);
     await page.getByTestId("btn-add-store").waitFor();
-    await waitForHydration(page);
-    // Stores live in the global __main__ DB; Members stay in the target store's DB.
-    await seedDexie(page, "__main__", { Stores: SEED_STORES });
+
+    // Members for store-b live in store-b's Dexie DB, which is never hydrated
+    // (HydrationService only runs for the active store). Seeding after page
+    // load is race-free because hydration won't clear store-b's tables.
     await seedDexie(page, "store-b", { Members: storeMembers });
-    await reloadAndWait(page, "btn-add-store");
 
     await page.getByRole("heading", { name: /kelola toko/i }).waitFor();
 

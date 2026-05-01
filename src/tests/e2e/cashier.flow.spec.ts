@@ -1,20 +1,15 @@
 /**
  * E2E specs for Phase 4 — Cashier (T026–T033).
  *
- * Auth is injected via localStorage (injectAuthState) so no OAuth popup is
- * needed. Product/category data is seeded directly into Dexie IndexedDB via
- * window.__getDb (exposed when VITE_E2E=true) so there is no mock adapter.
+ * Auth is injected via localStorage (injectAuthState). Product/category data
+ * is provided as MSW fixtures so HydrationService naturally populates Dexie
+ * without any direct IndexedDB writes or page reloads.
  */
 import { expect, test } from "@playwright/test";
 import { navigateTo } from "./helpers/auth";
 import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
-import {
-  reloadAndWait,
-  seedDexie,
-  waitForHydration,
-  waitForTableRowCount,
-} from "./helpers/dexie-seed";
 import { makeId } from "./helpers/e2e-fixtures";
+import { setMswFixtures } from "./helpers/msw-state";
 
 const STORE = DEFAULT_STORE;
 
@@ -76,28 +71,23 @@ async function signInToCashier(
   testInfo: ReturnType<typeof test.info>,
 ) {
   const fixtures = buildFixtures(testInfo);
-  await injectAuthState(page, STORE);
-  await page.goto(`${BASE}/${STORE.storeId}/cashier`);
-  await page.getByTestId("product-search-input").waitFor();
-  await waitForHydration(page);
-  await seedDexie(page, STORE.storeId, {
+
+  // Fixtures are set before navigation so MSW intercepts Sheets API reads
+  // and HydrationService populates Dexie without a page reload.
+  await setMswFixtures(page, STORE, {
     Products: fixtures.products,
     Categories: fixtures.categories,
     Monthly_Sheets: fixtures.monthlySheets,
   });
-  await reloadAndWait(page, "product-search-input");
-  await waitForTableRowCount(
-    page,
-    STORE.storeId,
-    "Products",
-    fixtures.products.length,
-  );
-  // Wait for at least one product card — confirms seeded data survived the reload.
-  // The 20s timeout accounts for React Query re-render latency under parallel workers.
+  await injectAuthState(page, STORE);
+  await page.goto(`${BASE}/${STORE.storeId}/cashier`);
+
+  // Product cards appear only after AppShell hydration + React Query render.
   await page
     .locator('[data-testid^="product-card-"]')
     .first()
     .waitFor({ timeout: 20_000 });
+
   return fixtures;
 }
 
@@ -316,7 +306,8 @@ test.describe("Customer Search (T036)", () => {
     page,
   }, testInfo) => {
     const now = new Date().toISOString();
-    const { prod1Id, products, categories } = buildFixtures(testInfo);
+    const { prod1Id, products, categories, monthlySheets } =
+      buildFixtures(testInfo);
     const cusId = makeId(testInfo, "cus-1");
 
     const CUSTOMERS = [
@@ -330,16 +321,18 @@ test.describe("Customer Search (T036)", () => {
       },
     ];
 
-    await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/${STORE.storeId}/cashier`);
-    await page.getByTestId("product-search-input").waitFor();
-    await waitForHydration(page);
-    await seedDexie(page, STORE.storeId, {
+    await setMswFixtures(page, STORE, {
       Products: products,
       Categories: categories,
       Customers: CUSTOMERS,
+      Monthly_Sheets: monthlySheets,
     });
-    await reloadAndWait(page, "product-search-input");
+    await injectAuthState(page, STORE);
+    await page.goto(`${BASE}/${STORE.storeId}/cashier`);
+    await page
+      .locator('[data-testid^="product-card-"]')
+      .first()
+      .waitFor({ timeout: 20_000 });
 
     await page.getByTestId(`product-card-${prod1Id}`).click();
     await page.getByTestId("customer-search-input").fill("Budi");
@@ -396,17 +389,15 @@ test.describe("Refund Flow (T037)", () => {
       },
     ];
 
-    await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/${STORE.storeId}/customers/refund`);
-    await page.getByTestId("refund-tx-id-input").waitFor();
-    await waitForHydration(page);
-    await seedDexie(page, STORE.storeId, {
+    await setMswFixtures(page, STORE, {
       Products: REFUND_PRODUCTS,
       Categories: categories,
       Transactions: TRANSACTIONS,
-      Refunds: [],
     });
-    await reloadAndWait(page, "refund-tx-id-input");
+    await injectAuthState(page, STORE);
+    await page.goto(`${BASE}/${STORE.storeId}/customers/refund`);
+    await page.getByTestId("refund-tx-id-input").waitFor();
+
     await page.getByTestId("refund-tx-id-input").fill(txId);
     await page.getByTestId("btn-find-transaction").click();
     await expect(page.getByTestId("refund-tx-info")).toBeVisible();

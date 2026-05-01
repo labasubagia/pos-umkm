@@ -10,13 +10,18 @@
  *   3. The store map (`pos_umkm_storemap_<storeId>`) is pre-populated with the
  *      fake spreadsheet IDs so AppShell doesn't need to traverse Drive.
  *
+ * Google API calls are handled by the MSW service worker (activated via
+ * window.__MSW_ENABLED__ = true set here). For tests that need precise control
+ * over specific routes (e.g. store-management.spec.ts), use page.route() in
+ * the test — Playwright CDP routing takes precedence over the MSW worker.
+ *
  * Usage:
+ *   await setMswFixtures(page, store, { Products: [...], ... })  // optional
  *   await injectAuthState(page, storeConfig)
  *   await page.goto(`${BASE}/${store.storeId}/cashier`)
- *   await page.waitForSelector('[data-testid="product-search-input"]')
+ *   await page.locator('[data-testid^="product-card-"]').first().waitFor()
  */
 import type { Page } from "@playwright/test";
-import { stubGoogleApis } from "./route-stubs";
 
 export const BASE = "/pos-umkm";
 
@@ -43,7 +48,12 @@ export async function injectAuthState(
   page: Page,
   store: StoreConfig = DEFAULT_STORE,
 ): Promise<void> {
-  await stubGoogleApis(page);
+  // Activate the MSW service worker so Sheets/Drive API calls are intercepted
+  // without needing real credentials. setMswFixtures() can be called before
+  // this function to pre-populate window.__E2E_FIXTURES__ with test data.
+  await page.addInitScript(() => {
+    (window as unknown as Record<string, unknown>).__MSW_ENABLED__ = true;
+  });
 
   await page.addInitScript(
     ({ store }) => {
