@@ -76,5 +76,10 @@
     "*.{ts,tsx}": [
       "bash -c 'npm run check'"
     ]
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }

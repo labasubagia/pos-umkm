@@ -8,13 +8,8 @@
 import { expect, test } from "@playwright/test";
 import { navigateTo } from "./helpers/auth";
 import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
-import {
-  reloadAndWait,
-  seedDexie,
-  waitForHydration,
-  waitForTableRowCount,
-} from "./helpers/dexie-seed";
 import { makeId, makeStoreConfig } from "./helpers/e2e-fixtures";
+import { setMswFixtures } from "./helpers/msw-state";
 
 const STORE = DEFAULT_STORE;
 
@@ -22,7 +17,6 @@ async function signInToCatalog(page: Parameters<typeof injectAuthState>[0]) {
   await injectAuthState(page, STORE);
   await page.goto(`${BASE}/${STORE.storeId}/catalog/products`);
   await page.getByTestId("btn-add-product").waitFor();
-  await waitForHydration(page);
 }
 
 // ─── T021 — Categories CRUD ───────────────────────────────────────────────────
@@ -120,21 +114,14 @@ test.describe("Products CRUD (T022)", () => {
     const catId = makeId(testInfo, "cat-search");
 
     // Pre-seed a category so the product form has something to pick from
+    await setMswFixtures(page, STORE, {
+      Categories: [
+        { id: catId, name: "Makanan", created_at: now, deleted_at: null },
+      ],
+    });
     await injectAuthState(page, STORE);
     await page.goto(`${BASE}/${STORE.storeId}/catalog/products`);
     await page.getByTestId("btn-add-product").waitFor();
-    await waitForHydration(page);
-    await seedDexie(page, STORE.storeId, {
-      Categories: [
-        {
-          id: catId,
-          name: "Makanan",
-          created_at: now,
-          deleted_at: null,
-        },
-      ],
-    });
-    await reloadAndWait(page, "btn-add-product");
 
     await page.getByTestId("btn-add-product").click();
     await page.getByTestId("input-product-name").fill("Mie Goreng");
@@ -171,19 +158,7 @@ test.describe("Products CRUD (T022)", () => {
     const categoryId = makeId(testInfo, "cat-stock-test");
     const monthlySheetId = makeId(testInfo, "monthly-sheet-stock");
 
-    await injectAuthState(page, store);
-    await page.goto(`${BASE}/${store.storeId}/cashier`);
-    await page.getByTestId("product-search-input").waitFor();
-    await waitForHydration(page);
-    const monthlySheetSeed = [
-      {
-        id: monthlySheetId,
-        year_month: now.slice(0, 7),
-        spreadsheetId: store.monthlySpreadsheetId,
-        created_at: now,
-      },
-    ];
-    await seedDexie(page, store.storeId, {
+    await setMswFixtures(page, store, {
       Products: [
         {
           id: prodId,
@@ -200,11 +175,20 @@ test.describe("Products CRUD (T022)", () => {
       Categories: [
         { id: categoryId, name: "Umum", created_at: now, deleted_at: null },
       ],
-      Monthly_Sheets: monthlySheetSeed,
+      Monthly_Sheets: [
+        {
+          id: monthlySheetId,
+          year_month: now.slice(0, 7),
+          spreadsheetId: monthlySheetId,
+          created_at: now,
+        },
+      ],
     });
-    await reloadAndWait(page, "product-search-input");
-    await waitForTableRowCount(page, store.storeId, "Products", 1);
-    await page.getByTestId(`product-card-${prodId}`).waitFor();
+    await injectAuthState(page, store);
+    await page.goto(`${BASE}/${store.storeId}/cashier`);
+    await page
+      .getByTestId(`product-card-${prodId}`)
+      .waitFor({ timeout: 20_000 });
 
     await page.getByTestId("product-search-input").fill("Produk Stok Test");
     await page.getByTestId(`product-card-${prodId}`).click();
@@ -235,11 +219,7 @@ test.describe("Stock Opname (T034)", () => {
     const prodId = makeId(testInfo, "opname-prod-1");
     const categoryId = makeId(testInfo, "opname-cat-1");
 
-    await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/${STORE.storeId}/inventory/stock-opname`);
-    await page.getByTestId("stock-opname-container").waitFor();
-    await waitForHydration(page);
-    await seedDexie(page, STORE.storeId, {
+    await setMswFixtures(page, STORE, {
       Products: [
         {
           id: prodId,
@@ -257,7 +237,9 @@ test.describe("Stock Opname (T034)", () => {
         { id: categoryId, name: "Umum", created_at: now, deleted_at: null },
       ],
     });
-    await reloadAndWait(page, "stock-opname-container");
+    await injectAuthState(page, STORE);
+    await page.goto(`${BASE}/${STORE.storeId}/inventory/stock-opname`);
+    await page.getByTestId("stock-opname-container").waitFor();
 
     await expect(page.getByTestId("stock-opname-container")).toBeVisible();
     await expect(page.getByTestId(`opname-system-stock-${prodId}`)).toHaveText(
@@ -278,7 +260,7 @@ test.describe("Stock Opname (T034)", () => {
     const stockLog = await page.evaluate(
       async ({ storeId }) => {
         const db = (
-          window as Record<
+          window as unknown as Record<
             string,
             (id: string) => {
               Stock_Log: { toArray: () => Promise<Record<string, unknown>[]> };
@@ -308,11 +290,7 @@ test.describe("Purchase Orders (T035)", () => {
     const prodId = makeId(testInfo, "po-prod-1");
     const categoryId = makeId(testInfo, "po-cat-1");
 
-    await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/${STORE.storeId}/inventory/stock-opname`);
-    await page.getByTestId("stock-opname-container").waitFor();
-    await waitForHydration(page);
-    await seedDexie(page, STORE.storeId, {
+    await setMswFixtures(page, STORE, {
       Products: [
         {
           id: prodId,
@@ -330,7 +308,9 @@ test.describe("Purchase Orders (T035)", () => {
         { id: categoryId, name: "Umum", created_at: now, deleted_at: null },
       ],
     });
-    await reloadAndWait(page, "stock-opname-container");
+    await injectAuthState(page, STORE);
+    await page.goto(`${BASE}/${STORE.storeId}/inventory/stock-opname`);
+    await page.getByTestId("stock-opname-container").waitFor();
 
     await page.getByTestId("subnav-inventory-purchase-order").click();
     await expect(page.getByTestId("purchase-orders-container")).toBeVisible();
@@ -360,7 +340,7 @@ test.describe("Purchase Orders (T035)", () => {
     const updatedStock = await page.evaluate(
       async ({ storeId, prodId }) => {
         const db = (
-          window as Record<
+          window as unknown as Record<
             string,
             (id: string) => {
               Products: {
@@ -380,7 +360,7 @@ test.describe("Purchase Orders (T035)", () => {
     const stockLog = await page.evaluate(
       async ({ storeId }) => {
         const db = (
-          window as Record<
+          window as unknown as Record<
             string,
             (id: string) => {
               Stock_Log: { toArray: () => Promise<Record<string, unknown>[]> };

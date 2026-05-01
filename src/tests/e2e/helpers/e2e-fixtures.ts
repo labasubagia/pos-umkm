@@ -18,9 +18,7 @@ export function makeStoreConfig(testInfo: TestInfo): StoreConfig {
   const key = makeTestKey(testInfo);
   return {
     storeId: `e2e-store-${key}`,
-    masterSpreadsheetId: `e2e-master-${key}`,
     mainSpreadsheetId: `e2e-main-${key}`,
-    monthlySpreadsheetId: `e2e-monthly-${key}`,
   };
 }
 

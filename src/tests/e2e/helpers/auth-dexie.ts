@@ -10,28 +10,29 @@
  *   3. The store map (`pos_umkm_storemap_<storeId>`) is pre-populated with the
  *      fake spreadsheet IDs so AppShell doesn't need to traverse Drive.
  *
+ * Google API calls are handled by the MSW service worker (activated via
+ * window.__MSW_ENABLED__ = true set here). For tests that need precise control
+ * over specific routes (e.g. store-management.spec.ts), use page.route() in
+ * the test — Playwright CDP routing takes precedence over the MSW worker.
+ *
  * Usage:
+ *   await setMswFixtures(page, store, { Products: [...], ... })  // optional
  *   await injectAuthState(page, storeConfig)
  *   await page.goto(`${BASE}/${store.storeId}/cashier`)
- *   await page.waitForSelector('[data-testid="product-search-input"]')
+ *   await page.locator('[data-testid^="product-card-"]').first().waitFor()
  */
 import type { Page } from "@playwright/test";
-import { stubGoogleApis } from "./route-stubs";
 
 export const BASE = "/pos-umkm";
 
 export interface StoreConfig {
   storeId: string;
-  masterSpreadsheetId: string;
   mainSpreadsheetId: string;
-  monthlySpreadsheetId: string;
 }
 
 export const DEFAULT_STORE: StoreConfig = {
   storeId: "e2e-store-1",
-  masterSpreadsheetId: "e2e-master-id",
   mainSpreadsheetId: "e2e-main-id",
-  monthlySpreadsheetId: "e2e-monthly-id",
 };
 
 /**
@@ -43,7 +44,12 @@ export async function injectAuthState(
   page: Page,
   store: StoreConfig = DEFAULT_STORE,
 ): Promise<void> {
-  await stubGoogleApis(page);
+  // Activate the MSW service worker so Sheets/Drive API calls are intercepted
+  // without needing real credentials. setMswFixtures() can be called before
+  // this function to pre-populate window.__E2E_FIXTURES__ with test data.
+  await page.addInitScript(() => {
+    (window as unknown as Record<string, unknown>).__MSW_ENABLED__ = true;
+  });
 
   await page.addInitScript(
     ({ store }) => {
@@ -76,8 +82,6 @@ export async function injectAuthState(
 
       // Legacy keys used by setup.service helpers.
       localStorage.setItem("mainSpreadsheetId", store.mainSpreadsheetId);
-      localStorage.setItem("activeStoreId", store.storeId);
-      localStorage.setItem("storeFolderId", "e2e-folder-id");
 
       // Store map — pre-populated so AppShell doesn't need to traverse Drive.
       const now = new Date();
@@ -105,16 +109,16 @@ export async function injectAuthState(
                 ],
               },
               Settings: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Settings",
                 sheet_id: 2,
                 headers: ["id", "key", "value", "updated_at"],
               },
               Members: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Members",
                 sheet_id: 3,
@@ -129,16 +133,16 @@ export async function injectAuthState(
                 ],
               },
               Categories: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Categories",
                 sheet_id: 4,
                 headers: ["id", "name", "created_at", "deleted_at"],
               },
               Products: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Products",
                 sheet_id: 5,
@@ -155,8 +159,8 @@ export async function injectAuthState(
                 ],
               },
               Variants: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Variants",
                 sheet_id: 6,
@@ -172,8 +176,8 @@ export async function injectAuthState(
                 ],
               },
               Customers: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Customers",
                 sheet_id: 7,
@@ -187,8 +191,8 @@ export async function injectAuthState(
                 ],
               },
               Purchase_Orders: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Purchase_Orders",
                 sheet_id: 8,
@@ -201,8 +205,8 @@ export async function injectAuthState(
                 ],
               },
               Purchase_Order_Items: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Purchase_Order_Items",
                 sheet_id: 9,
@@ -217,8 +221,8 @@ export async function injectAuthState(
                 ],
               },
               Stock_Log: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Stock_Log",
                 sheet_id: 10,
@@ -232,16 +236,16 @@ export async function injectAuthState(
                 ],
               },
               Audit_Log: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Audit_Log",
                 sheet_id: 11,
                 headers: ["id", "event", "data", "created_at"],
               },
               Monthly_Sheets: {
-                spreadsheet_id: store.masterSpreadsheetId,
-                spreadsheet_name: "master",
+                spreadsheet_id: store.mainSpreadsheetId,
+                spreadsheet_name: "main",
                 folder_path: "",
                 sheet_name: "Monthly_Sheets",
                 sheet_id: 12,
@@ -253,7 +257,7 @@ export async function injectAuthState(
                 yearMonth,
                 sheets: {
                   Transactions: {
-                    spreadsheet_id: store.monthlySpreadsheetId,
+                    spreadsheet_id: store.mainSpreadsheetId,
                     spreadsheet_name: `transaction_${yearMonth}`,
                     folder_path: `transactions/${now.getFullYear()}`,
                     sheet_name: "Transactions",
@@ -277,7 +281,7 @@ export async function injectAuthState(
                     ],
                   },
                   Transaction_Items: {
-                    spreadsheet_id: store.monthlySpreadsheetId,
+                    spreadsheet_id: store.mainSpreadsheetId,
                     spreadsheet_name: `transaction_${yearMonth}`,
                     folder_path: `transactions/${now.getFullYear()}`,
                     sheet_name: "Transaction_Items",
@@ -294,7 +298,7 @@ export async function injectAuthState(
                     ],
                   },
                   Refunds: {
-                    spreadsheet_id: store.monthlySpreadsheetId,
+                    spreadsheet_id: store.mainSpreadsheetId,
                     spreadsheet_name: `transaction_${yearMonth}`,
                     folder_path: `transactions/${now.getFullYear()}`,
                     sheet_name: "Refunds",

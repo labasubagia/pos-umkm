@@ -11,12 +11,24 @@ import { router } from "./router";
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element not found");
 
-createRoot(rootEl).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthInitializer>
-        <RouterProvider router={router} />
-      </AuthInitializer>
-    </QueryClientProvider>
-  </StrictMode>,
-);
+async function prepare(): Promise<void> {
+  if ((window as unknown as Record<string, unknown>).__MSW_ENABLED__) {
+    const { worker } = await import("./mocks/browser");
+    await worker.start({
+      onUnhandledRequest: "bypass",
+      serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
+    });
+  }
+}
+
+prepare().then(() => {
+  createRoot(rootEl).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <AuthInitializer>
+          <RouterProvider router={router} />
+        </AuthInitializer>
+      </QueryClientProvider>
+    </StrictMode>,
+  );
+});

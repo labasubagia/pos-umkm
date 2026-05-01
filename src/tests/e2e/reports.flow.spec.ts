@@ -1,20 +1,16 @@
 /**
  * E2E specs for Phase 7 — Reports (T038–T042).
  *
- * Auth is injected via localStorage. Transaction data is seeded into Dexie
- * directly so reports can be computed without any Sheets API calls.
+ * Auth is injected via localStorage. Transaction data is provided as MSW
+ * fixtures so HydrationService populates Dexie — no direct IndexedDB writes.
  */
 import { expect, type TestInfo, test } from "@playwright/test";
 import { BASE, injectAuthState, type StoreConfig } from "./helpers/auth-dexie";
-import {
-  reloadAndWait,
-  seedDexie,
-  waitForHydration,
-  waitForTableRowCount,
-} from "./helpers/dexie-seed";
 import { makeId, makeStoreConfig } from "./helpers/e2e-fixtures";
+import { setMswFixtures } from "./helpers/msw-state";
 
-const REPORT_DATE = "2026-06-01";
+// Use current month so the transactions fall inside the injected monthly sheet.
+const REPORT_DATE = "2026-05-01";
 function buildReportFixtures(testInfo: TestInfo) {
   const store = makeStoreConfig(testInfo);
   const tx1 = makeId(testInfo, "tx-1");
@@ -91,64 +87,13 @@ async function signInToReports(
   path: string,
   readyTestId: string,
 ) {
+  await setMswFixtures(page, store, {
+    Transactions: fixtures.transactions,
+    Transaction_Items: fixtures.items,
+  });
   await injectAuthState(page, store);
   await page.goto(`${BASE}/${store.storeId}${path}`);
   await page.getByTestId(readyTestId).waitFor();
-  await waitForHydration(page);
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    await seedDexie(page, store.storeId, {
-      Transactions: fixtures.transactions,
-      Transaction_Items: fixtures.items,
-    });
-    await reloadAndWait(page, readyTestId);
-    await waitForTableRowCount(
-      page,
-      store.storeId,
-      "Transactions",
-      fixtures.transactions.length,
-    );
-    await waitForTableRowCount(
-      page,
-      store.storeId,
-      "Transaction_Items",
-      fixtures.items.length,
-    );
-
-    const hasSeededRows = await page.evaluate(
-      async ({ storeId, txIds, itemIds }) => {
-        const db = (
-          window as unknown as Record<
-            string,
-            (id: string) => {
-              Transactions: {
-                toArray: () => Promise<Array<{ id: string }>>;
-              };
-              Transaction_Items: {
-                toArray: () => Promise<Array<{ id: string }>>;
-              };
-            }
-          >
-        ).__getDb(storeId);
-        const txRows = await db.Transactions.toArray();
-        const itemRows = await db.Transaction_Items.toArray();
-        const txSet = new Set(txRows.map((row) => row.id));
-        const itemSet = new Set(itemRows.map((row) => row.id));
-        return (
-          txIds.every((id) => txSet.has(id)) &&
-          itemIds.every((id) => itemSet.has(id))
-        );
-      },
-      {
-        storeId: store.storeId,
-        txIds: fixtures.transactions.map((row) => row.id),
-        itemIds: fixtures.items.map((row) => row.id),
-      },
-    );
-    if (hasSeededRows) return;
-  }
-  throw new Error(
-    `Failed to seed report fixtures after 2 attempts for store ${store.storeId}`,
-  );
 }
 
 test("owner can view today's sales summary", async ({ page }, testInfo) => {
