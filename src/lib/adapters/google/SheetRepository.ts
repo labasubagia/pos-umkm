@@ -9,7 +9,7 @@
  * MockSheetRepository which uses localStorage instead.
  */
 
-import * as sheetsOps from "./google/sheets/sheets.ops";
+import * as sheetsOps from "./sheets/sheets.ops";
 
 export interface ISheetRepository<T extends Record<string, unknown>> {
   readonly spreadsheetId: string;

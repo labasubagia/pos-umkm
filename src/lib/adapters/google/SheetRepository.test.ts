@@ -5,7 +5,7 @@
 import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { queryClient } from "../queryClient";
+import { queryClient } from "../../queryClient";
 import { SheetRepository } from "./SheetRepository";
 
 const SPREADSHEET_ID = "test-spreadsheet-id";

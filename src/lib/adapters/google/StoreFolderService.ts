@@ -23,7 +23,7 @@
 
 import pLimit from "p-limit";
 import { useAuthStore } from "@/store";
-import { queryClient } from "../queryClient";
+import { queryClient } from "../../queryClient";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const SHEETS_API = "https://sheets.googleapis.com/v4";

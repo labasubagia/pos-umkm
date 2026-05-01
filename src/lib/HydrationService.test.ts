@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAuthStore } from "../../../store/authStore";
-import { clearDbCache, getDb } from "./db";
+import { useAuthStore } from "../store/authStore";
+import { clearDbCache, getDb } from "./adapters/dexie/db";
 import { HydrationService } from "./HydrationService";
 
 const TEST_STORE_ID = "hydration-store";
@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   getCurrentStoreMapStore: vi.fn(),
 }));
 
-vi.mock("../../../store/storeMapStore", () => ({
+vi.mock("../store/storeMapStore", () => ({
   getCurrentStoreMapStore: mocks.getCurrentStoreMapStore,
 }));
 

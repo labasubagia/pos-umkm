@@ -18,14 +18,14 @@
 
 // Lazy import to avoid circular dependency (authStore imports from here indirectly via services)
 import { useAuthStore } from "../../store/authStore";
+import { HydrationService } from "../HydrationService";
 import { logger } from "../logger";
+import { SyncManager } from "../SyncManager";
 import { ALL_TAB_HEADERS } from "../schema";
 import type { IDriveClient } from "./DriveClient";
 import { GoogleDriveClient } from "./DriveClient";
 import { DexieRepository } from "./dexie/DexieRepository";
 import { clearDbCache, getDb } from "./dexie/db";
-import { HydrationService } from "./dexie/HydrationService";
-import { SyncManager } from "./dexie/SyncManager";
 import {
   ProductRepository,
   PurchaseOrderItemRepository,
@@ -34,10 +34,10 @@ import {
   VariantRepository,
 } from "./dexie/typed-repos";
 import { GoogleAuthAdapter } from "./google/GoogleAuthAdapter";
+import type { ISheetRepository } from "./google/SheetRepository";
+import { SheetRepository } from "./google/SheetRepository";
+import { StoreFolderService } from "./google/StoreFolderService";
 import type { Repos } from "./repos";
-import type { ISheetRepository } from "./SheetRepository";
-import { SheetRepository } from "./SheetRepository";
-import { StoreFolderService } from "./StoreFolderService";
 import type { AuthAdapter } from "./types";
 import type {
   AuditLog,

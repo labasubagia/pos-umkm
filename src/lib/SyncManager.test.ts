@@ -6,15 +6,15 @@
  */
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { OutboxEntry } from "./db";
-import { clearDbCache, getDb } from "./db";
+import type { OutboxEntry } from "./adapters/dexie/db";
+import { clearDbCache, getDb } from "./adapters/dexie/db";
 import { SyncManager } from "./SyncManager";
 
 const TOKEN = "test-token";
 const TEST_STORE_ID = "sync-test-store";
 
 // Reset DB and online state before each test
-import { useAuthStore } from "../../../store/authStore";
+import { useAuthStore } from "../store/authStore";
 
 beforeEach(async () => {
   // Set activeStoreId so SyncManager uses the test DB
@@ -60,7 +60,9 @@ describe("drain", () => {
   it("calls the SheetRepository for a pending append entry", async () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
-    const { SheetRepository } = await import("../SheetRepository");
+    const { SheetRepository } = await import(
+      "./adapters/google/SheetRepository"
+    );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchAppend")
       .mockResolvedValue(undefined);
@@ -74,7 +76,9 @@ describe("drain", () => {
   it("deletes the outbox entry on success", async () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
-    const { SheetRepository } = await import("../SheetRepository");
+    const { SheetRepository } = await import(
+      "./adapters/google/SheetRepository"
+    );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchAppend")
       .mockResolvedValue(undefined);
@@ -87,7 +91,9 @@ describe("drain", () => {
   it("marks entry as failed and increments retries on error", async () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
-    const { SheetRepository } = await import("../SheetRepository");
+    const { SheetRepository } = await import(
+      "./adapters/google/SheetRepository"
+    );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchAppend")
       .mockRejectedValue(new Error("Network error"));
@@ -102,7 +108,9 @@ describe("drain", () => {
   it("stops draining on HTTP 429 rate limit error", async () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
-    const { SheetRepository } = await import("../SheetRepository");
+    const { SheetRepository } = await import(
+      "./adapters/google/SheetRepository"
+    );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchAppend")
       .mockRejectedValue(
@@ -121,7 +129,9 @@ describe("drain", () => {
   it("skips entries with retries >= MAX_RETRIES", async () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
-    const { SheetRepository } = await import("../SheetRepository");
+    const { SheetRepository } = await import(
+      "./adapters/google/SheetRepository"
+    );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchAppend")
       .mockResolvedValue(undefined);
@@ -139,7 +149,9 @@ describe("drain", () => {
     });
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
-    const { SheetRepository } = await import("../SheetRepository");
+    const { SheetRepository } = await import(
+      "./adapters/google/SheetRepository"
+    );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchAppend")
       .mockResolvedValue(undefined);
@@ -156,7 +168,9 @@ describe("operation routing", () => {
   it("calls batchUpdateCells for batchUpdateCells op", async () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
-    const { SheetRepository } = await import("../SheetRepository");
+    const { SheetRepository } = await import(
+      "./adapters/google/SheetRepository"
+    );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchUpdateCells")
       .mockResolvedValue(undefined);
@@ -176,7 +190,9 @@ describe("operation routing", () => {
   it("calls softDelete for softDelete op", async () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
-    const { SheetRepository } = await import("../SheetRepository");
+    const { SheetRepository } = await import(
+      "./adapters/google/SheetRepository"
+    );
     const spy = vi
       .spyOn(SheetRepository.prototype, "softDelete")
       .mockResolvedValue(undefined);
