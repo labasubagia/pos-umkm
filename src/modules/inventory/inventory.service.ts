@@ -13,10 +13,12 @@
  *   Purchase_Order_Items: id, order_id, product_id, product_name, qty, cost_price, created_at
  */
 
+import { useLiveQuery } from "dexie-react-hooks";
 import { getRepos } from "../../lib/adapters";
 import type { PurchaseOrderItem as DbPurchaseOrderItem } from "../../lib/adapters/zod-schemas";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
+import { useAuthStore } from "../../store/authStore";
 
 // ─── Custom errors ─────────────────────────────────────────────────────────────
 
@@ -271,4 +273,36 @@ export async function fetchPurchaseOrderItems(
   orderId: string,
 ): Promise<PurchaseOrderItemRow[]> {
   return getRepos().purchaseOrderItems.findByOrderId(orderId);
+}
+
+export function usePurchaseOrders() {
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const result = useLiveQuery(
+    () =>
+      activeStoreId
+        ? fetchPurchaseOrders()
+        : Promise.resolve([] as PurchaseOrder[]),
+    [activeStoreId],
+  );
+  return {
+    data: result ?? ([] as PurchaseOrder[]),
+    isLoading: result === undefined,
+    error: null,
+  };
+}
+
+export function useStockOpname() {
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const result = useLiveQuery(
+    () =>
+      activeStoreId
+        ? fetchStockOpnameData()
+        : Promise.resolve([] as OpnameRow[]),
+    [activeStoreId],
+  );
+  return {
+    data: result ?? ([] as OpnameRow[]),
+    isLoading: result === undefined,
+    error: null,
+  };
 }

@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { useCustomers } from "../../hooks/useCustomers";
+import { useCustomers } from "../../modules/customers";
 import type { Customer } from "./customers.service";
 
 interface CustomerSearchProps {

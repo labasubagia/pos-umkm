@@ -13,7 +13,6 @@
 import { LogOut, Store } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
-import { useStores } from "../hooks/useStores";
 import { authAdapter, resetDexieLayer, syncManager } from "../lib/adapters";
 import type { Role } from "../lib/adapters/types";
 import { logger } from "../lib/logger";
@@ -23,6 +22,7 @@ import {
   clearSetupStorage,
 } from "../modules/auth/setup.service";
 import { useAuth } from "../modules/auth/useAuth";
+import { useStores } from "../modules/settings";
 import { NAV_ITEMS } from "./nav.constants";
 import { Button } from "./ui/button";
 

@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { useQRISImage } from "../../hooks/useQRISImage";
+import { useQRISImage } from "../../modules/settings/settings.service";
 import { SettingsError, saveQRISImage } from "./settings.service";
 
 export function QRISConfig() {

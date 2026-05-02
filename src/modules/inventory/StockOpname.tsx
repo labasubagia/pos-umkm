@@ -20,19 +20,11 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { useStockOpname } from "../../hooks/useStockOpname";
-import {
-  InventoryError,
-  type OpnameRow,
-  saveOpnameResults,
-} from "./inventory.service";
+import { useStockOpname } from "../../modules/inventory";
+import { type OpnameRow, saveOpnameResults } from "./inventory.service";
 
 export function StockOpname() {
-  const {
-    data: fetchedRows = [],
-    isLoading,
-    error: fetchError,
-  } = useStockOpname();
+  const { data: fetchedRows = [], isLoading } = useStockOpname();
 
   // Local editable rows — initialised from query data, mutated locally until saved
   const [rows, setRows] = useState<OpnameRow[]>([]);
@@ -72,14 +64,6 @@ export function StockOpname() {
     setSuccessMsg(null);
   }
 
-  const errorMsg = saveMutation.isError
-    ? saveMutation.error instanceof InventoryError
-      ? saveMutation.error.message
-      : "Gagal menyimpan hasil opname"
-    : fetchError instanceof Error
-      ? fetchError.message
-      : null;
-
   if (isLoading) {
     return (
       <p data-testid="opname-loading" className="text-sm text-gray-500">
@@ -101,15 +85,6 @@ export function StockOpname() {
         </Button>
       </div>
 
-      {errorMsg && (
-        <Alert
-          variant="destructive"
-          className="mb-3"
-          data-testid="opname-error"
-        >
-          <AlertDescription>{errorMsg}</AlertDescription>
-        </Alert>
-      )}
       {successMsg && (
         <Alert
           className="mb-3 border-green-500 bg-green-50 text-green-800"

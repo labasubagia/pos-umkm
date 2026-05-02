@@ -27,6 +27,9 @@ export {
   fetchVariants,
   updateCategory,
   updateProduct,
+  useCategories,
+  useProducts,
+  useVariants,
 } from "./catalog.service";
 export type { ParsedProduct, RowValidationResult } from "./csv.service";
 export {

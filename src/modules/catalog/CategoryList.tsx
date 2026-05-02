@@ -10,16 +10,12 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
-import { useCategories } from "../../hooks/useCategories";
+import { useCategories } from "../../modules/catalog";
 import { CategoryForm } from "./CategoryForm";
 import { addCategory, deleteCategory, updateCategory } from "./catalog.service";
 
 export function CategoryList() {
-  const {
-    data: categories = [],
-    isLoading,
-    error: fetchError,
-  } = useCategories();
+  const { data: categories = [], isLoading } = useCategories();
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -50,8 +46,7 @@ export function CategoryList() {
     onError: (err: Error) => setMutationError(err.message),
   });
 
-  const displayError =
-    mutationError ?? (fetchError instanceof Error ? fetchError.message : null);
+  const displayError = mutationError ?? null;
 
   if (isLoading)
     return <p className="text-sm text-gray-500">Memuat kategori…</p>;

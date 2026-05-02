@@ -16,6 +16,7 @@
  *   Variants:   id, product_id, option_name, option_value, price, stock, created_at, deleted_at
  */
 
+import { useLiveQuery } from "dexie-react-hooks";
 import { getRepos } from "../../lib/adapters";
 import type {
   Category,
@@ -24,6 +25,7 @@ import type {
 } from "../../lib/adapters/zod-schemas";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
+import { useAuthStore } from "../../store/authStore";
 
 // ─── Domain types (re-exported from entity layer) ─────────────────────────────
 
@@ -53,6 +55,20 @@ export class CatalogError extends Error {
 export async function fetchCategories(): Promise<Category[]> {
   const rows = await getRepos().categories.getAll();
   return rows.filter((r) => r.name); // skip sentinel/header rows without a name
+}
+
+export function useCategories() {
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const result = useLiveQuery(
+    () =>
+      activeStoreId ? fetchCategories() : Promise.resolve([] as Category[]),
+    [activeStoreId],
+  );
+  return {
+    data: result ?? ([] as Category[]),
+    isLoading: result === undefined,
+    error: null,
+  };
 }
 
 /**
@@ -126,6 +142,19 @@ export async function fetchProducts(): Promise<Product[]> {
       price: Number(r.price),
       stock: Number(r.stock),
     }));
+}
+
+export function useProducts() {
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const result = useLiveQuery(
+    () => (activeStoreId ? fetchProducts() : Promise.resolve([] as Product[])),
+    [activeStoreId],
+  );
+  return {
+    data: result ?? ([] as Product[]),
+    isLoading: result === undefined,
+    error: null,
+  };
 }
 
 export interface NewProduct {
@@ -333,4 +362,17 @@ export async function decrementVariantStock(
     );
   }
   await getRepos().variants.batchUpdate([{ id: variantId, stock: newStock }]);
+}
+
+export function useVariants() {
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const result = useLiveQuery(
+    () => (activeStoreId ? fetchVariants() : Promise.resolve([] as Variant[])),
+    [activeStoreId],
+  );
+  return {
+    data: result ?? ([] as Variant[]),
+    isLoading: result === undefined,
+    error: null,
+  };
 }

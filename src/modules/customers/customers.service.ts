@@ -10,11 +10,13 @@
  *   Customers: id, name, phone, email, created_at, deleted_at
  */
 
+import { useLiveQuery } from "dexie-react-hooks";
 import { getRepos } from "../../lib/adapters";
 import type { Customer } from "../../lib/adapters/zod-schemas";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
 import { validatePhone } from "../../lib/validators";
+import { useAuthStore } from "../../store/authStore";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
@@ -40,6 +42,20 @@ export class CustomerError extends Error {
 export async function fetchCustomers(): Promise<Customer[]> {
   const rows = await getRepos().customers.getAll();
   return rows.filter((r) => r.name); // skip sentinel rows
+}
+
+export function useCustomers() {
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const result = useLiveQuery(
+    () =>
+      activeStoreId ? fetchCustomers() : Promise.resolve([] as Customer[]),
+    [activeStoreId],
+  );
+  return {
+    data: result ?? ([] as Customer[]),
+    isLoading: result === undefined,
+    error: null,
+  };
 }
 
 /**

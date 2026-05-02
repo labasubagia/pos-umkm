@@ -2,9 +2,6 @@ import { ShoppingBag, ShoppingCart } from "lucide-react";
 import { useState } from "react";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
-import { useProducts } from "../hooks/useProducts";
-import { useQRISImage } from "../hooks/useQRISImage";
-import { useVariants } from "../hooks/useVariants";
 import { logger } from "../lib/logger";
 import { CartPanel } from "../modules/cashier/CartPanel";
 import type {
@@ -27,8 +24,10 @@ import { PaymentModal } from "../modules/cashier/PaymentModal";
 import { ProductSearch } from "../modules/cashier/ProductSearch";
 import { ReceiptModal } from "../modules/cashier/ReceiptModal";
 import { useCartStore } from "../modules/cashier/useCart";
+import { useProducts, useVariants } from "../modules/catalog";
 import { CustomerSearch } from "../modules/customers/CustomerSearch";
 import type { Customer } from "../modules/customers/customers.service";
+import { useQRISImage } from "../modules/settings/settings.service";
 import { useAuthStore } from "../store/authStore";
 
 const TAX_RATE = 0; // PPN disabled by default; owner can enable in Settings (post-MVP)

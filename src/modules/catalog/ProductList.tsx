@@ -8,11 +8,9 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
-import { useCategories } from "../../hooks/useCategories";
-import { useProducts } from "../../hooks/useProducts";
 import { formatIDR } from "../../lib/formatters";
+import { useCategories, useProducts } from "../../modules/catalog";
 import type { NewProduct, ProductChanges } from "./catalog.service";
 import { addProduct, deleteProduct, updateProduct } from "./catalog.service";
 import { ProductForm } from "./ProductForm";
@@ -20,19 +18,17 @@ import { VariantManager } from "./VariantManager";
 
 export function ProductList() {
   const { data: categories = [] } = useCategories();
-  const { data: products = [], isLoading, error: fetchError } = useProducts();
+  const { data: products = [], isLoading } = useProducts();
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [variantProductId, setVariantProductId] = useState<string | null>(null);
-  const [mutationError, setMutationError] = useState<string | null>(null);
 
   const addMutation = useMutation({
     mutationFn: (product: NewProduct) => addProduct(product),
     onSuccess: () => {
       setShowAddForm(false);
     },
-    onError: (err: Error) => setMutationError(err.message),
   });
 
   const updateMutation = useMutation({
@@ -41,19 +37,13 @@ export function ProductList() {
     onSuccess: () => {
       setEditingId(null);
     },
-    onError: (err: Error) => setMutationError(err.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteProduct(id),
-    onSuccess: () => {
-      setMutationError(null);
-    },
-    onError: (err: Error) => setMutationError(err.message),
+    onSuccess: () => {},
   });
 
-  const displayError =
-    mutationError ?? (fetchError instanceof Error ? fetchError.message : null);
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
 
   if (isLoading) return <p className="text-sm text-gray-500">Memuat produk…</p>;
@@ -85,12 +75,6 @@ export function ProductList() {
           + Tambah Produk
         </Button>
       </div>
-
-      {displayError && (
-        <Alert variant="destructive">
-          <AlertDescription>{displayError}</AlertDescription>
-        </Alert>
-      )}
 
       {showAddForm && (
         <div className="rounded border border-gray-200 p-4">

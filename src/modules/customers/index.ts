@@ -10,6 +10,7 @@ export {
   CustomerError,
   fetchCustomers,
   updateCustomer,
+  useCustomers,
 } from "./customers.service";
 export { RefundFlow } from "./RefundFlow";
 export type { Refund, RefundItem } from "./refund.service";

@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { useSettings } from "../../hooks/useSettings";
+import { useSettings } from "../../modules/settings/settings.service";
 import { updateStoreName } from "../auth/setup.service";
 import { useAuth } from "../auth/useAuth";
 import { type BusinessSettings, saveSettings } from "./settings.service";

@@ -15,10 +15,10 @@ import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as useStoresModule from "../hooks/useStores";
 import * as adapters from "../lib/adapters";
 import type { Role } from "../lib/adapters/types";
 import type { StoreRecord } from "../modules/auth/setup.service";
+import { useStores } from "../modules/settings";
 import { useAuthStore } from "../store/authStore";
 import { NavBar } from "./NavBar";
 
@@ -40,6 +40,14 @@ vi.mock("../modules/auth/setup.service", async (importOriginal) => {
   return {
     ...actual,
     activateStore: vi.fn().mockImplementation(() => Promise.resolve()),
+  };
+});
+
+vi.mock("../modules/settings", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../modules/settings")>();
+  return {
+    ...actual,
+    useStores: vi.fn().mockReturnValue({ data: [], isLoading: false }),
   };
 });
 
@@ -102,8 +110,7 @@ beforeEach(() => {
   });
   useAuthStore.getState().clearAuth();
   vi.clearAllMocks();
-  // Reset useStores mock to empty list by default
-  vi.mocked(useStoresModule.useStores).mockReturnValue({
+  vi.mocked(useStores).mockReturnValue({
     data: [],
     isLoading: false,
   });
@@ -191,7 +198,7 @@ describe("NavBar", () => {
     act(() => {
       useAuthStore.getState().setActiveStoreId(store1.store_id);
     });
-    vi.mocked(useStoresModule.useStores).mockReturnValue({
+    vi.mocked(useStores).mockReturnValue({
       data: [store1, store2],
       isLoading: false,
     });
@@ -210,7 +217,7 @@ describe("NavBar", () => {
     act(() => {
       useAuthStore.getState().setActiveStoreId(store1.store_id);
     });
-    vi.mocked(useStoresModule.useStores).mockReturnValue({
+    vi.mocked(useStores).mockReturnValue({
       data: [store1, store2],
       isLoading: false,
     });

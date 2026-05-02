@@ -10,6 +10,7 @@
  * service itself does not restrict by ownership — it trusts the caller.
  */
 
+import { useLiveQuery } from "dexie-react-hooks";
 import {
   getMembersForStore,
   getRepos,
@@ -73,6 +74,19 @@ export async function listStores(): Promise<StoreRecord[]> {
   return rows
     .filter((r) => r.store_id && r.master_spreadsheet_id)
     .map(toStoreRecord);
+}
+
+export function useStores() {
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const result = useLiveQuery(
+    () => (activeStoreId ? listStores() : Promise.resolve([] as StoreRecord[])),
+    [activeStoreId],
+  );
+  return {
+    data: result ?? ([] as StoreRecord[]),
+    isLoading: result === undefined,
+    error: null,
+  };
 }
 
 /**

@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, redirect } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { PageLayout } from "./components/PageLayout";
 import JoinPage from "./modules/auth/JoinPage";
@@ -27,14 +27,16 @@ import NotFoundPage from "./pages/NotFoundPage";
 import OutboxPage from "./pages/OutboxPage";
 import StoreManagementPage from "./pages/StoreManagementPage";
 
+const catalogIndexLoader = () => redirect("products");
+const inventoryIndexLoader = () => redirect("stock-opname");
+const reportsIndexLoader = () => redirect("daily-summary");
+const settingsIndexLoader = () => redirect("business-profile");
+
 export const router = createBrowserRouter(
   [
-    // Public routes (no nav bar)
     { path: "/", element: <LandingPage /> },
     { path: "/login", element: <LoginPage /> },
     { path: "/join", element: <JoinPage /> },
-
-    // Setup wizard — authenticated but no persistent nav (onboarding flow)
     {
       path: "/setup",
       element: (
@@ -43,8 +45,6 @@ export const router = createBrowserRouter(
         </ProtectedRoute>
       ),
     },
-
-    // Store picker — authenticated, resolves the active store after every login
     {
       path: "/stores",
       element: (
@@ -53,8 +53,6 @@ export const router = createBrowserRouter(
         </ProtectedRoute>
       ),
     },
-
-    // Protected routes — scoped to a specific store via /:storeId in the URL.
     {
       path: "/:storeId",
       element: (
@@ -63,24 +61,14 @@ export const router = createBrowserRouter(
         </ProtectedRoute>
       ),
       children: [
-        // Index — redirect bare /:storeId to the cashier screen
         { index: true, element: <Navigate to="cashier" replace /> },
-
-        // Cashier — all authenticated roles, no PageLayout (full-bleed)
         { path: "cashier", element: <CashierPage /> },
-
-        // All remaining pages use PageLayout for consistent padding/max-width
         {
           element: <PageLayout />,
           children: [
-            // ── Catalog ──────────────────────────────────────────────────────
             {
               path: "catalog",
-              element: (
-                <RoleRoute minRole="manager">
-                  <Navigate to="products" replace />
-                </RoleRoute>
-              ),
+              loader: catalogIndexLoader,
             },
             {
               path: "catalog/products",
@@ -106,15 +94,9 @@ export const router = createBrowserRouter(
                 </RoleRoute>
               ),
             },
-
-            // ── Inventory ────────────────────────────────────────────────────
             {
               path: "inventory",
-              element: (
-                <RoleRoute minRole="manager">
-                  <Navigate to="stock-opname" replace />
-                </RoleRoute>
-              ),
+              loader: inventoryIndexLoader,
             },
             {
               path: "inventory/stock-opname",
@@ -132,8 +114,6 @@ export const router = createBrowserRouter(
                 </RoleRoute>
               ),
             },
-
-            // ── Customers ────────────────────────────────────────────────────
             {
               path: "customers",
               element: (
@@ -150,15 +130,9 @@ export const router = createBrowserRouter(
                 </RoleRoute>
               ),
             },
-
-            // ── Reports ──────────────────────────────────────────────────────
             {
               path: "reports",
-              element: (
-                <RoleRoute minRole="manager">
-                  <Navigate to="daily-summary" replace />
-                </RoleRoute>
-              ),
+              loader: reportsIndexLoader,
             },
             {
               path: "reports/daily-summary",
@@ -192,15 +166,9 @@ export const router = createBrowserRouter(
                 </RoleRoute>
               ),
             },
-
-            // ── Settings ─────────────────────────────────────────────────────
             {
               path: "settings",
-              element: (
-                <RoleRoute minRole="owner">
-                  <Navigate to="business-profile" replace />
-                </RoleRoute>
-              ),
+              loader: settingsIndexLoader,
             },
             {
               path: "settings/business-profile",
@@ -246,7 +214,6 @@ export const router = createBrowserRouter(
         },
       ],
     },
-
     { path: "*", element: <NotFoundPage /> },
   ],
   { basename: "/pos-umkm" },

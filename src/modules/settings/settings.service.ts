@@ -10,10 +10,12 @@
  * static merchant QR code without any backend integration.
  */
 
+import { useLiveQuery } from "dexie-react-hooks";
 import { getRepos } from "../../lib/adapters";
 import type { Setting } from "../../lib/adapters/zod-schemas";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
+import { useAuthStore } from "../../store/authStore";
 
 export interface BusinessSettings {
   business_name: string;
@@ -109,4 +111,37 @@ export async function saveSettings(
 /** Saves a single setting key-value pair. */
 export async function saveSetting(key: string, value: string): Promise<void> {
   return saveSettings({ [key]: value } as Partial<BusinessSettings>);
+}
+
+const DEFAULT_SETTINGS: BusinessSettings = {
+  business_name: "POS UMKM",
+  tax_rate: 11,
+  receipt_footer: "Terima kasih sudah berbelanja!",
+  qris_image_url: "",
+};
+
+export function useSettings() {
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const result = useLiveQuery(
+    () => (activeStoreId ? getSettings() : Promise.resolve(DEFAULT_SETTINGS)),
+    [activeStoreId],
+  );
+  return {
+    data: result ?? undefined,
+    isLoading: result === undefined,
+    error: null,
+  };
+}
+
+export function useQRISImage() {
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const result = useLiveQuery(
+    () => (activeStoreId ? getQRISImageUrl() : Promise.resolve("")),
+    [activeStoreId],
+  );
+  return {
+    data: result ?? "",
+    isLoading: result === undefined,
+    error: null,
+  };
 }

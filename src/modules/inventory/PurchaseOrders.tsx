@@ -29,11 +29,11 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { useProducts } from "../../hooks/useProducts";
-import { usePurchaseOrders } from "../../hooks/usePurchaseOrders";
 import { formatDateTimeTZ, formatIDR } from "../../lib/formatters";
 import { logger } from "../../lib/logger";
 import { generateId } from "../../lib/uuid";
+import { useProducts } from "../../modules/catalog";
+import { usePurchaseOrders } from "../../modules/inventory";
 import {
   createPurchaseOrder,
   fetchPurchaseOrderItems,
@@ -44,11 +44,7 @@ import {
 } from "./inventory.service";
 
 export function PurchaseOrders() {
-  const {
-    data: orders = [],
-    isLoading,
-    error: fetchError,
-  } = usePurchaseOrders();
+  const { data: orders = [], isLoading } = usePurchaseOrders();
   const { data: products = [] } = useProducts();
 
   // New order form state
@@ -147,8 +143,6 @@ export function PurchaseOrders() {
     }
   }
 
-  const errorMsg = fetchError instanceof Error ? fetchError.message : null;
-
   if (isLoading) {
     return (
       <p data-testid="po-loading" className="text-sm text-gray-500">
@@ -167,13 +161,6 @@ export function PurchaseOrders() {
         </Button>
       </div>
 
-      {errorMsg && (
-        <Alert variant="destructive" className="mb-3" data-testid="po-error">
-          <AlertDescription>{errorMsg}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* ── New PO Form ────────────────────────────────────────────────── */}
       {showForm && (
         <div
           data-testid="po-form"

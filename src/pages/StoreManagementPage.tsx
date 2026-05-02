@@ -32,10 +32,10 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { useStores } from "../hooks/useStores";
 import { syncManager } from "../lib/adapters";
 import type { StoreRecord } from "../modules/auth/setup.service";
 import { activateStore } from "../modules/auth/setup.service";
+import { useStores } from "../modules/settings";
 import {
   createStore,
   listStores,

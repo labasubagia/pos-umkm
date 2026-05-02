@@ -16,6 +16,8 @@ export {
   InventoryError,
   receivePurchaseOrder,
   saveOpnameResults,
+  usePurchaseOrders,
+  useStockOpname,
 } from "./inventory.service";
 export { PurchaseOrders } from "./PurchaseOrders";
 export { StockOpname } from "./StockOpname";

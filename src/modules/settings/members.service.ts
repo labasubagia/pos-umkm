@@ -15,6 +15,7 @@
  * but the invite logic touches the Users sheet (master data).
  */
 
+import { useLiveQuery } from "dexie-react-hooks";
 import { driveClient, getRepos } from "../../lib/adapters";
 import type { Member } from "../../lib/adapters/zod-schemas";
 
@@ -24,6 +25,7 @@ import type { Role } from "../../lib/adapters/types";
 import { nowUTC } from "../../lib/formatters";
 import { generateId } from "../../lib/uuid";
 import { validateEmail } from "../../lib/validators";
+import { useAuthStore } from "../../store/authStore";
 
 const VALID_ROLES: Role[] = ["owner", "manager", "cashier"];
 
@@ -108,6 +110,19 @@ export async function revokeMember(userId: string): Promise<void> {
 export async function listMembers(): Promise<Member[]> {
   const rows = await getRepos().members.getAll();
   return rows.filter((r) => !r.deleted_at && r.email);
+}
+
+export function useMembers() {
+  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const result = useLiveQuery(
+    () => (activeStoreId ? listMembers() : Promise.resolve([] as Member[])),
+    [activeStoreId],
+  );
+  return {
+    data: result ?? ([] as Member[]),
+    isLoading: result === undefined,
+    error: null,
+  };
 }
 
 /**

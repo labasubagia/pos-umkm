@@ -6,8 +6,7 @@
  */
 import { Trash2 } from "lucide-react";
 import { Button } from "../../components/ui/button";
-import { useProducts } from "../../hooks/useProducts";
-import { useVariants } from "../../hooks/useVariants";
+import { useProducts, useVariants } from "../../modules/catalog";
 import { calculateSubtotal } from "./cashier.service";
 import { useCartStore } from "./useCart";
 
