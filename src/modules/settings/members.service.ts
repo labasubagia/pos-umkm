@@ -16,7 +16,7 @@
  */
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { driveClient, getRepos } from "../../lib/adapters";
+import { getRepos, storeFolderService } from "../../lib/adapters";
 import type { Member } from "../../lib/adapters/zod-schemas";
 
 export type { Member };
@@ -66,7 +66,11 @@ export async function inviteMember(
   }
 
   try {
-    await driveClient.shareSpreadsheet(masterSpreadsheetId, email, "editor");
+    await storeFolderService.shareSpreadsheet(
+      masterSpreadsheetId,
+      email,
+      "editor",
+    );
   } catch (err) {
     throw new MemberError(
       `inviteMember: Drive API share failed — ${String(err)}`,

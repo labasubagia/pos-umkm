@@ -13,7 +13,8 @@ import { AdapterError } from "../../types";
 import { SheetsApiError } from "./sheets.types";
 
 const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
-const STALE_TIME = 10 * 60 * 1000; // 10 minutes
+const SHEETS_API = "https://sheets.googleapis.com/v4";
+const STALE_TIME = 60 * 60 * 1000; // 60 minutes
 
 function authHeader(token: string): Record<string, string> {
   if (!token)
@@ -301,4 +302,57 @@ export async function batchUpdate(
       throw new AdapterError(`batchUpdate failed: ${err.message}`, err);
     throw err;
   }
+}
+
+export async function getSpreadsheetMeta(
+  spreadsheetId: string,
+  token: string,
+): Promise<
+  Record<string, { sheetId: number; spreadsheetId: string; headers: string[] }>
+> {
+  return queryClient.fetchQuery({
+    queryKey: ["spreadsheet-meta", spreadsheetId],
+    queryFn: async () => {
+      const url = `${SHEETS_API}/spreadsheets/${spreadsheetId}?fields=sheets(properties(sheetId,title),data(rowData(values(formattedValue))))`;
+      const res = await fetch(url, { headers: authHeader(token) });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new SheetsApiError(
+          res.status,
+          `Sheets API error ${res.status}: ${body}`,
+        );
+      }
+      const data = (await res.json()) as {
+        sheets: Array<{
+          properties: { sheetId: number; title: string };
+          data: Array<{
+            rowData: Array<{
+              values: Array<{ formattedValue: string | null }>;
+            }>;
+          }>;
+        }>;
+      };
+
+      const result: Record<
+        string,
+        { sheetId: number; spreadsheetId: string; headers: string[] }
+      > = {};
+
+      for (const sheet of data.sheets ?? []) {
+        const headers: string[] = [];
+        const gridData = sheet.data?.[0];
+        const row = gridData?.rowData?.[0];
+        for (const v of row?.values ?? []) {
+          if (v.formattedValue) headers.push(v.formattedValue);
+        }
+        result[sheet.properties.title] = {
+          sheetId: sheet.properties.sheetId,
+          spreadsheetId,
+          headers,
+        };
+      }
+      return result;
+    },
+    staleTime: STALE_TIME,
+  });
 }

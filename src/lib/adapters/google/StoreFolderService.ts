@@ -23,16 +23,18 @@
 
 import pLimit from "p-limit";
 import { useAuthStore } from "@/store";
-import { queryClient } from "../../queryClient";
-
-const DRIVE_API = "https://www.googleapis.com/drive/v3";
-const SHEETS_API = "https://sheets.googleapis.com/v4";
-
-const MIME_FOLDER = "application/vnd.google-apps.folder";
-const MIME_SPREADSHEET = "application/vnd.google-apps.spreadsheet";
+import {
+  createSpreadsheet,
+  type DriveNode,
+  ensureFolder,
+  getFolderContent,
+  MIME_FOLDER,
+  MIME_SPREADSHEET,
+  shareSpreadsheet,
+} from "./drive/drive.client";
+import { getSpreadsheetMeta } from "./sheets/sheets.ops";
 
 const DEFAULT_CONCURRENCY = 5;
-const STALE_TIME = 60 * 60 * 1000; // 60 minutes
 
 const getToken = () => {
   const tokenFromStore = useAuthStore.getState().accessToken;
@@ -59,22 +61,35 @@ export interface TraverseResult {
   monthlySheets: MonthlySheetMeta[];
 }
 
-interface DriveNode {
-  id: string;
-  name: string;
-  mimeType: string;
-  sheet?: Record<
-    string,
-    { sheetId: number; spreadsheetId: string; headers: string[] }
-  >;
-  children?: DriveNode[];
-}
-
 export class StoreFolderService {
   private readonly limit: ReturnType<typeof pLimit>;
 
   constructor(concurrency = DEFAULT_CONCURRENCY) {
     this.limit = pLimit(concurrency);
+  }
+
+  getSpreadsheetId(key: string): string | null {
+    return localStorage.getItem(key);
+  }
+
+  createSpreadsheet(
+    name: string,
+    parentFolderId?: string,
+    tabs?: string[],
+  ): Promise<string> {
+    return createSpreadsheet(name, getToken(), parentFolderId, tabs);
+  }
+
+  ensureFolder(path: string[]): Promise<string | null> {
+    return ensureFolder(path, getToken());
+  }
+
+  shareSpreadsheet(
+    spreadsheetId: string,
+    email: string,
+    role: "editor" | "viewer",
+  ): Promise<void> {
+    return shareSpreadsheet(spreadsheetId, email, role, getToken());
   }
 
   /**
@@ -89,28 +104,9 @@ export class StoreFolderService {
 
   // ─── Drive API ──────────────────────────────────────────────────────────────
 
-  private async getFolderContent(folderId: string): Promise<DriveNode[]> {
-    return queryClient.fetchQuery({
-      queryKey: ["folder-content", folderId],
-      queryFn: async (): Promise<DriveNode[]> => {
-        const token = getToken();
-        const q = `'${folderId}' in parents and trashed = false and (mimeType = '${MIME_SPREADSHEET}' or mimeType = '${MIME_FOLDER}')`;
-        const url = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType)&corpora=user`;
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) {
-          throw new Error(`Drive API ${res.status} for folder ${folderId}`);
-        }
-        const data = await res.json();
-        return (data.files ?? []) as DriveNode[];
-      },
-      staleTime: STALE_TIME,
-    });
-  }
-
   private async traverseRecursive(folderId: string): Promise<DriveNode[]> {
-    const items = await this.getFolderContent(folderId);
+    const token = getToken();
+    const items = await getFolderContent(folderId, token);
 
     return Promise.all(
       items.map((item) =>
@@ -118,64 +114,12 @@ export class StoreFolderService {
           if (item.mimeType === MIME_FOLDER) {
             item.children = await this.traverseRecursive(item.id);
           } else if (item.mimeType === MIME_SPREADSHEET) {
-            item.sheet = await this.getSpreadsheetMeta(item.id);
+            item.sheet = await getSpreadsheetMeta(item.id, token);
           }
           return item;
         }),
       ),
     );
-  }
-
-  private async getSpreadsheetMeta(
-    spreadsheetId: string,
-  ): Promise<
-    Record<
-      string,
-      { sheetId: number; spreadsheetId: string; headers: string[] }
-    >
-  > {
-    return queryClient.fetchQuery({
-      queryKey: ["spreadsheet-meta", spreadsheetId],
-      queryFn: async () => {
-        const token = getToken();
-
-        const url = `${SHEETS_API}/spreadsheets/${spreadsheetId}?fields=sheets(properties(sheetId,title),data(rowData(values(formattedValue))))`;
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) {
-          throw new Error(
-            `Sheets API ${res.status} for ${spreadsheetId} detail`,
-          );
-        }
-        const data = await res.json();
-
-        const result: Record<
-          string,
-          { sheetId: number; spreadsheetId: string; headers: string[] }
-        > = {};
-        for (const sheet of data.sheets ?? []) {
-          const props = sheet.properties;
-          const headers: string[] = [];
-          for (const gridData of sheet.data ?? []) {
-            for (const row of gridData.rowData ?? []) {
-              for (const v of row.values ?? []) {
-                headers.push(v.formattedValue ?? "");
-              }
-              break;
-            }
-            break;
-          }
-          result[props.title] = {
-            sheetId: props.sheetId,
-            spreadsheetId,
-            headers: headers.filter(Boolean),
-          };
-        }
-        return result;
-      },
-      staleTime: STALE_TIME,
-    });
   }
 
   // ─── Flatten ────────────────────────────────────────────────────────────────

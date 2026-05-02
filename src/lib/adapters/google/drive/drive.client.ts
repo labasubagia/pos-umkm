@@ -10,7 +10,21 @@ import { queryClient } from "../../../queryClient";
 import { AdapterError } from "../../types";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
-const STALE_TIME = 24 * 60 * 60 * 1000; // 24 hours
+const STALE_TIME = 60 * 60 * 1000; // 60 minutes
+
+export const MIME_FOLDER = "application/vnd.google-apps.folder";
+export const MIME_SPREADSHEET = "application/vnd.google-apps.spreadsheet";
+
+export interface DriveNode {
+  id: string;
+  name: string;
+  mimeType: string;
+  sheet?: Record<
+    string,
+    { sheetId: number; spreadsheetId: string; headers: string[] }
+  >;
+  children?: DriveNode[];
+}
 
 /**
  * Creates a new Google Spreadsheet via the Sheets API (not Drive API) so
@@ -188,4 +202,26 @@ async function ensureDriveFolderUnder(
   }
   const createData = await createRes.json();
   return createData.id as string;
+}
+
+export async function getFolderContent(
+  folderId: string,
+  token: string,
+): Promise<DriveNode[]> {
+  return queryClient.fetchQuery({
+    queryKey: ["folder-content", folderId],
+    queryFn: async (): Promise<DriveNode[]> => {
+      const q = `'${folderId}' in parents and trashed = false and (mimeType = '${MIME_SPREADSHEET}' or mimeType = '${MIME_FOLDER}')`;
+      const url = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType)&corpora=user`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        throw new Error(`Drive API ${res.status} for folder ${folderId}`);
+      }
+      const data = await res.json();
+      return (data.files ?? []) as DriveNode[];
+    },
+    staleTime: STALE_TIME,
+  });
 }

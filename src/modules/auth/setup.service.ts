@@ -11,12 +11,7 @@
  * No more individual spreadsheet ID management in localStorage.
  */
 
-import {
-  driveClient,
-  getRepos,
-  makeRepo,
-  storeFolderService,
-} from "../../lib/adapters";
+import { getRepos, makeRepo, storeFolderService } from "../../lib/adapters";
 import { nowUTC } from "../../lib/formatters";
 import { logger } from "../../lib/logger";
 import {
@@ -129,11 +124,13 @@ export function clearSetupStorage(): void {
 export async function createMainSpreadsheet(ownerEmail = ""): Promise<string> {
   try {
     let parentFolderId: string | undefined;
-    const fid = await driveClient.ensureFolder(["apps", "pos_umkm"]);
+    const fid = await storeFolderService.ensureFolder(["apps", "pos_umkm"]);
     if (fid) parentFolderId = fid;
-    const mainId = await driveClient.createSpreadsheet("main", parentFolderId, [
-      ...MAIN_TABS,
-    ]);
+    const mainId = await storeFolderService.createSpreadsheet(
+      "main",
+      parentFolderId,
+      [...MAIN_TABS],
+    );
     await makeRepo(mainId, "Stores")._createTable(
       MAIN_TAB_HEADERS.Stores ?? [],
     );
@@ -384,7 +381,7 @@ async function createMonthlySheetForStore(
   }
 
   // Create the year folder and spreadsheet
-  const yearFolderId = await driveClient.ensureFolder([
+  const yearFolderId = await storeFolderService.ensureFolder([
     "apps",
     "pos_umkm",
     "stores",
@@ -393,7 +390,7 @@ async function createMonthlySheetForStore(
     String(year),
   ]);
 
-  const id = await driveClient.createSpreadsheet(
+  const id = await storeFolderService.createSpreadsheet(
     name,
     yearFolderId ?? undefined,
     [...MONTHLY_TABS],
@@ -436,7 +433,7 @@ export async function createMasterSpreadsheet(
 
     // ── 1. Create store folder ────────────────────────────────────────────────
     let storeFolderId: string | undefined;
-    const fid = await driveClient.ensureFolder([
+    const fid = await storeFolderService.ensureFolder([
       "apps",
       "pos_umkm",
       "stores",
@@ -445,7 +442,7 @@ export async function createMasterSpreadsheet(
     if (fid) storeFolderId = fid;
 
     // ── 2. Create master spreadsheet ──────────────────────────────────────────
-    const masterId = await driveClient.createSpreadsheet(
+    const masterId = await storeFolderService.createSpreadsheet(
       "master",
       storeFolderId,
       [...MASTER_TABS],
@@ -547,7 +544,7 @@ export async function runStoreSetup(
   const yearMonth = `${year}-${mm(month)}`;
   const name = `transaction_${yearMonth}`;
 
-  const yearFolderId = await driveClient.ensureFolder([
+  const yearFolderId = await storeFolderService.ensureFolder([
     "apps",
     "pos_umkm",
     "stores",
@@ -555,7 +552,7 @@ export async function runStoreSetup(
     "transactions",
     String(year),
   ]);
-  const monthlyId = await driveClient.createSpreadsheet(
+  const monthlyId = await storeFolderService.createSpreadsheet(
     name,
     yearFolderId ?? undefined,
     [...MONTHLY_TABS],
@@ -633,7 +630,7 @@ export async function shareSheetWithAllMembers(
   );
   await Promise.all(
     activeMembers.map((u) =>
-      driveClient.shareSpreadsheet(
+      storeFolderService.shareSpreadsheet(
         spreadsheetId,
         (u as Record<string, unknown>).email as string,
         "editor",

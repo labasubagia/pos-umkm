@@ -1,7 +1,7 @@
 /**
  * T015 + T016 — setup.service unit tests
  *
- * Uses spies on adapters (getRepos, makeRepo, driveClient, storeFolderService)
+ * Uses spies on adapters (getRepos, makeRepo, storeFolderService)
  * so no Drive/Sheets API calls are made.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -123,11 +123,13 @@ beforeEach(() => {
     sharedMakeRepo as ReturnType<typeof adapters.makeRepo>,
   );
 
-  vi.spyOn(adapters.driveClient, "createSpreadsheet").mockResolvedValue(
+  vi.spyOn(adapters.storeFolderService, "createSpreadsheet").mockResolvedValue(
     "new-sheet-id",
   );
-  vi.spyOn(adapters.driveClient, "ensureFolder").mockResolvedValue("folder-id");
-  vi.spyOn(adapters.driveClient, "shareSpreadsheet").mockResolvedValue(
+  vi.spyOn(adapters.storeFolderService, "ensureFolder").mockResolvedValue(
+    "folder-id",
+  );
+  vi.spyOn(adapters.storeFolderService, "shareSpreadsheet").mockResolvedValue(
     undefined,
   );
 
@@ -184,11 +186,11 @@ describe("createMainSpreadsheet", () => {
   it("creates a spreadsheet named 'main' in apps/pos_umkm folder", async () => {
     await createMainSpreadsheet("owner@test.com");
 
-    expect(adapters.driveClient.ensureFolder).toHaveBeenCalledWith([
+    expect(adapters.storeFolderService.ensureFolder).toHaveBeenCalledWith([
       "apps",
       "pos_umkm",
     ]);
-    expect(adapters.driveClient.createSpreadsheet).toHaveBeenCalledWith(
+    expect(adapters.storeFolderService.createSpreadsheet).toHaveBeenCalledWith(
       "main",
       "folder-id",
       [...MAIN_TABS],
@@ -278,7 +280,7 @@ describe("findOrCreateMain", () => {
   it("creates main spreadsheet when not cached", async () => {
     const result = await findOrCreateMain("owner@test.com");
     expect(result.mainSpreadsheetId).toBe("new-sheet-id");
-    expect(adapters.driveClient.createSpreadsheet).toHaveBeenCalledWith(
+    expect(adapters.storeFolderService.createSpreadsheet).toHaveBeenCalledWith(
       "main",
       expect.anything(),
       expect.anything(),
@@ -292,7 +294,9 @@ describe("findOrCreateMain", () => {
     const result = await findOrCreateMain();
     expect(result.mainSpreadsheetId).toBe("cached-main");
     // Should NOT call createSpreadsheet for main
-    expect(adapters.driveClient.createSpreadsheet).not.toHaveBeenCalled();
+    expect(
+      adapters.storeFolderService.createSpreadsheet,
+    ).not.toHaveBeenCalled();
   });
 
   it("returns the store list from main.Stores", async () => {
@@ -316,13 +320,13 @@ describe("createMasterSpreadsheet", () => {
       "main-id",
     );
 
-    expect(adapters.driveClient.ensureFolder).toHaveBeenCalledWith([
+    expect(adapters.storeFolderService.ensureFolder).toHaveBeenCalledWith([
       "apps",
       "pos_umkm",
       "stores",
       expect.any(String),
     ]);
-    expect(adapters.driveClient.createSpreadsheet).toHaveBeenCalledWith(
+    expect(adapters.storeFolderService.createSpreadsheet).toHaveBeenCalledWith(
       "master",
       "folder-id",
       [...MASTER_TABS],
@@ -512,13 +516,15 @@ describe("shareSheetWithAllMembers", () => {
 
     await shareSheetWithAllMembers("sheet-id");
 
-    expect(adapters.driveClient.shareSpreadsheet).toHaveBeenCalledTimes(2);
-    expect(adapters.driveClient.shareSpreadsheet).toHaveBeenCalledWith(
+    expect(adapters.storeFolderService.shareSpreadsheet).toHaveBeenCalledTimes(
+      2,
+    );
+    expect(adapters.storeFolderService.shareSpreadsheet).toHaveBeenCalledWith(
       "sheet-id",
       "a@test.com",
       "editor",
     );
-    expect(adapters.driveClient.shareSpreadsheet).toHaveBeenCalledWith(
+    expect(adapters.storeFolderService.shareSpreadsheet).toHaveBeenCalledWith(
       "sheet-id",
       "b@test.com",
       "editor",
@@ -531,7 +537,7 @@ describe("shareSheetWithAllMembers", () => {
 describe("runFirstTimeSetup", () => {
   it("creates main, master, and monthly spreadsheets", async () => {
     const createSpy = vi
-      .spyOn(adapters.driveClient, "createSpreadsheet")
+      .spyOn(adapters.storeFolderService, "createSpreadsheet")
       .mockResolvedValueOnce("main-id")
       .mockResolvedValueOnce("master-id")
       .mockResolvedValueOnce("monthly-id")
@@ -560,7 +566,7 @@ describe("runFirstTimeSetup", () => {
   });
 
   it("returns storeId and driveFolderId", async () => {
-    vi.spyOn(adapters.driveClient, "createSpreadsheet")
+    vi.spyOn(adapters.storeFolderService, "createSpreadsheet")
       .mockResolvedValueOnce("main-id")
       .mockResolvedValueOnce("master-id")
       .mockResolvedValueOnce("monthly-id")
@@ -572,7 +578,7 @@ describe("runFirstTimeSetup", () => {
   });
 
   it("saves mainSpreadsheetId to localStorage", async () => {
-    vi.spyOn(adapters.driveClient, "createSpreadsheet")
+    vi.spyOn(adapters.storeFolderService, "createSpreadsheet")
       .mockResolvedValueOnce("main-id")
       .mockResolvedValueOnce("master-id")
       .mockResolvedValueOnce("monthly-id")

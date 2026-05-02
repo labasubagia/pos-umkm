@@ -50,7 +50,7 @@ beforeEach(() => {
   vi.spyOn(adapters, "getRepos").mockReturnValue(
     mockRepos as ReturnType<typeof adapters.getRepos>,
   );
-  vi.spyOn(adapters.driveClient, "shareSpreadsheet").mockResolvedValue(
+  vi.spyOn(adapters.storeFolderService, "shareSpreadsheet").mockResolvedValue(
     undefined,
   );
 });
@@ -72,7 +72,7 @@ describe("inviteMember", () => {
   it("calls Drive API share with editor permission", async () => {
     await inviteMember("bob@test.com", "manager", "sid-001");
 
-    expect(adapters.driveClient.shareSpreadsheet).toHaveBeenCalledWith(
+    expect(adapters.storeFolderService.shareSpreadsheet).toHaveBeenCalledWith(
       "sid-001",
       "bob@test.com",
       "editor",
@@ -93,7 +93,7 @@ describe("inviteMember", () => {
   });
 
   it("throws on Drive API error", async () => {
-    vi.spyOn(adapters.driveClient, "shareSpreadsheet").mockRejectedValue(
+    vi.spyOn(adapters.storeFolderService, "shareSpreadsheet").mockRejectedValue(
       new Error("quota"),
     );
     await expect(
