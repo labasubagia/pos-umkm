@@ -5,6 +5,7 @@ import { RouterProvider } from "react-router-dom";
 import "./index.css";
 import "./lib/i18n";
 import { AuthInitializer } from "./components/AuthInitializer";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { queryClient } from "./lib/queryClient";
 import { router } from "./router";
 
@@ -24,11 +25,13 @@ async function prepare(): Promise<void> {
 prepare().then(() => {
   createRoot(rootEl).render(
     <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <AuthInitializer>
-          <RouterProvider router={router} />
-        </AuthInitializer>
-      </QueryClientProvider>
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <AuthInitializer>
+            <RouterProvider router={router} />
+          </AuthInitializer>
+        </QueryClientProvider>
+      </ErrorBoundary>
     </StrictMode>,
   );
 });

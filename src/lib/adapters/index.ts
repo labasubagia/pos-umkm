@@ -1,7 +1,28 @@
 /**
  * Adapter layer — always uses the Dexie offline-first adapter (Google Sheets backend).
  *
- * Exports:
+ * ===
+ * DB NAMING CONVENTIONS
+ * ===
+ *
+ * Dexie uses three distinct database names:
+ *
+ * - "__init__"  — fallback DB used before any store is activated
+ *                (e.g. during setup wizard, before user selects a store)
+ *
+ * - "__main__"  — cross-store DB containing tables shared across all stores
+ *                (only "Stores" table lives here)
+ *
+ * - "{storeId}" — per-store DB named by the store's unique ID
+ *                (all other tables: Products, Categories, Transactions, etc.)
+ *
+ * NEVER pass a store ID to getDb() for "Stores" queries — use "__main__".
+ * NEVER use "__init__" for active store operations after login completes.
+ *
+ * ===
+ * EXPORTS
+ * ===
+ *
  *   getRepos()         — typed per-sheet repositories resolving IDs from the store map.
  *   driveClient        — Drive/spreadsheet management (createSpreadsheet, ensureFolder, shareSpreadsheet).
  *   makeRepo()         — one-off raw SheetRepository for setup code (writes headers directly to Sheets).
