@@ -104,6 +104,28 @@ export const sheetsHandlers = [
     () => HttpResponse.json({ totalUpdatedRows: 1, responses: [] }),
   ),
 
+  // ── Read: spreadsheet metadata ─────────────────────────────────────────────
+  // Returns sheet info so StoreFolderService can map sheet names to spreadsheet IDs
+  http.get(new RegExp(`${SHEETS_BASE.replace(/\./g, "\\.")}/[^/]+$`), () => {
+    // Return a mock sheet list for any spreadsheet ID
+    const mockSheets = [
+      { properties: { sheetId: 1, title: "Stores" } },
+      { properties: { sheetId: 2, title: "Settings" } },
+      { properties: { sheetId: 3, title: "Members" } },
+      { properties: { sheetId: 4, title: "Categories" } },
+      { properties: { sheetId: 5, title: "Products" } },
+      { properties: { sheetId: 6, title: "Variants" } },
+      { properties: { sheetId: 7, title: "Customers" } },
+      { properties: { sheetId: 8, title: "Purchase_Orders" } },
+      { properties: { sheetId: 9, title: "Purchase_Order_Items" } },
+      { properties: { sheetId: 10, title: "Stock_Log" } },
+      { properties: { sheetId: 11, title: "Audit_Log" } },
+      { properties: { sheetId: 12, title: "Monthly_Sheets" } },
+    ];
+
+    return HttpResponse.json({ sheets: mockSheets });
+  }),
+
   // ── Write: PUT (writeHeaders) ─────────────────────────────────────────────
   http.put(
     new RegExp(`${SHEETS_BASE.replace(/\./g, "\\.")}/[^/]+/values/[^?/]+`),
