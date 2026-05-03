@@ -219,19 +219,16 @@ export async function ensureMonthlySheetExists(): Promise<string> {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
-  const yearMonth = `${year}-${month}`;
 
   const storeMap = getCurrentStoreMapStore().getState();
-  const monthlyEntry = storeMap.monthlySheets.find(
-    (m) => m.yearMonth === `transaction_${yearMonth}`,
-  );
+  const monthlyEntry = storeMap.monthlySheets[year]?.[month];
   if (monthlyEntry?.sheets.Transactions) {
     return monthlyEntry.sheets.Transactions.spreadsheet_id;
   }
 
   throw new Error(
-    `Monthly sheet for ${yearMonth} not found in store map. ` +
-      `Expected "transaction_${yearMonth}" to exist. Try re-activating the store.`,
+    `Monthly sheet for ${year}-${month} not found in store map. ` +
+      `Expected "transaction_${year}-${month}" to exist. Try re-activating the store.`,
   );
 }
 

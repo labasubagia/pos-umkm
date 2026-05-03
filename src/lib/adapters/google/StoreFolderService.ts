@@ -54,13 +54,19 @@ export interface SheetMeta {
 }
 
 export interface MonthlySheetMeta {
-  yearMonth: string;
+  year: number;
+  month: string;
   sheets: Record<string, SheetMeta>;
 }
 
+export type MonthlySheetsByYear = Record<
+  number,
+  Record<string, MonthlySheetMeta>
+>;
+
 export interface TraverseResult {
   sheets: Record<string, SheetMeta>;
-  monthlySheets: MonthlySheetMeta[];
+  monthlySheets: MonthlySheetsByYear;
 }
 
 export class StoreFolderService {
@@ -158,7 +164,7 @@ export class StoreFolderService {
 
   private flattenToMap(nodes: DriveNode[]): TraverseResult {
     const sheets: Record<string, SheetMeta> = {};
-    const monthlySheets: MonthlySheetMeta[] = [];
+    const monthlySheets: MonthlySheetsByYear = {};
 
     const walk = (items: DriveNode[], path: string) => {
       for (const item of items) {
@@ -168,12 +174,23 @@ export class StoreFolderService {
           );
 
           if (monthMatch) {
-            const monthlyEntry: MonthlySheetMeta = {
-              yearMonth: `${monthMatch[1]}_${monthMatch[2]}`,
-              sheets: {},
-            };
+            const yearMonth = monthMatch[2];
+            const yearNum = parseInt(yearMonth.split("-")[0], 10);
+            const month = yearMonth.split("-")[1];
+
+            if (!monthlySheets[yearNum]) {
+              monthlySheets[yearNum] = {};
+            }
+            if (!monthlySheets[yearNum][month]) {
+              monthlySheets[yearNum][month] = {
+                year: yearNum,
+                month,
+                sheets: {},
+              };
+            }
+
             for (const [sheetName, meta] of Object.entries(item.sheet)) {
-              monthlyEntry.sheets[sheetName] = {
+              monthlySheets[yearNum][month].sheets[sheetName] = {
                 spreadsheet_id: meta.spreadsheetId,
                 spreadsheet_name: item.name,
                 folder_path: path,
@@ -182,7 +199,6 @@ export class StoreFolderService {
                 headers: meta.headers,
               };
             }
-            monthlySheets.push(monthlyEntry);
           } else {
             for (const [sheetName, meta] of Object.entries(item.sheet)) {
               sheets[sheetName] = {

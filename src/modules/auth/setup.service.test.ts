@@ -156,27 +156,30 @@ beforeEach(() => {
         headers: ["id", "key", "value"],
       },
     },
-    monthlySheets: [
-      {
-        yearMonth: "2026-04",
-        sheets: {
-          Transactions: {
-            spreadsheet_id: "monthly-id",
-            spreadsheet_name: "transaction_2026-04",
-            folder_path: "transactions/2026",
-            sheet_name: "Transactions",
-            sheet_id: 3,
-            headers: ["id", "created_at"],
+    monthlySheets: {
+      2026: {
+        "04": {
+          year: 2026,
+          month: "04",
+          sheets: {
+            Transactions: {
+              spreadsheet_id: "monthly-id",
+              spreadsheet_name: "transaction_2026-04",
+              folder_path: "transactions/2026",
+              sheet_name: "Transactions",
+              sheet_id: 3,
+              headers: ["id", "created_at"],
+            },
           },
         },
       },
-    ],
+    },
   });
 
   // Reset store map state
   mockStoreMapState = {
     sheets: {},
-    monthlySheets: [],
+    monthlySheets: {},
     setStoreMap: mockSetStoreMap,
     getSheetMeta: mockGetSheetMeta,
     getCurrentMonthSheets: vi.fn().mockReturnValue(undefined),
@@ -414,7 +417,7 @@ describe("activateStore", () => {
     expect(mockSetStoreMap).toHaveBeenCalledWith(
       "folder-id",
       expect.any(Object),
-      expect.any(Array),
+      expect.any(Object),
     );
   });
 
@@ -488,7 +491,7 @@ describe("activateStore", () => {
           sheet_id: 9,
         },
       },
-      monthlySheets: [],
+      monthlySheets: {},
       lastTraversedAt: Date.now(),
     };
     vi.mocked(adapters.storeFolderService.traverse).mockClear();
@@ -510,7 +513,7 @@ describe("activateStore", () => {
           sheet_id: 1,
         },
       },
-      monthlySheets: [],
+      monthlySheets: {},
       lastTraversedAt: Date.now() - 10 * 60 * 1000,
     };
     vi.mocked(adapters.storeFolderService.traverse).mockClear();

@@ -254,11 +254,15 @@ class MigrationServiceImpl {
     const activation = (async () => {
       logger.info("MigrationService.activateStore: checking cache...");
       const cachedMap = getStoreMapStore(storeId).getState();
+      const monthlySheetCount = Object.keys(cachedMap.monthlySheets).reduce(
+        (acc, year) =>
+          acc + Object.keys(cachedMap.monthlySheets[Number(year)] ?? {}).length,
+        0,
+      );
       const isFresh =
         cachedMap.lastTraversedAt !== null &&
         Date.now() - cachedMap.lastTraversedAt < PENDING_TTL_MS &&
-        (Object.keys(cachedMap.sheets).length > 0 ||
-          cachedMap.monthlySheets.length > 0);
+        (Object.keys(cachedMap.sheets).length > 0 || monthlySheetCount > 0);
 
       logger.info("MigrationService.activateStore: cache isFresh", { isFresh });
 
@@ -269,7 +273,7 @@ class MigrationServiceImpl {
         const result = await storeFolderService.traverse(storeFolderId);
         logger.info("MigrationService.activateStore: traverse complete", {
           sheets: Object.keys(result.sheets).length,
-          monthlySheets: result.monthlySheets.length,
+          monthlySheets: monthlySheetCount,
         });
         getStoreMapStore(storeId)
           .getState()
@@ -331,7 +335,10 @@ class MigrationServiceImpl {
     year: number,
     month: number,
     config: MigrationPayload = STORE_MULTI_PRESET,
-    storeMap?: { sheets: Record<string, unknown>; monthlySheets?: unknown[] },
+    storeMap?: {
+      sheets: Record<string, unknown>;
+      monthlySheets?: Record<number, Record<string, unknown>>;
+    },
   ): Promise<boolean> {
     if (!config.monthlySheet) {
       return false;
@@ -342,15 +349,17 @@ class MigrationServiceImpl {
     const transformed = transformMigrationPayload(config, storeId, date);
 
     const currentStoreMap = storeMap ?? getStoreMapStore(storeId).getState();
-    const monthlySheets =
-      (storeMap as { monthlySheets?: { yearMonth: string }[] } | undefined)
-        ?.monthlySheets ??
-      (getStoreMapStore(storeId).getState().monthlySheets as {
-        yearMonth: string;
-      }[]);
-    const existingMonthlyYearMonths = new Set(
-      monthlySheets?.map((m) => m.yearMonth) ?? [],
-    );
+    const monthlySheets = currentStoreMap.monthlySheets;
+    const existingMonthlyYearMonths = new Set<string>();
+    if (monthlySheets) {
+      for (const [year, months] of Object.entries(monthlySheets)) {
+        if (months) {
+          for (const [month, _meta] of Object.entries(months)) {
+            existingMonthlyYearMonths.add(`${year}-${month}`);
+          }
+        }
+      }
+    }
     const existingSpreadsheetNames = new Set(
       Object.values(currentStoreMap.sheets).map(
         (s: unknown) => (s as { spreadsheet_name: string }).spreadsheet_name,

@@ -144,9 +144,18 @@ async function ensureStoreMapReady(storeId: string): Promise<void> {
     }
     // Store map was populated by activateStore; nothing more to do.
     const storeMapAfterActivation = getStoreMapStore(storeId).getState();
+    const afterCount = Object.keys(
+      storeMapAfterActivation.monthlySheets,
+    ).reduce(
+      (acc, year) =>
+        acc +
+        Object.keys(storeMapAfterActivation.monthlySheets[Number(year)] ?? {})
+          .length,
+      0,
+    );
     if (
       Object.keys(storeMapAfterActivation.sheets).length > 0 ||
-      storeMapAfterActivation.monthlySheets.length > 0
+      afterCount > 0
     )
       return;
   }
@@ -154,9 +163,12 @@ async function ensureStoreMapReady(storeId: string): Promise<void> {
   const storeMap = getStoreMapStore(storeId).getState();
 
   // Already populated AND fresh enough — no traversal needed.
-  const hasSheets =
-    Object.keys(storeMap.sheets).length > 0 ||
-    storeMap.monthlySheets.length > 0;
+  const monthlyCount = Object.keys(storeMap.monthlySheets).reduce(
+    (acc, year) =>
+      acc + Object.keys(storeMap.monthlySheets[Number(year)] ?? {}).length,
+    0,
+  );
+  const hasSheets = Object.keys(storeMap.sheets).length > 0 || monthlyCount > 0;
   const isFresh =
     storeMap.lastTraversedAt !== null &&
     Date.now() - storeMap.lastTraversedAt < STORE_MAP_TTL_MS;
