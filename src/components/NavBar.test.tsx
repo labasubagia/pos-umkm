@@ -62,14 +62,6 @@ vi.mock("react-router-dom", async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-vi.mock("../hooks/useStores", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../hooks/useStores")>();
-  return {
-    ...actual,
-    useStores: vi.fn().mockReturnValue({ data: [], isLoading: false }),
-  };
-});
-
 const store1: StoreRecord = {
   store_id: "store-1",
   store_name: "Toko 1",

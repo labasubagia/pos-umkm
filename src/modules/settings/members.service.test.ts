@@ -48,7 +48,7 @@ beforeEach(() => {
     auditLog: mockRepo(),
   };
   vi.spyOn(adapters, "getRepos").mockReturnValue(
-    mockRepos as ReturnType<typeof adapters.getRepos>,
+    mockRepos as unknown as ReturnType<typeof adapters.getRepos>,
   );
   vi.spyOn(adapters.storeFolderService, "shareSpreadsheet").mockResolvedValue(
     undefined,
@@ -86,9 +86,8 @@ describe("inviteMember", () => {
   });
 
   it("throws if role is not owner/manager/cashier", async () => {
-    // @ts-expect-error — testing invalid role
     await expect(
-      inviteMember("alice@test.com", "superadmin", "sid-001"),
+      inviteMember("alice@test.com", "superadmin" as "cashier", "sid-001"),
     ).rejects.toThrow(MemberError);
   });
 

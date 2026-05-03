@@ -77,7 +77,7 @@ describe("usePinLock", () => {
       auditLog: mockRepo(),
     };
     vi.spyOn(adapters, "getRepos").mockReturnValue(
-      mockRepos as ReturnType<typeof adapters.getRepos>,
+      mockRepos as unknown as ReturnType<typeof adapters.getRepos>,
     );
   });
 

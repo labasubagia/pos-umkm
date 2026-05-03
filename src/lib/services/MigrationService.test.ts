@@ -109,7 +109,6 @@ describe("MigrationService", () => {
           },
         },
         monthlySheet: {
-          monthlyFolder: "apps/pos_umkm/stores/<storeId>/transactions",
           sheet: {
             Transactions: {
               path: "apps/pos_umkm/stores/<storeId>/transactions/transaction_<year>-<month>",
