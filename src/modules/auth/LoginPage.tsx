@@ -11,11 +11,11 @@
  */
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { authAdapter } from "../../api/adapters";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
-import { authAdapter } from "../../lib/adapters";
-import { logger } from "../../lib/logger";
 import { useAuthStore } from "../../store/authStore";
+import { logger } from "../../utils/logger";
 import { useAuth } from "./useAuth";
 
 export default function LoginPage() {

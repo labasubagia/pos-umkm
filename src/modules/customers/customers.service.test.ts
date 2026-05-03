@@ -2,7 +2,7 @@
  * customers.service tests — covers T036 (Customer Management).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as adapters from "../../lib/adapters";
+import * as adapters from "../../api/adapters";
 import {
   addCustomer,
   CustomerError,

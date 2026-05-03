@@ -7,9 +7,9 @@
  * SheetsApiError → AdapterError happens here so GoogleDataAdapter stays thin.
  */
 
-import { logger } from "@/lib/logger";
-import { queryClient } from "../../../queryClient";
-import { generateId } from "../../../uuid";
+import { logger } from "@/utils/logger";
+import { queryClient } from "../../../../hooks/queryClient";
+import { generateId } from "../../../../utils/uuid";
 import { AdapterError } from "../../types";
 import { SheetsApiError } from "./sheets.types";
 

@@ -226,7 +226,7 @@ export {
   MAIN_PRESET,
   MAIN_TAB_HEADERS,
   MAIN_TABS,
-} from "../config/presets";
+} from "../../config/presets";
 export type {
   MainConfigPayload,
   MigrationPayload,
@@ -235,4 +235,4 @@ export type {
   SpreadsheetConfig,
   TransformedConfig,
   TransformedSpreadsheet,
-} from "../config/types";
+} from "../../config/types";

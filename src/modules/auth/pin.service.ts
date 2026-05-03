@@ -10,7 +10,7 @@
  */
 
 import bcrypt from "bcryptjs";
-import { getRepos } from "../../lib/adapters";
+import { getRepos } from "../../api/adapters";
 
 const BCRYPT_ROUNDS = 10;
 

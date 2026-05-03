@@ -13,11 +13,11 @@
 
 import { CheckCircle, CloudOff, CloudUpload, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { syncManager } from "../lib/adapters";
-import { formatDateTimeTZ } from "../lib/formatters";
-import { logger } from "../lib/logger";
-import { cn } from "../lib/utils";
+import { syncManager } from "../api/adapters";
 import { useSyncStore } from "../store/syncStore";
+import { formatDateTimeTZ } from "../utils/formatters";
+import { logger } from "../utils/logger";
+import { cn } from "../utils/utils";
 
 export function SyncStatus() {
   const { pendingCount, isSyncing, lastSyncedAt, lastError } = useSyncStore();

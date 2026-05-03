@@ -2,7 +2,7 @@
  * T018 — auth.service unit tests
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as adapters from "../../lib/adapters";
+import * as adapters from "../../api/adapters";
 import {
   isFirstTimeOwner,
   resolveUserRole,

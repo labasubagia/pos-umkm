@@ -16,8 +16,8 @@ import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { StoreRecord } from "../lib/adapters";
-import { clearDbCache, getDb } from "../lib/adapters/dexie/db";
+import type { StoreRecord } from "../api/adapters";
+import { clearDbCache, getDb } from "../api/adapters/dexie/db";
 import * as svc from "../modules/settings/store-management.service";
 import { useAuthStore } from "../store/authStore";
 import StoreManagementPage from "./StoreManagementPage";
@@ -43,26 +43,26 @@ vi.mock(
 
 // Also mock the adapters module so getRepos() doesn't need a real Google token.
 // DexieRepository reads from fake-indexeddb instead.
-vi.mock("../lib/adapters", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../lib/adapters")>();
+vi.mock("../api/adapters", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api/adapters")>();
   return {
     ...actual,
     syncManager: { start: vi.fn(), stop: vi.fn(), triggerSync: vi.fn() },
   };
 });
 
-vi.mock("../lib/services/MigrationService", async (importOriginal) => {
+vi.mock("../api/services/MigrationService", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../lib/services/MigrationService")>();
+    await importOriginal<typeof import("../api/services/MigrationService")>();
   return {
     ...actual,
   };
 });
 
-vi.mock("../lib/services/StoreActivationService", async (importOriginal) => {
+vi.mock("../api/services/StoreActivationService", async (importOriginal) => {
   const actual =
     await importOriginal<
-      typeof import("../lib/services/StoreActivationService")
+      typeof import("../api/services/StoreActivationService")
     >();
   return {
     ...actual,
@@ -460,7 +460,7 @@ describe("StoreManagementPage", () => {
 
   it("calls activateStore and navigates to new store when Aktifkan is clicked", async () => {
     const { StoreActivationService } = await import(
-      "../lib/services/StoreActivationService"
+      "../api/services/StoreActivationService"
     );
     const activateStore = StoreActivationService.activateStore;
     const user = userEvent.setup();
@@ -488,7 +488,7 @@ describe("StoreManagementPage", () => {
 
   it("shows error Alert when activateStore fails", async () => {
     const { StoreActivationService } = await import(
-      "../lib/services/StoreActivationService"
+      "../api/services/StoreActivationService"
     );
     vi.mocked(StoreActivationService.activateStore).mockRejectedValueOnce(
       new Error("Activate failed"),

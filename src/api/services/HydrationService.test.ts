@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAuthStore } from "../store/authStore";
-import { clearDbCache, getDb } from "./adapters/dexie/db";
+import { useAuthStore } from "../../store/authStore";
+import { clearDbCache, getDb } from "../adapters/dexie/db";
 import { HydrationService } from "./HydrationService";
 
 const TEST_STORE_ID = "hydration-store";

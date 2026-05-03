@@ -14,12 +14,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { logger } from "@/lib/logger";
+import { logger } from "@/utils/logger";
+import type { StoreRecord } from "../../api/services/MigrationService";
+import { StoreActivationService } from "../../api/services/StoreActivationService";
+import { StoreRegistryService } from "../../api/services/StoreRegistryService";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
-import type { StoreRecord } from "../../lib/services/MigrationService";
-import { StoreActivationService } from "../../lib/services/StoreActivationService";
-import { StoreRegistryService } from "../../lib/services/StoreRegistryService";
 import { useAuth } from "./useAuth";
 
 export default function StorePickerPage() {

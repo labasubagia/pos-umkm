@@ -12,12 +12,12 @@
  * lower-level repo / Dexie behaviour is tested elsewhere.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as adapters from "../../lib/adapters";
+import * as adapters from "../../api/adapters";
 import {
   MigrationService,
   type StoreRecord,
-} from "../../lib/services/MigrationService";
-import * as storeRegistryModule from "../../lib/services/StoreRegistryService";
+} from "../../api/services/MigrationService";
+import * as storeRegistryModule from "../../api/services/StoreRegistryService";
 import { useAuthStore } from "../../store/authStore";
 import {
   createStore,

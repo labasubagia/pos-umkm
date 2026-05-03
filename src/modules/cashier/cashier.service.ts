@@ -9,10 +9,10 @@
  * transaction commit (commitTransaction) and the monthly sheet check.
  */
 
-import { getRepos } from "../../lib/adapters";
-import { nowUTC } from "../../lib/formatters";
-import { generateId } from "../../lib/uuid";
+import { getRepos } from "../../api/adapters";
 import { getCurrentStoreMapStore } from "../../store/storeMapStore";
+import { nowUTC } from "../../utils/formatters";
+import { generateId } from "../../utils/uuid";
 import type { Product, Variant } from "../catalog/catalog.service";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────

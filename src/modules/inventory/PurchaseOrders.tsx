@@ -29,11 +29,11 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { formatDateTimeTZ, formatIDR } from "../../lib/formatters";
-import { logger } from "../../lib/logger";
-import { generateId } from "../../lib/uuid";
 import { useProducts } from "../../modules/catalog";
 import { usePurchaseOrders } from "../../modules/inventory";
+import { formatDateTimeTZ, formatIDR } from "../../utils/formatters";
+import { logger } from "../../utils/logger";
+import { generateId } from "../../utils/uuid";
 import {
   createPurchaseOrder,
   fetchPurchaseOrderItems,

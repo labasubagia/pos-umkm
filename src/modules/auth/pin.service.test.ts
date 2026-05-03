@@ -4,7 +4,7 @@
 
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as adapters from "../../lib/adapters";
+import * as adapters from "../../api/adapters";
 import { hashPIN, verifyPIN } from "./pin.service";
 import { usePinLock } from "./usePinLock";
 

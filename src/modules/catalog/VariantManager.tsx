@@ -11,8 +11,8 @@ import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { formatIDR } from "../../lib/formatters";
 import { useVariants } from "../../modules/catalog";
+import { formatIDR } from "../../utils/formatters";
 import type { Product } from "./catalog.service";
 import { addVariant, deleteVariant } from "./catalog.service";
 

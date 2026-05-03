@@ -9,7 +9,7 @@
  *
  * Only the Sheets sync boundary (SyncManager + HydrationService) is kept as a
  * no-op — it is mocked at the module level in tests that import this helper via:
- *   vi.mock('../lib/adapters', async (importOriginal) => { ... resetDexieLayer: vi.fn() })
+ *   vi.mock('../api/adapters', async (importOriginal) => { ... resetDexieLayer: vi.fn() })
  *
  * fake-indexeddb/auto must be imported before Dexie opens any database.
  * It is imported in src/test-setup.ts so it is always available.
@@ -20,8 +20,8 @@ import { type RenderResult, render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { act } from "react";
 import { MemoryRouter } from "react-router-dom";
-import type { Database } from "../lib/adapters/dexie/db";
-import { clearDbCache, getDb } from "../lib/adapters/dexie/db";
+import type { Database } from "../api/adapters/dexie/db";
+import { clearDbCache, getDb } from "../api/adapters/dexie/db";
 import { useCartStore } from "../modules/cashier/useCart";
 import { useAuthStore } from "../store/authStore";
 

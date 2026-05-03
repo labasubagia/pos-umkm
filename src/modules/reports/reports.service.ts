@@ -1,5 +1,5 @@
-import { getRepos } from "../../lib/adapters";
-import { nowUTC } from "../../lib/formatters";
+import { getRepos } from "../../api/adapters";
+import { nowUTC } from "../../utils/formatters";
 
 export interface TransactionRow {
   id: string;

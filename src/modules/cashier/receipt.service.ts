@@ -23,8 +23,8 @@
  *   Terima kasih!
  */
 
-import { formatDateTimeTZ, formatIDR } from "../../lib/formatters";
-import { validatePhone } from "../../lib/validators";
+import { formatDateTimeTZ, formatIDR } from "../../utils/formatters";
+import { validatePhone } from "../../utils/validators";
 import type { Transaction, TransactionItem } from "./cashier.service";
 
 const DIVIDER = "─────────────────────";

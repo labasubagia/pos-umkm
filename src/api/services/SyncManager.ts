@@ -19,18 +19,18 @@
  * any stale spreadsheetId references and matches the existing auth pattern.
  */
 
-import { useAuthStore } from "../store/authStore";
-import { getCurrentStoreMapStore } from "../store/storeMapStore";
-import { useSyncStore } from "../store/syncStore";
+import { useAuthStore } from "../../store/authStore";
+import { getCurrentStoreMapStore } from "../../store/storeMapStore";
+import { useSyncStore } from "../../store/syncStore";
+import { logger } from "../../utils/logger";
 import type {
   Database,
   OutboxEntry,
   OutboxOperation,
-} from "./adapters/dexie/db";
-import { getDb } from "./adapters/dexie/db";
-import { SheetRepository } from "./adapters/google/SheetRepository";
-import { ALL_TAB_HEADERS } from "./adapters/zod-schemas";
-import { logger } from "./logger";
+} from "../adapters/dexie/db";
+import { getDb } from "../adapters/dexie/db";
+import { SheetRepository } from "../adapters/google/SheetRepository";
+import { ALL_TAB_HEADERS } from "../adapters/zod-schemas";
 
 const MAX_RETRIES = 5;
 const POLL_INTERVAL_MS = 30_000;
@@ -275,7 +275,7 @@ export class SyncManager {
               { entryId: id, mutationId: entry.mutationId },
             );
             try {
-              const { authAdapter } = await import("./adapters/index");
+              const { authAdapter } = await import("../adapters/index");
               // Use a typed view of the adapter so we avoid `any` while
               // still safely probing for optional methods.
               const maybeAuth = authAdapter as unknown as {
@@ -308,7 +308,7 @@ export class SyncManager {
 
             // Silent refresh didn't succeed — sign the user out to force reauth.
             try {
-              const { authAdapter } = await import("./adapters/index");
+              const { authAdapter } = await import("../adapters/index");
               await authAdapter.signOut?.();
             } catch (signOutErr) {
               logger.warn("[SyncManager] signOut failed:", signOutErr);

@@ -13,14 +13,14 @@
 import { LogOut, Store } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
-import { authAdapter, resetDexieLayer, syncManager } from "../lib/adapters";
-import type { Role } from "../lib/adapters/types";
-import { logger } from "../lib/logger";
-import { queryClient } from "../lib/queryClient";
-import { StoreActivationService } from "../lib/services/StoreActivationService";
+import { authAdapter, resetDexieLayer, syncManager } from "../api/adapters";
+import type { Role } from "../api/adapters/types";
+import { StoreActivationService } from "../api/services/StoreActivationService";
+import { queryClient } from "../hooks/queryClient";
 import { clearSetupStorage } from "../modules/auth/setup.service";
 import { useAuth } from "../modules/auth/useAuth";
 import { useStores } from "../modules/settings";
+import { logger } from "../utils/logger";
 import { NAV_ITEMS } from "./nav.constants";
 import { Button } from "./ui/button";
 

@@ -14,11 +14,11 @@
  */
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { getRepos } from "../../lib/adapters";
-import type { PurchaseOrderItem as DbPurchaseOrderItem } from "../../lib/adapters/zod-schemas";
-import { nowUTC } from "../../lib/formatters";
-import { generateId } from "../../lib/uuid";
+import { getRepos } from "../../api/adapters";
+import type { PurchaseOrderItem as DbPurchaseOrderItem } from "../../api/adapters/zod-schemas";
 import { useAuthStore } from "../../store/authStore";
+import { nowUTC } from "../../utils/formatters";
+import { generateId } from "../../utils/uuid";
 
 // ─── Custom errors ─────────────────────────────────────────────────────────────
 

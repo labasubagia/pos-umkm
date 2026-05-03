@@ -7,7 +7,7 @@ import {
   ShoppingCart,
   Users,
 } from "lucide-react";
-import type { Role } from "../lib/adapters/types";
+import type { Role } from "../api/adapters/types";
 
 export interface SubNavItem {
   /** Relative path from /:storeId, e.g. "catalog/products" */

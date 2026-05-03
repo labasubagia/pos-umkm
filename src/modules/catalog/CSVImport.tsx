@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { formatIDR } from "../../lib/formatters";
+import { formatIDR } from "../../utils/formatters";
 import type { ParsedProduct, RowValidationResult } from "./csv.service";
 import {
   bulkImportProducts,

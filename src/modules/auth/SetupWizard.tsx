@@ -7,14 +7,14 @@
  */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getRepos } from "../../api/adapters";
+import { MigrationService } from "../../api/services/MigrationService";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Checkbox } from "../../components/ui/checkbox";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { getRepos } from "../../lib/adapters";
-import { nowUTC } from "../../lib/formatters";
-import { MigrationService } from "../../lib/services/MigrationService";
+import { nowUTC } from "../../utils/formatters";
 import { useAuth } from "./useAuth";
 
 export default function SetupWizard() {

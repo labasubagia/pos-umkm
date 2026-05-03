@@ -2,7 +2,7 @@
  * T043 + T044 — settings.service unit tests
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as adapters from "../../lib/adapters";
+import * as adapters from "../../api/adapters";
 import {
   getQRISImage,
   getSettings,

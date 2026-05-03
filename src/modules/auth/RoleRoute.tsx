@@ -11,7 +11,7 @@
  */
 import type { ReactNode } from "react";
 import { Navigate, useParams } from "react-router-dom";
-import type { Role } from "../../lib/adapters/types";
+import type { Role } from "../../api/adapters/types";
 import { useAuth } from "./useAuth";
 
 /** Numeric rank for role comparison (higher = more privileged). */

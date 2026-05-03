@@ -2,7 +2,7 @@
  * catalog.service tests — covers T021 (Categories), T022 (Products), T023 (Variants).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as adapters from "../../lib/adapters";
+import * as adapters from "../../api/adapters";
 import {
   addCategory,
   addProduct,

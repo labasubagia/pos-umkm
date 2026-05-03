@@ -21,8 +21,8 @@ const STORE_ID = "cashier-integration-store";
 // driveClient and syncManager are never called in reads/writes through Dexie.
 // We mock them to prevent jsdom errors from SyncManager's setInterval / window.online.
 
-vi.mock("../lib/adapters", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../lib/adapters")>();
+vi.mock("../api/adapters", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api/adapters")>();
   return {
     ...actual,
     syncManager: { start: vi.fn(), stop: vi.fn(), triggerSync: vi.fn() },

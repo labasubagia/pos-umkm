@@ -13,7 +13,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import type {
   MonthlySheetsByYear,
   SheetMeta,
-} from "../lib/adapters/google/StoreFolderService";
+} from "../api/adapters/google/StoreFolderService";
 import { useAuthStore } from "./authStore";
 
 interface StoreMapState {

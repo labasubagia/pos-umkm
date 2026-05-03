@@ -15,15 +15,15 @@ import {
   getMembersForStore,
   getRepos,
   localCachePut,
-} from "../../lib/adapters";
-import type { Store } from "../../lib/adapters/zod-schemas";
-import { nowUTC } from "../../lib/formatters";
+} from "../../api/adapters";
+import type { Store } from "../../api/adapters/zod-schemas";
 import {
   MigrationService,
   type StoreRecord,
-} from "../../lib/services/MigrationService";
-import { getMainSpreadsheetId } from "../../lib/services/StoreRegistryService";
+} from "../../api/services/MigrationService";
+import { getMainSpreadsheetId } from "../../api/services/StoreRegistryService";
 import { useAuthStore } from "../../store/authStore";
+import { nowUTC } from "../../utils/formatters";
 
 // ─── Error class ──────────────────────────────────────────────────────────────
 

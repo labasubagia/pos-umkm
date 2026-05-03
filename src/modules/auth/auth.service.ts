@@ -8,8 +8,8 @@
  * Uses DataAdapter so it works with both Mock and Google adapters.
  */
 
-import { getRepos } from "../../lib/adapters";
-import type { Role } from "../../lib/adapters/types";
+import { getRepos } from "../../api/adapters";
+import type { Role } from "../../api/adapters/types";
 
 /** Thrown when a user's email is not found in (or has been revoked from) the Members tab. */
 export class UnauthorizedError extends Error {

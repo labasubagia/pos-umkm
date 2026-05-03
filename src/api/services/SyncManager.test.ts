@@ -6,15 +6,15 @@
  */
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { OutboxEntry } from "./adapters/dexie/db";
-import { clearDbCache, getDb } from "./adapters/dexie/db";
+import type { OutboxEntry } from "../adapters/dexie/db";
+import { clearDbCache, getDb } from "../adapters/dexie/db";
 import { SyncManager } from "./SyncManager";
 
 const TOKEN = "test-token";
 const TEST_STORE_ID = "sync-test-store";
 
 // Reset DB and online state before each test
-import { useAuthStore } from "../store/authStore";
+import { useAuthStore } from "../../store/authStore";
 
 beforeEach(async () => {
   // Set activeStoreId so SyncManager uses the test DB
@@ -61,7 +61,7 @@ describe("drain", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import(
-      "./adapters/google/SheetRepository"
+      "../adapters/google/SheetRepository"
     );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchInsert")
@@ -77,7 +77,7 @@ describe("drain", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import(
-      "./adapters/google/SheetRepository"
+      "../adapters/google/SheetRepository"
     );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchInsert")
@@ -92,7 +92,7 @@ describe("drain", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import(
-      "./adapters/google/SheetRepository"
+      "../adapters/google/SheetRepository"
     );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchInsert")
@@ -109,7 +109,7 @@ describe("drain", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import(
-      "./adapters/google/SheetRepository"
+      "../adapters/google/SheetRepository"
     );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchInsert")
@@ -130,7 +130,7 @@ describe("drain", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import(
-      "./adapters/google/SheetRepository"
+      "../adapters/google/SheetRepository"
     );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchInsert")
@@ -150,7 +150,7 @@ describe("drain", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import(
-      "./adapters/google/SheetRepository"
+      "../adapters/google/SheetRepository"
     );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchInsert")
@@ -169,7 +169,7 @@ describe("operation routing", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import(
-      "./adapters/google/SheetRepository"
+      "../adapters/google/SheetRepository"
     );
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchUpdate")
@@ -191,7 +191,7 @@ describe("operation routing", () => {
     const manager = makeManager();
     const db = getDb(TEST_STORE_ID);
     const { SheetRepository } = await import(
-      "./adapters/google/SheetRepository"
+      "../adapters/google/SheetRepository"
     );
     const spy = vi
       .spyOn(SheetRepository.prototype, "softDelete")

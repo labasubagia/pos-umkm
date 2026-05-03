@@ -15,8 +15,8 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { formatIDR } from "../../lib/formatters";
-import { generateId } from "../../lib/uuid";
+import { formatIDR } from "../../utils/formatters";
+import { generateId } from "../../utils/uuid";
 import type { Transaction } from "../cashier/cashier.service";
 import {
   createRefund,

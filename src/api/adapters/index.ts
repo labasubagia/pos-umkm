@@ -38,9 +38,9 @@
 
 // Lazy import to avoid circular dependency (authStore imports from here indirectly via services)
 import { useAuthStore } from "../../store/authStore";
-import { HydrationService } from "../HydrationService";
-import { logger } from "../logger";
-import { SyncManager } from "../SyncManager";
+import { logger } from "../../utils/logger";
+import { HydrationService } from "../services/HydrationService";
+import { SyncManager } from "../services/SyncManager";
 import { DexieRepository } from "./dexie/DexieRepository";
 import { clearDbCache, getDb } from "./dexie/db";
 import {

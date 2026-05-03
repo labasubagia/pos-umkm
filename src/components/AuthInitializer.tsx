@@ -30,8 +30,8 @@
  * the login page.
  */
 import { type ReactNode, useEffect, useRef } from "react";
-import { authAdapter, resetDexieLayer, syncManager } from "../lib/adapters";
-import type { GoogleAuthAdapter } from "../lib/adapters/google/GoogleAuthAdapter";
+import { authAdapter, resetDexieLayer, syncManager } from "../api/adapters";
+import type { GoogleAuthAdapter } from "../api/adapters/google/GoogleAuthAdapter";
 import { useAuth } from "../modules/auth/useAuth";
 import { useAuthStore } from "../store/authStore";
 
