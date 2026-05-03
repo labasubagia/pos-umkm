@@ -18,8 +18,8 @@
  */
 
 import { useSyncStore } from "../../../store/syncStore";
-import { logger } from "../../logger";
-import { generateId } from "../../uuid";
+import { logger } from "../../../utils/logger";
+import { generateId } from "../../../utils/uuid";
 import type { ILocalRepository } from "../LocalRepository";
 import type { Database, OutboxEntry, OutboxOperation } from "./db";
 

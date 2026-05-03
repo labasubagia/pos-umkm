@@ -28,17 +28,17 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("../lib/services/MigrationService", () => ({
+vi.mock("../api/services/MigrationService", () => ({
   MigrationService: {},
 }));
 
-vi.mock("../lib/services/StoreActivationService", () => ({
+vi.mock("../api/services/StoreActivationService", () => ({
   StoreActivationService: {},
   pendingActivations: new Map(),
   STORE_MAP_TTL_MS: 5 * 60 * 1000,
 }));
 
-vi.mock("../lib/adapters", () => ({
+vi.mock("../api/adapters", () => ({
   hydrationService: { hydrateAll: mocks.hydrateAllMock },
   reinitDexieLayer: mocks.reinitDexieLayerMock,
   storeFolderService: { traverse: mocks.traverseMock },

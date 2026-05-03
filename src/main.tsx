@@ -3,10 +3,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import "./index.css";
-import "./lib/i18n";
+import "./i18n/i18n";
 import { AuthInitializer } from "./components/AuthInitializer";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { queryClient } from "./lib/queryClient";
+import { queryClient } from "./hooks/queryClient";
 import { router } from "./router";
 
 const rootEl = document.getElementById("root");

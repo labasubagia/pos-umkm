@@ -10,10 +10,10 @@ import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { logger } from "../../lib/logger";
 import { useMembers } from "../../modules/settings";
 import { useAuthStore } from "../../store/authStore";
 import { getStoreMapStore } from "../../store/storeMapStore";
+import { logger } from "../../utils/logger";
 import {
   generateStoreLink,
   inviteMember,

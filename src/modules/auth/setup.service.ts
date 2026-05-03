@@ -6,7 +6,7 @@
  * (clearSetupStorage, shareSheetWithAllMembers) that are not migration logic.
  */
 
-import { getRepos, storeFolderService } from "../../lib/adapters";
+import { getRepos, storeFolderService } from "../../api/adapters";
 
 export function clearSetupStorage(): void {
   localStorage.removeItem("mainSpreadsheetId");

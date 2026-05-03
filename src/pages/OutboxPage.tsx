@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { syncManager } from "../api/adapters";
+import type { OutboxEntry } from "../api/adapters/dexie/db";
+import { getDb } from "../api/adapters/dexie/db";
 import { Button } from "../components/ui/button";
 import {
   Table,
@@ -8,14 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { syncManager } from "../lib/adapters";
-import type { OutboxEntry } from "../lib/adapters/dexie/db";
-import { getDb } from "../lib/adapters/dexie/db";
-
-import { formatDateTimeTZ } from "../lib/formatters";
-import { logger } from "../lib/logger";
 import { useAuthStore } from "../store/authStore";
 import { useSyncStore } from "../store/syncStore";
+import { formatDateTimeTZ } from "../utils/formatters";
+import { logger } from "../utils/logger";
 
 export default function OutboxPage() {
   const [outbox, setOutbox] = useState<OutboxEntry[]>([]);

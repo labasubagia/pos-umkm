@@ -2,7 +2,7 @@
  * cashier.service tests — T025, T026, T027, T030, T031, T032.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as adapters from "../../lib/adapters";
+import * as adapters from "../../api/adapters";
 import type { Product } from "../catalog/catalog.service";
 import type { CartItem } from "./cashier.service";
 import {
@@ -21,17 +21,17 @@ import {
 } from "./cashier.service";
 
 // Mock services so ensureMonthlySheetExists doesn't touch localStorage
-vi.mock("../../lib/services/MigrationService", () => ({
+vi.mock("../../api/services/MigrationService", () => ({
   MigrationService: {
     initializeMonthlySheets: vi.fn().mockResolvedValue(undefined),
   },
 }));
-vi.mock("../../lib/services/StoreActivationService", () => ({
+vi.mock("../../api/services/StoreActivationService", () => ({
   StoreActivationService: {},
   pendingActivations: new Map(),
   STORE_MAP_TTL_MS: 5 * 60 * 1000,
 }));
-vi.mock("../../lib/services/StoreRegistryService", () => ({
+vi.mock("../../api/services/StoreRegistryService", () => ({
   StoreRegistryService: {},
   getMainSpreadsheetId: vi.fn().mockReturnValue(null),
   saveMainSpreadsheetId: vi.fn(),

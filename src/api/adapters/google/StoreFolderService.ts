@@ -22,9 +22,9 @@
  */
 
 import pLimit from "p-limit";
-import type { MigrationPayload } from "@/lib/config/types";
-import { logger } from "@/lib/logger";
+import type { MigrationPayload } from "@/config/types";
 import { useAuthStore } from "@/store";
+import { logger } from "@/utils/logger";
 import {
   createSpreadsheet,
   type DriveNode,

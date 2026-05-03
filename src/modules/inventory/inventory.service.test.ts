@@ -5,7 +5,7 @@
  * or Sheets API is touched. The adapter is stubbed per test case.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as adapters from "../../lib/adapters";
+import * as adapters from "../../api/adapters";
 import {
   createPurchaseOrder,
   fetchStockOpnameData,

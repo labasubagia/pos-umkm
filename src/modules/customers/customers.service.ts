@@ -11,16 +11,16 @@
  */
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { getRepos } from "../../lib/adapters";
-import type { Customer } from "../../lib/adapters/zod-schemas";
-import { nowUTC } from "../../lib/formatters";
-import { generateId } from "../../lib/uuid";
-import { validatePhone } from "../../lib/validators";
+import { getRepos } from "../../api/adapters";
+import type { Customer } from "../../api/adapters/zod-schemas";
 import { useAuthStore } from "../../store/authStore";
+import { nowUTC } from "../../utils/formatters";
+import { generateId } from "../../utils/uuid";
+import { validatePhone } from "../../utils/validators";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
-export type { Customer } from "../../lib/adapters/zod-schemas";
+export type { Customer } from "../../api/adapters/zod-schemas";
 
 // ─── Custom errors ─────────────────────────────────────────────────────────────
 

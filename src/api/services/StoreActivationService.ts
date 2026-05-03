@@ -7,11 +7,11 @@
  * - Deduplicating concurrent activations via pendingActivations
  */
 
-import { logger } from "@/lib/logger";
+import { logger } from "@/utils/logger";
+import { ACTIVE_PRESET, type MigrationPayload } from "../../config/presets";
+import { transformMigrationPayload } from "../../config/transformer";
 import { getStoreMapStore } from "../../store/storeMapStore";
 import { makeRepo, storeFolderService } from "../adapters";
-import { ACTIVE_PRESET, type MigrationPayload } from "../config/presets";
-import { transformMigrationPayload } from "../config/transformer";
 import { MigrationError, type StoreRecord } from "./MigrationService";
 
 export const pendingActivations = new Map<string, Promise<void>>();

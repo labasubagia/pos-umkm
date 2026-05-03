@@ -29,11 +29,11 @@ import {
   reinitDexieLayer,
   storeFolderService,
   syncManager,
-} from "../lib/adapters";
-import { logger } from "../lib/logger";
-import { pendingActivations } from "../lib/services/StoreActivationService";
+} from "../api/adapters";
+import { pendingActivations } from "../api/services/StoreActivationService";
 import { useAuthStore } from "../store/authStore";
 import { getStoreMapStore } from "../store/storeMapStore";
+import { logger } from "../utils/logger";
 import { BottomNav } from "./BottomNav";
 import { NavBar } from "./NavBar";
 import { SyncStatus } from "./SyncStatus";

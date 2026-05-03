@@ -4,7 +4,7 @@
  * Tests assert full result objects for clear visibility.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { MigrationPayload } from "../config/types";
+import type { MigrationPayload } from "../../config/types";
 
 const mockMakeRepo = vi.fn();
 const mockStoreFolderService = {

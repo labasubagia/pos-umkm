@@ -2,7 +2,7 @@
  * refund.service tests — covers T037 (Refund / Return Flow).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as adapters from "../../lib/adapters";
+import * as adapters from "../../api/adapters";
 import { createRefund, fetchTransaction, RefundError } from "./refund.service";
 
 function mockRepo(overrides = {}) {

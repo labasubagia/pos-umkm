@@ -7,10 +7,10 @@
  * - findOrCreateMain orchestration
  */
 
-import { logger } from "@/lib/logger";
+import { logger } from "@/utils/logger";
+import { MAIN_PRESET, type MainConfigPayload } from "../../config/presets";
 import { useAuthStore } from "../../store/authStore";
 import { makeRepo, storeFolderService } from "../adapters";
-import { MAIN_PRESET, type MainConfigPayload } from "../config/presets";
 import { MigrationError, type StoreRecord } from "./MigrationService";
 
 export function getMainSpreadsheetId(): string | null {

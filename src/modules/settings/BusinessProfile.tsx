@@ -8,11 +8,11 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { StoreRegistryService } from "../../api/services/StoreRegistryService";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { StoreRegistryService } from "../../lib/services/StoreRegistryService";
 import { useSettings } from "../../modules/settings/settings.service";
 import { useAuth } from "../auth/useAuth";
 import { type BusinessSettings, saveSettings } from "./settings.service";

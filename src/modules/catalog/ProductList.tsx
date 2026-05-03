@@ -9,8 +9,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "../../components/ui/button";
-import { formatIDR } from "../../lib/formatters";
 import { useCategories, useProducts } from "../../modules/catalog";
+import { formatIDR } from "../../utils/formatters";
 import type { NewProduct, ProductChanges } from "./catalog.service";
 import { addProduct, deleteProduct, updateProduct } from "./catalog.service";
 import { ProductForm } from "./ProductForm";

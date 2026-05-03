@@ -6,7 +6,7 @@
  */
 import { Clock, ShoppingBag } from "lucide-react";
 import { Button } from "../../components/ui/button";
-import { formatDateTimeTZ } from "../../lib/formatters";
+import { formatDateTimeTZ } from "../../utils/formatters";
 import { useCartStore } from "./useCart";
 
 export function HeldCartsPanel() {

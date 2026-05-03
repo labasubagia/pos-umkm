@@ -15,14 +15,14 @@ import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as adapters from "../lib/adapters";
-import type { Role } from "../lib/adapters/types";
+import * as adapters from "../api/adapters";
+import type { Role } from "../api/adapters/types";
 
 import { useStores } from "../modules/settings";
 import { useAuthStore } from "../store/authStore";
 import { NavBar } from "./NavBar";
 
-vi.mock("../lib/adapters", () => ({
+vi.mock("../api/adapters", () => ({
   authAdapter: {
     signOut: vi.fn().mockResolvedValue(undefined),
     signIn: vi.fn(),
@@ -34,10 +34,10 @@ vi.mock("../lib/adapters", () => ({
   syncManager: { triggerSync: vi.fn() },
 }));
 
-vi.mock("../lib/services/StoreActivationService", async (importOriginal) => {
+vi.mock("../api/services/StoreActivationService", async (importOriginal) => {
   const actual =
     await importOriginal<
-      typeof import("../lib/services/StoreActivationService")
+      typeof import("../api/services/StoreActivationService")
     >();
   return {
     ...actual,
@@ -189,7 +189,7 @@ describe("NavBar", () => {
 
   it("switching store navigates to /:storeId/cashier for the new store", async () => {
     const { StoreActivationService } = await import(
-      "../lib/services/StoreActivationService"
+      "../api/services/StoreActivationService"
     );
     const activateStore = StoreActivationService.activateStore;
     const user = userEvent.setup();
@@ -212,7 +212,7 @@ describe("NavBar", () => {
 
   it("selecting the already-active store does nothing", async () => {
     const { StoreActivationService } = await import(
-      "../lib/services/StoreActivationService"
+      "../api/services/StoreActivationService"
     );
     const activateStore = StoreActivationService.activateStore;
     const user = userEvent.setup();

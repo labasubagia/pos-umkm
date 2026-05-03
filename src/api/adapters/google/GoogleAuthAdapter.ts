@@ -16,7 +16,7 @@
  * different auth provider only requires replacing this adapter.
  */
 
-import { logger } from "../../logger";
+import { logger } from "../../../utils/logger";
 import type { AuthAdapter, User } from "../types";
 import { AdapterError } from "../types";
 

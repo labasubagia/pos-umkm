@@ -13,6 +13,9 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { syncManager } from "../api/adapters";
+import type { StoreRecord } from "../api/services/MigrationService";
+import { StoreActivationService } from "../api/services/StoreActivationService";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import {
@@ -32,9 +35,6 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { syncManager } from "../lib/adapters";
-import type { StoreRecord } from "../lib/services/MigrationService";
-import { StoreActivationService } from "../lib/services/StoreActivationService";
 import { useStores } from "../modules/settings";
 import {
   createStore,

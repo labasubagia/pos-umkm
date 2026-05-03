@@ -21,13 +21,13 @@
  * writeHeaders is never called during hydration — headers are Sheets-side only.
  */
 
-import { useAuthStore } from "../store/authStore";
-import { getCurrentStoreMapStore } from "../store/storeMapStore";
-import { useSyncStore } from "../store/syncStore";
-import type { Database } from "./adapters/dexie/db";
-import { SheetRepository } from "./adapters/google/SheetRepository";
-import { ALL_TAB_HEADERS, parseSheetRows } from "./adapters/zod-schemas";
-import { logger } from "./logger";
+import { useAuthStore } from "../../store/authStore";
+import { getCurrentStoreMapStore } from "../../store/storeMapStore";
+import { useSyncStore } from "../../store/syncStore";
+import { logger } from "../../utils/logger";
+import type { Database } from "../adapters/dexie/db";
+import { SheetRepository } from "../adapters/google/SheetRepository";
+import { ALL_TAB_HEADERS, parseSheetRows } from "../adapters/zod-schemas";
 
 const STALE_MS = 5 * 60 * 1000;
 

@@ -16,16 +16,16 @@
  */
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { getRepos, storeFolderService } from "../../lib/adapters";
-import type { Member } from "../../lib/adapters/zod-schemas";
+import { getRepos, storeFolderService } from "../../api/adapters";
+import type { Member } from "../../api/adapters/zod-schemas";
 
 export type { Member };
 
-import type { Role } from "../../lib/adapters/types";
-import { nowUTC } from "../../lib/formatters";
-import { generateId } from "../../lib/uuid";
-import { validateEmail } from "../../lib/validators";
+import type { Role } from "../../api/adapters/types";
 import { useAuthStore } from "../../store/authStore";
+import { nowUTC } from "../../utils/formatters";
+import { generateId } from "../../utils/uuid";
+import { validateEmail } from "../../utils/validators";
 
 const VALID_ROLES: Role[] = ["owner", "manager", "cashier"];
 

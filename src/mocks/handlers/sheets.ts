@@ -12,7 +12,7 @@
  * Key format: `${spreadsheetId}/${sheetName}` → row objects array.
  */
 import { HttpResponse, http } from "msw";
-import { ALL_TAB_HEADERS } from "../../lib/adapters/zod-schemas";
+import { ALL_TAB_HEADERS } from "../../api/adapters/zod-schemas";
 
 type FixtureMap = Record<string, Record<string, unknown>[]>;
 

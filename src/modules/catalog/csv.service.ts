@@ -10,9 +10,9 @@
  */
 
 import Papa from "papaparse";
-import { getRepos } from "../../lib/adapters";
-import { nowUTC } from "../../lib/formatters";
-import { generateId } from "../../lib/uuid";
+import { getRepos } from "../../api/adapters";
+import { nowUTC } from "../../utils/formatters";
+import { generateId } from "../../utils/uuid";
 
 export interface ParsedProduct {
   name: string;

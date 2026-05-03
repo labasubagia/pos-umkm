@@ -6,8 +6,8 @@
  * argument so they are stateless and independently testable.
  */
 
-import { logger } from "@/lib/logger";
-import { queryClient } from "../../../queryClient";
+import { logger } from "@/utils/logger";
+import { queryClient } from "../../../../hooks/queryClient";
 import { AdapterError } from "../../types";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";

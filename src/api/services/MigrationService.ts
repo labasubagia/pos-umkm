@@ -11,15 +11,15 @@
  * and main-spreadsheet registry to StoreRegistryService.
  */
 
-import { getStoreMapStore } from "../../store/storeMapStore";
-import { makeRepo, storeFolderService } from "../adapters";
-import { ACTIVE_PRESET, type MigrationPayload } from "../config/presets";
+import { ACTIVE_PRESET, type MigrationPayload } from "../../config/presets";
 import {
   extractFolders,
   transformMigrationPayload,
-} from "../config/transformer";
-import { nowUTC } from "../formatters";
-import { generateId } from "../uuid";
+} from "../../config/transformer";
+import { getStoreMapStore } from "../../store/storeMapStore";
+import { nowUTC } from "../../utils/formatters";
+import { generateId } from "../../utils/uuid";
+import { makeRepo, storeFolderService } from "../adapters";
 import { StoreActivationService } from "./StoreActivationService";
 import {
   getMainSpreadsheetId,
