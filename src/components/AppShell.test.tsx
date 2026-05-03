@@ -28,7 +28,8 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("../modules/auth/setup.service", () => ({
+vi.mock("../lib/services/MigrationService", () => ({
+  MigrationService: {},
   pendingActivations: new Map(),
   STORE_MAP_TTL_MS: 5 * 60 * 1000,
 }));

@@ -34,7 +34,7 @@ import { logger } from "../lib/logger";
 import {
   pendingActivations,
   STORE_MAP_TTL_MS,
-} from "../modules/auth/setup.service";
+} from "../lib/services/MigrationService";
 import { useAuthStore } from "../store/authStore";
 import { getStoreMapStore } from "../store/storeMapStore";
 import { BottomNav } from "./BottomNav";

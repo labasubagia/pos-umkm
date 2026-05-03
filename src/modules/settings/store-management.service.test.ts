@@ -13,8 +13,13 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
+import {
+  getMainSpreadsheetId,
+  MigrationService,
+  type StoreRecord,
+} from "../../lib/services/MigrationService";
 import { useAuthStore } from "../../store/authStore";
-import type { StoreRecord } from "../auth/setup.service";
+import * as migrationModule from "../../lib/services/MigrationService";
 import * as setupService from "../auth/setup.service";
 import {
   createStore,
@@ -73,7 +78,7 @@ beforeEach(() => {
     },
     mainSpreadsheetId: MAIN_ID,
   } as ReturnType<typeof useAuthStore.getState>);
-  vi.spyOn(setupService, "getMainSpreadsheetId").mockReturnValue(MAIN_ID);
+  vi.spyOn(migrationModule, "getMainSpreadsheetId").mockReturnValue(MAIN_ID);
   // localCachePut is a no-op in unit tests
   vi.spyOn(adapters, "localCachePut").mockResolvedValue(undefined);
 });
@@ -122,7 +127,7 @@ describe("listStores", () => {
   });
 
   it("throws StoreManagementError when mainSpreadsheetId is not set", async () => {
-    vi.spyOn(setupService, "getMainSpreadsheetId").mockReturnValue(null);
+    vi.spyOn(migrationModule, "getMainSpreadsheetId").mockReturnValue(null);
 
     await expect(listStores()).rejects.toThrow(StoreManagementError);
   });
@@ -134,23 +139,23 @@ describe("createStore", () => {
   it("provisions a new store and returns the record with the generated storeId", async () => {
     const newMasterId = "master-new";
     const newStoreId = "store-new";
-    vi.spyOn(setupService, "createMasterSpreadsheet").mockResolvedValue({
+    vi.spyOn(MigrationService, "createStore").mockResolvedValue({
       masterId: newMasterId,
       storeId: newStoreId,
       driveFolderId: "folder-new",
     });
-    vi.spyOn(setupService, "initializeMasterSheets").mockResolvedValue(
+    vi.spyOn(MigrationService, "initializeMasterSheets").mockResolvedValue(
       undefined,
     );
 
     const result = await createStore("Toko Baru");
 
-    expect(setupService.createMasterSpreadsheet).toHaveBeenCalledWith(
+    expect(MigrationService.createStore).toHaveBeenCalledWith(
       "Toko Baru",
       "owner@test.com",
       MAIN_ID,
     );
-    expect(setupService.initializeMasterSheets).toHaveBeenCalledWith(
+    expect(MigrationService.initializeMasterSheets).toHaveBeenCalledWith(
       newMasterId,
     );
     expect(adapters.localCachePut).toHaveBeenCalledWith("Stores", [
@@ -163,10 +168,10 @@ describe("createStore", () => {
   });
 
   it("propagates error when createMasterSpreadsheet fails", async () => {
-    vi.spyOn(setupService, "createMasterSpreadsheet").mockRejectedValue(
+    vi.spyOn(MigrationService, "createStore").mockRejectedValue(
       new Error("Drive API error"),
     );
-    vi.spyOn(setupService, "initializeMasterSheets").mockResolvedValue(
+    vi.spyOn(MigrationService, "initializeMasterSheets").mockResolvedValue(
       undefined,
     );
 

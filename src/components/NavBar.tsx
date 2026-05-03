@@ -17,10 +17,8 @@ import { authAdapter, resetDexieLayer, syncManager } from "../lib/adapters";
 import type { Role } from "../lib/adapters/types";
 import { logger } from "../lib/logger";
 import { queryClient } from "../lib/queryClient";
-import {
-  activateStore,
-  clearSetupStorage,
-} from "../modules/auth/setup.service";
+import { MigrationService } from "../lib/services/MigrationService";
+import { clearSetupStorage } from "../modules/auth/setup.service";
 import { useAuth } from "../modules/auth/useAuth";
 import { useStores } from "../modules/settings";
 import { NAV_ITEMS } from "./nav.constants";
@@ -82,7 +80,7 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
     // the loading screen before the slow Drive traversal in activateStore begins.
     navigate(`/${storeId}/cashier`);
     try {
-      await activateStore(store);
+      await MigrationService.activateStore(store);
     } catch {
       logger.warn("[NavBar] activateStore failed for store", storeId);
       // Silent — store picker reverts visually on next render

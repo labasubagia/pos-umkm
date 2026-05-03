@@ -5,6 +5,7 @@
  * - Main spreadsheet creation
  * - Store folder creation from store rows
  * - Master + monthly spreadsheet creation from config
+ * - Full store setup orchestration (runStoreSetup / runFirstTimeSetup)
  */
 
 import { logger } from "@/lib/logger";
@@ -13,8 +14,12 @@ import { getStoreMapStore } from "../../store/storeMapStore";
 import { makeRepo, storeFolderService } from "../adapters";
 import {
   MAIN_PRESET,
+  MASTER_TAB_HEADERS,
+  MASTER_TABS,
   type MainConfigPayload,
   type MigrationPayload,
+  MONTHLY_TAB_HEADERS,
+  MONTHLY_TABS,
   STORE_MULTI_PRESET,
 } from "../config/presets";
 import {
@@ -54,11 +59,16 @@ function getSubfoldersForSpreadsheet(name: string, year: number): string[] {
   return [];
 }
 
-function getMainSpreadsheetId(): string | null {
+export function getMainSpreadsheetId(): string | null {
   return (
     useAuthStore.getState().mainSpreadsheetId ??
     localStorage.getItem("mainSpreadsheetId")
   );
+}
+
+export function saveMainSpreadsheetId(id: string): void {
+  useAuthStore.getState().setMainSpreadsheetId(id);
+  localStorage.setItem("mainSpreadsheetId", id);
 }
 
 export interface StoreRecord {
@@ -71,8 +81,9 @@ export interface StoreRecord {
 }
 
 const PENDING_TTL_MS = 5 * 60 * 1000;
+export const STORE_MAP_TTL_MS = PENDING_TTL_MS;
 
-const pendingActivations = new Map<string, Promise<void>>();
+export const pendingActivations = new Map<string, Promise<void>>();
 
 class MigrationServiceImpl {
   async initMain(config: MainConfigPayload = MAIN_PRESET): Promise<string> {
@@ -413,6 +424,114 @@ class MigrationServiceImpl {
     }
 
     return createdAny;
+  }
+
+  async initializeMasterSheets(spreadsheetId: string): Promise<void> {
+    if (!spreadsheetId) {
+      throw new MigrationError(
+        "initializeMasterSheets: spreadsheetId is required",
+      );
+    }
+    await Promise.all(
+      MASTER_TABS.map((tab) =>
+        makeRepo(spreadsheetId, tab)._createTable(
+          MASTER_TAB_HEADERS[tab] ?? [],
+        ),
+      ),
+    );
+  }
+
+  async initializeMonthlySheets(spreadsheetId: string): Promise<void> {
+    if (!spreadsheetId) {
+      throw new MigrationError(
+        "initializeMonthlySheets: spreadsheetId is required",
+      );
+    }
+    await Promise.all(
+      MONTHLY_TABS.map((tab) =>
+        makeRepo(spreadsheetId, tab)._createTable(
+          MONTHLY_TAB_HEADERS[tab] ?? [],
+        ),
+      ),
+    );
+  }
+
+  async runStoreSetup(
+    businessName: string,
+    ownerEmail = "",
+  ): Promise<{ storeId: string; driveFolderId: string }> {
+    const mainId = getMainSpreadsheetId();
+    if (!mainId) {
+      throw new MigrationError(
+        "runStoreSetup: mainSpreadsheetId not found. Call runFirstTimeSetup() or findOrCreateMain() first.",
+      );
+    }
+
+    const {
+      masterId,
+      storeId: newStoreId,
+      driveFolderId,
+    } = await this.createStore(
+      businessName,
+      ownerEmail,
+      mainId,
+      STORE_MULTI_PRESET,
+    );
+
+    await this.initializeMasterSheets(masterId);
+
+    const initial = await storeFolderService.traverse(
+      driveFolderId,
+      STORE_MULTI_PRESET,
+    );
+    getStoreMapStore(newStoreId)
+      .getState()
+      .setStoreMap(driveFolderId, initial.sheets, initial.monthlySheets);
+
+    await this.activateStore(
+      {
+        store_id: newStoreId,
+        store_name: businessName,
+        drive_folder_id: driveFolderId,
+        owner_email: ownerEmail,
+        my_role: "owner",
+        joined_at: nowUTC(),
+      },
+      STORE_MULTI_PRESET,
+    );
+
+    return { storeId: newStoreId, driveFolderId };
+  }
+
+  async runFirstTimeSetup(
+    businessName: string,
+    ownerEmail = "",
+  ): Promise<{ storeId: string; driveFolderId: string }> {
+    let mainId = getMainSpreadsheetId();
+    if (!mainId) {
+      mainId = await this.initMain();
+      useAuthStore.getState().setMainSpreadsheetId(mainId);
+      localStorage.setItem("mainSpreadsheetId", mainId);
+    }
+    return this.runStoreSetup(businessName, ownerEmail);
+  }
+
+  async findOrCreateMain(
+    ownerEmail = "",
+  ): Promise<{ mainSpreadsheetId: string; stores: StoreRecord[] }> {
+    void ownerEmail;
+    try {
+      let mainId = getMainSpreadsheetId();
+      if (!mainId) {
+        mainId = await this.initMain();
+        useAuthStore.getState().setMainSpreadsheetId(mainId);
+        localStorage.setItem("mainSpreadsheetId", mainId);
+      }
+      const stores = await this.listStores(mainId);
+      return { mainSpreadsheetId: mainId, stores };
+    } catch (err) {
+      throw new MigrationError(`findOrCreateMain failed: ${String(err)}`, err);
+    }
   }
 }
 

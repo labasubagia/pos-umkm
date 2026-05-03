@@ -18,13 +18,12 @@ import {
 } from "../../lib/adapters";
 import type { Store } from "../../lib/adapters/zod-schemas";
 import { nowUTC } from "../../lib/formatters";
-import { useAuthStore } from "../../store/authStore";
 import {
-  createMasterSpreadsheet,
   getMainSpreadsheetId,
-  initializeMasterSheets,
+  MigrationService,
   type StoreRecord,
-} from "../auth/setup.service";
+} from "../../lib/services/MigrationService";
+import { useAuthStore } from "../../store/authStore";
 
 // ─── Error class ──────────────────────────────────────────────────────────────
 
@@ -104,12 +103,9 @@ export async function createStore(name: string): Promise<StoreRecord> {
   const ownerEmail = useAuthStore.getState().user?.email ?? "";
   const mainId = requireMainId();
 
-  const { masterId, storeId, driveFolderId } = await createMasterSpreadsheet(
-    trimmedName,
-    ownerEmail,
-    mainId,
-  );
-  await initializeMasterSheets(masterId);
+  const { masterId, storeId, driveFolderId } =
+    await MigrationService.createStore(trimmedName, ownerEmail, mainId);
+  await MigrationService.initializeMasterSheets(masterId);
 
   const record: StoreRecord = {
     store_id: storeId,

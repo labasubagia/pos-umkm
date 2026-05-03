@@ -6,26 +6,44 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
+import {
+  getMainSpreadsheetId,
+  MigrationService,
+  type StoreRecord,
+  saveMainSpreadsheetId,
+} from "../../lib/services/MigrationService";
 import { useAuthStore } from "../../store/authStore";
 import {
-  activateStore,
-  createMainSpreadsheet,
-  createMasterSpreadsheet,
-  findOrCreateMain,
-  getMainSpreadsheetId,
-  initializeMasterSheets,
-  initializeMonthlySheets,
-  listStores,
   MAIN_TAB_HEADERS,
   MAIN_TABS,
   MASTER_TABS,
   MONTHLY_TABS,
-  runFirstTimeSetup,
-  type StoreRecord,
-  saveMainSpreadsheetId,
   shareSheetWithAllMembers,
-  updateStoreName,
 } from "./setup.service";
+
+// Convenience aliases so test bodies read the same as before
+const createMainSpreadsheet = (ownerEmail = "") => (
+  void ownerEmail, MigrationService.initMain()
+);
+const createMasterSpreadsheet = (
+  businessName: string,
+  ownerEmail: string,
+  mainSpreadsheetId: string,
+) => MigrationService.createStore(businessName, ownerEmail, mainSpreadsheetId);
+const listStores = (mainSpreadsheetId?: string) =>
+  MigrationService.listStores(mainSpreadsheetId);
+const updateStoreName = (storeId: string, newName: string) =>
+  MigrationService.updateStoreName(storeId, newName);
+const findOrCreateMain = (ownerEmail = "") =>
+  MigrationService.findOrCreateMain(ownerEmail);
+const activateStore = (store: StoreRecord) =>
+  MigrationService.activateStore(store);
+const initializeMasterSheets = (id: string) =>
+  MigrationService.initializeMasterSheets(id);
+const initializeMonthlySheets = (id: string) =>
+  MigrationService.initializeMonthlySheets(id);
+const runFirstTimeSetup = (name: string, email = "") =>
+  MigrationService.runFirstTimeSetup(name, email);
 
 // jsdom localStorage.clear() may not exist in all vitest environments; use Map-backed mock
 const localStorageMock = (() => {

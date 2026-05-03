@@ -17,8 +17,8 @@ import { useNavigate } from "react-router-dom";
 import { logger } from "@/lib/logger";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
-import type { StoreRecord } from "./setup.service";
-import { activateStore, findOrCreateMain } from "./setup.service";
+import type { StoreRecord } from "../../lib/services/MigrationService";
+import { MigrationService } from "../../lib/services/MigrationService";
 import { useAuth } from "./useAuth";
 
 export default function StorePickerPage() {
@@ -35,7 +35,7 @@ export default function StorePickerPage() {
     async (store: StoreRecord) => {
       setActivating(true);
       try {
-        await activateStore(store);
+        await MigrationService.activateStore(store);
         setActiveStoreId(store.store_id);
         navigate(`/${store.store_id}/cashier`, { replace: true });
       } catch (err) {
@@ -53,7 +53,9 @@ export default function StorePickerPage() {
 
   const resolveStores = useCallback(async () => {
     try {
-      const { stores: list } = await findOrCreateMain(user?.email ?? "");
+      const { stores: list } = await MigrationService.findOrCreateMain(
+        user?.email ?? "",
+      );
       if (list.length === 0) {
         navigate("/setup", { replace: true });
         return;

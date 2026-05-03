@@ -34,12 +34,15 @@ vi.mock("../lib/adapters", () => ({
   syncManager: { triggerSync: vi.fn() },
 }));
 
-vi.mock("../modules/auth/setup.service", async (importOriginal) => {
+vi.mock("../lib/services/MigrationService", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../modules/auth/setup.service")>();
+    await importOriginal<typeof import("../lib/services/MigrationService")>();
   return {
     ...actual,
-    activateStore: vi.fn().mockImplementation(() => Promise.resolve()),
+    MigrationService: {
+      ...actual.MigrationService,
+      activateStore: vi.fn().mockImplementation(() => Promise.resolve()),
+    },
   };
 });
 
@@ -68,7 +71,6 @@ vi.mock("../hooks/useStores", async (importOriginal) => {
 const store1: StoreRecord = {
   store_id: "store-1",
   store_name: "Toko 1",
-  master_spreadsheet_id: "master-1",
   drive_folder_id: "folder-1",
   owner_email: "test@test.com",
   my_role: "owner",
@@ -77,7 +79,6 @@ const store1: StoreRecord = {
 const store2: StoreRecord = {
   store_id: "store-2",
   store_name: "Toko 2",
-  master_spreadsheet_id: "master-2",
   drive_folder_id: "folder-2",
   owner_email: "test@test.com",
   my_role: "owner",
@@ -113,6 +114,7 @@ beforeEach(() => {
   vi.mocked(useStores).mockReturnValue({
     data: [],
     isLoading: false,
+    error: null,
   });
 });
 
@@ -192,7 +194,10 @@ describe("NavBar", () => {
   // ── T064: no /cashier redirect on store switch ────────────────────────────
 
   it("switching store navigates to /:storeId/cashier for the new store", async () => {
-    const { activateStore } = await import("../modules/auth/setup.service");
+    const { MigrationService } = await import(
+      "../lib/services/MigrationService"
+    );
+    const activateStore = MigrationService.activateStore;
     const user = userEvent.setup();
     setRole("owner");
     act(() => {
@@ -201,6 +206,7 @@ describe("NavBar", () => {
     vi.mocked(useStores).mockReturnValue({
       data: [store1, store2],
       isLoading: false,
+      error: null,
     });
     renderNavBar("/reports");
 
@@ -211,7 +217,10 @@ describe("NavBar", () => {
   });
 
   it("selecting the already-active store does nothing", async () => {
-    const { activateStore } = await import("../modules/auth/setup.service");
+    const { MigrationService } = await import(
+      "../lib/services/MigrationService"
+    );
+    const activateStore = MigrationService.activateStore;
     const user = userEvent.setup();
     setRole("owner");
     act(() => {
@@ -220,6 +229,7 @@ describe("NavBar", () => {
     vi.mocked(useStores).mockReturnValue({
       data: [store1, store2],
       isLoading: false,
+      error: null,
     });
     renderNavBar();
 
