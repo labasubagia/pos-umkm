@@ -221,9 +221,17 @@ export async function ensureMonthlySheetExists(): Promise<string> {
   const month = String(now.getMonth() + 1).padStart(2, "0");
 
   const storeMap = getCurrentStoreMapStore().getState();
+
+  // Check monthlySheets first (for multi-store config with separate spreadsheets)
   const monthlyEntry = storeMap.monthlySheets[year]?.[month];
   if (monthlyEntry?.sheets.Transactions) {
     return monthlyEntry.sheets.Transactions.spreadsheet_id;
+  }
+
+  // Fall back to main sheets (for single-store config where all sheets are in data spreadsheet)
+  const mainSheet = storeMap.sheets.Transactions;
+  if (mainSheet) {
+    return mainSheet.spreadsheet_id;
   }
 
   throw new Error(
