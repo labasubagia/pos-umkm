@@ -360,6 +360,7 @@ export async function getSpreadsheetMeta(
       }
       return result;
     },
-    staleTime: STALE_TIME,
+    staleTime: 24 * 60 * 60 * 1000,
+    gcTime: 7 * 24 * 60 * 60 * 1000,
   });
 }

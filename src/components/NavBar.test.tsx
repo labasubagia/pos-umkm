@@ -17,7 +17,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../lib/adapters";
 import type { Role } from "../lib/adapters/types";
-import type { StoreRecord } from "../modules/auth/setup.service";
+
 import { useStores } from "../modules/settings";
 import { useAuthStore } from "../store/authStore";
 import { NavBar } from "./NavBar";
@@ -62,7 +62,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-const store1: StoreRecord = {
+const store1: adapters.StoreRecord = {
   store_id: "store-1",
   store_name: "Toko 1",
   drive_folder_id: "folder-1",
@@ -70,7 +70,7 @@ const store1: StoreRecord = {
   my_role: "owner",
   joined_at: "2026-01-01T00:00:00Z",
 };
-const store2: StoreRecord = {
+const store2: adapters.StoreRecord = {
   store_id: "store-2",
   store_name: "Toko 2",
   drive_folder_id: "folder-2",

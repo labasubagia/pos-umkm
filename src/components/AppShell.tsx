@@ -31,10 +31,7 @@ import {
   syncManager,
 } from "../lib/adapters";
 import { logger } from "../lib/logger";
-import {
-  pendingActivations,
-  STORE_MAP_TTL_MS,
-} from "../lib/services/StoreActivationService";
+import { pendingActivations } from "../lib/services/StoreActivationService";
 import { useAuthStore } from "../store/authStore";
 import { getStoreMapStore } from "../store/storeMapStore";
 import { BottomNav } from "./BottomNav";
@@ -161,28 +158,6 @@ async function ensureStoreMapReady(storeId: string): Promise<void> {
   }
 
   const storeMap = getStoreMapStore(storeId).getState();
-
-  // Check if this store map has both master sheets AND the current month's
-  // transaction sheet. If either is missing, traversal is needed.
-  const monthlyCount = Object.keys(storeMap.monthlySheets).reduce(
-    (acc, year) =>
-      acc + Object.keys(storeMap.monthlySheets[Number(year)] ?? {}).length,
-    0,
-  );
-  const hasSheets = Object.keys(storeMap.sheets).length > 0 || monthlyCount > 0;
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonthStr = String(now.getMonth() + 1).padStart(2, "0");
-  // Current month's transaction sheet must exist in the store map (multi-sheet
-  // config) OR a Transactions sheet must exist in the flat sheets map (single
-  // config). If neither exists, re-traverse even if the cache appears "fresh".
-  const hasCurrentMonthSheets =
-    !!storeMap.monthlySheets[currentYear]?.[currentMonthStr] ||
-    !!storeMap.sheets.Transactions;
-  const isFresh =
-    storeMap.lastTraversedAt !== null &&
-    Date.now() - storeMap.lastTraversedAt < STORE_MAP_TTL_MS;
-  if (hasSheets && hasCurrentMonthSheets && isFresh) return;
 
   // Sheets empty — use the active store map's persisted folder ID so refresh
   // cannot accidentally traverse a different store's folder.

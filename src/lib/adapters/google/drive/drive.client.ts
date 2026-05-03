@@ -11,7 +11,6 @@ import { queryClient } from "../../../queryClient";
 import { AdapterError } from "../../types";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
-const STALE_TIME = 60 * 1000; // 1 minute - reduce to avoid stale cache issues
 
 export const MIME_FOLDER = "application/vnd.google-apps.folder";
 export const MIME_SPREADSHEET = "application/vnd.google-apps.spreadsheet";
@@ -250,6 +249,7 @@ export async function getFolderContent(
       });
       return (data.files ?? []) as DriveNode[];
     },
-    staleTime: STALE_TIME,
+    staleTime: 24 * 60 * 60 * 1000,
+    gcTime: 7 * 24 * 60 * 60 * 1000,
   });
 }

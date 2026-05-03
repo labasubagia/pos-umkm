@@ -14,9 +14,6 @@ import { ACTIVE_PRESET, type MigrationPayload } from "../config/presets";
 import { transformMigrationPayload } from "../config/transformer";
 import { MigrationError, type StoreRecord } from "./MigrationService";
 
-const PENDING_TTL_MS = 5 * 60 * 1000;
-export const STORE_MAP_TTL_MS = PENDING_TTL_MS;
-
 export const pendingActivations = new Map<string, Promise<void>>();
 
 function mm(month: number): string {
@@ -55,35 +52,19 @@ class StoreActivationServiceImpl {
           acc + Object.keys(cachedMap.monthlySheets[Number(year)] ?? {}).length,
         0,
       );
-      // Cache is only fresh if BOTH master sheets and monthly sheets are present.
-      // If monthly sheets are empty but master sheets exist the store was activated
-      // before the current month's spreadsheet was created — force a re-traverse.
-      const hasMasterSheets = Object.keys(cachedMap.sheets).length > 0;
-      const hasMonthlySheets = !config.monthlySheet || monthlySheetCount > 0;
-      const isFresh =
-        cachedMap.lastTraversedAt !== null &&
-        Date.now() - cachedMap.lastTraversedAt < PENDING_TTL_MS &&
-        hasMasterSheets &&
-        hasMonthlySheets;
 
-      logger.info("StoreActivationService.activateStore: cache isFresh", {
-        isFresh,
+      logger.info(
+        "StoreActivationService.activateStore: traversing store folder",
+        { storeFolderId },
+      );
+      const result = await storeFolderService.traverse(storeFolderId, config);
+      logger.info("StoreActivationService.activateStore: traverse complete", {
+        sheets: Object.keys(result.sheets).length,
+        monthlySheets: monthlySheetCount,
       });
-
-      if (!isFresh) {
-        logger.info(
-          "StoreActivationService.activateStore: traversing store folder",
-          { storeFolderId },
-        );
-        const result = await storeFolderService.traverse(storeFolderId, config);
-        logger.info("StoreActivationService.activateStore: traverse complete", {
-          sheets: Object.keys(result.sheets).length,
-          monthlySheets: monthlySheetCount,
-        });
-        getStoreMapStore(storeId)
-          .getState()
-          .setStoreMap(storeFolderId, result.sheets, result.monthlySheets);
-      }
+      getStoreMapStore(storeId)
+        .getState()
+        .setStoreMap(storeFolderId, result.sheets, result.monthlySheets);
 
       logger.info(
         "StoreActivationService.activateStore: ensuring monthly sheets...",
