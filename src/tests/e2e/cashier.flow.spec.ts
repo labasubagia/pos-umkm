@@ -6,8 +6,12 @@
  * without any direct IndexedDB writes or page reloads.
  */
 import { expect, test } from "@playwright/test";
-import { navigateTo } from "./helpers/auth";
-import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
+import {
+  BASE,
+  DEFAULT_STORE,
+  injectAuthState,
+  navigateTo,
+} from "./helpers/auth";
 import { makeId } from "./helpers/e2e-fixtures";
 import { setMswFixtures } from "./helpers/msw-state";
 

@@ -19,9 +19,5 @@ export default defineConfig({
     command: "npm run dev -- --port 5174",
     url: "http://localhost:5174/pos-umkm/",
     reuseExistingServer: !process.env.CI,
-    env: {
-      // VITE_E2E exposes window.__getDb for Dexie seeding in specs.
-      VITE_E2E: "true",
-    },
   },
 });

@@ -28,7 +28,7 @@
  *   Monthly spreadsheet: Transactions, Transaction_Items, Refunds
  */
 import type { Page } from "@playwright/test";
-import type { StoreConfig } from "./auth-dexie";
+import type { StoreConfig } from "./auth";
 
 type TableName =
   | "Stores"

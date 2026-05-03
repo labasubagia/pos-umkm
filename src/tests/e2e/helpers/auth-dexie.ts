@@ -1,5 +1,5 @@
 /**
- * auth-dexie.ts — E2E auth injection for the Dexie (Google) adapter.
+ * auth.ts — E2E auth injection and navigation helpers.
  *
  * Injects auth state and store map into localStorage before the page loads so that:
  *   1. GoogleAuthAdapter.restoreSession() returns the fake user immediately
@@ -85,7 +85,9 @@ export async function injectAuthState(
 
       // Store map — pre-populated so AppShell doesn't need to traverse Drive.
       const now = new Date();
-      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const yearMonth = `${year}-${month}`;
       localStorage.setItem(
         `pos_umkm_storemap_${store.storeId}`,
         JSON.stringify({
@@ -252,71 +254,74 @@ export async function injectAuthState(
                 headers: ["id", "year_month", "spreadsheetId", "created_at"],
               },
             },
-            monthlySheets: [
-              {
-                yearMonth,
-                sheets: {
-                  Transactions: {
-                    spreadsheet_id: store.mainSpreadsheetId,
-                    spreadsheet_name: `transaction_${yearMonth}`,
-                    folder_path: `transactions/${now.getFullYear()}`,
-                    sheet_name: "Transactions",
-                    sheet_id: 20,
-                    headers: [
-                      "id",
-                      "created_at",
-                      "cashier_id",
-                      "customer_id",
-                      "subtotal",
-                      "discount_type",
-                      "discount_value",
-                      "discount_amount",
-                      "tax",
-                      "total",
-                      "payment_method",
-                      "cash_received",
-                      "change",
-                      "receipt_number",
-                      "notes",
-                    ],
-                  },
-                  Transaction_Items: {
-                    spreadsheet_id: store.mainSpreadsheetId,
-                    spreadsheet_name: `transaction_${yearMonth}`,
-                    folder_path: `transactions/${now.getFullYear()}`,
-                    sheet_name: "Transaction_Items",
-                    sheet_id: 21,
-                    headers: [
-                      "id",
-                      "transaction_id",
-                      "product_id",
-                      "variant_id",
-                      "name",
-                      "price",
-                      "quantity",
-                      "subtotal",
-                    ],
-                  },
-                  Refunds: {
-                    spreadsheet_id: store.mainSpreadsheetId,
-                    spreadsheet_name: `transaction_${yearMonth}`,
-                    folder_path: `transactions/${now.getFullYear()}`,
-                    sheet_name: "Refunds",
-                    sheet_id: 22,
-                    headers: [
-                      "id",
-                      "transaction_id",
-                      "product_id",
-                      "product_name",
-                      "qty",
-                      "unit_price",
-                      "reason",
-                      "created_at",
-                    ],
+            monthlySheets: {
+              [year]: {
+                [month]: {
+                  year,
+                  month,
+                  sheets: {
+                    Transactions: {
+                      spreadsheet_id: store.mainSpreadsheetId,
+                      spreadsheet_name: `transaction_${yearMonth}`,
+                      folder_path: `transactions/${year}`,
+                      sheet_name: "Transactions",
+                      sheet_id: 20,
+                      headers: [
+                        "id",
+                        "created_at",
+                        "cashier_id",
+                        "customer_id",
+                        "subtotal",
+                        "discount_type",
+                        "discount_value",
+                        "discount_amount",
+                        "tax",
+                        "total",
+                        "payment_method",
+                        "cash_received",
+                        "change",
+                        "receipt_number",
+                        "notes",
+                      ],
+                    },
+                    Transaction_Items: {
+                      spreadsheet_id: store.mainSpreadsheetId,
+                      spreadsheet_name: `transaction_${yearMonth}`,
+                      folder_path: `transactions/${year}`,
+                      sheet_name: "Transaction_Items",
+                      sheet_id: 21,
+                      headers: [
+                        "id",
+                        "transaction_id",
+                        "product_id",
+                        "variant_id",
+                        "name",
+                        "price",
+                        "quantity",
+                        "subtotal",
+                      ],
+                    },
+                    Refunds: {
+                      spreadsheet_id: store.mainSpreadsheetId,
+                      spreadsheet_name: `transaction_${yearMonth}`,
+                      folder_path: `transactions/${year}`,
+                      sheet_name: "Refunds",
+                      sheet_id: 22,
+                      headers: [
+                        "id",
+                        "transaction_id",
+                        "product_id",
+                        "product_name",
+                        "qty",
+                        "unit_price",
+                        "reason",
+                        "created_at",
+                      ],
+                    },
                   },
                 },
               },
-            ],
+            },
             lastTraversedAt: Date.now(),
           },
           version: 0,
@@ -328,14 +333,24 @@ export async function injectAuthState(
 }
 
 /**
- * Full sign-in helper: injects auth, navigates to /cashier, waits for the
- * product-search-input to confirm the page is ready.
+ * Navigate within the SPA without a hard reload, preserving in-memory
+ * React/Zustand state. Pushes a history entry and fires popstate so React
+ * Router picks it up — equivalent to clicking a <Link>.
+ *
+ * When `readyTestId` is provided, waits for that element to appear before
+ * returning — avoiding race conditions where callers interact with elements
+ * that haven't rendered yet.
  */
-export async function signInAsDexie(
+export async function navigateTo(
   page: Page,
-  store: StoreConfig = DEFAULT_STORE,
+  path: string,
+  readyTestId?: string,
 ): Promise<void> {
-  await injectAuthState(page, store);
-  await page.goto(`${BASE}/${store.storeId}/cashier`);
-  await page.getByTestId("product-search-input").waitFor();
+  await page.evaluate((p) => {
+    window.history.pushState({}, "", p);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, path);
+  if (readyTestId) {
+    await page.getByTestId(readyTestId).waitFor();
+  }
 }

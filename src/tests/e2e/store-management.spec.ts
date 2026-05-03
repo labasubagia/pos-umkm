@@ -6,7 +6,7 @@
  * stubbed via page.route() to return a fake spreadsheetId.
  */
 import { expect, test } from "@playwright/test";
-import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
+import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth";
 import { seedDexie } from "./helpers/dexie-seed";
 import { setMswFixtures } from "./helpers/msw-state";
 

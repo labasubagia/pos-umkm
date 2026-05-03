@@ -5,7 +5,7 @@
  * fixtures so HydrationService populates Dexie — no direct IndexedDB writes.
  */
 import { expect, type TestInfo, test } from "@playwright/test";
-import { BASE, injectAuthState, type StoreConfig } from "./helpers/auth-dexie";
+import { BASE, injectAuthState, type StoreConfig } from "./helpers/auth";
 import { makeId, makeStoreConfig } from "./helpers/e2e-fixtures";
 import { setMswFixtures } from "./helpers/msw-state";
 
