@@ -34,7 +34,7 @@ import {
 } from "../components/ui/table";
 import { syncManager } from "../lib/adapters";
 import type { StoreRecord } from "../lib/services/MigrationService";
-import { MigrationService } from "../lib/services/MigrationService";
+import { StoreActivationService } from "../lib/services/StoreActivationService";
 import { useStores } from "../modules/settings";
 import {
   createStore,
@@ -99,7 +99,7 @@ export default function StoreManagementPage() {
         // Read fresh list from Dexie after soft-delete so redirect uses up-to-date data.
         const remaining = await listStores();
         if (remaining.length > 0) {
-          await MigrationService.activateStore(remaining[0]);
+          await StoreActivationService.activateStore(remaining[0]);
           setActiveStoreId(remaining[0].store_id);
         } else {
           syncManager.triggerSync();
@@ -134,7 +134,7 @@ export default function StoreManagementPage() {
       // Navigate first so AppShell's URL-sync shows loading while activateStore
       // traverses the Drive folder and pre-creates monthly sheets.
       navigate(`/${store.store_id}/cashier`);
-      await MigrationService.activateStore(store);
+      await StoreActivationService.activateStore(store);
     },
     onError: (err) =>
       setMutationError(String(err instanceof Error ? err.message : err)),

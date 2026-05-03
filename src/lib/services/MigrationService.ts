@@ -1,22 +1,21 @@
 /**
- * MigrationService.ts — Config-driven spreadsheet migration.
+ * MigrationService.ts — Store provisioning and setup orchestration.
  *
- * Handles:
- * - Main spreadsheet creation
- * - Store folder creation from store rows
- * - Master + monthly spreadsheet creation from config
- * - Full store setup orchestration (runStoreSetup / runFirstTimeSetup)
+ * Responsible for:
+ * - Creating the store Drive folder and data spreadsheet (createStore)
+ * - Writing header rows for master/monthly tabs (initializeMasterSheets, initializeMonthlySheets)
+ * - One-shot config-driven bootstrap (migrate)
+ * - Full setup orchestration (runStoreSetup, runFirstTimeSetup)
+ *
+ * Delegates runtime activation to StoreActivationService
+ * and main-spreadsheet registry to StoreRegistryService.
  */
 
-import { logger } from "@/lib/logger";
-import { useAuthStore } from "../../store/authStore";
 import { getStoreMapStore } from "../../store/storeMapStore";
 import { makeRepo, storeFolderService } from "../adapters";
 import {
-  MAIN_PRESET,
   MASTER_TAB_HEADERS,
   MASTER_TABS,
-  type MainConfigPayload,
   type MigrationPayload,
   MONTHLY_TAB_HEADERS,
   MONTHLY_TABS,
@@ -28,6 +27,12 @@ import {
 } from "../config/transformer";
 import { nowUTC } from "../formatters";
 import { generateId } from "../uuid";
+import { StoreActivationService } from "./StoreActivationService";
+import {
+  getMainSpreadsheetId,
+  StoreRegistryService,
+  saveMainSpreadsheetId,
+} from "./StoreRegistryService";
 
 export class MigrationError extends Error {
   readonly cause?: unknown;
@@ -39,38 +44,6 @@ export class MigrationError extends Error {
   }
 }
 
-function mm(month: number): string {
-  return String(month).padStart(2, "0");
-}
-
-function getSubfoldersForSpreadsheet(name: string, year: number): string[] {
-  if (name.startsWith("transaction_")) {
-    return ["transactions", String(year)];
-  }
-  if (name.startsWith("log_")) {
-    return ["logs", String(year)];
-  }
-  if (name.startsWith("po_")) {
-    return ["po", String(year)];
-  }
-  if (name.startsWith("stock_")) {
-    return ["stock", String(year)];
-  }
-  return [];
-}
-
-export function getMainSpreadsheetId(): string | null {
-  return (
-    useAuthStore.getState().mainSpreadsheetId ??
-    localStorage.getItem("mainSpreadsheetId")
-  );
-}
-
-export function saveMainSpreadsheetId(id: string): void {
-  useAuthStore.getState().setMainSpreadsheetId(id);
-  localStorage.setItem("mainSpreadsheetId", id);
-}
-
 export interface StoreRecord {
   store_id: string;
   store_name: string;
@@ -80,48 +53,7 @@ export interface StoreRecord {
   joined_at: string;
 }
 
-const PENDING_TTL_MS = 5 * 60 * 1000;
-export const STORE_MAP_TTL_MS = PENDING_TTL_MS;
-
-export const pendingActivations = new Map<string, Promise<void>>();
-
 class MigrationServiceImpl {
-  async initMain(config: MainConfigPayload = MAIN_PRESET): Promise<string> {
-    logger.info("MigrationService.initMain: starting...");
-    const pathParts = ["apps", "pos_umkm"];
-    logger.info("MigrationService.initMain: ensuring folder", { pathParts });
-    const folderId = await storeFolderService.ensureFolder(pathParts);
-    logger.info("MigrationService.initMain: folder created", { folderId });
-    const spreadsheetId = await storeFolderService.createSpreadsheet(
-      "main",
-      folderId ?? undefined,
-      ["Stores"],
-    );
-    logger.info("MigrationService.initMain: spreadsheet created", {
-      spreadsheetId,
-    });
-    await makeRepo(spreadsheetId, "Stores")._createTable(config.Stores.columns);
-    return spreadsheetId;
-  }
-
-  async ensureStoreFolders(): Promise<void> {
-    const mainId = getMainSpreadsheetId();
-    if (!mainId) return;
-
-    const rows = await makeRepo(mainId, "Stores").getAll();
-    for (const row of rows) {
-      if (row.store_id && row.drive_folder_id) {
-        const storeId = String(row.store_id);
-        await storeFolderService.ensureFolder([
-          "apps",
-          "pos_umkm",
-          "stores",
-          storeId,
-        ]);
-      }
-    }
-  }
-
   async migrate(
     storeId: string,
     date: Date,
@@ -161,40 +93,6 @@ class MigrationServiceImpl {
     }
 
     return created;
-  }
-
-  async listStores(mainSpreadsheetId?: string): Promise<StoreRecord[]> {
-    logger.info("MigrationService.listStores: starting...");
-    const mainId = mainSpreadsheetId ?? getMainSpreadsheetId();
-    logger.info("MigrationService.listStores: mainId", { mainId });
-    if (!mainId) return [];
-
-    logger.info("MigrationService.listStores: fetching from Stores sheet...");
-    const rows = await makeRepo(mainId, "Stores").getAll();
-    logger.info("MigrationService.listStores: got rows", {
-      count: rows.length,
-    });
-    return rows
-      .filter((r) => r.store_id && r.drive_folder_id)
-      .map((r) => ({
-        store_id: String(r.store_id),
-        store_name: String(r.store_name ?? ""),
-        drive_folder_id: String(r.drive_folder_id ?? ""),
-        owner_email: String(r.owner_email ?? ""),
-        my_role: String(r.my_role ?? "owner"),
-        joined_at: String(r.joined_at ?? ""),
-      }));
-  }
-
-  async updateStoreName(storeId: string, newName: string): Promise<void> {
-    const mainId = getMainSpreadsheetId();
-    if (!mainId) {
-      throw new MigrationError("updateStoreName: mainSpreadsheetId not found");
-    }
-
-    await makeRepo(mainId, "Stores").batchUpdate([
-      { rowId: storeId, column: "store_name", value: newName },
-    ]);
   }
 
   async createStore(
@@ -243,189 +141,6 @@ class MigrationServiceImpl {
     };
   }
 
-  async activateStore(
-    store: StoreRecord,
-    config: MigrationPayload = STORE_MULTI_PRESET,
-  ): Promise<void> {
-    logger.info("MigrationService.activateStore: starting", {
-      storeId: store.store_id,
-      storeName: store.store_name,
-    });
-    const { store_id: storeId, drive_folder_id: storeFolderId } = store;
-    logger.info("MigrationService.activateStore: storeFolderId", {
-      storeFolderId,
-    });
-
-    if (!storeFolderId) {
-      throw new MigrationError(
-        `activateStore: store "${store.store_name}" has no drive_folder_id.`,
-      );
-    }
-
-    const activation = (async () => {
-      logger.info("MigrationService.activateStore: checking cache...");
-      const cachedMap = getStoreMapStore(storeId).getState();
-      const monthlySheetCount = Object.keys(cachedMap.monthlySheets).reduce(
-        (acc, year) =>
-          acc + Object.keys(cachedMap.monthlySheets[Number(year)] ?? {}).length,
-        0,
-      );
-      const isFresh =
-        cachedMap.lastTraversedAt !== null &&
-        Date.now() - cachedMap.lastTraversedAt < PENDING_TTL_MS &&
-        (Object.keys(cachedMap.sheets).length > 0 || monthlySheetCount > 0);
-
-      logger.info("MigrationService.activateStore: cache isFresh", { isFresh });
-
-      if (!isFresh) {
-        logger.info("MigrationService.activateStore: traversing store folder", {
-          storeFolderId,
-        });
-        const result = await storeFolderService.traverse(storeFolderId, config);
-        logger.info("MigrationService.activateStore: traverse complete", {
-          sheets: Object.keys(result.sheets).length,
-          monthlySheets: monthlySheetCount,
-        });
-        getStoreMapStore(storeId)
-          .getState()
-          .setStoreMap(storeFolderId, result.sheets, result.monthlySheets);
-      }
-
-      logger.info("MigrationService.activateStore: ensuring monthly sheets...");
-      await this.ensureMonthlySheets(storeId, storeFolderId, config);
-      logger.info("MigrationService.activateStore: complete");
-    })();
-
-    pendingActivations.set(storeId, activation);
-    try {
-      await activation;
-    } finally {
-      pendingActivations.delete(storeId);
-    }
-  }
-
-  private async ensureMonthlySheets(
-    storeId: string,
-    storeFolderId: string,
-    config: MigrationPayload = STORE_MULTI_PRESET,
-  ): Promise<void> {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-
-    const monthsToEnsure = [{ year: currentYear, month: currentMonth }];
-
-    const storeMap = getStoreMapStore(storeId).getState();
-    let created = false;
-
-    for (const { year, month } of monthsToEnsure) {
-      const result = await this.createMonthlySheet(
-        storeId,
-        storeFolderId,
-        year,
-        month,
-        config,
-        storeMap,
-      );
-      if (result) {
-        created = true;
-      }
-    }
-
-    if (created) {
-      const updated = await storeFolderService.traverse(storeFolderId, config);
-      getStoreMapStore(storeId)
-        .getState()
-        .setStoreMap(storeFolderId, updated.sheets, updated.monthlySheets);
-    }
-  }
-
-  private async createMonthlySheet(
-    storeId: string,
-    storeFolderId: string,
-    year: number,
-    month: number,
-    config: MigrationPayload = STORE_MULTI_PRESET,
-    storeMap?: {
-      sheets: Record<string, unknown>;
-      monthlySheets?: Record<number, Record<string, unknown>>;
-    },
-  ): Promise<boolean> {
-    if (!config.monthlySheet) {
-      return false;
-    }
-
-    const yearMonth = `${year}-${mm(month)}`;
-    const date = new Date(year, month - 1, 1);
-    const transformed = transformMigrationPayload(config, storeId, date);
-
-    const currentStoreMap = storeMap ?? getStoreMapStore(storeId).getState();
-    const monthlySheets = currentStoreMap.monthlySheets;
-    const existingMonthlyYearMonths = new Set<string>();
-    if (monthlySheets) {
-      for (const [year, months] of Object.entries(monthlySheets)) {
-        if (months) {
-          for (const [month, _meta] of Object.entries(months)) {
-            existingMonthlyYearMonths.add(`${year}-${month}`);
-          }
-        }
-      }
-    }
-    const existingSpreadsheetNames = new Set(
-      Object.values(currentStoreMap.sheets).map(
-        (s: unknown) => (s as { spreadsheet_name: string }).spreadsheet_name,
-      ),
-    );
-
-    let createdAny = false;
-
-    for (const ss of transformed.spreadsheets) {
-      const ssYearMonth = ss.name.match(/(\d{4}-\d{2})$/)?.[1];
-      const alreadyExists =
-        (ssYearMonth && existingMonthlyYearMonths.has(ssYearMonth)) ||
-        existingSpreadsheetNames.has(ss.name);
-      if (alreadyExists) {
-        continue;
-      }
-
-      const subfolders = getSubfoldersForSpreadsheet(ss.name, year);
-      const parentFolderId = subfolders.length
-        ? await storeFolderService.ensureSubfolder(storeFolderId, subfolders)
-        : storeFolderId;
-
-      const spreadsheetId = await storeFolderService.createSpreadsheet(
-        ss.name,
-        parentFolderId ?? undefined,
-        Object.keys(ss.sheets),
-      );
-
-      for (const [tabName, tabConfig] of Object.entries(ss.sheets)) {
-        await makeRepo(spreadsheetId, tabName)._createTable(tabConfig.columns);
-      }
-
-      const dataSpreadsheetId = Object.values(currentStoreMap.sheets)[0] as
-        | { spreadsheet_id: string }
-        | undefined;
-      if (dataSpreadsheetId) {
-        await makeRepo(
-          dataSpreadsheetId.spreadsheet_id,
-          "Monthly_Sheets",
-        ).batchInsert([
-          {
-            id: generateId(),
-            year_month: yearMonth,
-            spreadsheetId: spreadsheetId,
-            created_at: nowUTC(),
-          },
-        ]);
-      }
-
-      createdAny = true;
-    }
-
-    return createdAny;
-  }
-
   async initializeMasterSheets(spreadsheetId: string): Promise<void> {
     if (!spreadsheetId) {
       throw new MigrationError(
@@ -463,7 +178,7 @@ class MigrationServiceImpl {
     const mainId = getMainSpreadsheetId();
     if (!mainId) {
       throw new MigrationError(
-        "runStoreSetup: mainSpreadsheetId not found. Call runFirstTimeSetup() or findOrCreateMain() first.",
+        "runStoreSetup: mainSpreadsheetId not found. Call runFirstTimeSetup() first.",
       );
     }
 
@@ -488,7 +203,7 @@ class MigrationServiceImpl {
       .getState()
       .setStoreMap(driveFolderId, initial.sheets, initial.monthlySheets);
 
-    await this.activateStore(
+    await StoreActivationService.activateStore(
       {
         store_id: newStoreId,
         store_name: businessName,
@@ -509,29 +224,10 @@ class MigrationServiceImpl {
   ): Promise<{ storeId: string; driveFolderId: string }> {
     let mainId = getMainSpreadsheetId();
     if (!mainId) {
-      mainId = await this.initMain();
-      useAuthStore.getState().setMainSpreadsheetId(mainId);
-      localStorage.setItem("mainSpreadsheetId", mainId);
+      mainId = await StoreRegistryService.initMain();
+      saveMainSpreadsheetId(mainId);
     }
     return this.runStoreSetup(businessName, ownerEmail);
-  }
-
-  async findOrCreateMain(
-    ownerEmail = "",
-  ): Promise<{ mainSpreadsheetId: string; stores: StoreRecord[] }> {
-    void ownerEmail;
-    try {
-      let mainId = getMainSpreadsheetId();
-      if (!mainId) {
-        mainId = await this.initMain();
-        useAuthStore.getState().setMainSpreadsheetId(mainId);
-        localStorage.setItem("mainSpreadsheetId", mainId);
-      }
-      const stores = await this.listStores(mainId);
-      return { mainSpreadsheetId: mainId, stores };
-    } catch (err) {
-      throw new MigrationError(`findOrCreateMain failed: ${String(err)}`, err);
-    }
   }
 }
 

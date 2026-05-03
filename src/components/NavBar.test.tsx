@@ -34,13 +34,15 @@ vi.mock("../lib/adapters", () => ({
   syncManager: { triggerSync: vi.fn() },
 }));
 
-vi.mock("../lib/services/MigrationService", async (importOriginal) => {
+vi.mock("../lib/services/StoreActivationService", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../lib/services/MigrationService")>();
+    await importOriginal<
+      typeof import("../lib/services/StoreActivationService")
+    >();
   return {
     ...actual,
-    MigrationService: {
-      ...actual.MigrationService,
+    StoreActivationService: {
+      ...actual.StoreActivationService,
       activateStore: vi.fn().mockImplementation(() => Promise.resolve()),
     },
   };
@@ -194,10 +196,10 @@ describe("NavBar", () => {
   // ── T064: no /cashier redirect on store switch ────────────────────────────
 
   it("switching store navigates to /:storeId/cashier for the new store", async () => {
-    const { MigrationService } = await import(
-      "../lib/services/MigrationService"
+    const { StoreActivationService } = await import(
+      "../lib/services/StoreActivationService"
     );
-    const activateStore = MigrationService.activateStore;
+    const activateStore = StoreActivationService.activateStore;
     const user = userEvent.setup();
     setRole("owner");
     act(() => {
@@ -217,10 +219,10 @@ describe("NavBar", () => {
   });
 
   it("selecting the already-active store does nothing", async () => {
-    const { MigrationService } = await import(
-      "../lib/services/MigrationService"
+    const { StoreActivationService } = await import(
+      "../lib/services/StoreActivationService"
     );
-    const activateStore = MigrationService.activateStore;
+    const activateStore = StoreActivationService.activateStore;
     const user = userEvent.setup();
     setRole("owner");
     act(() => {

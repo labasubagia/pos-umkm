@@ -38,6 +38,21 @@ vi.mock("../../store/storeMapStore", () => ({
   }),
 }));
 
+// Prevent circular-dependency activation during test imports
+vi.mock("./StoreActivationService", () => ({
+  StoreActivationService: {
+    activateStore: vi.fn().mockResolvedValue(undefined),
+  },
+  pendingActivations: new Map(),
+  STORE_MAP_TTL_MS: 5 * 60 * 1000,
+}));
+
+vi.mock("./StoreRegistryService", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./StoreRegistryService")>();
+  return { ...actual };
+});
+
 describe("MigrationService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -49,7 +64,7 @@ describe("MigrationService", () => {
 
   describe("initMain", () => {
     it("creates main spreadsheet with correct config", async () => {
-      const { MigrationService } = await import("./MigrationService");
+      const { StoreRegistryService } = await import("./StoreRegistryService");
 
       const config = {
         Stores: {
@@ -66,7 +81,7 @@ describe("MigrationService", () => {
         },
       };
 
-      const result = await MigrationService.initMain(config);
+      const result = await StoreRegistryService.initMain(config);
 
       expect(mockStoreFolderService.ensureFolder).toHaveBeenCalledWith([
         "apps",
@@ -205,8 +220,8 @@ describe("MigrationService", () => {
         ]),
       });
 
-      const { MigrationService } = await import("./MigrationService");
-      const stores = await MigrationService.listStores("main-id");
+      const { StoreRegistryService } = await import("./StoreRegistryService");
+      const stores = await StoreRegistryService.listStores("main-id");
 
       expect(stores).toEqual([
         {
@@ -240,8 +255,8 @@ describe("MigrationService", () => {
           ]),
       });
 
-      const { MigrationService } = await import("./MigrationService");
-      const stores = await MigrationService.listStores("main-id");
+      const { StoreRegistryService } = await import("./StoreRegistryService");
+      const stores = await StoreRegistryService.listStores("main-id");
 
       expect(stores).toEqual([
         {
@@ -256,8 +271,8 @@ describe("MigrationService", () => {
     });
 
     it("returns empty array when no main spreadsheet", async () => {
-      const { MigrationService } = await import("./MigrationService");
-      const stores = await MigrationService.listStores(
+      const { StoreRegistryService } = await import("./StoreRegistryService");
+      const stores = await StoreRegistryService.listStores(
         undefined as unknown as string,
       );
 

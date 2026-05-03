@@ -17,13 +17,15 @@ export {
   MONTHLY_TABS,
 } from "../../lib/adapters/zod-schemas";
 
+export type { StoreRecord } from "../../lib/services/MigrationService";
 export {
-  getMainSpreadsheetId,
   pendingActivations,
   STORE_MAP_TTL_MS,
-  type StoreRecord,
+} from "../../lib/services/StoreActivationService";
+export {
+  getMainSpreadsheetId,
   saveMainSpreadsheetId,
-} from "../../lib/services/MigrationService";
+} from "../../lib/services/StoreRegistryService";
 
 export function clearSetupStorage(): void {
   localStorage.removeItem("mainSpreadsheetId");

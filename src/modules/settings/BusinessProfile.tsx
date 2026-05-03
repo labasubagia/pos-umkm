@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { MigrationService } from "../../lib/services/MigrationService";
+import { StoreRegistryService } from "../../lib/services/StoreRegistryService";
 import { useSettings } from "../../modules/settings/settings.service";
 import { useAuth } from "../auth/useAuth";
 import { type BusinessSettings, saveSettings } from "./settings.service";
@@ -42,7 +42,7 @@ export function BusinessProfile() {
     mutationFn: async () => {
       await saveSettings(form);
       if (form.business_name !== initialName && activeStoreId) {
-        await MigrationService.updateStoreName(
+        await StoreRegistryService.updateStoreName(
           activeStoreId,
           form.business_name,
         );

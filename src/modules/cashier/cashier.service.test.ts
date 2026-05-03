@@ -20,13 +20,19 @@ import {
   validateSplitPayment,
 } from "./cashier.service";
 
-// Mock MigrationService so ensureMonthlySheetExists doesn't touch localStorage
+// Mock services so ensureMonthlySheetExists doesn't touch localStorage
 vi.mock("../../lib/services/MigrationService", () => ({
   MigrationService: {
     initializeMonthlySheets: vi.fn().mockResolvedValue(undefined),
   },
+}));
+vi.mock("../../lib/services/StoreActivationService", () => ({
+  StoreActivationService: {},
   pendingActivations: new Map(),
   STORE_MAP_TTL_MS: 5 * 60 * 1000,
+}));
+vi.mock("../../lib/services/StoreRegistryService", () => ({
+  StoreRegistryService: {},
   getMainSpreadsheetId: vi.fn().mockReturnValue(null),
   saveMainSpreadsheetId: vi.fn(),
 }));

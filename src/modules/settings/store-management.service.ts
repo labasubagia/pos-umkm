@@ -19,10 +19,10 @@ import {
 import type { Store } from "../../lib/adapters/zod-schemas";
 import { nowUTC } from "../../lib/formatters";
 import {
-  getMainSpreadsheetId,
   MigrationService,
   type StoreRecord,
 } from "../../lib/services/MigrationService";
+import { getMainSpreadsheetId } from "../../lib/services/StoreRegistryService";
 import { useAuthStore } from "../../store/authStore";
 
 // ─── Error class ──────────────────────────────────────────────────────────────

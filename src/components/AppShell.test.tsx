@@ -30,6 +30,10 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("../lib/services/MigrationService", () => ({
   MigrationService: {},
+}));
+
+vi.mock("../lib/services/StoreActivationService", () => ({
+  StoreActivationService: {},
   pendingActivations: new Map(),
   STORE_MAP_TTL_MS: 5 * 60 * 1000,
 }));
@@ -148,6 +152,9 @@ describe("AppShell", () => {
   });
 
   it("skips Drive traversal when store map is fresh (within TTL)", async () => {
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = String(now.getMonth() + 1).padStart(2, "0");
     mocks.storeMapState.sheets = {
       Products: {
         spreadsheet_id: "sp-1",
@@ -156,7 +163,26 @@ describe("AppShell", () => {
         sheet_id: 1,
       },
     };
-    mocks.storeMapState.monthlySheets = [];
+    // monthlySheets must include the current month's entry so the cache is
+    // considered "complete" and traversal is skipped.
+    mocks.storeMapState.monthlySheets = {
+      [curYear]: {
+        [curMonth]: {
+          year: curYear,
+          month: curMonth,
+          sheets: {
+            Transactions: {
+              spreadsheet_id: "tx-sp-1",
+              spreadsheet_name: `transaction_${curYear}-${curMonth}`,
+              folder_path: `transactions/${curYear}`,
+              sheet_name: "Transactions",
+              sheet_id: 2,
+              headers: [],
+            },
+          },
+        },
+      },
+    } as unknown[];
     mocks.storeMapState.lastTraversedAt = Date.now(); // fresh
 
     const queryClient = new QueryClient({

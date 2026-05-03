@@ -14,13 +14,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
 import {
-  getMainSpreadsheetId,
   MigrationService,
   type StoreRecord,
 } from "../../lib/services/MigrationService";
+import * as storeRegistryModule from "../../lib/services/StoreRegistryService";
 import { useAuthStore } from "../../store/authStore";
-import * as migrationModule from "../../lib/services/MigrationService";
-import * as setupService from "../auth/setup.service";
 import {
   createStore,
   listStores,
@@ -78,7 +76,9 @@ beforeEach(() => {
     },
     mainSpreadsheetId: MAIN_ID,
   } as ReturnType<typeof useAuthStore.getState>);
-  vi.spyOn(migrationModule, "getMainSpreadsheetId").mockReturnValue(MAIN_ID);
+  vi.spyOn(storeRegistryModule, "getMainSpreadsheetId").mockReturnValue(
+    MAIN_ID,
+  );
   // localCachePut is a no-op in unit tests
   vi.spyOn(adapters, "localCachePut").mockResolvedValue(undefined);
 });
@@ -127,7 +127,7 @@ describe("listStores", () => {
   });
 
   it("throws StoreManagementError when mainSpreadsheetId is not set", async () => {
-    vi.spyOn(migrationModule, "getMainSpreadsheetId").mockReturnValue(null);
+    vi.spyOn(storeRegistryModule, "getMainSpreadsheetId").mockReturnValue(null);
 
     await expect(listStores()).rejects.toThrow(StoreManagementError);
   });

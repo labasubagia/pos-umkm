@@ -7,11 +7,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
 import {
-  getMainSpreadsheetId,
   MigrationService,
   type StoreRecord,
-  saveMainSpreadsheetId,
 } from "../../lib/services/MigrationService";
+import { StoreActivationService } from "../../lib/services/StoreActivationService";
+import {
+  getMainSpreadsheetId,
+  StoreRegistryService,
+  saveMainSpreadsheetId,
+} from "../../lib/services/StoreRegistryService";
 import { useAuthStore } from "../../store/authStore";
 import {
   MAIN_TAB_HEADERS,
@@ -22,22 +26,23 @@ import {
 } from "./setup.service";
 
 // Convenience aliases so test bodies read the same as before
-const createMainSpreadsheet = (ownerEmail = "") => (
-  void ownerEmail, MigrationService.initMain()
-);
+const createMainSpreadsheet = async (ownerEmail = ""): Promise<string> => {
+  void ownerEmail;
+  return StoreRegistryService.initMain();
+};
 const createMasterSpreadsheet = (
   businessName: string,
   ownerEmail: string,
   mainSpreadsheetId: string,
 ) => MigrationService.createStore(businessName, ownerEmail, mainSpreadsheetId);
 const listStores = (mainSpreadsheetId?: string) =>
-  MigrationService.listStores(mainSpreadsheetId);
+  StoreRegistryService.listStores(mainSpreadsheetId);
 const updateStoreName = (storeId: string, newName: string) =>
-  MigrationService.updateStoreName(storeId, newName);
+  StoreRegistryService.updateStoreName(storeId, newName);
 const findOrCreateMain = (ownerEmail = "") =>
-  MigrationService.findOrCreateMain(ownerEmail);
+  StoreRegistryService.findOrCreateMain(ownerEmail);
 const activateStore = (store: StoreRecord) =>
-  MigrationService.activateStore(store);
+  StoreActivationService.activateStore(store);
 const initializeMasterSheets = (id: string) =>
   MigrationService.initializeMasterSheets(id);
 const initializeMonthlySheets = (id: string) =>
@@ -441,16 +446,12 @@ describe("activateStore", () => {
   });
 
   it("skips Drive traversal when store map is fresh (within TTL)", async () => {
-    // Include all monthly spreadsheets (transactions, logs, po, stock) for current
-    // and next month so ensureMonthlySheets is a no-op.
+    // monthlySheets must contain the current month so ensureMonthlySheets is a
+    // no-op and the isFresh guard (which now requires monthlySheets) kicks in.
     const now = new Date();
-    const ym = (y: number, m: number) => `${y}-${String(m).padStart(2, "0")}`;
     const curY = now.getFullYear();
     const curM = now.getMonth() + 1;
-    const nextM = curM === 12 ? 1 : curM + 1;
-    const nextY = curM === 12 ? curY + 1 : curY;
-    const curYM = ym(curY, curM);
-    const nextYM = ym(nextY, nextM);
+    const curMS = String(curM).padStart(2, "0");
 
     mockStoreMapState = {
       ...mockStoreMapState,
@@ -461,56 +462,25 @@ describe("activateStore", () => {
           tab_name: "Settings",
           sheet_id: 1,
         },
-        [`transaction_${curYM}`]: {
-          spreadsheet_id: "sp-cur",
-          spreadsheet_name: `transaction_${curYM}`,
-          tab_name: "Transactions",
-          sheet_id: 2,
-        },
-        [`transaction_${nextYM}`]: {
-          spreadsheet_id: "sp-next",
-          spreadsheet_name: `transaction_${nextYM}`,
-          tab_name: "Transactions",
-          sheet_id: 3,
-        },
-        [`log_${curYM}`]: {
-          spreadsheet_id: "sp-log-cur",
-          spreadsheet_name: `log_${curYM}`,
-          tab_name: "Audit_Log",
-          sheet_id: 4,
-        },
-        [`log_${nextYM}`]: {
-          spreadsheet_id: "sp-log-next",
-          spreadsheet_name: `log_${nextYM}`,
-          tab_name: "Audit_Log",
-          sheet_id: 5,
-        },
-        [`po_${curYM}`]: {
-          spreadsheet_id: "sp-po-cur",
-          spreadsheet_name: `po_${curYM}`,
-          tab_name: "Purchase_Orders",
-          sheet_id: 6,
-        },
-        [`po_${nextYM}`]: {
-          spreadsheet_id: "sp-po-next",
-          spreadsheet_name: `po_${nextYM}`,
-          tab_name: "Purchase_Orders",
-          sheet_id: 7,
-        },
-        [`stock_${curYM}`]: {
-          spreadsheet_id: "sp-stock-cur",
-          spreadsheet_name: `stock_${curYM}`,
-          tab_name: "Stock_Log",
-          sheet_id: 8,
-        },
-        [`stock_${nextYM}`]: {
-          spreadsheet_id: "sp-stock-next",
-          spreadsheet_name: `stock_${nextYM}`,
-          tab_name: "Stock_Log",
-          sheet_id: 9,
+      },
+      monthlySheets: {
+        [curY]: {
+          [curMS]: {
+            year: curY,
+            month: curMS,
+            sheets: {
+              Transactions: {
+                spreadsheet_id: "sp-cur",
+                spreadsheet_name: `transaction_${curY}-${curMS}`,
+                folder_path: `transactions/${curY}`,
+                sheet_name: "Transactions",
+                sheet_id: 2,
+                headers: [],
+              },
+            },
+          },
         },
       },
-      monthlySheets: {},
       lastTraversedAt: Date.now(),
     };
     vi.mocked(adapters.storeFolderService.traverse).mockClear();

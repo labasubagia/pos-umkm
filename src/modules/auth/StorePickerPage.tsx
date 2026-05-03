@@ -18,7 +18,8 @@ import { logger } from "@/lib/logger";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import type { StoreRecord } from "../../lib/services/MigrationService";
-import { MigrationService } from "../../lib/services/MigrationService";
+import { StoreActivationService } from "../../lib/services/StoreActivationService";
+import { StoreRegistryService } from "../../lib/services/StoreRegistryService";
 import { useAuth } from "./useAuth";
 
 export default function StorePickerPage() {
@@ -35,7 +36,7 @@ export default function StorePickerPage() {
     async (store: StoreRecord) => {
       setActivating(true);
       try {
-        await MigrationService.activateStore(store);
+        await StoreActivationService.activateStore(store);
         setActiveStoreId(store.store_id);
         navigate(`/${store.store_id}/cashier`, { replace: true });
       } catch (err) {
@@ -53,7 +54,7 @@ export default function StorePickerPage() {
 
   const resolveStores = useCallback(async () => {
     try {
-      const { stores: list } = await MigrationService.findOrCreateMain(
+      const { stores: list } = await StoreRegistryService.findOrCreateMain(
         user?.email ?? "",
       );
       if (list.length === 0) {

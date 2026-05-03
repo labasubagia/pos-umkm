@@ -56,8 +56,18 @@ vi.mock("../lib/services/MigrationService", async (importOriginal) => {
     await importOriginal<typeof import("../lib/services/MigrationService")>();
   return {
     ...actual,
-    MigrationService: {
-      ...actual.MigrationService,
+  };
+});
+
+vi.mock("../lib/services/StoreActivationService", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("../lib/services/StoreActivationService")
+    >();
+  return {
+    ...actual,
+    StoreActivationService: {
+      ...actual.StoreActivationService,
       activateStore: vi.fn().mockImplementation(() => Promise.resolve()),
     },
   };
@@ -449,10 +459,10 @@ describe("StoreManagementPage", () => {
   });
 
   it("calls activateStore and navigates to new store when Aktifkan is clicked", async () => {
-    const { MigrationService } = await import(
-      "../lib/services/MigrationService"
+    const { StoreActivationService } = await import(
+      "../lib/services/StoreActivationService"
     );
-    const activateStore = MigrationService.activateStore;
+    const activateStore = StoreActivationService.activateStore;
     const user = userEvent.setup();
     await seedDexie([ownedStore, joinedStore]);
     seedOwner();
@@ -477,10 +487,10 @@ describe("StoreManagementPage", () => {
   });
 
   it("shows error Alert when activateStore fails", async () => {
-    const { MigrationService } = await import(
-      "../lib/services/MigrationService"
+    const { StoreActivationService } = await import(
+      "../lib/services/StoreActivationService"
     );
-    vi.mocked(MigrationService.activateStore).mockRejectedValueOnce(
+    vi.mocked(StoreActivationService.activateStore).mockRejectedValueOnce(
       new Error("Activate failed"),
     );
     const user = userEvent.setup();
