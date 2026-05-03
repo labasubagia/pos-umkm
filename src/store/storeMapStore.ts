@@ -11,7 +11,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type {
-  MonthlySheetMeta,
+  MonthlySheetsByYear,
   SheetMeta,
 } from "../lib/adapters/google/StoreFolderService";
 import { useAuthStore } from "./authStore";
@@ -21,8 +21,8 @@ interface StoreMapState {
   storeFolderId: string | null;
   /** Non-transaction sheets: sheet_name → SheetMeta (master, main). */
   sheets: Record<string, SheetMeta>;
-  /** Monthly transaction spreadsheets (array — one per month). */
-  monthlySheets: MonthlySheetMeta[];
+  /** Monthly transaction spreadsheets organized by year → month → sheets */
+  monthlySheets: MonthlySheetsByYear;
   /** Epoch ms of last successful traversal. */
   lastTraversedAt: number | null;
 
@@ -30,7 +30,7 @@ interface StoreMapState {
   setStoreMap: (
     storeFolderId: string,
     sheets: Record<string, SheetMeta>,
-    monthlySheets: MonthlySheetMeta[],
+    monthlySheets: MonthlySheetsByYear,
   ) => void;
   getSheetMeta: (sheetName: string) => SheetMeta | undefined;
   getCurrentMonthSheets: () => Record<string, SheetMeta> | undefined;
@@ -47,7 +47,7 @@ export function createStoreMapStore(storeId: string) {
       (set, get) => ({
         storeFolderId: null,
         sheets: {},
-        monthlySheets: [],
+        monthlySheets: {},
         lastTraversedAt: null,
 
         setStoreMap: (storeFolderId, sheets, monthlySheets) =>
@@ -68,16 +68,16 @@ export function createStoreMapStore(storeId: string) {
          */
         getCurrentMonthSheets: () => {
           const now = new Date();
-          const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-          return get().monthlySheets.find((m) => m.yearMonth === yearMonth)
-            ?.sheets;
+          const year = now.getFullYear();
+          const month = String(now.getMonth() + 1).padStart(2, "0");
+          return get().monthlySheets[year]?.[month]?.sheets;
         },
 
         clearStoreMap: () =>
           set({
             storeFolderId: null,
             sheets: {},
-            monthlySheets: [],
+            monthlySheets: {},
             lastTraversedAt: null,
           }),
       }),

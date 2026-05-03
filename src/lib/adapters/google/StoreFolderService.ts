@@ -22,17 +22,22 @@
  */
 
 import pLimit from "p-limit";
+import type { MigrationPayload } from "@/lib/config/types";
+import { logger } from "@/lib/logger";
 import { useAuthStore } from "@/store";
-import { queryClient } from "../../queryClient";
+import {
+  createSpreadsheet,
+  type DriveNode,
+  ensureFolder,
+  getFolderContent,
+  MIME_FOLDER,
+  MIME_SPREADSHEET,
+  shareSpreadsheet,
+} from "./drive/drive.client";
+import { getSpreadsheetMeta } from "./sheets/sheets.ops";
 
-const DRIVE_API = "https://www.googleapis.com/drive/v3";
-const SHEETS_API = "https://sheets.googleapis.com/v4";
-
-const MIME_FOLDER = "application/vnd.google-apps.folder";
-const MIME_SPREADSHEET = "application/vnd.google-apps.spreadsheet";
-
-const DEFAULT_CONCURRENCY = 5;
-const STALE_TIME = 60 * 60 * 1000; // 60 minutes
+const DEFAULT_CONCURRENCY = 20;
+const DEFAULT_MONTHLY_PREFIXES = ["transaction", "log", "po", "stock"];
 
 const getToken = () => {
   const tokenFromStore = useAuthStore.getState().accessToken;
@@ -50,24 +55,19 @@ export interface SheetMeta {
 }
 
 export interface MonthlySheetMeta {
-  yearMonth: string;
+  year: number;
+  month: string;
   sheets: Record<string, SheetMeta>;
 }
+
+export type MonthlySheetsByYear = Record<
+  number,
+  Record<string, MonthlySheetMeta>
+>;
 
 export interface TraverseResult {
   sheets: Record<string, SheetMeta>;
-  monthlySheets: MonthlySheetMeta[];
-}
-
-interface DriveNode {
-  id: string;
-  name: string;
-  mimeType: string;
-  sheet?: Record<
-    string,
-    { sheetId: number; spreadsheetId: string; headers: string[] }
-  >;
-  children?: DriveNode[];
+  monthlySheets: MonthlySheetsByYear;
 }
 
 export class StoreFolderService {
@@ -77,48 +77,83 @@ export class StoreFolderService {
     this.limit = pLimit(concurrency);
   }
 
+  getSpreadsheetId(key: string): string | null {
+    return localStorage.getItem(key);
+  }
+
+  createSpreadsheet(
+    name: string,
+    parentFolderId?: string,
+    tabs?: string[],
+  ): Promise<string> {
+    return createSpreadsheet(name, getToken(), parentFolderId, tabs);
+  }
+
+  ensureFolder(path: string[], parentId?: string): Promise<string | null> {
+    return ensureFolder(path, getToken(), parentId);
+  }
+
+  shareSpreadsheet(
+    spreadsheetId: string,
+    email: string,
+    role: "editor" | "viewer",
+  ): Promise<void> {
+    return shareSpreadsheet(spreadsheetId, email, role, getToken());
+  }
+
   /**
    * Traverses the store folder and returns a flat sheet map + monthly sheets array.
    * Non-transaction sheets are in `sheets` (keyed by sheet name).
    * Monthly transaction spreadsheets are in `monthlySheets` (array, one per month).
    */
-  async traverse(storeFolderId: string): Promise<TraverseResult> {
+  async traverse(
+    storeFolderId: string,
+    config?: MigrationPayload,
+  ): Promise<TraverseResult> {
+    const prefixes = config?.monthlySheet?.prefixes ?? DEFAULT_MONTHLY_PREFIXES;
+    logger.info("StoreFolderService.traverse: starting", {
+      storeFolderId,
+      prefixes,
+    });
     const tree = await this.traverseRecursive(storeFolderId);
-    return this.flattenToMap(tree);
+    logger.info("StoreFolderService.traverse: got tree, flattening");
+    return this.flattenToMap(tree, prefixes);
   }
 
   // ─── Drive API ──────────────────────────────────────────────────────────────
 
-  private async getFolderContent(folderId: string): Promise<DriveNode[]> {
-    return queryClient.fetchQuery({
-      queryKey: ["folder-content", folderId],
-      queryFn: async (): Promise<DriveNode[]> => {
-        const token = getToken();
-        const q = `'${folderId}' in parents and trashed = false and (mimeType = '${MIME_SPREADSHEET}' or mimeType = '${MIME_FOLDER}')`;
-        const url = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType)&corpora=user`;
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) {
-          throw new Error(`Drive API ${res.status} for folder ${folderId}`);
-        }
-        const data = await res.json();
-        return (data.files ?? []) as DriveNode[];
-      },
-      staleTime: STALE_TIME,
-    });
-  }
-
   private async traverseRecursive(folderId: string): Promise<DriveNode[]> {
-    const items = await this.getFolderContent(folderId);
+    logger.debug("StoreFolderService.traverseRecursive: folderId", {
+      folderId,
+    });
+    const token = getToken();
+    logger.debug("StoreFolderService.traverseRecursive: getFolderContent", {
+      folderId,
+    });
+    const items = await getFolderContent(folderId, token);
+    logger.debug("StoreFolderService.traverseRecursive: got items", {
+      folderId,
+      count: items.length,
+    });
 
     return Promise.all(
       items.map((item) =>
         this.limit(async () => {
           if (item.mimeType === MIME_FOLDER) {
+            logger.debug(
+              "StoreFolderService.traverseRecursive: entering folder",
+              { folderId: item.name },
+            );
             item.children = await this.traverseRecursive(item.id);
+            logger.debug("StoreFolderService.traverseRecursive: done folder", {
+              folderId: item.name,
+            });
           } else if (item.mimeType === MIME_SPREADSHEET) {
-            item.sheet = await this.getSpreadsheetMeta(item.id);
+            logger.debug(
+              "StoreFolderService.traverseRecursive: getSpreadsheetMeta",
+              { id: item.id, name: item.name },
+            );
+            item.sheet = await getSpreadsheetMeta(item.id, token);
           }
           return item;
         }),
@@ -126,76 +161,39 @@ export class StoreFolderService {
     );
   }
 
-  private async getSpreadsheetMeta(
-    spreadsheetId: string,
-  ): Promise<
-    Record<
-      string,
-      { sheetId: number; spreadsheetId: string; headers: string[] }
-    >
-  > {
-    return queryClient.fetchQuery({
-      queryKey: ["spreadsheet-meta", spreadsheetId],
-      queryFn: async () => {
-        const token = getToken();
-
-        const url = `${SHEETS_API}/spreadsheets/${spreadsheetId}?fields=sheets(properties(sheetId,title),data(rowData(values(formattedValue))))`;
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) {
-          throw new Error(
-            `Sheets API ${res.status} for ${spreadsheetId} detail`,
-          );
-        }
-        const data = await res.json();
-
-        const result: Record<
-          string,
-          { sheetId: number; spreadsheetId: string; headers: string[] }
-        > = {};
-        for (const sheet of data.sheets ?? []) {
-          const props = sheet.properties;
-          const headers: string[] = [];
-          for (const gridData of sheet.data ?? []) {
-            for (const row of gridData.rowData ?? []) {
-              for (const v of row.values ?? []) {
-                headers.push(v.formattedValue ?? "");
-              }
-              break;
-            }
-            break;
-          }
-          result[props.title] = {
-            sheetId: props.sheetId,
-            spreadsheetId,
-            headers: headers.filter(Boolean),
-          };
-        }
-        return result;
-      },
-      staleTime: STALE_TIME,
-    });
-  }
-
   // ─── Flatten ────────────────────────────────────────────────────────────────
 
-  private flattenToMap(nodes: DriveNode[]): TraverseResult {
+  private flattenToMap(
+    nodes: DriveNode[],
+    prefixes: string[] = DEFAULT_MONTHLY_PREFIXES,
+  ): TraverseResult {
     const sheets: Record<string, SheetMeta> = {};
-    const monthlySheets: MonthlySheetMeta[] = [];
+    const monthlySheets: MonthlySheetsByYear = {};
+    const pattern = new RegExp(`^(${prefixes.join("|")})_(\\d{4}-\\d{2})$`);
 
     const walk = (items: DriveNode[], path: string) => {
       for (const item of items) {
         if (item.sheet) {
-          const monthMatch = item.name.match(/^transaction_(\d{4}-\d{2})$/);
+          const monthMatch = item.name.match(pattern);
 
           if (monthMatch) {
-            const monthlyEntry: MonthlySheetMeta = {
-              yearMonth: monthMatch[1],
-              sheets: {},
-            };
+            const yearMonth = monthMatch[2];
+            const yearNum = parseInt(yearMonth.split("-")[0], 10);
+            const month = yearMonth.split("-")[1];
+
+            if (!monthlySheets[yearNum]) {
+              monthlySheets[yearNum] = {};
+            }
+            if (!monthlySheets[yearNum][month]) {
+              monthlySheets[yearNum][month] = {
+                year: yearNum,
+                month,
+                sheets: {},
+              };
+            }
+
             for (const [sheetName, meta] of Object.entries(item.sheet)) {
-              monthlyEntry.sheets[sheetName] = {
+              monthlySheets[yearNum][month].sheets[sheetName] = {
                 spreadsheet_id: meta.spreadsheetId,
                 spreadsheet_name: item.name,
                 folder_path: path,
@@ -204,7 +202,6 @@ export class StoreFolderService {
                 headers: meta.headers,
               };
             }
-            monthlySheets.push(monthlyEntry);
           } else {
             for (const [sheetName, meta] of Object.entries(item.sheet)) {
               sheets[sheetName] = {

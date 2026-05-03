@@ -26,9 +26,8 @@ import { getCurrentStoreMapStore } from "../store/storeMapStore";
 import { useSyncStore } from "../store/syncStore";
 import type { Database } from "./adapters/dexie/db";
 import { SheetRepository } from "./adapters/google/SheetRepository";
-import { parseSheetRows } from "./adapters/zod-schemas";
+import { ALL_TAB_HEADERS, parseSheetRows } from "./adapters/zod-schemas";
 import { logger } from "./logger";
-import { ALL_TAB_HEADERS } from "./schema";
 
 const STALE_MS = 5 * 60 * 1000;
 
@@ -96,14 +95,6 @@ export class HydrationService {
 
     // Signal page-level useEffects to re-fetch data from the now-populated Dexie cache.
     useSyncStore.getState().setLastHydratedAt(Date.now());
-
-    // Expose a synchronous window flag for Playwright E2E tests so they can
-    // reliably wait for all table.clear() transactions to complete before
-    // seeding test data (avoids a race between seedDexie and hydrateTable).
-    if (import.meta.env.VITE_E2E === "true") {
-      (window as unknown as Record<string, unknown>).__lastHydratedAt =
-        Date.now();
-    }
   }
 
   /**

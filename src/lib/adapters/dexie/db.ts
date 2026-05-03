@@ -21,7 +21,6 @@ import type {
   Category,
   Customer,
   Member,
-  MonthlySheet,
   Product,
   PurchaseOrder,
   PurchaseOrderItem,
@@ -79,7 +78,6 @@ export class Database extends Dexie {
   Purchase_Order_Items!: Table<PurchaseOrderItem>;
   Stock_Log!: Table<StockLog>;
   Audit_Log!: Table<AuditLog>;
-  Monthly_Sheets!: Table<MonthlySheet>;
 
   // Monthly spreadsheet
   Transactions!: Table<Transaction>;
@@ -109,7 +107,6 @@ export class Database extends Dexie {
       Purchase_Order_Items: "id, order_id, product_id",
       Stock_Log: "id, product_id",
       Audit_Log: "id",
-      Monthly_Sheets: "id, year_month",
 
       // Monthly spreadsheet
       Transactions: "id, created_at",
@@ -150,7 +147,4 @@ export function clearDbCache(): void {
 
 // Expose getDb for E2E Playwright tests so specs can seed IndexedDB directly
 // via `page.evaluate(() => window.__getDb(storeId).Products.bulkPut([...]))`.
-// Guarded by VITE_E2E so it is never present in production builds.
-if (import.meta.env.VITE_E2E === "true") {
-  (window as unknown as Record<string, unknown>).__getDb = getDb;
-}
+(window as unknown as Record<string, unknown>).__getDb = getDb;

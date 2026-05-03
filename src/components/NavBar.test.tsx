@@ -17,7 +17,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../lib/adapters";
 import type { Role } from "../lib/adapters/types";
-import type { StoreRecord } from "../modules/auth/setup.service";
+
 import { useStores } from "../modules/settings";
 import { useAuthStore } from "../store/authStore";
 import { NavBar } from "./NavBar";
@@ -34,12 +34,17 @@ vi.mock("../lib/adapters", () => ({
   syncManager: { triggerSync: vi.fn() },
 }));
 
-vi.mock("../modules/auth/setup.service", async (importOriginal) => {
+vi.mock("../lib/services/StoreActivationService", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../modules/auth/setup.service")>();
+    await importOriginal<
+      typeof import("../lib/services/StoreActivationService")
+    >();
   return {
     ...actual,
-    activateStore: vi.fn().mockImplementation(() => Promise.resolve()),
+    StoreActivationService: {
+      ...actual.StoreActivationService,
+      activateStore: vi.fn().mockImplementation(() => Promise.resolve()),
+    },
   };
 });
 
@@ -57,27 +62,17 @@ vi.mock("react-router-dom", async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-vi.mock("../hooks/useStores", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../hooks/useStores")>();
-  return {
-    ...actual,
-    useStores: vi.fn().mockReturnValue({ data: [], isLoading: false }),
-  };
-});
-
-const store1: StoreRecord = {
+const store1: adapters.StoreRecord = {
   store_id: "store-1",
   store_name: "Toko 1",
-  master_spreadsheet_id: "master-1",
   drive_folder_id: "folder-1",
   owner_email: "test@test.com",
   my_role: "owner",
   joined_at: "2026-01-01T00:00:00Z",
 };
-const store2: StoreRecord = {
+const store2: adapters.StoreRecord = {
   store_id: "store-2",
   store_name: "Toko 2",
-  master_spreadsheet_id: "master-2",
   drive_folder_id: "folder-2",
   owner_email: "test@test.com",
   my_role: "owner",
@@ -113,6 +108,7 @@ beforeEach(() => {
   vi.mocked(useStores).mockReturnValue({
     data: [],
     isLoading: false,
+    error: null,
   });
 });
 
@@ -192,7 +188,10 @@ describe("NavBar", () => {
   // ── T064: no /cashier redirect on store switch ────────────────────────────
 
   it("switching store navigates to /:storeId/cashier for the new store", async () => {
-    const { activateStore } = await import("../modules/auth/setup.service");
+    const { StoreActivationService } = await import(
+      "../lib/services/StoreActivationService"
+    );
+    const activateStore = StoreActivationService.activateStore;
     const user = userEvent.setup();
     setRole("owner");
     act(() => {
@@ -201,6 +200,7 @@ describe("NavBar", () => {
     vi.mocked(useStores).mockReturnValue({
       data: [store1, store2],
       isLoading: false,
+      error: null,
     });
     renderNavBar("/reports");
 
@@ -211,7 +211,10 @@ describe("NavBar", () => {
   });
 
   it("selecting the already-active store does nothing", async () => {
-    const { activateStore } = await import("../modules/auth/setup.service");
+    const { StoreActivationService } = await import(
+      "../lib/services/StoreActivationService"
+    );
+    const activateStore = StoreActivationService.activateStore;
     const user = userEvent.setup();
     setRole("owner");
     act(() => {
@@ -220,6 +223,7 @@ describe("NavBar", () => {
     vi.mocked(useStores).mockReturnValue({
       data: [store1, store2],
       isLoading: false,
+      error: null,
     });
     renderNavBar();
 

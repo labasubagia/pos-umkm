@@ -13,9 +13,12 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../lib/adapters";
+import {
+  MigrationService,
+  type StoreRecord,
+} from "../../lib/services/MigrationService";
+import * as storeRegistryModule from "../../lib/services/StoreRegistryService";
 import { useAuthStore } from "../../store/authStore";
-import type { StoreRecord } from "../auth/setup.service";
-import * as setupService from "../auth/setup.service";
 import {
   createStore,
   listStores,
@@ -28,13 +31,10 @@ import {
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
 const MAIN_ID = "main-spreadsheet-id";
-const MASTER_ID_A = "master-a";
-const MASTER_ID_B = "master-b";
 
 const storeA: StoreRecord = {
   store_id: "store-a",
   store_name: "Toko A",
-  master_spreadsheet_id: MASTER_ID_A,
   drive_folder_id: "folder-a",
   owner_email: "owner@test.com",
   my_role: "owner",
@@ -44,7 +44,6 @@ const storeA: StoreRecord = {
 const storeB: StoreRecord = {
   store_id: "store-b",
   store_name: "Toko B",
-  master_spreadsheet_id: MASTER_ID_B,
   drive_folder_id: "folder-b",
   owner_email: "other@test.com",
   my_role: "manager",
@@ -77,7 +76,9 @@ beforeEach(() => {
     },
     mainSpreadsheetId: MAIN_ID,
   } as ReturnType<typeof useAuthStore.getState>);
-  vi.spyOn(setupService, "getMainSpreadsheetId").mockReturnValue(MAIN_ID);
+  vi.spyOn(storeRegistryModule, "getMainSpreadsheetId").mockReturnValue(
+    MAIN_ID,
+  );
   // localCachePut is a no-op in unit tests
   vi.spyOn(adapters, "localCachePut").mockResolvedValue(undefined);
 });
@@ -126,7 +127,7 @@ describe("listStores", () => {
   });
 
   it("throws StoreManagementError when mainSpreadsheetId is not set", async () => {
-    vi.spyOn(setupService, "getMainSpreadsheetId").mockReturnValue(null);
+    vi.spyOn(storeRegistryModule, "getMainSpreadsheetId").mockReturnValue(null);
 
     await expect(listStores()).rejects.toThrow(StoreManagementError);
   });
@@ -136,43 +137,31 @@ describe("listStores", () => {
 
 describe("createStore", () => {
   it("provisions a new store and returns the record with the generated storeId", async () => {
-    const newMasterId = "master-new";
     const newStoreId = "store-new";
-    vi.spyOn(setupService, "createMasterSpreadsheet").mockResolvedValue({
-      masterId: newMasterId,
+    vi.spyOn(MigrationService, "createStore").mockResolvedValue({
       storeId: newStoreId,
       driveFolderId: "folder-new",
     });
-    vi.spyOn(setupService, "initializeMasterSheets").mockResolvedValue(
-      undefined,
-    );
 
     const result = await createStore("Toko Baru");
 
-    expect(setupService.createMasterSpreadsheet).toHaveBeenCalledWith(
+    expect(MigrationService.createStore).toHaveBeenCalledWith(
       "Toko Baru",
       "owner@test.com",
       MAIN_ID,
-    );
-    expect(setupService.initializeMasterSheets).toHaveBeenCalledWith(
-      newMasterId,
     );
     expect(adapters.localCachePut).toHaveBeenCalledWith("Stores", [
       expect.objectContaining({ id: newStoreId, store_id: newStoreId }),
     ]);
     expect(result).toMatchObject({
       store_name: "Toko Baru",
-      master_spreadsheet_id: newMasterId,
       store_id: newStoreId,
     });
   });
 
   it("propagates error when createMasterSpreadsheet fails", async () => {
-    vi.spyOn(setupService, "createMasterSpreadsheet").mockRejectedValue(
+    vi.spyOn(MigrationService, "createStore").mockRejectedValue(
       new Error("Drive API error"),
-    );
-    vi.spyOn(setupService, "initializeMasterSheets").mockResolvedValue(
-      undefined,
     );
 
     await expect(createStore("Toko Gagal")).rejects.toThrow("Drive API error");
@@ -267,7 +256,7 @@ describe("removeAccessToStore", () => {
       membersRepo as unknown as ReturnType<typeof adapters.getMembersForStore>,
     );
 
-    await removeAccessToStore(MASTER_ID_B);
+    await removeAccessToStore("store-b");
 
     expect(adapters.getMembersForStore).toHaveBeenCalledWith("store-b");
     expect(membersRepo.softDelete).toHaveBeenCalledWith("m1");
@@ -294,7 +283,7 @@ describe("removeAccessToStore", () => {
       membersRepo as unknown as ReturnType<typeof adapters.getMembersForStore>,
     );
 
-    await expect(removeAccessToStore(MASTER_ID_B)).rejects.toThrow(
+    await expect(removeAccessToStore("store-b")).rejects.toThrow(
       StoreManagementError,
     );
   });

@@ -52,7 +52,6 @@ describe("HydrationService", () => {
               [
                 "store_id",
                 "store_name",
-                "master_spreadsheet_id",
                 "drive_folder_id",
                 "owner_email",
                 "my_role",
@@ -61,7 +60,6 @@ describe("HydrationService", () => {
               [
                 "store-a",
                 "Toko A",
-                "master-a",
                 "folder-a",
                 "owner@test.com",
                 "owner",

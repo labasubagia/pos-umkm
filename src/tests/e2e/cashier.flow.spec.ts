@@ -6,8 +6,12 @@
  * without any direct IndexedDB writes or page reloads.
  */
 import { expect, test } from "@playwright/test";
-import { navigateTo } from "./helpers/auth";
-import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
+import {
+  BASE,
+  DEFAULT_STORE,
+  injectAuthState,
+  navigateTo,
+} from "./helpers/auth";
 import { makeId } from "./helpers/e2e-fixtures";
 import { setMswFixtures } from "./helpers/msw-state";
 
@@ -412,24 +416,14 @@ test.describe("Refund Flow (T037)", () => {
 
     await expect(page.getByTestId("refund-success")).toBeVisible();
 
-    // Verify stock was re-incremented in Dexie: 18 + 2 = 20
-    const updatedStock = await page.evaluate(
-      async ({ storeId, productId }) => {
-        const db = (
-          window as unknown as Record<
-            string,
-            (id: string) => {
-              Products: {
-                get: (id: string) => Promise<{ stock: number } | undefined>;
-              };
-            }
-          >
-        ).__getDb(storeId);
-        const product = await db.Products.get(productId);
-        return product?.stock ?? null;
-      },
-      { storeId: STORE.storeId, productId },
+    // Verify stock was re-incremented: 18 + 2 = 20 — navigate to catalog and check UI
+    await navigateTo(
+      page,
+      `${BASE}/${STORE.storeId}/catalog/products`,
+      `product-stock-${productId}`,
     );
-    expect(updatedStock).toBe(20);
+    await expect(page.getByTestId(`product-stock-${productId}`)).toHaveText(
+      "Stok: 20",
+    );
   });
 });

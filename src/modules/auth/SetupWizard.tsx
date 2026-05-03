@@ -14,7 +14,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { getRepos } from "../../lib/adapters";
 import { nowUTC } from "../../lib/formatters";
-import { runStoreSetup } from "./setup.service";
+import { MigrationService } from "../../lib/services/MigrationService";
 import { useAuth } from "./useAuth";
 
 export default function SetupWizard() {
@@ -34,7 +34,7 @@ export default function SetupWizard() {
     setLoading(true);
     setError(null);
     try {
-      const { storeId } = await runStoreSetup(
+      const { storeId } = await MigrationService.runStoreSetup(
         businessName.trim(),
         user?.email ?? "",
       );

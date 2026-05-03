@@ -29,8 +29,8 @@ import type {
 } from "./adapters/dexie/db";
 import { getDb } from "./adapters/dexie/db";
 import { SheetRepository } from "./adapters/google/SheetRepository";
+import { ALL_TAB_HEADERS } from "./adapters/zod-schemas";
 import { logger } from "./logger";
-import { ALL_TAB_HEADERS } from "./schema";
 
 const MAX_RETRIES = 5;
 const POLL_INTERVAL_MS = 30_000;

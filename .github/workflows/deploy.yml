@@ -34,7 +34,7 @@ jobs:
       - run: npm run build
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
-          VITE_ADAPTER: google
+          VITE_STORE_PRESET: ${{ env.VITE_STORE_PRESET }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

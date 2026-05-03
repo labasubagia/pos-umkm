@@ -33,8 +33,8 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { syncManager } from "../lib/adapters";
-import type { StoreRecord } from "../modules/auth/setup.service";
-import { activateStore } from "../modules/auth/setup.service";
+import type { StoreRecord } from "../lib/services/MigrationService";
+import { StoreActivationService } from "../lib/services/StoreActivationService";
 import { useStores } from "../modules/settings";
 import {
   createStore,
@@ -99,7 +99,7 @@ export default function StoreManagementPage() {
         // Read fresh list from Dexie after soft-delete so redirect uses up-to-date data.
         const remaining = await listStores();
         if (remaining.length > 0) {
-          await activateStore(remaining[0]);
+          await StoreActivationService.activateStore(remaining[0]);
           setActiveStoreId(remaining[0].store_id);
         } else {
           syncManager.triggerSync();
@@ -134,7 +134,7 @@ export default function StoreManagementPage() {
       // Navigate first so AppShell's URL-sync shows loading while activateStore
       // traverses the Drive folder and pre-creates monthly sheets.
       navigate(`/${store.store_id}/cashier`);
-      await activateStore(store);
+      await StoreActivationService.activateStore(store);
     },
     onError: (err) =>
       setMutationError(String(err instanceof Error ? err.message : err)),
@@ -426,8 +426,7 @@ export default function StoreManagementPage() {
               data-testid="btn-confirm-leave-store"
               disabled={leaveMutation.isPending}
               onClick={() =>
-                leaveStore &&
-                leaveMutation.mutate(leaveStore.master_spreadsheet_id)
+                leaveStore && leaveMutation.mutate(leaveStore.store_id)
               }
             >
               {leaveMutation.isPending ? "Memproses…" : "Keluar"}

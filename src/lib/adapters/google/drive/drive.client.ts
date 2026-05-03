@@ -6,11 +6,25 @@
  * argument so they are stateless and independently testable.
  */
 
+import { logger } from "@/lib/logger";
 import { queryClient } from "../../../queryClient";
 import { AdapterError } from "../../types";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
-const STALE_TIME = 24 * 60 * 60 * 1000; // 24 hours
+
+export const MIME_FOLDER = "application/vnd.google-apps.folder";
+export const MIME_SPREADSHEET = "application/vnd.google-apps.spreadsheet";
+
+export interface DriveNode {
+  id: string;
+  name: string;
+  mimeType: string;
+  sheet?: Record<
+    string,
+    { sheetId: number; spreadsheetId: string; headers: string[] }
+  >;
+  children?: DriveNode[];
+}
 
 /**
  * Creates a new Google Spreadsheet via the Sheets API (not Drive API) so
@@ -47,12 +61,14 @@ export async function createSpreadsheet(
         }
         return null;
       },
-      staleTime: STALE_TIME,
+      staleTime: 0,
+      gcTime: 0,
     });
     if (existingId) return existingId;
   }
 
   // ── Create via Sheets API ───────────────────────────────────────────────
+  console.log("[createSpreadsheet] Creating new spreadsheet:", name);
   const sheetsBody: Record<string, unknown> = { properties: { title: name } };
   if (tabs && tabs.length > 0) {
     sheetsBody.sheets = tabs.map((title) => ({ properties: { title } }));
@@ -97,19 +113,86 @@ export async function createSpreadsheet(
 }
 
 /**
- * Ensures each folder in `path` exists under the previous one (starting at
- * Drive root). Creates any missing folders. Returns the leaf folder ID.
- * Used to create `apps/pos_umkm/<Store Name>/` before placing spreadsheets there.
+ * Ensures each folder in `path` exists under the given parent folder.
+ * Creates any missing folders. Returns the leaf folder ID.
+ *
+ * @param path - Array of folder names to create/ensure (e.g., ['apps', 'pos_umkm'])
+ * @param token - Google API access token
+ * @param parentId - Parent folder ID to start from (default: 'root')
+ *
+ * Examples:
+ *   ensureFolder(['apps', 'pos_umkm'], token)  // from root
+ *   ensureFolder(['transactions'], token, 'parent-folder-id')
  */
 export async function ensureFolder(
   path: string[],
   token: string,
+  parentId: string = "root",
 ): Promise<string | null> {
-  let parentId = "root";
-  for (const name of path) {
-    parentId = await ensureDriveFolderUnder(parentId, name, token);
+  let currentParentId = parentId;
+  for (const folderName of path) {
+    currentParentId = await queryClient.fetchQuery({
+      queryKey: ["drive-folder", currentParentId, folderName],
+      queryFn: () => findOrCreateFolder(currentParentId, folderName, token),
+      staleTime: 24 * 60 * 60 * 1000, // 24 hours
+      gcTime: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
   }
-  return parentId;
+  return currentParentId;
+}
+
+/**
+ * Finds or creates a Drive folder named `name` directly under `parentId`.
+ * Uses the Drive Files list API to avoid creating duplicate folders.
+ * Caches the result to avoid redundant API calls.
+ */
+async function findOrCreateFolder(
+  parentId: string,
+  name: string,
+  token: string,
+): Promise<string> {
+  // 1. Search for existing folder
+  const q = `name=${JSON.stringify(name)} and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+  const searchUrl = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`;
+  const searchRes = await fetch(searchUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!searchRes.ok) {
+    throw new AdapterError(
+      `findOrCreateFolder: search failed for "${name}" (HTTP ${searchRes.status})`,
+    );
+  }
+
+  const searchData = await searchRes.json();
+  const files = searchData.files as Array<{ id: string }>;
+  if (files.length > 0) {
+    return files[0].id;
+  }
+
+  // 2. Create if not found
+  const createRes = await fetch(`${DRIVE_API}/files`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name,
+      mimeType: MIME_FOLDER,
+      parents: [parentId],
+    }),
+  });
+
+  if (!createRes.ok) {
+    const body = await createRes.text().catch(() => "");
+    throw new AdapterError(
+      `findOrCreateFolder: failed to create "${name}": ${body}`,
+    );
+  }
+
+  const createData = await createRes.json();
+  return createData.id as string;
 }
 
 /** Shares the spreadsheet by creating a Drive permission. */
@@ -138,54 +221,35 @@ export async function shareSpreadsheet(
   }
 }
 
-/**
- * Finds or creates a Drive folder named `name` directly under `parentId`.
- * Uses the Drive Files list API to avoid creating duplicate folders.
- */
-async function ensureDriveFolderUnder(
-  parentId: string,
-  name: string,
+export async function getFolderContent(
+  folderId: string,
   token: string,
-): Promise<string> {
-  const existingId = await queryClient.fetchQuery({
-    queryKey: ["drive-find-folder", parentId, name],
-    queryFn: async () => {
-      const q = `name=${JSON.stringify(name)} and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
-      const searchUrl = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`;
-      const searchRes = await fetch(searchUrl, {
+): Promise<DriveNode[]> {
+  logger.debug("getFolderContent: starting", { folderId });
+  return queryClient.fetchQuery({
+    queryKey: ["folder-content", folderId],
+    queryFn: async (): Promise<DriveNode[]> => {
+      logger.debug("getFolderContent: fetching", { folderId });
+      const q = `'${folderId}' in parents and trashed = false and (mimeType = '${MIME_SPREADSHEET}' or mimeType = '${MIME_FOLDER}')`;
+      const url = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType)&corpora=user`;
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!searchRes.ok) {
-        throw new AdapterError(
-          `ensureFolder: search failed for "${name}" (HTTP ${searchRes.status})`,
-        );
+      logger.debug("getFolderContent: response", {
+        folderId,
+        status: res.status,
+      });
+      if (!res.ok) {
+        throw new Error(`Drive API ${res.status} for folder ${folderId}`);
       }
-      const searchData = await searchRes.json();
-      const files = searchData.files as Array<{ id: string }>;
-      if (files.length > 0) return files[0].id;
-      return null;
+      const data = await res.json();
+      logger.debug("getFolderContent: got files", {
+        folderId,
+        count: data.files?.length,
+      });
+      return (data.files ?? []) as DriveNode[];
     },
-    staleTime: STALE_TIME,
+    staleTime: 24 * 60 * 60 * 1000,
+    gcTime: 7 * 24 * 60 * 60 * 1000,
   });
-
-  if (existingId) return existingId;
-
-  const createRes = await fetch(`${DRIVE_API}/files`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      name,
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [parentId],
-    }),
-  });
-  if (!createRes.ok) {
-    const body = await createRes.text().catch(() => "");
-    throw new AdapterError(`ensureFolder: failed to create "${name}": ${body}`);
-  }
-  const createData = await createRes.json();
-  return createData.id as string;
 }

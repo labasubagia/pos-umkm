@@ -56,7 +56,7 @@ beforeEach(() => {
     auditLog: mockRepo(),
   };
   vi.spyOn(adapters, "getRepos").mockReturnValue(
-    mockRepos as ReturnType<typeof adapters.getRepos>,
+    mockRepos as unknown as ReturnType<typeof adapters.getRepos>,
   );
 });
 
@@ -64,6 +64,7 @@ beforeEach(() => {
 
 const tx1: TransactionRow = {
   id: "tx-1",
+  receipt_number: "RCP-001",
   created_at: "2026-06-01T08:00:00.000Z",
   cashier_id: "owner@test.com",
   payment_method: "CASH",
@@ -72,6 +73,7 @@ const tx1: TransactionRow = {
 };
 const tx2: TransactionRow = {
   id: "tx-2",
+  receipt_number: "RCP-002",
   created_at: "2026-06-01T10:00:00.000Z",
   cashier_id: "owner@test.com",
   payment_method: "QRIS",
@@ -80,6 +82,7 @@ const tx2: TransactionRow = {
 };
 const txOtherDay: TransactionRow = {
   id: "tx-3",
+  receipt_number: "RCP-003",
   created_at: "2026-06-02T08:00:00.000Z",
   cashier_id: "owner@test.com",
   payment_method: "CASH",
@@ -277,6 +280,7 @@ describe("filterTransactions", () => {
   const txList: TransactionRow[] = [
     {
       id: "tx-1",
+      receipt_number: "RCP-001",
       created_at: "2026-06-01T08:00:00.000Z",
       cashier_id: "alice@test.com",
       payment_method: "CASH",
@@ -285,6 +289,7 @@ describe("filterTransactions", () => {
     },
     {
       id: "tx-2",
+      receipt_number: "RCP-002",
       created_at: "2026-06-01T09:00:00.000Z",
       cashier_id: "bob@test.com",
       payment_method: "QRIS",
@@ -293,6 +298,7 @@ describe("filterTransactions", () => {
     },
     {
       id: "tx-3",
+      receipt_number: "RCP-003",
       created_at: "2026-06-01T10:00:00.000Z",
       cashier_id: "alice@test.com",
       payment_method: "CASH",
@@ -322,6 +328,7 @@ describe("calculateGrossProfit", () => {
   const txs: TransactionRow[] = [
     {
       id: "tx-1",
+      receipt_number: "RCP-001",
       created_at: "2026-06-01T08:00:00.000Z",
       cashier_id: "a@b.com",
       payment_method: "CASH",
@@ -425,6 +432,7 @@ describe("calculateExpectedCash", () => {
     const txs: TransactionRow[] = [
       {
         id: "tx-1",
+        receipt_number: "RCP-001",
         created_at: "2026-06-01T08:00:00.000Z",
         cashier_id: "a@b.com",
         payment_method: "CASH",
@@ -433,6 +441,7 @@ describe("calculateExpectedCash", () => {
       },
       {
         id: "tx-2",
+        receipt_number: "RCP-002",
         created_at: "2026-06-01T09:00:00.000Z",
         cashier_id: "a@b.com",
         payment_method: "SPLIT",
@@ -449,6 +458,7 @@ describe("calculateExpectedCash", () => {
     const txs: TransactionRow[] = [
       {
         id: "tx-1",
+        receipt_number: "RCP-001",
         created_at: "2026-06-01T08:00:00.000Z",
         cashier_id: "a@b.com",
         payment_method: "QRIS",

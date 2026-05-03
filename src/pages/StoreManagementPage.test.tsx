@@ -16,8 +16,8 @@ import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { StoreRecord } from "../lib/adapters";
 import { clearDbCache, getDb } from "../lib/adapters/dexie/db";
-import type { StoreRecord } from "../modules/auth/setup.service";
 import * as svc from "../modules/settings/store-management.service";
 import { useAuthStore } from "../store/authStore";
 import StoreManagementPage from "./StoreManagementPage";
@@ -51,12 +51,25 @@ vi.mock("../lib/adapters", async (importOriginal) => {
   };
 });
 
-vi.mock("../modules/auth/setup.service", async (importOriginal) => {
+vi.mock("../lib/services/MigrationService", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../modules/auth/setup.service")>();
+    await importOriginal<typeof import("../lib/services/MigrationService")>();
   return {
     ...actual,
-    activateStore: vi.fn().mockImplementation(() => Promise.resolve()),
+  };
+});
+
+vi.mock("../lib/services/StoreActivationService", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("../lib/services/StoreActivationService")
+    >();
+  return {
+    ...actual,
+    StoreActivationService: {
+      ...actual.StoreActivationService,
+      activateStore: vi.fn().mockImplementation(() => Promise.resolve()),
+    },
   };
 });
 
@@ -74,7 +87,6 @@ const OTHER_EMAIL = "other@test.com";
 const ownedStore: StoreRecord = {
   store_id: "store-owned",
   store_name: "Toko Sendiri",
-  master_spreadsheet_id: "master-owned",
   drive_folder_id: "folder-owned",
   owner_email: OWNER_EMAIL,
   my_role: "owner",
@@ -84,7 +96,6 @@ const ownedStore: StoreRecord = {
 const joinedStore: StoreRecord = {
   store_id: "store-joined",
   store_name: "Toko Orang Lain",
-  master_spreadsheet_id: "master-joined",
   drive_folder_id: "folder-joined",
   owner_email: OTHER_EMAIL,
   my_role: "manager",
@@ -311,7 +322,7 @@ describe("StoreManagementPage", () => {
 
     await waitFor(() => {
       expect(svc.removeAccessToStore).toHaveBeenCalledWith(
-        joinedStore.master_spreadsheet_id,
+        joinedStore.store_id,
       );
     });
   });
@@ -380,7 +391,6 @@ describe("StoreManagementPage", () => {
     const newStore: StoreRecord = {
       store_id: "store-new",
       store_name: "Toko Baru",
-      master_spreadsheet_id: "master-new",
       drive_folder_id: "folder-new",
       owner_email: OWNER_EMAIL,
       my_role: "owner",
@@ -449,7 +459,10 @@ describe("StoreManagementPage", () => {
   });
 
   it("calls activateStore and navigates to new store when Aktifkan is clicked", async () => {
-    const { activateStore } = await import("../modules/auth/setup.service");
+    const { StoreActivationService } = await import(
+      "../lib/services/StoreActivationService"
+    );
+    const activateStore = StoreActivationService.activateStore;
     const user = userEvent.setup();
     await seedDexie([ownedStore, joinedStore]);
     seedOwner();
@@ -474,8 +487,10 @@ describe("StoreManagementPage", () => {
   });
 
   it("shows error Alert when activateStore fails", async () => {
-    const setupModule = await import("../modules/auth/setup.service");
-    vi.mocked(setupModule.activateStore).mockRejectedValueOnce(
+    const { StoreActivationService } = await import(
+      "../lib/services/StoreActivationService"
+    );
+    vi.mocked(StoreActivationService.activateStore).mockRejectedValueOnce(
       new Error("Activate failed"),
     );
     const user = userEvent.setup();

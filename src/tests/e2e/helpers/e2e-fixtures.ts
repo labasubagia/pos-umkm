@@ -1,5 +1,5 @@
 import type { TestInfo } from "@playwright/test";
-import type { StoreConfig } from "./auth-dexie";
+import type { StoreConfig } from "./auth";
 
 function slugify(input: string): string {
   return input

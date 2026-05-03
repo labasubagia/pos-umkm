@@ -24,7 +24,6 @@
  * ===
  *
  *   getRepos()         — typed per-sheet repositories resolving IDs from the store map.
- *   driveClient        — Drive/spreadsheet management (createSpreadsheet, ensureFolder, shareSpreadsheet).
  *   makeRepo()         — one-off raw SheetRepository for setup code (writes headers directly to Sheets).
  *   storeFolderService — traverses Drive folder to build the sheet map.
  *   authAdapter        — Google Identity Services authentication adapter.
@@ -42,9 +41,6 @@ import { useAuthStore } from "../../store/authStore";
 import { HydrationService } from "../HydrationService";
 import { logger } from "../logger";
 import { SyncManager } from "../SyncManager";
-import { ALL_TAB_HEADERS } from "../schema";
-import type { IDriveClient } from "./DriveClient";
-import { GoogleDriveClient } from "./DriveClient";
 import { DexieRepository } from "./dexie/DexieRepository";
 import { clearDbCache, getDb } from "./dexie/db";
 import {
@@ -65,13 +61,13 @@ import type {
   Category,
   Customer,
   Member,
-  MonthlySheet,
   PurchaseOrder,
   Refund,
   Setting,
   StockLog,
   Store,
 } from "./zod-schemas";
+import { ALL_TAB_HEADERS } from "./zod-schemas";
 
 export const authAdapter: AuthAdapter = new GoogleAuthAdapter();
 
@@ -84,8 +80,6 @@ const getToken = (): string => {
     (authAdapter as GoogleAuthAdapter).getAccessToken?.() ?? "";
   return tokenFromAdapter;
 };
-
-export const driveClient: IDriveClient = new GoogleDriveClient(getToken);
 
 export const storeFolderService = new StoreFolderService();
 
@@ -234,7 +228,6 @@ function createDexieRepos(storeId: string): Repos {
     stores: new DexieRepository<Store>(mainDb, "Stores", () =>
       mainSyncManager.triggerSync(),
     ),
-    monthlySheets: dexie<MonthlySheet>("Monthly_Sheets"),
     categories: dexie<Category>("Categories"),
     products: new ProductRepository(storeDb, "Products", () =>
       syncManager.triggerSync(),
@@ -280,7 +273,6 @@ export type {
   Category,
   Customer,
   Member,
-  MonthlySheet,
   Product,
   PurchaseOrder,
   PurchaseOrderItem,
@@ -292,12 +284,7 @@ export type {
   TransactionItem,
   Variant,
 } from "./zod-schemas";
-export type {
-  AuthAdapter,
-  IDriveClient,
-  IRemoteRepository as ISheetRepository,
-  Repos,
-};
+export type { AuthAdapter, IRemoteRepository as ISheetRepository, Repos };
 
 /**
  * Writes rows directly to the Dexie table for the active store, bypassing the outbox.
@@ -332,3 +319,6 @@ export function getMembersForStore(
     syncManager.triggerSync(),
   );
 }
+
+export type { StoreRecord } from "../services/MigrationService";
+export { MigrationService } from "../services/MigrationService";

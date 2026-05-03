@@ -31,10 +31,7 @@ import {
   syncManager,
 } from "../lib/adapters";
 import { logger } from "../lib/logger";
-import {
-  pendingActivations,
-  STORE_MAP_TTL_MS,
-} from "../modules/auth/setup.service";
+import { pendingActivations } from "../lib/services/StoreActivationService";
 import { useAuthStore } from "../store/authStore";
 import { getStoreMapStore } from "../store/storeMapStore";
 import { BottomNav } from "./BottomNav";
@@ -144,23 +141,23 @@ async function ensureStoreMapReady(storeId: string): Promise<void> {
     }
     // Store map was populated by activateStore; nothing more to do.
     const storeMapAfterActivation = getStoreMapStore(storeId).getState();
+    const afterCount = Object.keys(
+      storeMapAfterActivation.monthlySheets,
+    ).reduce(
+      (acc, year) =>
+        acc +
+        Object.keys(storeMapAfterActivation.monthlySheets[Number(year)] ?? {})
+          .length,
+      0,
+    );
     if (
       Object.keys(storeMapAfterActivation.sheets).length > 0 ||
-      storeMapAfterActivation.monthlySheets.length > 0
+      afterCount > 0
     )
       return;
   }
 
   const storeMap = getStoreMapStore(storeId).getState();
-
-  // Already populated AND fresh enough — no traversal needed.
-  const hasSheets =
-    Object.keys(storeMap.sheets).length > 0 ||
-    storeMap.monthlySheets.length > 0;
-  const isFresh =
-    storeMap.lastTraversedAt !== null &&
-    Date.now() - storeMap.lastTraversedAt < STORE_MAP_TTL_MS;
-  if (hasSheets && isFresh) return;
 
   // Sheets empty — use the active store map's persisted folder ID so refresh
   // cannot accidentally traverse a different store's folder.

@@ -217,19 +217,26 @@ export function validateSplitPayment(
  */
 export async function ensureMonthlySheetExists(): Promise<string> {
   const now = new Date();
-  const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
 
   const storeMap = getCurrentStoreMapStore().getState();
-  const monthlyEntry = storeMap.monthlySheets.find(
-    (m) => m.yearMonth === yearMonth,
-  );
+
+  // Check monthlySheets first (for multi-store config with separate spreadsheets)
+  const monthlyEntry = storeMap.monthlySheets[year]?.[month];
   if (monthlyEntry?.sheets.Transactions) {
     return monthlyEntry.sheets.Transactions.spreadsheet_id;
   }
 
+  // Fall back to main sheets (for single-store config where all sheets are in data spreadsheet)
+  const mainSheet = storeMap.sheets.Transactions;
+  if (mainSheet) {
+    return mainSheet.spreadsheet_id;
+  }
+
   throw new Error(
-    `Monthly sheet for ${yearMonth} not found in store map. ` +
-      `Expected "transaction_${yearMonth}" to exist. Try re-activating the store.`,
+    `Monthly sheet for ${year}-${month} not found in store map. ` +
+      `Expected "transaction_${year}-${month}" to exist. Try re-activating the store.`,
   );
 }
 

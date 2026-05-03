@@ -13,12 +13,40 @@ import { clearDbCache, getDb } from "./db";
 
 const TEST_STORE_ID = "test-store";
 
-type ProductRow = {
-  id: string;
-  name: string;
-  price: number;
-  deleted_at?: string | null;
-};
+type ProductRow = Record<string, unknown>;
+
+interface OutboxEntry {
+  operation: { op: string; id?: string; items?: unknown[] };
+  status: string;
+  tableName: string;
+}
+
+interface TestDexieDb {
+  Products: {
+    bulkPut: (items: ProductRow[]) => Promise<void>;
+    put: (item: ProductRow) => Promise<string>;
+    get: (id: string) => Promise<ProductRow | undefined>;
+    toArray: () => Promise<ProductRow[]>;
+    clear: () => Promise<void>;
+    count: () => Promise<number>;
+  };
+  Settings: {
+    put: (item: Record<string, unknown>) => Promise<string>;
+    toArray: () => Promise<Record<string, unknown>[]>;
+  };
+  _outbox: {
+    toArray: () => Promise<OutboxEntry[]>;
+    count: () => Promise<number>;
+    clear: () => Promise<void>;
+  };
+  _syncMeta: {
+    clear: () => Promise<void>;
+  };
+}
+
+function getTestDb(): TestDexieDb {
+  return getDb(TEST_STORE_ID) as unknown as TestDexieDb;
+}
 
 function makeRepo(tableName = "Products") {
   return new DexieRepository<ProductRow>(getDb(TEST_STORE_ID), tableName);
@@ -46,7 +74,7 @@ describe("getAll", () => {
   });
 
   it("returns rows that have no deleted_at", async () => {
-    const db = getDb(TEST_STORE_ID);
+    const db = getTestDb();
     await db.Products.bulkPut([
       { id: "p1", name: "Produk A", price: 1000, deleted_at: null },
       { id: "p2", name: "Produk B", price: 2000, deleted_at: "" },
@@ -56,7 +84,7 @@ describe("getAll", () => {
   });
 
   it("filters out soft-deleted rows", async () => {
-    const db = getDb(TEST_STORE_ID);
+    const db = getTestDb();
     await db.Products.bulkPut([
       { id: "p1", name: "Aktif", price: 1000, deleted_at: null },
       {
@@ -123,7 +151,7 @@ describe("batchInsert", () => {
 
 describe("batchUpdate", () => {
   it("updates the field in IndexedDB", async () => {
-    const db = getDb(TEST_STORE_ID);
+    const db = getTestDb();
     await db.Products.put({
       id: "p1",
       name: "Roti",
@@ -136,7 +164,7 @@ describe("batchUpdate", () => {
   });
 
   it("queues an outbox entry with op=batchUpdateCells", async () => {
-    const db = getDb(TEST_STORE_ID);
+    const db = getTestDb();
     await db.Products.put({
       id: "p1",
       name: "Roti",
@@ -167,7 +195,7 @@ describe("batchUpdate", () => {
 
 describe("softDelete", () => {
   it("sets deleted_at on the row in IndexedDB", async () => {
-    const db = getDb(TEST_STORE_ID);
+    const db = getTestDb();
     await db.Products.put({
       id: "p1",
       name: "Mie",
@@ -180,7 +208,7 @@ describe("softDelete", () => {
   });
 
   it("queues an outbox entry with op=softDelete", async () => {
-    const db = getDb(TEST_STORE_ID);
+    const db = getTestDb();
     await db.Products.put({
       id: "p1",
       name: "Mie",
@@ -194,7 +222,7 @@ describe("softDelete", () => {
   });
 
   it("row no longer returned by getAll() after soft delete", async () => {
-    const db = getDb(TEST_STORE_ID);
+    const db = getTestDb();
     await db.Products.put({
       id: "p1",
       name: "Mie",
@@ -211,21 +239,29 @@ describe("softDelete", () => {
 
 describe("batchUpsert", () => {
   it("updates existing rows and inserts new ones by id", async () => {
-    const db = getDb(TEST_STORE_ID);
+    const db = getTestDb();
     await db.Settings.put({
       id: "s1",
       key: "business_name",
       value: "Toko Lama",
-      deleted_at: null,
+      updated_at: "2026-01-01T00:00:00Z",
     });
-    const repo = new DexieRepository<Record<string, unknown>>(db, "Settings");
+    const repo = new DexieRepository<Record<string, unknown>>(
+      getDb(TEST_STORE_ID) as unknown as import("./db").Database,
+      "Settings",
+    );
     await repo.batchUpsert([
-      { id: "s1", key: "business_name", value: "Toko Baru", deleted_at: null }, // update
+      {
+        id: "s1",
+        key: "business_name",
+        value: "Toko Baru",
+        updated_at: "2026-01-02T00:00:00Z",
+      }, // update
       {
         id: "new-addr",
         key: "address",
         value: "Jl. Merdeka",
-        deleted_at: null,
+        updated_at: "2026-01-02T00:00:00Z",
       }, // insert
     ]);
     const all = await db.Settings.toArray();

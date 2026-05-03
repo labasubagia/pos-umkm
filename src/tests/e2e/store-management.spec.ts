@@ -6,8 +6,7 @@
  * stubbed via page.route() to return a fake spreadsheetId.
  */
 import { expect, test } from "@playwright/test";
-import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth-dexie";
-import { seedDexie } from "./helpers/dexie-seed";
+import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth";
 import { setMswFixtures } from "./helpers/msw-state";
 
 const STORE = DEFAULT_STORE;
@@ -110,10 +109,24 @@ test.describe("Store Management", () => {
     await page.goto(`${BASE}/${STORE.storeId}/settings/store-management`);
     await page.getByTestId("btn-add-store").waitFor();
 
-    // Members for store-b live in store-b's Dexie DB, which is never hydrated
-    // (HydrationService only runs for the active store). Seeding after page
-    // load is race-free because hydration won't clear store-b's tables.
-    await seedDexie(page, "store-b", { Members: storeMembers });
+    // store-b's Dexie DB is never hydrated (HydrationService only runs for the
+    // active store). Populate Members directly so removeAccessToStore can find
+    // the caller's row. MSW cannot help here since no Sheets read is triggered
+    // for non-active stores.
+    await page.evaluate(
+      async ({ members }) => {
+        const db = (
+          window as unknown as Record<
+            string,
+            (id: string) => {
+              Members: { bulkPut: (rows: unknown[]) => Promise<void> };
+            }
+          >
+        ).__getDb("store-b");
+        await db.Members.bulkPut(members);
+      },
+      { members: storeMembers },
+    );
 
     await page.getByRole("heading", { name: /kelola toko/i }).waitFor();
 

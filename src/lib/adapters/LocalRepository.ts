@@ -14,7 +14,6 @@ import type {
   Category,
   Customer,
   Member,
-  MonthlySheet,
   Product,
   PurchaseOrder,
   PurchaseOrderItem,
@@ -105,7 +104,6 @@ export interface Repos {
   // Main spreadsheet (owner's personal store registry)
   stores: ILocalRepository<Store>;
   // Master spreadsheet
-  monthlySheets: ILocalRepository<MonthlySheet>;
   categories: ILocalRepository<Category>;
   products: IProductRepository;
   variants: IVariantRepository;
