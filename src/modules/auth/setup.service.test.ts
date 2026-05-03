@@ -88,7 +88,7 @@ function mockRepo(overrides = {}) {
     batchUpsert: vi.fn().mockResolvedValue(undefined),
     softDelete: vi.fn().mockResolvedValue(undefined),
     writeHeaders: vi.fn().mockResolvedValue(undefined),
-    _createTable: vi.fn().mockResolvedValue(undefined),
+    createTable: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -228,7 +228,7 @@ describe("createMainSpreadsheet", () => {
 
   it("writes Stores header row after creation", async () => {
     await createMainSpreadsheet();
-    expect(sharedMakeRepo._createTable).toHaveBeenCalledWith(
+    expect(sharedMakeRepo.createTable).toHaveBeenCalledWith(
       MAIN_TAB_HEADERS.Stores,
     );
   });
@@ -369,7 +369,6 @@ describe("createMasterSpreadsheet", () => {
         }),
       ]),
     );
-    expect(result.masterId).toBe("new-sheet-id");
     expect(result.storeId).toBeTruthy();
     expect(result.driveFolderId).toBe("folder-id");
   });
@@ -380,7 +379,7 @@ describe("createMasterSpreadsheet", () => {
 describe("initializeMasterSheets", () => {
   it("writes headers to every master tab", async () => {
     await initializeMasterSheets("master-id");
-    expect(sharedMakeRepo._createTable).toHaveBeenCalledTimes(
+    expect(sharedMakeRepo.createTable).toHaveBeenCalledTimes(
       MASTER_TABS.length,
     );
   });
@@ -397,7 +396,7 @@ describe("initializeMasterSheets", () => {
 describe("initializeMonthlySheets", () => {
   it("writes headers to every monthly tab", async () => {
     await initializeMonthlySheets("monthly-id");
-    expect(sharedMakeRepo._createTable).toHaveBeenCalledTimes(
+    expect(sharedMakeRepo.createTable).toHaveBeenCalledTimes(
       MONTHLY_TABS.length,
     );
   });

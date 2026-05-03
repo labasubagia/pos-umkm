@@ -61,7 +61,6 @@ import type {
   Category,
   Customer,
   Member,
-  MonthlySheet,
   PurchaseOrder,
   Refund,
   Setting,
@@ -229,7 +228,6 @@ function createDexieRepos(storeId: string): Repos {
     stores: new DexieRepository<Store>(mainDb, "Stores", () =>
       mainSyncManager.triggerSync(),
     ),
-    monthlySheets: dexie<MonthlySheet>("Monthly_Sheets"),
     categories: dexie<Category>("Categories"),
     products: new ProductRepository(storeDb, "Products", () =>
       syncManager.triggerSync(),
@@ -275,7 +273,6 @@ export type {
   Category,
   Customer,
   Member,
-  MonthlySheet,
   Product,
   PurchaseOrder,
   PurchaseOrderItem,

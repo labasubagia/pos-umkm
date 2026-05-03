@@ -10,10 +10,8 @@
 import { logger } from "@/lib/logger";
 import { getStoreMapStore } from "../../store/storeMapStore";
 import { makeRepo, storeFolderService } from "../adapters";
-import { type MigrationPayload, STORE_MULTI_PRESET } from "../config/presets";
+import { ACTIVE_PRESET, type MigrationPayload } from "../config/presets";
 import { transformMigrationPayload } from "../config/transformer";
-import { nowUTC } from "../formatters";
-import { generateId } from "../uuid";
 import { MigrationError, type StoreRecord } from "./MigrationService";
 
 const PENDING_TTL_MS = 5 * 60 * 1000;
@@ -36,7 +34,7 @@ function getSubfoldersForSpreadsheet(name: string, year: number): string[] {
 class StoreActivationServiceImpl {
   async activateStore(
     store: StoreRecord,
-    config: MigrationPayload = STORE_MULTI_PRESET,
+    config: MigrationPayload = ACTIVE_PRESET,
   ): Promise<void> {
     logger.info("StoreActivationService.activateStore: starting", {
       storeId: store.store_id,
@@ -105,7 +103,7 @@ class StoreActivationServiceImpl {
   private async ensureMonthlySheets(
     storeId: string,
     storeFolderId: string,
-    config: MigrationPayload = STORE_MULTI_PRESET,
+    config: MigrationPayload = ACTIVE_PRESET,
   ): Promise<void> {
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -180,7 +178,7 @@ class StoreActivationServiceImpl {
     storeFolderId: string,
     year: number,
     month: number,
-    config: MigrationPayload = STORE_MULTI_PRESET,
+    config: MigrationPayload = ACTIVE_PRESET,
     storeMap?: {
       sheets: Record<string, unknown>;
       monthlySheets?: Record<number, Record<string, unknown>>;
@@ -188,7 +186,6 @@ class StoreActivationServiceImpl {
   ): Promise<string | false> {
     if (!config.monthlySheet) return false;
 
-    const yearMonth = `${year}-${mm(month)}`;
     const date = new Date(year, month - 1, 1);
     const transformed = transformMigrationPayload(config, storeId, date);
 
@@ -231,24 +228,7 @@ class StoreActivationServiceImpl {
       );
 
       for (const [tabName, tabConfig] of Object.entries(ss.sheets)) {
-        await makeRepo(spreadsheetId, tabName)._createTable(tabConfig.columns);
-      }
-
-      const dataSpreadsheetId = Object.values(currentStoreMap.sheets)[0] as
-        | { spreadsheet_id: string }
-        | undefined;
-      if (dataSpreadsheetId) {
-        await makeRepo(
-          dataSpreadsheetId.spreadsheet_id,
-          "Monthly_Sheets",
-        ).batchInsert([
-          {
-            id: generateId(),
-            year_month: yearMonth,
-            spreadsheetId: spreadsheetId,
-            created_at: nowUTC(),
-          },
-        ]);
+        await makeRepo(spreadsheetId, tabName).createTable(tabConfig.columns);
       }
 
       createdSpreadsheetId = spreadsheetId;

@@ -14,12 +14,12 @@
 import { getStoreMapStore } from "../../store/storeMapStore";
 import { makeRepo, storeFolderService } from "../adapters";
 import {
-  MASTER_TAB_HEADERS,
+  ACTIVE_PRESET,
+  DATA_TAB_HEADERS,
   MASTER_TABS,
   type MigrationPayload,
   MONTHLY_TAB_HEADERS,
   MONTHLY_TABS,
-  STORE_MULTI_PRESET,
 } from "../config/presets";
 import {
   extractFolders,
@@ -57,7 +57,7 @@ class MigrationServiceImpl {
   async migrate(
     storeId: string,
     date: Date,
-    config: MigrationPayload = STORE_MULTI_PRESET,
+    config: MigrationPayload = ACTIVE_PRESET,
   ): Promise<Record<string, string>> {
     const transformed = transformMigrationPayload(config, storeId, date);
     const folders = extractFolders(transformed);
@@ -80,7 +80,7 @@ class MigrationServiceImpl {
       );
 
       for (const [sheetName, sheetConfig] of Object.entries(ss.sheets)) {
-        await makeRepo(spreadsheetId, sheetName)._createTable(
+        await makeRepo(spreadsheetId, sheetName).createTable(
           sheetConfig.columns,
         );
       }
@@ -99,8 +99,8 @@ class MigrationServiceImpl {
     businessName: string,
     ownerEmail: string,
     mainSpreadsheetId: string,
-    config: MigrationPayload = STORE_MULTI_PRESET,
-  ): Promise<{ masterId: string; storeId: string; driveFolderId: string }> {
+    config: MigrationPayload = ACTIVE_PRESET,
+  ): Promise<{ storeId: string; driveFolderId: string }> {
     const storeId = generateId();
 
     const storeFolderId = await storeFolderService.ensureFolder([
@@ -110,17 +110,30 @@ class MigrationServiceImpl {
       storeId,
     ]);
 
-    const sheetTabs = Object.keys(config.sheet);
-    const dataSpreadsheetId = await storeFolderService.createSpreadsheet(
-      "data",
-      storeFolderId ?? undefined,
-      sheetTabs,
+    // Use transformMigrationPayload so the spreadsheet layout respects the
+    // config — a split preset produces multiple spreadsheets while a single
+    // preset produces one. Pass only config.sheet; monthly sheets are created
+    // separately by StoreActivationService.ensureMonthlySheets.
+    const transformed = transformMigrationPayload(
+      { sheet: config.sheet },
+      storeId,
+      new Date(),
     );
 
-    for (const [tabName, tabConfig] of Object.entries(config.sheet)) {
-      await makeRepo(dataSpreadsheetId, tabName)._createTable(
-        tabConfig.columns,
+    for (const ss of transformed.spreadsheets) {
+      const parentFolderId = ss.pathParts.length
+        ? await storeFolderService.ensureFolder(ss.pathParts)
+        : (storeFolderId ?? undefined);
+
+      const spreadsheetId = await storeFolderService.createSpreadsheet(
+        ss.name,
+        parentFolderId ?? undefined,
+        Object.keys(ss.sheets),
       );
+
+      for (const [tabName, tabConfig] of Object.entries(ss.sheets)) {
+        await makeRepo(spreadsheetId, tabName).createTable(tabConfig.columns);
+      }
     }
 
     await makeRepo(mainSpreadsheetId, "Stores").batchInsert([
@@ -135,7 +148,6 @@ class MigrationServiceImpl {
     ]);
 
     return {
-      masterId: dataSpreadsheetId,
       storeId,
       driveFolderId: storeFolderId ?? "",
     };
@@ -149,9 +161,7 @@ class MigrationServiceImpl {
     }
     await Promise.all(
       MASTER_TABS.map((tab) =>
-        makeRepo(spreadsheetId, tab)._createTable(
-          MASTER_TAB_HEADERS[tab] ?? [],
-        ),
+        makeRepo(spreadsheetId, tab).createTable(DATA_TAB_HEADERS[tab] ?? []),
       ),
     );
   }
@@ -164,7 +174,7 @@ class MigrationServiceImpl {
     }
     await Promise.all(
       MONTHLY_TABS.map((tab) =>
-        makeRepo(spreadsheetId, tab)._createTable(
+        makeRepo(spreadsheetId, tab).createTable(
           MONTHLY_TAB_HEADERS[tab] ?? [],
         ),
       ),
@@ -182,22 +192,16 @@ class MigrationServiceImpl {
       );
     }
 
-    const {
-      masterId,
-      storeId: newStoreId,
-      driveFolderId,
-    } = await this.createStore(
+    const { storeId: newStoreId, driveFolderId } = await this.createStore(
       businessName,
       ownerEmail,
       mainId,
-      STORE_MULTI_PRESET,
+      ACTIVE_PRESET,
     );
-
-    await this.initializeMasterSheets(masterId);
 
     const initial = await storeFolderService.traverse(
       driveFolderId,
-      STORE_MULTI_PRESET,
+      ACTIVE_PRESET,
     );
     getStoreMapStore(newStoreId)
       .getState()
@@ -212,7 +216,7 @@ class MigrationServiceImpl {
         my_role: "owner",
         joined_at: nowUTC(),
       },
-      STORE_MULTI_PRESET,
+      ACTIVE_PRESET,
     );
 
     return { storeId: newStoreId, driveFolderId };

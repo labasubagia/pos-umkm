@@ -103,9 +103,11 @@ export async function createStore(name: string): Promise<StoreRecord> {
   const ownerEmail = useAuthStore.getState().user?.email ?? "";
   const mainId = requireMainId();
 
-  const { masterId, storeId, driveFolderId } =
-    await MigrationService.createStore(trimmedName, ownerEmail, mainId);
-  await MigrationService.initializeMasterSheets(masterId);
+  const { storeId, driveFolderId } = await MigrationService.createStore(
+    trimmedName,
+    ownerEmail,
+    mainId,
+  );
 
   const record: StoreRecord = {
     store_id: storeId,

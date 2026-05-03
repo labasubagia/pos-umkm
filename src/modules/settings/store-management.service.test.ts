@@ -137,16 +137,11 @@ describe("listStores", () => {
 
 describe("createStore", () => {
   it("provisions a new store and returns the record with the generated storeId", async () => {
-    const newMasterId = "master-new";
     const newStoreId = "store-new";
     vi.spyOn(MigrationService, "createStore").mockResolvedValue({
-      masterId: newMasterId,
       storeId: newStoreId,
       driveFolderId: "folder-new",
     });
-    vi.spyOn(MigrationService, "initializeMasterSheets").mockResolvedValue(
-      undefined,
-    );
 
     const result = await createStore("Toko Baru");
 
@@ -154,9 +149,6 @@ describe("createStore", () => {
       "Toko Baru",
       "owner@test.com",
       MAIN_ID,
-    );
-    expect(MigrationService.initializeMasterSheets).toHaveBeenCalledWith(
-      newMasterId,
     );
     expect(adapters.localCachePut).toHaveBeenCalledWith("Stores", [
       expect.objectContaining({ id: newStoreId, store_id: newStoreId }),
@@ -170,9 +162,6 @@ describe("createStore", () => {
   it("propagates error when createMasterSpreadsheet fails", async () => {
     vi.spyOn(MigrationService, "createStore").mockRejectedValue(
       new Error("Drive API error"),
-    );
-    vi.spyOn(MigrationService, "initializeMasterSheets").mockResolvedValue(
-      undefined,
     );
 
     await expect(createStore("Toko Gagal")).rejects.toThrow("Drive API error");

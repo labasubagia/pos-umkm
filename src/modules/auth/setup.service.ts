@@ -11,9 +11,7 @@ import { getRepos, storeFolderService } from "../../lib/adapters";
 export {
   MAIN_TAB_HEADERS,
   MAIN_TABS,
-  MASTER_TAB_HEADERS,
   MASTER_TABS,
-  MONTHLY_TAB_HEADERS,
   MONTHLY_TABS,
 } from "../../lib/adapters/zod-schemas";
 

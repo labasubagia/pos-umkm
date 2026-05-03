@@ -123,13 +123,6 @@ export const AuditLogSchema = z.object({
   created_at: coerceDate,
 });
 
-export const MonthlySheetSchema = z.object({
-  id: coerceString,
-  year_month: coerceString,
-  spreadsheetId: coerceString,
-  created_at: coerceDate,
-});
-
 export const TransactionSchema = z.object({
   id: coerceString,
   created_at: coerceDate,
@@ -186,8 +179,6 @@ export type PurchaseOrderItem = z.infer<typeof PurchaseOrderItemSchema> &
   Record<string, unknown>;
 export type StockLog = z.infer<typeof StockLogSchema> & Record<string, unknown>;
 export type AuditLog = z.infer<typeof AuditLogSchema> & Record<string, unknown>;
-export type MonthlySheet = z.infer<typeof MonthlySheetSchema> &
-  Record<string, unknown>;
 export type Transaction = z.infer<typeof TransactionSchema> &
   Record<string, unknown>;
 export type TransactionItem = z.infer<typeof TransactionItemSchema> &
@@ -209,7 +200,6 @@ export const sheetSchemaMap: Record<
   Purchase_Order_Items: PurchaseOrderItemSchema,
   Stock_Log: StockLogSchema,
   Audit_Log: AuditLogSchema,
-  Monthly_Sheets: MonthlySheetSchema,
   Transactions: TransactionSchema,
   Transaction_Items: TransactionItemSchema,
   Refunds: RefundSchema,
@@ -236,12 +226,8 @@ export {
   MAIN_PRESET,
   MAIN_TAB_HEADERS,
   MAIN_TABS,
-  MASTER_TAB_HEADERS,
   MASTER_TABS,
-  MONTHLY_TAB_HEADERS,
   MONTHLY_TABS,
-  STORE_MULTI_PRESET,
-  STORE_SINGLE_PRESET,
 } from "../config/presets";
 export type {
   MainConfigPayload,

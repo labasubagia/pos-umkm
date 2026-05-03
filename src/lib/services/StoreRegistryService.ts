@@ -40,7 +40,7 @@ class StoreRegistryServiceImpl {
     logger.info("StoreRegistryService.initMain: spreadsheet created", {
       spreadsheetId,
     });
-    await makeRepo(spreadsheetId, "Stores")._createTable(config.Stores.columns);
+    await makeRepo(spreadsheetId, "Stores").createTable(config.Stores.columns);
     return spreadsheetId;
   }
 

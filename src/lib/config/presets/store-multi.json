@@ -50,10 +50,6 @@
     "Customers": {
       "path": "apps/pos_umkm/stores/<storeId>/data",
       "columns": ["id", "name", "phone", "email", "created_at", "deleted_at"]
-    },
-    "Monthly_Sheets": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
-      "columns": ["id", "year_month", "spreadsheetId", "created_at"]
     }
   },
   "monthlySheet": {

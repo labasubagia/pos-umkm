@@ -79,7 +79,7 @@ export class SheetRepository<T extends Record<string, unknown>>
     );
   }
 
-  async _createTable(headers: string[]): Promise<void> {
+  async createTable(headers: string[]): Promise<void> {
     await sheetsOps.writeHeaders(
       this.spreadsheetId,
       this.sheetName,

@@ -8,6 +8,7 @@
 import mainConfig from "./presets/main.json";
 import storeMultiConfig from "./presets/store-multi.json";
 import storeSingleConfig from "./presets/store-single.json";
+import storeSplitConfig from "./presets/store-split.json";
 import type { MainConfigPayload, MigrationPayload } from "./types";
 
 export type { MainConfigPayload, MigrationPayload } from "./types";
@@ -17,7 +18,27 @@ export const MAIN_PRESET: MainConfigPayload = mainConfig as MainConfigPayload;
 export const STORE_PRESETS = {
   multi: storeMultiConfig as MigrationPayload,
   single: storeSingleConfig as MigrationPayload,
+  split: storeSplitConfig as MigrationPayload,
 };
+
+/**
+ * ACTIVE_PRESET — the preset used at runtime.
+ * Override via VITE_STORE_PRESET env variable (multi | single | split).
+ * Defaults to multi.
+ */
+const _presetKey = (
+  typeof import.meta !== "undefined"
+    ? (import.meta.env?.VITE_STORE_PRESET ?? "multi")
+    : "multi"
+) as keyof typeof STORE_PRESETS;
+export const ACTIVE_PRESET: MigrationPayload =
+  STORE_PRESETS[_presetKey] ?? STORE_PRESETS.multi;
+
+export const DEFAULT_MONTHLY_PREFIXES = ["transaction", "log", "po", "stock"];
+
+export function getMonthlySheetPrefixes(config: MigrationPayload): string[] {
+  return config.monthlySheet?.prefixes ?? DEFAULT_MONTHLY_PREFIXES;
+}
 
 export function getTabHeaders(
   config: MigrationPayload,
@@ -68,34 +89,22 @@ export const MAIN_TAB_HEADERS: Record<string, string[]> = {
 
 export const MAIN_TABS: readonly string[] = Object.keys(MAIN_PRESET);
 
-export const MASTER_TAB_HEADERS = getTabHeaders(STORE_PRESETS.multi);
+export const DATA_TAB_HEADERS = getTabHeaders(ACTIVE_PRESET);
 
 export const MONTHLY_TAB_HEADERS = getTabHeaders(
-  STORE_PRESETS.multi.monthlySheet
-    ? { sheet: {}, monthlySheet: STORE_PRESETS.multi.monthlySheet }
+  ACTIVE_PRESET.monthlySheet
+    ? { sheet: {}, monthlySheet: ACTIVE_PRESET.monthlySheet }
     : ({ sheet: {} } as MigrationPayload),
 );
 
-export const MASTER_TABS: readonly string[] = Object.keys(
-  STORE_PRESETS.multi.sheet,
-);
+export const MASTER_TABS: readonly string[] = Object.keys(ACTIVE_PRESET.sheet);
 
-export const MONTHLY_TABS: readonly string[] = STORE_PRESETS.multi.monthlySheet
-  ? Object.keys(STORE_PRESETS.multi.monthlySheet.sheet)
+export const MONTHLY_TABS: readonly string[] = ACTIVE_PRESET.monthlySheet
+  ? Object.keys(ACTIVE_PRESET.monthlySheet.sheet)
   : [];
 
 export const ALL_TAB_HEADERS: Record<string, string[]> = {
   ...MAIN_TAB_HEADERS,
-  ...MASTER_TAB_HEADERS,
+  ...DATA_TAB_HEADERS,
   ...MONTHLY_TAB_HEADERS,
 };
-
-export const STORE_MULTI_PRESET = STORE_PRESETS.multi;
-
-export const STORE_SINGLE_PRESET = STORE_PRESETS.single;
-
-export const DEFAULT_MONTHLY_PREFIXES = ["transaction", "log", "po", "stock"];
-
-export function getMonthlySheetPrefixes(config: MigrationPayload): string[] {
-  return config.monthlySheet?.prefixes ?? DEFAULT_MONTHLY_PREFIXES;
-}

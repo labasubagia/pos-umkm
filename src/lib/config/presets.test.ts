@@ -5,20 +5,11 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  ALL_TAB_HEADERS,
   getAllTabHeaders,
   getTabHeaders,
   getTabNames,
   MAIN_PRESET,
-  MAIN_TAB_HEADERS,
-  MAIN_TABS,
-  MASTER_TAB_HEADERS,
-  MASTER_TABS,
-  MONTHLY_TAB_HEADERS,
-  MONTHLY_TABS,
-  STORE_MULTI_PRESET,
   STORE_PRESETS,
-  STORE_SINGLE_PRESET,
 } from "./presets";
 
 const EXPECTED_MAIN = {
@@ -88,10 +79,6 @@ const EXPECTED_STORE_MULTI = {
     Customers: {
       path: "apps/pos_umkm/stores/<storeId>/data",
       columns: ["id", "name", "phone", "email", "created_at", "deleted_at"],
-    },
-    Monthly_Sheets: {
-      path: "apps/pos_umkm/stores/<storeId>/data",
-      columns: ["id", "year_month", "spreadsheetId", "created_at"],
     },
   },
   monthlySheet: {
@@ -231,10 +218,6 @@ const EXPECTED_STORE_SINGLE = {
       path: "apps/pos_umkm/stores/<storeId>/data",
       columns: ["id", "name", "phone", "email", "created_at", "deleted_at"],
     },
-    Monthly_Sheets: {
-      path: "apps/pos_umkm/stores/<storeId>/data",
-      columns: ["id", "year_month", "spreadsheetId", "created_at"],
-    },
     Transactions: {
       path: "apps/pos_umkm/stores/<storeId>/data",
       columns: [
@@ -336,7 +319,7 @@ describe("presets", () => {
 
   describe("getTabHeaders", () => {
     it("extracts all sheet headers from multi config", () => {
-      const headers = getTabHeaders(STORE_MULTI_PRESET);
+      const headers = getTabHeaders(EXPECTED_STORE_MULTI);
       expect(headers.Categories).toEqual([
         "id",
         "name",
@@ -346,13 +329,13 @@ describe("presets", () => {
     });
 
     it("extracts monthly sheet headers when present", () => {
-      const headers = getTabHeaders(STORE_MULTI_PRESET);
+      const headers = getTabHeaders(EXPECTED_STORE_MULTI);
       expect(headers.Transactions).toContain("id");
       expect(headers.Transactions).toContain("total");
     });
 
     it("extracts all headers from single config", () => {
-      const headers = getTabHeaders(STORE_SINGLE_PRESET);
+      const headers = getTabHeaders(EXPECTED_STORE_SINGLE);
       expect(headers.Categories).toBeDefined();
       expect(headers.Transactions).toBeDefined();
     });
@@ -360,14 +343,14 @@ describe("presets", () => {
 
   describe("getTabNames", () => {
     it("returns correct structure for multi", () => {
-      const names = getTabNames(STORE_MULTI_PRESET);
+      const names = getTabNames(EXPECTED_STORE_MULTI);
       expect(names.main).toEqual(["Stores"]);
       expect(names.sheet).toContain("Categories");
       expect(names.monthly).toContain("Transactions");
     });
 
     it("returns monthly sheets for single", () => {
-      const names = getTabNames(STORE_SINGLE_PRESET);
+      const names = getTabNames(EXPECTED_STORE_SINGLE);
       // Single store has all sheets (including monthly) in the sheet section
       expect(names.sheet).toContain("Transactions");
     });
@@ -375,54 +358,10 @@ describe("presets", () => {
 
   describe("getAllTabHeaders", () => {
     it("combines main and store headers", () => {
-      const headers = getAllTabHeaders(STORE_MULTI_PRESET);
+      const headers = getAllTabHeaders(EXPECTED_STORE_MULTI);
       expect(headers.Stores).toBeDefined();
       expect(headers.Categories).toBeDefined();
       expect(headers.Transactions).toBeDefined();
-    });
-  });
-
-  describe("exported constants", () => {
-    it("MAIN_TAB_HEADERS has Stores", () => {
-      expect(MAIN_TAB_HEADERS.Stores).toEqual(EXPECTED_MAIN.Stores.columns);
-    });
-
-    it("MAIN_TABS is ['Stores']", () => {
-      expect(MAIN_TABS).toEqual(["Stores"]);
-    });
-
-    it("MASTER_TAB_HEADERS has all master sheets", () => {
-      expect(MASTER_TAB_HEADERS.Categories).toBeDefined();
-      expect(MASTER_TAB_HEADERS.Products).toBeDefined();
-    });
-
-    it("MONTHLY_TAB_HEADERS has all monthly sheets", () => {
-      expect(MONTHLY_TAB_HEADERS.Transactions).toBeDefined();
-      expect(MONTHLY_TAB_HEADERS.Transaction_Items).toBeDefined();
-    });
-
-    it("MASTER_TABS contains expected sheets", () => {
-      expect(MASTER_TABS).toContain("Categories");
-      expect(MASTER_TABS).toContain("Products");
-    });
-
-    it("MONTHLY_TABS contains expected sheets", () => {
-      expect(MONTHLY_TABS).toContain("Transactions");
-      expect(MONTHLY_TABS).toContain("Refunds");
-    });
-
-    it("ALL_TAB_HEADERS has all keys from all sources", () => {
-      expect(Object.keys(ALL_TAB_HEADERS)).toContain("Stores");
-      expect(Object.keys(ALL_TAB_HEADERS)).toContain("Categories");
-      expect(Object.keys(ALL_TAB_HEADERS)).toContain("Transactions");
-    });
-
-    it("STORE_MULTI_PRESET equals STORE_PRESETS.multi", () => {
-      expect(STORE_MULTI_PRESET).toBe(STORE_PRESETS.multi);
-    });
-
-    it("STORE_SINGLE_PRESET equals STORE_PRESETS.single", () => {
-      expect(STORE_SINGLE_PRESET).toBe(STORE_PRESETS.single);
     });
   });
 });

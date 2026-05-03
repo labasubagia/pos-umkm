@@ -1,11 +1,11 @@
 {
   "sheet": {
     "Settings": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "path": "apps/pos_umkm/stores/<storeId>/settings",
       "columns": ["id", "key", "value", "updated_at"]
     },
     "Members": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "path": "apps/pos_umkm/stores/<storeId>/members",
       "columns": [
         "id",
         "google_user_id",
@@ -17,11 +17,11 @@
       ]
     },
     "Categories": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "path": "apps/pos_umkm/stores/<storeId>/master_data",
       "columns": ["id", "name", "created_at", "deleted_at"]
     },
     "Products": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "path": "apps/pos_umkm/stores/<storeId>/master_data",
       "columns": [
         "id",
         "category_id",
@@ -35,7 +35,7 @@
       ]
     },
     "Variants": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "path": "apps/pos_umkm/stores/<storeId>/master_data",
       "columns": [
         "id",
         "product_id",
@@ -48,11 +48,11 @@
       ]
     },
     "Customers": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "path": "apps/pos_umkm/stores/<storeId>/customers",
       "columns": ["id", "name", "phone", "email", "created_at", "deleted_at"]
     },
     "Transactions": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "path": "apps/pos_umkm/stores/<storeId>/transactions",
       "columns": [
         "id",
         "created_at",
@@ -72,7 +72,7 @@
       ]
     },
     "Transaction_Items": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "path": "apps/pos_umkm/stores/<storeId>/transactions",
       "columns": [
         "id",
         "transaction_id",
@@ -85,7 +85,7 @@
       ]
     },
     "Refunds": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "path": "apps/pos_umkm/stores/<storeId>/transactions",
       "columns": [
         "id",
         "transaction_id",
@@ -98,11 +98,11 @@
       ]
     },
     "Audit_Log": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "path": "apps/pos_umkm/stores/<storeId>/logs",
       "columns": ["id", "event", "data", "created_at"]
     },
     "Purchase_Order_Items": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "path": "apps/pos_umkm/stores/<storeId>/transactions",
       "columns": [
         "id",
         "order_id",
@@ -114,11 +114,11 @@
       ]
     },
     "Purchase_Orders": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "path": "apps/pos_umkm/stores/<storeId>/transactions",
       "columns": ["id", "supplier", "status", "created_at", "deleted_at"]
     },
     "Stock_Log": {
-      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "path": "apps/pos_umkm/stores/<storeId>/logs",
       "columns": [
         "id",
         "product_id",

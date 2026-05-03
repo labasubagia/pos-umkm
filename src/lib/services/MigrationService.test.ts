@@ -57,7 +57,7 @@ describe("MigrationService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockMakeRepo.mockReturnValue({
-      _createTable: vi.fn().mockResolvedValue(undefined),
+      createTable: vi.fn().mockResolvedValue(undefined),
       getAll: vi.fn().mockResolvedValue([]),
     });
   });
