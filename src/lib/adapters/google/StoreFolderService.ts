@@ -169,7 +169,7 @@ export class StoreFolderService {
 
           if (monthMatch) {
             const monthlyEntry: MonthlySheetMeta = {
-              yearMonth: monthMatch[1],
+              yearMonth: `${monthMatch[1]}_${monthMatch[2]}`,
               sheets: {},
             };
             for (const [sheetName, meta] of Object.entries(item.sheet)) {
