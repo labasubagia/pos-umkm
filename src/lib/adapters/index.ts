@@ -41,7 +41,6 @@ import { useAuthStore } from "../../store/authStore";
 import { HydrationService } from "../HydrationService";
 import { logger } from "../logger";
 import { SyncManager } from "../SyncManager";
-import { ALL_TAB_HEADERS } from "../schema";
 import { DexieRepository } from "./dexie/DexieRepository";
 import { clearDbCache, getDb } from "./dexie/db";
 import {
@@ -69,6 +68,7 @@ import type {
   StockLog,
   Store,
 } from "./zod-schemas";
+import { ALL_TAB_HEADERS } from "./zod-schemas";
 
 export const authAdapter: AuthAdapter = new GoogleAuthAdapter();
 
@@ -322,3 +322,6 @@ export function getMembersForStore(
     syncManager.triggerSync(),
   );
 }
+
+export type { StoreRecord } from "../services/MigrationService";
+export { MigrationService } from "../services/MigrationService";

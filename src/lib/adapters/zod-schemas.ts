@@ -26,7 +26,6 @@ export const StoreSchema = z.object({
   id: coerceString.optional(),
   store_id: coerceString,
   store_name: coerceString,
-  master_spreadsheet_id: coerceString.optional().nullable(),
   drive_folder_id: coerceString.optional().nullable(),
   owner_email: coerceString.optional().nullable(),
   my_role: coerceString.optional().nullable(),
@@ -229,3 +228,27 @@ export function parseSheetRows(
   }
   return rows.map((row) => schema.parse(row));
 }
+
+// ─── Config Types ────────────────────────────────────────────────────────────────
+
+export {
+  ALL_TAB_HEADERS,
+  MAIN_PRESET,
+  MAIN_TAB_HEADERS,
+  MAIN_TABS,
+  MASTER_TAB_HEADERS,
+  MASTER_TABS,
+  MONTHLY_TAB_HEADERS,
+  MONTHLY_TABS,
+  STORE_MULTI_PRESET,
+  STORE_SINGLE_PRESET,
+} from "../config/presets";
+export type {
+  MainConfigPayload,
+  MigrationPayload,
+  MonthlySheetConfig,
+  SheetConfig,
+  SpreadsheetConfig,
+  TransformedConfig,
+  TransformedSpreadsheet,
+} from "../config/types";

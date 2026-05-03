@@ -52,7 +52,6 @@ function toStoreRecord(r: Store): StoreRecord {
   return {
     store_id: r.store_id,
     store_name: r.store_name ?? "",
-    master_spreadsheet_id: r.master_spreadsheet_id ?? "",
     drive_folder_id: r.drive_folder_id ?? "",
     owner_email: r.owner_email ?? "",
     my_role: r.my_role ?? "owner",
@@ -71,9 +70,7 @@ function toStoreRecord(r: Store): StoreRecord {
 export async function listStores(): Promise<StoreRecord[]> {
   requireMainId();
   const rows = await getRepos().stores.getAll();
-  return rows
-    .filter((r) => r.store_id && r.master_spreadsheet_id)
-    .map(toStoreRecord);
+  return rows.filter((r) => r.store_id && r.drive_folder_id).map(toStoreRecord);
 }
 
 export function useStores() {
@@ -117,7 +114,6 @@ export async function createStore(name: string): Promise<StoreRecord> {
   const record: StoreRecord = {
     store_id: storeId,
     store_name: trimmedName,
-    master_spreadsheet_id: masterId,
     drive_folder_id: driveFolderId,
     owner_email: ownerEmail,
     my_role: "owner",
@@ -183,21 +179,14 @@ export async function removeOwnedStore(storeId: string): Promise<void> {
  *
  * Throws StoreManagementError if the caller is not found in Members.
  */
-export async function removeAccessToStore(
-  masterSpreadsheetId: string,
-): Promise<void> {
+export async function removeAccessToStore(storeId: string): Promise<void> {
   const callerEmail = useAuthStore.getState().user?.email;
   if (!callerEmail)
     throw new StoreManagementError(
       "removeAccessToStore: user not authenticated",
     );
 
-  // Resolve the target storeId from the cached Stores list.
-  const stores = await listStores();
-  const targetStore = stores.find(
-    (s) => s.master_spreadsheet_id === masterSpreadsheetId,
-  );
-  const targetStoreId = targetStore?.store_id ?? masterSpreadsheetId;
+  const targetStoreId = storeId;
 
   const membersRepo = getMembersForStore(targetStoreId);
   const members = await membersRepo.getAll();

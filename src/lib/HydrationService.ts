@@ -26,9 +26,8 @@ import { getCurrentStoreMapStore } from "../store/storeMapStore";
 import { useSyncStore } from "../store/syncStore";
 import type { Database } from "./adapters/dexie/db";
 import { SheetRepository } from "./adapters/google/SheetRepository";
-import { parseSheetRows } from "./adapters/zod-schemas";
+import { ALL_TAB_HEADERS, parseSheetRows } from "./adapters/zod-schemas";
 import { logger } from "./logger";
-import { ALL_TAB_HEADERS } from "./schema";
 
 const STALE_MS = 5 * 60 * 1000;
 

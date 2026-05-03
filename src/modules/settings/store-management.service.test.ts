@@ -28,13 +28,10 @@ import {
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
 const MAIN_ID = "main-spreadsheet-id";
-const MASTER_ID_A = "master-a";
-const MASTER_ID_B = "master-b";
 
 const storeA: StoreRecord = {
   store_id: "store-a",
   store_name: "Toko A",
-  master_spreadsheet_id: MASTER_ID_A,
   drive_folder_id: "folder-a",
   owner_email: "owner@test.com",
   my_role: "owner",
@@ -44,7 +41,6 @@ const storeA: StoreRecord = {
 const storeB: StoreRecord = {
   store_id: "store-b",
   store_name: "Toko B",
-  master_spreadsheet_id: MASTER_ID_B,
   drive_folder_id: "folder-b",
   owner_email: "other@test.com",
   my_role: "manager",
@@ -162,7 +158,6 @@ describe("createStore", () => {
     ]);
     expect(result).toMatchObject({
       store_name: "Toko Baru",
-      master_spreadsheet_id: newMasterId,
       store_id: newStoreId,
     });
   });
@@ -267,7 +262,7 @@ describe("removeAccessToStore", () => {
       membersRepo as unknown as ReturnType<typeof adapters.getMembersForStore>,
     );
 
-    await removeAccessToStore(MASTER_ID_B);
+    await removeAccessToStore("store-b");
 
     expect(adapters.getMembersForStore).toHaveBeenCalledWith("store-b");
     expect(membersRepo.softDelete).toHaveBeenCalledWith("m1");
@@ -294,7 +289,7 @@ describe("removeAccessToStore", () => {
       membersRepo as unknown as ReturnType<typeof adapters.getMembersForStore>,
     );
 
-    await expect(removeAccessToStore(MASTER_ID_B)).rejects.toThrow(
+    await expect(removeAccessToStore("store-b")).rejects.toThrow(
       StoreManagementError,
     );
   });

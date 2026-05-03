@@ -115,7 +115,7 @@ beforeEach(() => {
     auditLog: mockRepo(),
   };
   vi.spyOn(adapters, "getRepos").mockReturnValue(
-    mockRepos as ReturnType<typeof adapters.getRepos>,
+    mockRepos as unknown as ReturnType<typeof adapters.getRepos>,
   );
 
   sharedMakeRepo = mockRepo();
@@ -128,6 +128,9 @@ beforeEach(() => {
   );
   vi.spyOn(adapters.storeFolderService, "ensureFolder").mockResolvedValue(
     "folder-id",
+  );
+  vi.spyOn(adapters.storeFolderService, "ensureSubfolder").mockResolvedValue(
+    "subfolder-id",
   );
   vi.spyOn(adapters.storeFolderService, "shareSpreadsheet").mockResolvedValue(
     undefined,
@@ -218,7 +221,6 @@ describe("listStores", () => {
       {
         store_id: "s1",
         store_name: "Toko A",
-        master_spreadsheet_id: "m1",
         drive_folder_id: "f1",
         owner_email: "a@b.com",
         my_role: "owner",
@@ -230,14 +232,14 @@ describe("listStores", () => {
     expect(stores).toHaveLength(1);
     expect(stores[0].store_id).toBe("s1");
     expect(stores[0].store_name).toBe("Toko A");
-    expect(stores[0].master_spreadsheet_id).toBe("m1");
+    expect(stores[0].drive_folder_id).toBe("f1");
   });
 
-  it("filters out rows without store_id or master_spreadsheet_id", async () => {
+  it("filters out rows without store_id or drive_folder_id", async () => {
     sharedMakeRepo.getAll.mockResolvedValue([
-      { store_id: "s1", master_spreadsheet_id: "m1" },
-      { store_id: "", master_spreadsheet_id: "m2" },
-      { store_id: "s3", master_spreadsheet_id: "" },
+      { store_id: "s1", drive_folder_id: "f1" },
+      { store_id: "", drive_folder_id: "f2" },
+      { store_id: "s3", drive_folder_id: "" },
       {},
     ]);
 
@@ -301,7 +303,7 @@ describe("findOrCreateMain", () => {
 
   it("returns the store list from main.Stores", async () => {
     sharedMakeRepo.getAll.mockResolvedValue([
-      { store_id: "s1", store_name: "Toko A", master_spreadsheet_id: "m1" },
+      { store_id: "s1", store_name: "Toko A", drive_folder_id: "f1" },
     ]);
 
     const result = await findOrCreateMain();
@@ -327,15 +329,15 @@ describe("createMasterSpreadsheet", () => {
       expect.any(String),
     ]);
     expect(adapters.storeFolderService.createSpreadsheet).toHaveBeenCalledWith(
-      "master",
+      "data",
       "folder-id",
-      [...MASTER_TABS],
+      expect.arrayContaining(["Settings", "Members", "Categories"]),
     );
     expect(sharedMakeRepo.batchInsert).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
           store_name: "Toko Baru",
-          master_spreadsheet_id: "new-sheet-id",
+          drive_folder_id: "folder-id",
           owner_email: "owner@test.com",
           my_role: "owner",
         }),
@@ -381,7 +383,6 @@ describe("activateStore", () => {
   const store: StoreRecord = {
     store_id: "store-abc",
     store_name: "Toko ABC",
-    master_spreadsheet_id: "master-id",
     drive_folder_id: "folder-id",
     owner_email: "owner@test.com",
     my_role: "owner",
@@ -418,8 +419,8 @@ describe("activateStore", () => {
   });
 
   it("skips Drive traversal when store map is fresh (within TTL)", async () => {
-    // Include current + next month transaction sheets so ensureMonthlySheets
-    // is a no-op (no new creation, no re-traverse).
+    // Include all monthly spreadsheets (transactions, logs, po, stock) for current
+    // and next month so ensureMonthlySheets is a no-op.
     const now = new Date();
     const ym = (y: number, m: number) => `${y}-${String(m).padStart(2, "0")}`;
     const curY = now.getFullYear();
@@ -432,10 +433,10 @@ describe("activateStore", () => {
     mockStoreMapState = {
       ...mockStoreMapState,
       sheets: {
-        Products: {
-          spreadsheet_id: "sp-1",
-          spreadsheet_name: "master",
-          tab_name: "Products",
+        data: {
+          spreadsheet_id: "sp-data",
+          spreadsheet_name: "data",
+          tab_name: "Settings",
           sheet_id: 1,
         },
         [`transaction_${curYM}`]: {
@@ -449,6 +450,42 @@ describe("activateStore", () => {
           spreadsheet_name: `transaction_${nextYM}`,
           tab_name: "Transactions",
           sheet_id: 3,
+        },
+        [`log_${curYM}`]: {
+          spreadsheet_id: "sp-log-cur",
+          spreadsheet_name: `log_${curYM}`,
+          tab_name: "Audit_Log",
+          sheet_id: 4,
+        },
+        [`log_${nextYM}`]: {
+          spreadsheet_id: "sp-log-next",
+          spreadsheet_name: `log_${nextYM}`,
+          tab_name: "Audit_Log",
+          sheet_id: 5,
+        },
+        [`po_${curYM}`]: {
+          spreadsheet_id: "sp-po-cur",
+          spreadsheet_name: `po_${curYM}`,
+          tab_name: "Purchase_Orders",
+          sheet_id: 6,
+        },
+        [`po_${nextYM}`]: {
+          spreadsheet_id: "sp-po-next",
+          spreadsheet_name: `po_${nextYM}`,
+          tab_name: "Purchase_Orders",
+          sheet_id: 7,
+        },
+        [`stock_${curYM}`]: {
+          spreadsheet_id: "sp-stock-cur",
+          spreadsheet_name: `stock_${curYM}`,
+          tab_name: "Stock_Log",
+          sheet_id: 8,
+        },
+        [`stock_${nextYM}`]: {
+          spreadsheet_id: "sp-stock-next",
+          spreadsheet_name: `stock_${nextYM}`,
+          tab_name: "Stock_Log",
+          sheet_id: 9,
         },
       },
       monthlySheets: [],
@@ -535,34 +572,22 @@ describe("shareSheetWithAllMembers", () => {
 // ─── runFirstTimeSetup ────────────────────────────────────────────────────────
 
 describe("runFirstTimeSetup", () => {
-  it("creates main, master, and monthly spreadsheets", async () => {
+  it("creates main, data, and monthly spreadsheets", async () => {
     const createSpy = vi
       .spyOn(adapters.storeFolderService, "createSpreadsheet")
-      .mockResolvedValueOnce("main-id")
-      .mockResolvedValueOnce("master-id")
-      .mockResolvedValueOnce("monthly-id")
-      .mockResolvedValueOnce("next-monthly-id");
+      .mockResolvedValue("new-spreadsheet-id");
 
     await runFirstTimeSetup("Toko Santoso");
 
-    expect(createSpy).toHaveBeenNthCalledWith(
-      1,
-      "main",
-      expect.anything(),
-      expect.anything(),
-    );
-    expect(createSpy).toHaveBeenNthCalledWith(
-      2,
-      "master",
-      expect.anything(),
-      expect.anything(),
-    );
-    expect(createSpy).toHaveBeenNthCalledWith(
-      3,
-      expect.stringMatching(/^transaction_/),
-      expect.anything(),
-      expect.anything(),
-    );
+    expect(createSpy).toHaveBeenCalled();
+    const calls = createSpy.mock.calls;
+    expect(calls[0][0]).toBe("main");
+    expect(calls[1][0]).toBe("data");
+    const spreadsheetNames = calls.map((c) => c[0]);
+    expect(spreadsheetNames).toContain("transaction_2026-05");
+    expect(spreadsheetNames).toContain("log_2026-05");
+    expect(spreadsheetNames).toContain("po_2026-05");
+    expect(spreadsheetNames).toContain("stock_2026-05");
   });
 
   it("returns storeId and driveFolderId", async () => {

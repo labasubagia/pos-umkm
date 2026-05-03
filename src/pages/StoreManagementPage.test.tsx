@@ -74,7 +74,6 @@ const OTHER_EMAIL = "other@test.com";
 const ownedStore: StoreRecord = {
   store_id: "store-owned",
   store_name: "Toko Sendiri",
-  master_spreadsheet_id: "master-owned",
   drive_folder_id: "folder-owned",
   owner_email: OWNER_EMAIL,
   my_role: "owner",
@@ -84,7 +83,6 @@ const ownedStore: StoreRecord = {
 const joinedStore: StoreRecord = {
   store_id: "store-joined",
   store_name: "Toko Orang Lain",
-  master_spreadsheet_id: "master-joined",
   drive_folder_id: "folder-joined",
   owner_email: OTHER_EMAIL,
   my_role: "manager",
@@ -311,7 +309,7 @@ describe("StoreManagementPage", () => {
 
     await waitFor(() => {
       expect(svc.removeAccessToStore).toHaveBeenCalledWith(
-        joinedStore.master_spreadsheet_id,
+        joinedStore.store_id,
       );
     });
   });
@@ -380,7 +378,6 @@ describe("StoreManagementPage", () => {
     const newStore: StoreRecord = {
       store_id: "store-new",
       store_name: "Toko Baru",
-      master_spreadsheet_id: "master-new",
       drive_folder_id: "folder-new",
       owner_email: OWNER_EMAIL,
       my_role: "owner",

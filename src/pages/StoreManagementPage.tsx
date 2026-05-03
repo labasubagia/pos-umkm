@@ -426,8 +426,7 @@ export default function StoreManagementPage() {
               data-testid="btn-confirm-leave-store"
               disabled={leaveMutation.isPending}
               onClick={() =>
-                leaveStore &&
-                leaveMutation.mutate(leaveStore.master_spreadsheet_id)
+                leaveStore && leaveMutation.mutate(leaveStore.store_id)
               }
             >
               {leaveMutation.isPending ? "Memproses…" : "Keluar"}
