@@ -68,9 +68,12 @@ export function createStoreMapStore(storeId: string) {
          */
         getCurrentMonthSheets: () => {
           const now = new Date();
-          const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-          return get().monthlySheets.find((m) => m.yearMonth === yearMonth)
-            ?.sheets;
+          const year = now.getFullYear();
+          const month = String(now.getMonth() + 1).padStart(2, "0");
+          const yearMonth = `${year}-${month}`;
+          return get().monthlySheets.find(
+            (m) => m.yearMonth === `transaction_${yearMonth}`,
+          )?.sheets;
         },
 
         clearStoreMap: () =>

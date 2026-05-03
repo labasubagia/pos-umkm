@@ -217,11 +217,13 @@ export function validateSplitPayment(
  */
 export async function ensureMonthlySheetExists(): Promise<string> {
   const now = new Date();
-  const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const yearMonth = `${year}-${month}`;
 
   const storeMap = getCurrentStoreMapStore().getState();
   const monthlyEntry = storeMap.monthlySheets.find(
-    (m) => m.yearMonth === yearMonth,
+    (m) => m.yearMonth === `transaction_${yearMonth}`,
   );
   if (monthlyEntry?.sheets.Transactions) {
     return monthlyEntry.sheets.Transactions.spreadsheet_id;
