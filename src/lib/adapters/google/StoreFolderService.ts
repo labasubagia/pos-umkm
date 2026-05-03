@@ -22,11 +22,13 @@
  */
 
 import pLimit from "p-limit";
+import { logger } from "@/lib/logger";
 import { useAuthStore } from "@/store";
 import {
   createSpreadsheet,
   type DriveNode,
   ensureFolder,
+  ensureSubfolder,
   getFolderContent,
   MIME_FOLDER,
   MIME_SPREADSHEET,
@@ -34,7 +36,7 @@ import {
 } from "./drive/drive.client";
 import { getSpreadsheetMeta } from "./sheets/sheets.ops";
 
-const DEFAULT_CONCURRENCY = 5;
+const DEFAULT_CONCURRENCY = 20;
 
 const getToken = () => {
   const tokenFromStore = useAuthStore.getState().accessToken;
@@ -84,6 +86,13 @@ export class StoreFolderService {
     return ensureFolder(path, getToken());
   }
 
+  ensureSubfolder(
+    parentFolderId: string,
+    subfolders: string[],
+  ): Promise<string | null> {
+    return ensureSubfolder(parentFolderId, subfolders, getToken());
+  }
+
   shareSpreadsheet(
     spreadsheetId: string,
     email: string,
@@ -98,22 +107,45 @@ export class StoreFolderService {
    * Monthly transaction spreadsheets are in `monthlySheets` (array, one per month).
    */
   async traverse(storeFolderId: string): Promise<TraverseResult> {
+    logger.info("StoreFolderService.traverse: starting", { storeFolderId });
     const tree = await this.traverseRecursive(storeFolderId);
+    logger.info("StoreFolderService.traverse: got tree, flattening");
     return this.flattenToMap(tree);
   }
 
   // ─── Drive API ──────────────────────────────────────────────────────────────
 
   private async traverseRecursive(folderId: string): Promise<DriveNode[]> {
+    logger.debug("StoreFolderService.traverseRecursive: folderId", {
+      folderId,
+    });
     const token = getToken();
+    logger.debug("StoreFolderService.traverseRecursive: getFolderContent", {
+      folderId,
+    });
     const items = await getFolderContent(folderId, token);
+    logger.debug("StoreFolderService.traverseRecursive: got items", {
+      folderId,
+      count: items.length,
+    });
 
     return Promise.all(
       items.map((item) =>
         this.limit(async () => {
           if (item.mimeType === MIME_FOLDER) {
+            logger.debug(
+              "StoreFolderService.traverseRecursive: entering folder",
+              { folderId: item.name },
+            );
             item.children = await this.traverseRecursive(item.id);
+            logger.debug("StoreFolderService.traverseRecursive: done folder", {
+              folderId: item.name,
+            });
           } else if (item.mimeType === MIME_SPREADSHEET) {
+            logger.debug(
+              "StoreFolderService.traverseRecursive: getSpreadsheetMeta",
+              { id: item.id, name: item.name },
+            );
             item.sheet = await getSpreadsheetMeta(item.id, token);
           }
           return item;
@@ -131,7 +163,9 @@ export class StoreFolderService {
     const walk = (items: DriveNode[], path: string) => {
       for (const item of items) {
         if (item.sheet) {
-          const monthMatch = item.name.match(/^transaction_(\d{4}-\d{2})$/);
+          const monthMatch = item.name.match(
+            /^(transaction|log|po|stock)_(\d{4}-\d{2})$/,
+          );
 
           if (monthMatch) {
             const monthlyEntry: MonthlySheetMeta = {

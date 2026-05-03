@@ -1,0 +1,14 @@
+{
+  "Stores": {
+    "path": "apps/pos_umkm/main",
+    "columns": [
+      "store_id",
+      "store_name",
+      "drive_folder_id",
+      "owner_email",
+      "my_role",
+      "joined_at",
+      "deleted_at"
+    ]
+  }
+}

@@ -7,6 +7,7 @@
  * SheetsApiError → AdapterError happens here so GoogleDataAdapter stays thin.
  */
 
+import { logger } from "@/lib/logger";
 import { queryClient } from "../../../queryClient";
 import { generateId } from "../../../uuid";
 import { AdapterError } from "../../types";
@@ -310,11 +311,17 @@ export async function getSpreadsheetMeta(
 ): Promise<
   Record<string, { sheetId: number; spreadsheetId: string; headers: string[] }>
 > {
+  logger.debug("getSpreadsheetMeta: starting", { spreadsheetId });
   return queryClient.fetchQuery({
     queryKey: ["spreadsheet-meta", spreadsheetId],
     queryFn: async () => {
+      logger.debug("getSpreadsheetMeta: fetching", { spreadsheetId });
       const url = `${SHEETS_API}/spreadsheets/${spreadsheetId}?fields=sheets(properties(sheetId,title),data(rowData(values(formattedValue))))`;
       const res = await fetch(url, { headers: authHeader(token) });
+      logger.debug("getSpreadsheetMeta: response", {
+        spreadsheetId,
+        status: res.status,
+      });
       if (!res.ok) {
         const body = await res.text().catch(() => "");
         throw new SheetsApiError(

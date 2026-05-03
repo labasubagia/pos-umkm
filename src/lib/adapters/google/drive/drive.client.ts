@@ -6,11 +6,12 @@
  * argument so they are stateless and independently testable.
  */
 
+import { logger } from "@/lib/logger";
 import { queryClient } from "../../../queryClient";
 import { AdapterError } from "../../types";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
-const STALE_TIME = 60 * 60 * 1000; // 60 minutes
+const STALE_TIME = 60 * 1000; // 1 minute - reduce to avoid stale cache issues
 
 export const MIME_FOLDER = "application/vnd.google-apps.folder";
 export const MIME_SPREADSHEET = "application/vnd.google-apps.spreadsheet";
@@ -61,12 +62,14 @@ export async function createSpreadsheet(
         }
         return null;
       },
-      staleTime: STALE_TIME,
+      staleTime: 0,
+      gcTime: 0,
     });
     if (existingId) return existingId;
   }
 
   // ── Create via Sheets API ───────────────────────────────────────────────
+  console.log("[createSpreadsheet] Creating new spreadsheet:", name);
   const sheetsBody: Record<string, unknown> = { properties: { title: name } };
   if (tabs && tabs.length > 0) {
     sheetsBody.sheets = tabs.map((title) => ({ properties: { title } }));
@@ -126,6 +129,23 @@ export async function ensureFolder(
   return parentId;
 }
 
+/**
+ * Creates nested subfolders under a given parent folder.
+ * Uses lookup-or-create to avoid duplicates.
+ * Returns the leaf folder ID.
+ */
+export async function ensureSubfolder(
+  parentFolderId: string,
+  subfolders: string[],
+  token: string,
+): Promise<string | null> {
+  let parentId = parentFolderId;
+  for (const name of subfolders) {
+    parentId = await ensureDriveFolderUnder(parentId, name, token);
+  }
+  return parentId;
+}
+
 /** Shares the spreadsheet by creating a Drive permission. */
 export async function shareSpreadsheet(
   spreadsheetId: string,
@@ -179,7 +199,8 @@ async function ensureDriveFolderUnder(
       if (files.length > 0) return files[0].id;
       return null;
     },
-    staleTime: STALE_TIME,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   if (existingId) return existingId;
@@ -208,18 +229,28 @@ export async function getFolderContent(
   folderId: string,
   token: string,
 ): Promise<DriveNode[]> {
+  logger.debug("getFolderContent: starting", { folderId });
   return queryClient.fetchQuery({
     queryKey: ["folder-content", folderId],
     queryFn: async (): Promise<DriveNode[]> => {
+      logger.debug("getFolderContent: fetching", { folderId });
       const q = `'${folderId}' in parents and trashed = false and (mimeType = '${MIME_SPREADSHEET}' or mimeType = '${MIME_FOLDER}')`;
       const url = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType)&corpora=user`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      logger.debug("getFolderContent: response", {
+        folderId,
+        status: res.status,
+      });
       if (!res.ok) {
         throw new Error(`Drive API ${res.status} for folder ${folderId}`);
       }
       const data = await res.json();
+      logger.debug("getFolderContent: got files", {
+        folderId,
+        count: data.files?.length,
+      });
       return (data.files ?? []) as DriveNode[];
     },
     staleTime: STALE_TIME,

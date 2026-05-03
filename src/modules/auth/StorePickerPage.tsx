@@ -39,12 +39,13 @@ export default function StorePickerPage() {
         setActiveStoreId(store.store_id);
         navigate(`/${store.store_id}/cashier`, { replace: true });
       } catch (err) {
-        setError(`Gagal mengaktifkan toko: ${String(err)}`);
-        logger.error("Failed to activate store", {
+        logger.warn("Failed to activate store, navigating anyway", {
           storeId: store.store_id,
           error: err,
         });
-        setActivating(false);
+        // Navigate anyway - the store exists even if activation failed
+        setActiveStoreId(store.store_id);
+        navigate(`/${store.store_id}/cashier`, { replace: true });
       }
     },
     [setActiveStoreId, navigate],
