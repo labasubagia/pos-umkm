@@ -192,7 +192,10 @@ export async function runStoreSetup(
 
   await initializeMasterSheets(masterId);
 
-  const initial = await storeFolderService.traverse(driveFolderId);
+  const initial = await storeFolderService.traverse(
+    driveFolderId,
+    STORE_MULTI_PRESET,
+  );
   getStoreMapStore(newStoreId)
     .getState()
     .setStoreMap(driveFolderId, initial.sheets, initial.monthlySheets);

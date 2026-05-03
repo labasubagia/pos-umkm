@@ -17,6 +17,7 @@ export interface MainConfigPayload {
 
 export interface MonthlySheetConfig {
   sheet: SpreadsheetConfig;
+  prefixes?: string[];
 }
 
 export interface MigrationPayload {

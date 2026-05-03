@@ -270,7 +270,7 @@ class MigrationServiceImpl {
         logger.info("MigrationService.activateStore: traversing store folder", {
           storeFolderId,
         });
-        const result = await storeFolderService.traverse(storeFolderId);
+        const result = await storeFolderService.traverse(storeFolderId, config);
         logger.info("MigrationService.activateStore: traverse complete", {
           sheets: Object.keys(result.sheets).length,
           monthlySheets: monthlySheetCount,
@@ -322,7 +322,7 @@ class MigrationServiceImpl {
     }
 
     if (created) {
-      const updated = await storeFolderService.traverse(storeFolderId);
+      const updated = await storeFolderService.traverse(storeFolderId, config);
       getStoreMapStore(storeId)
         .getState()
         .setStoreMap(storeFolderId, updated.sheets, updated.monthlySheets);

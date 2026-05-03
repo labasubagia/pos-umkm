@@ -22,6 +22,7 @@
  */
 
 import pLimit from "p-limit";
+import type { MigrationPayload } from "@/lib/config/types";
 import { logger } from "@/lib/logger";
 import { useAuthStore } from "@/store";
 import {
@@ -37,6 +38,7 @@ import {
 import { getSpreadsheetMeta } from "./sheets/sheets.ops";
 
 const DEFAULT_CONCURRENCY = 20;
+const DEFAULT_MONTHLY_PREFIXES = ["transaction", "log", "po", "stock"];
 
 const getToken = () => {
   const tokenFromStore = useAuthStore.getState().accessToken;
@@ -112,11 +114,18 @@ export class StoreFolderService {
    * Non-transaction sheets are in `sheets` (keyed by sheet name).
    * Monthly transaction spreadsheets are in `monthlySheets` (array, one per month).
    */
-  async traverse(storeFolderId: string): Promise<TraverseResult> {
-    logger.info("StoreFolderService.traverse: starting", { storeFolderId });
+  async traverse(
+    storeFolderId: string,
+    config?: MigrationPayload,
+  ): Promise<TraverseResult> {
+    const prefixes = config?.monthlySheet?.prefixes ?? DEFAULT_MONTHLY_PREFIXES;
+    logger.info("StoreFolderService.traverse: starting", {
+      storeFolderId,
+      prefixes,
+    });
     const tree = await this.traverseRecursive(storeFolderId);
     logger.info("StoreFolderService.traverse: got tree, flattening");
-    return this.flattenToMap(tree);
+    return this.flattenToMap(tree, prefixes);
   }
 
   // ─── Drive API ──────────────────────────────────────────────────────────────
@@ -162,16 +171,18 @@ export class StoreFolderService {
 
   // ─── Flatten ────────────────────────────────────────────────────────────────
 
-  private flattenToMap(nodes: DriveNode[]): TraverseResult {
+  private flattenToMap(
+    nodes: DriveNode[],
+    prefixes: string[] = DEFAULT_MONTHLY_PREFIXES,
+  ): TraverseResult {
     const sheets: Record<string, SheetMeta> = {};
     const monthlySheets: MonthlySheetsByYear = {};
+    const pattern = new RegExp(`^(${prefixes.join("|")})_(\\d{4}-\\d{2})$`);
 
     const walk = (items: DriveNode[], path: string) => {
       for (const item of items) {
         if (item.sheet) {
-          const monthMatch = item.name.match(
-            /^(transaction|log|po|stock)_(\d{4}-\d{2})$/,
-          );
+          const monthMatch = item.name.match(pattern);
 
           if (monthMatch) {
             const yearMonth = monthMatch[2];

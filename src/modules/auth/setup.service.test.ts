@@ -409,6 +409,7 @@ describe("activateStore", () => {
     await activateStore(store);
     expect(adapters.storeFolderService.traverse).toHaveBeenCalledWith(
       "folder-id",
+      expect.any(Object),
     );
   });
 
@@ -522,6 +523,7 @@ describe("activateStore", () => {
 
     expect(adapters.storeFolderService.traverse).toHaveBeenCalledWith(
       "folder-id",
+      expect.any(Object),
     );
   });
 });

@@ -95,6 +95,7 @@ const EXPECTED_STORE_MULTI = {
     },
   },
   monthlySheet: {
+    prefixes: ["transaction", "log", "po", "stock"],
     sheet: {
       Transactions: {
         path: "apps/pos_umkm/stores/<storeId>/transactions/<year>/transaction_<year>-<month>",
@@ -236,6 +237,7 @@ const EXPECTED_STORE_SINGLE = {
     },
   },
   monthlySheet: {
+    prefixes: ["transaction", "log", "po", "stock"],
     sheet: {
       Transactions: {
         path: "apps/pos_umkm/stores/<storeId>/transactions/<year>/transaction_<year>-<month>",

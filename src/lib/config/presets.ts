@@ -93,3 +93,9 @@ export const ALL_TAB_HEADERS: Record<string, string[]> = {
 export const STORE_MULTI_PRESET = STORE_PRESETS.multi;
 
 export const STORE_SINGLE_PRESET = STORE_PRESETS.single;
+
+export const DEFAULT_MONTHLY_PREFIXES = ["transaction", "log", "po", "stock"];
+
+export function getMonthlySheetPrefixes(config: MigrationPayload): string[] {
+  return config.monthlySheet?.prefixes ?? DEFAULT_MONTHLY_PREFIXES;
+}
