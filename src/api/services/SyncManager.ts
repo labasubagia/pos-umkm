@@ -288,11 +288,11 @@ export class SyncManager {
                 logger.info("[SyncManager] silentRefresh result:", ok);
                 if (ok) {
                   // Pull the refreshed token (if the adapter provides it)
-                  const refreshedToken =
-                    maybeAuth.getAccessToken?.() ??
-                    useAuthStore.getState().accessToken;
-                  if (refreshedToken) {
-                    useAuthStore.getState().setAccessToken(refreshedToken);
+                  const refreshedToken = maybeAuth.getAccessToken?.();
+                  if (!refreshedToken) {
+                    logger.warn(
+                      "[SyncManager] silentRefresh succeeded but no token available",
+                    );
                   }
                   // Reset failed entries so they can be retried with the new token.
                   await this.resetFailedEntries();

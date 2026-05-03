@@ -120,7 +120,6 @@ function seedOwner() {
       .setUser(
         { id: "u1", email: OWNER_EMAIL, name: "Test Owner", role: "owner" },
         "owner",
-        "tok",
       );
     useAuthStore.getState().setActiveStoreId(ownedStore.store_id);
     useAuthStore.getState().setMainSpreadsheetId("main-id");

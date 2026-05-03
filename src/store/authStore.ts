@@ -1,18 +1,18 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { LS_ACCESS_TOKEN } from "@/api/adapters/google/GoogleAuthAdapter";
+import { logger } from "@/utils/logger";
 import type { Role, User } from "../api/adapters/types";
 
 interface AuthState {
   user: User | null;
   role: Role | null;
-  /** In-memory only — never written to localStorage to prevent XSS token theft. */
-  accessToken: string | null;
   /** Main spreadsheet ID — one per Google account, shared across all stores (persisted). */
   mainSpreadsheetId: string | null;
   isAuthenticated: boolean;
   activeStoreId: string | null;
-  setUser: (user: User, role: Role, accessToken: string) => void;
-  setAccessToken: (token: string) => void;
+  setUser: (user: User, role: Role) => void;
+  getAccessToken: () => string | null;
   setMainSpreadsheetId: (id: string) => void;
   setActiveStoreId: (id: string | null) => void;
   clearAuth: () => void;
@@ -42,20 +42,24 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       role: null,
-      accessToken: null,
       mainSpreadsheetId: null,
       isAuthenticated: false,
       activeStoreId: null,
-      setUser: (user, role, accessToken) =>
-        set({ user, role, accessToken, isAuthenticated: true }),
-      setAccessToken: (token) => set({ accessToken: token }),
+      setUser: (user, role) => set({ user, role, isAuthenticated: true }),
       setMainSpreadsheetId: (id) => set({ mainSpreadsheetId: id }),
       setActiveStoreId: (id) => set({ activeStoreId: id }),
+      getAccessToken: () => {
+        const token = localStorage.getItem(LS_ACCESS_TOKEN);
+        if (!token) {
+          logger.error("AuthStore.getAccessToken: no token in store");
+          return null;
+        }
+        return token;
+      },
       clearAuth: () =>
         set({
           user: null,
           role: null,
-          accessToken: null,
           isAuthenticated: false,
           mainSpreadsheetId: null,
           activeStoreId: null,

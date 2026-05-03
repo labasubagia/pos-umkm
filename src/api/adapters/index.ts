@@ -72,8 +72,8 @@ import { ALL_TAB_HEADERS } from "./zod-schemas";
 export const authAdapter: AuthAdapter = new GoogleAuthAdapter();
 
 const getToken = (): string => {
-  // Prefer the in-memory token stored in Zustand (set by AuthInitializer)
-  const tokenFromStore = useAuthStore.getState().accessToken;
+  // Read token directly from localStorage via the store helper
+  const tokenFromStore = useAuthStore.getState().getAccessToken();
   if (tokenFromStore) return tokenFromStore;
   // Fallback to the adapter's token if present
   const tokenFromAdapter =

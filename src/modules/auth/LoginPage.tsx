@@ -40,8 +40,8 @@ export default function LoginPage() {
    * the current main.Stores contents instead of stale localStorage.
    * The store map + monthly sheets are loaded by AppShell on mount.
    */
-  function onAuthenticated(user: Parameters<typeof setUser>[0], token: string) {
-    setUser(user, user.role, token);
+  function onAuthenticated(user: Parameters<typeof setUser>[0]) {
+    setUser(user, user.role);
     navigate("/stores");
   }
 
@@ -50,7 +50,7 @@ export default function LoginPage() {
     setSignInError(null);
     try {
       const user = await authAdapter.signIn();
-      onAuthenticated(user, authAdapter.getAccessToken() ?? "");
+      onAuthenticated(user);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       logger.error("[LoginPage] sign-in failed:", err);

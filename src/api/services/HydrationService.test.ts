@@ -26,7 +26,6 @@ describe("HydrationService", () => {
         role: "owner",
       },
       role: "owner",
-      accessToken: "token",
       isAuthenticated: true,
       activeStoreId: TEST_STORE_ID,
       mainSpreadsheetId: "main-sheet-id",
