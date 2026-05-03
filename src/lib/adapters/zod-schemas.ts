@@ -226,8 +226,6 @@ export {
   MAIN_PRESET,
   MAIN_TAB_HEADERS,
   MAIN_TABS,
-  MASTER_TABS,
-  MONTHLY_TABS,
 } from "../config/presets";
 export type {
   MainConfigPayload,

@@ -89,19 +89,13 @@ export const MAIN_TAB_HEADERS: Record<string, string[]> = {
 
 export const MAIN_TABS: readonly string[] = Object.keys(MAIN_PRESET);
 
-export const DATA_TAB_HEADERS = getTabHeaders(ACTIVE_PRESET);
+const DATA_TAB_HEADERS = getTabHeaders(ACTIVE_PRESET);
 
-export const MONTHLY_TAB_HEADERS = getTabHeaders(
+const MONTHLY_TAB_HEADERS = getTabHeaders(
   ACTIVE_PRESET.monthlySheet
     ? { sheet: {}, monthlySheet: ACTIVE_PRESET.monthlySheet }
     : ({ sheet: {} } as MigrationPayload),
 );
-
-export const MASTER_TABS: readonly string[] = Object.keys(ACTIVE_PRESET.sheet);
-
-export const MONTHLY_TABS: readonly string[] = ACTIVE_PRESET.monthlySheet
-  ? Object.keys(ACTIVE_PRESET.monthlySheet.sheet)
-  : [];
 
 export const ALL_TAB_HEADERS: Record<string, string[]> = {
   ...MAIN_TAB_HEADERS,

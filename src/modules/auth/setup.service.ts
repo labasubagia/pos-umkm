@@ -11,8 +11,6 @@ import { getRepos, storeFolderService } from "../../lib/adapters";
 export {
   MAIN_TAB_HEADERS,
   MAIN_TABS,
-  MASTER_TABS,
-  MONTHLY_TABS,
 } from "../../lib/adapters/zod-schemas";
 
 export type { StoreRecord } from "../../lib/services/MigrationService";

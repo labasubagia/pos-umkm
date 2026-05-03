@@ -13,14 +13,7 @@
 
 import { getStoreMapStore } from "../../store/storeMapStore";
 import { makeRepo, storeFolderService } from "../adapters";
-import {
-  ACTIVE_PRESET,
-  DATA_TAB_HEADERS,
-  MASTER_TABS,
-  type MigrationPayload,
-  MONTHLY_TAB_HEADERS,
-  MONTHLY_TABS,
-} from "../config/presets";
+import { ACTIVE_PRESET, type MigrationPayload } from "../config/presets";
 import {
   extractFolders,
   transformMigrationPayload,
@@ -151,34 +144,6 @@ class MigrationServiceImpl {
       storeId,
       driveFolderId: storeFolderId ?? "",
     };
-  }
-
-  async initializeMasterSheets(spreadsheetId: string): Promise<void> {
-    if (!spreadsheetId) {
-      throw new MigrationError(
-        "initializeMasterSheets: spreadsheetId is required",
-      );
-    }
-    await Promise.all(
-      MASTER_TABS.map((tab) =>
-        makeRepo(spreadsheetId, tab).createTable(DATA_TAB_HEADERS[tab] ?? []),
-      ),
-    );
-  }
-
-  async initializeMonthlySheets(spreadsheetId: string): Promise<void> {
-    if (!spreadsheetId) {
-      throw new MigrationError(
-        "initializeMonthlySheets: spreadsheetId is required",
-      );
-    }
-    await Promise.all(
-      MONTHLY_TABS.map((tab) =>
-        makeRepo(spreadsheetId, tab).createTable(
-          MONTHLY_TAB_HEADERS[tab] ?? [],
-        ),
-      ),
-    );
   }
 
   async runStoreSetup(
