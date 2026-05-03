@@ -54,88 +54,83 @@
     "Monthly_Sheets": {
       "path": "apps/pos_umkm/stores/<storeId>/data",
       "columns": ["id", "year_month", "spreadsheetId", "created_at"]
-    }
-  },
-  "monthlySheet": {
-    "prefixes": ["transaction", "log", "po", "stock"],
-    "sheet": {
-      "Transactions": {
-        "path": "apps/pos_umkm/stores/<storeId>/transactions/<year>/transaction_<year>-<month>",
-        "columns": [
-          "id",
-          "created_at",
-          "cashier_id",
-          "customer_id",
-          "subtotal",
-          "discount_type",
-          "discount_value",
-          "discount_amount",
-          "tax",
-          "total",
-          "payment_method",
-          "cash_received",
-          "change",
-          "receipt_number",
-          "notes"
-        ]
-      },
-      "Transaction_Items": {
-        "path": "apps/pos_umkm/stores/<storeId>/transactions/<year>/transaction_<year>-<month>",
-        "columns": [
-          "id",
-          "transaction_id",
-          "product_id",
-          "variant_id",
-          "name",
-          "price",
-          "quantity",
-          "subtotal"
-        ]
-      },
-      "Refunds": {
-        "path": "apps/pos_umkm/stores/<storeId>/transactions/<year>/transaction_<year>-<month>",
-        "columns": [
-          "id",
-          "transaction_id",
-          "product_id",
-          "product_name",
-          "qty",
-          "unit_price",
-          "reason",
-          "created_at"
-        ]
-      },
-      "Audit_Log": {
-        "path": "apps/pos_umkm/stores/<storeId>/logs/<year>/log_<year>-<month>",
-        "columns": ["id", "event", "data", "created_at"]
-      },
-      "Purchase_Order_Items": {
-        "path": "apps/pos_umkm/stores/<storeId>/po/<year>/po_<year>-<month>",
-        "columns": [
-          "id",
-          "order_id",
-          "product_id",
-          "product_name",
-          "qty",
-          "cost_price",
-          "created_at"
-        ]
-      },
-      "Purchase_Orders": {
-        "path": "apps/pos_umkm/stores/<storeId>/po/<year>/po_<year>-<month>",
-        "columns": ["id", "supplier", "status", "created_at", "deleted_at"]
-      },
-      "Stock_Log": {
-        "path": "apps/pos_umkm/stores/<storeId>/stock/<year>/stock_<year>-<month>",
-        "columns": [
-          "id",
-          "product_id",
-          "reason",
-          "qty_before",
-          "qty_after",
-          "created_at"
-        ]
-      }
+    },
+    "Transactions": {
+      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "columns": [
+        "id",
+        "created_at",
+        "cashier_id",
+        "customer_id",
+        "subtotal",
+        "discount_type",
+        "discount_value",
+        "discount_amount",
+        "tax",
+        "total",
+        "payment_method",
+        "cash_received",
+        "change",
+        "receipt_number",
+        "notes"
+      ]
+    },
+    "Transaction_Items": {
+      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "columns": [
+        "id",
+        "transaction_id",
+        "product_id",
+        "variant_id",
+        "name",
+        "price",
+        "quantity",
+        "subtotal"
+      ]
+    },
+    "Refunds": {
+      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "columns": [
+        "id",
+        "transaction_id",
+        "product_id",
+        "product_name",
+        "qty",
+        "unit_price",
+        "reason",
+        "created_at"
+      ]
+    },
+    "Audit_Log": {
+      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "columns": ["id", "event", "data", "created_at"]
+    },
+    "Purchase_Order_Items": {
+      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "columns": [
+        "id",
+        "order_id",
+        "product_id",
+        "product_name",
+        "qty",
+        "cost_price",
+        "created_at"
+      ]
+    },
+    "Purchase_Orders": {
+      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "columns": ["id", "supplier", "status", "created_at", "deleted_at"]
+    },
+    "Stock_Log": {
+      "path": "apps/pos_umkm/stores/<storeId>/data",
+      "columns": [
+        "id",
+        "product_id",
+        "reason",
+        "qty_before",
+        "qty_after",
+        "created_at"
+      ]
     }
   }
 }
