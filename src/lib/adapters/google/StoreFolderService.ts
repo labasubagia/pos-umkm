@@ -29,7 +29,6 @@ import {
   createSpreadsheet,
   type DriveNode,
   ensureFolder,
-  ensureSubfolder,
   getFolderContent,
   MIME_FOLDER,
   MIME_SPREADSHEET,
@@ -90,15 +89,8 @@ export class StoreFolderService {
     return createSpreadsheet(name, getToken(), parentFolderId, tabs);
   }
 
-  ensureFolder(path: string[]): Promise<string | null> {
-    return ensureFolder(path, getToken());
-  }
-
-  ensureSubfolder(
-    parentFolderId: string,
-    subfolders: string[],
-  ): Promise<string | null> {
-    return ensureSubfolder(parentFolderId, subfolders, getToken());
+  ensureFolder(path: string[], parentId?: string): Promise<string | null> {
+    return ensureFolder(path, getToken(), parentId);
   }
 
   shareSpreadsheet(

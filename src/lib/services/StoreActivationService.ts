@@ -218,7 +218,7 @@ class StoreActivationServiceImpl {
 
       const subfolders = getSubfoldersForSpreadsheet(ss.name, year);
       const parentFolderId = subfolders.length
-        ? await storeFolderService.ensureSubfolder(storeFolderId, subfolders)
+        ? await storeFolderService.ensureFolder(subfolders, storeFolderId)
         : storeFolderId;
 
       const spreadsheetId = await storeFolderService.createSpreadsheet(
