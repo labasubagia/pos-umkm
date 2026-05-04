@@ -5,20 +5,19 @@
  * fixtures so HydrationService populates Dexie — no direct IndexedDB writes.
  */
 import { expect, type TestInfo, test } from "@playwright/test";
-import { BASE, injectAuthState, type StoreConfig } from "./helpers/auth";
-import { makeId, makeStoreConfig } from "./helpers/e2e-fixtures";
+import { BASE } from "./helpers/auth";
+import { enableTestMode, loginAndSetup } from "./helpers/auth-flow";
+import { makeId } from "./helpers/e2e-fixtures";
 import { setMswFixtures } from "./helpers/msw-state";
 
 // Use current month so the transactions fall inside the injected monthly sheet.
 const REPORT_DATE = "2026-05-01";
 function buildReportFixtures(testInfo: TestInfo) {
-  const store = makeStoreConfig(testInfo);
   const tx1 = makeId(testInfo, "tx-1");
   const tx2 = makeId(testInfo, "tx-2");
   const prod1 = makeId(testInfo, "prod-1");
   const prod2 = makeId(testInfo, "prod-2");
   return {
-    store,
     transactions: [
       {
         id: tx1,
@@ -81,18 +80,26 @@ function buildReportFixtures(testInfo: TestInfo) {
 }
 
 async function signInToReports(
-  page: Parameters<typeof injectAuthState>[0],
-  store: StoreConfig,
+  page: Parameters<typeof enableTestMode>[0],
   fixtures: ReturnType<typeof buildReportFixtures>,
   path: string,
   readyTestId: string,
 ) {
-  await setMswFixtures(page, store, {
-    Transactions: fixtures.transactions,
-    Transaction_Items: fixtures.items,
-  });
-  await injectAuthState(page, store);
-  await page.goto(`${BASE}/${store.storeId}${path}`);
+  await enableTestMode(page);
+  const { storeId, mainSpreadsheetId } = await loginAndSetup(page);
+
+  await setMswFixtures(
+    page,
+    { storeId, mainSpreadsheetId },
+    {
+      Transactions: fixtures.transactions,
+      Transaction_Items: fixtures.items,
+    },
+  );
+
+  await page.goto(`${BASE}/${storeId}${path}`);
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForTimeout(2000);
   await page.getByTestId(readyTestId).waitFor();
 }
 
@@ -100,7 +107,6 @@ test("owner can view today's sales summary", async ({ page }, testInfo) => {
   const fixtures = buildReportFixtures(testInfo);
   await signInToReports(
     page,
-    fixtures.store,
     fixtures,
     "/reports/daily-summary",
     "daily-summary-container",
@@ -124,7 +130,6 @@ test("owner can filter report by date range and see correct totals", async ({
   const fixtures = buildReportFixtures(testInfo);
   await signInToReports(
     page,
-    fixtures.store,
     fixtures,
     "/reports/sales",
     "sales-report-container",
@@ -152,7 +157,6 @@ test("owner can complete end-of-day cash reconciliation", async ({
   const fixtures = buildReportFixtures(testInfo);
   await signInToReports(
     page,
-    fixtures.store,
     fixtures,
     "/reports/cash-reconciliation",
     "reconciliation-container",

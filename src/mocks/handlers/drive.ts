@@ -51,7 +51,14 @@ export const driveHandlers = [
     const q = url.searchParams.get("q") || "";
 
     // If querying for a specific folder (e.g. "e2e-folder-id" in parents), return its contents
-    if (q.includes("e2e-folder-id") || q.includes("'e2e-folder-id'")) {
+    // Also handles "new-e2e-id" which is created during setup flow
+    // And "e2e-main-id" which is used by the test store config
+    // Query format: '${folderId}' in parents and trashed = false and ...
+    const isE2EFolder = q.includes("'e2e-folder-id'");
+    const isNewFolder = q.includes("'new-e2e-id'");
+    const isMainFolder = q.includes("'e2e-main-id'");
+
+    if (isE2EFolder || isNewFolder || isMainFolder) {
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, "0");

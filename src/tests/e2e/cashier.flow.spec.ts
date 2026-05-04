@@ -1,21 +1,17 @@
 /**
  * E2E specs for Phase 4 — Cashier (T026–T033).
  *
- * Auth is injected via localStorage (injectAuthState). Product/category data
- * is provided as MSW fixtures so HydrationService naturally populates Dexie
- * without any direct IndexedDB writes or page reloads.
+ * Uses the new auth-flow approach: login page → Google sign-in (test mode) → setup → cashier.
+ * Each test gets a unique store with products pre-populated via MSW fixtures.
  */
+import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import {
-  BASE,
-  DEFAULT_STORE,
-  injectAuthState,
-  navigateTo,
-} from "./helpers/auth";
+import { BASE, navigateTo } from "./helpers/auth";
+import { enableTestMode, loginAndSetup } from "./helpers/auth-flow";
 import { makeId } from "./helpers/e2e-fixtures";
 import { setMswFixtures } from "./helpers/msw-state";
 
-const STORE = DEFAULT_STORE;
+const STORE = { storeId: "e2e-store-1", mainSpreadsheetId: "e2e-main-id" };
 
 function buildFixtures(testInfo: ReturnType<typeof test.info>) {
   const now = new Date().toISOString();
@@ -70,29 +66,28 @@ function buildFixtures(testInfo: ReturnType<typeof test.info>) {
   return { now, prod1Id, prod2Id, catId, products, categories, monthlySheets };
 }
 
-async function signInToCashier(
-  page: Parameters<typeof injectAuthState>[0],
-  testInfo: ReturnType<typeof test.info>,
-) {
+async function signInToCashier(page: Page, testInfo: TestInfo) {
   const fixtures = buildFixtures(testInfo);
 
-  // Fixtures are set before navigation so MSW intercepts Sheets API reads
-  // and HydrationService populates Dexie without a page reload.
   await setMswFixtures(page, STORE, {
     Products: fixtures.products,
     Categories: fixtures.categories,
     Monthly_Sheets: fixtures.monthlySheets,
   });
-  await injectAuthState(page, STORE);
-  await page.goto(`${BASE}/${STORE.storeId}/cashier`);
 
-  // Product cards appear only after AppShell hydration + React Query render.
+  await enableTestMode(page);
+  const { storeId } = await loginAndSetup(page);
+
+  await page.goto(`${BASE}/${storeId}/cashier`);
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForTimeout(2000);
+
   await page
     .locator('[data-testid^="product-card-"]')
     .first()
     .waitFor({ timeout: 20_000 });
 
-  return fixtures;
+  return { ...fixtures, storeId };
 }
 
 // ─── T026 — Product Search ────────────────────────────────────────────────────
@@ -279,7 +274,7 @@ test.describe("Transaction Commit + Receipt (T032, T033)", () => {
   test("product stock is decremented after transaction", async ({
     page,
   }, testInfo) => {
-    const { prod1Id } = await signInToCashier(page, testInfo);
+    const { prod1Id, storeId } = await signInToCashier(page, testInfo);
 
     // Add 2 units of Nasi Goreng (stock=20)
     await page.getByTestId(`product-card-${prod1Id}`).click();
@@ -292,7 +287,7 @@ test.describe("Transaction Commit + Receipt (T032, T033)", () => {
 
     await navigateTo(
       page,
-      `${BASE}/${STORE.storeId}/catalog/products`,
+      `${BASE}/${storeId}/catalog/products`,
       `product-stock-${prod1Id}`,
     );
 
@@ -331,8 +326,13 @@ test.describe("Customer Search (T036)", () => {
       Customers: CUSTOMERS,
       Monthly_Sheets: monthlySheets,
     });
-    await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/${STORE.storeId}/cashier`);
+
+    await enableTestMode(page);
+    const { storeId } = await loginAndSetup(page);
+
+    await page.goto(`${BASE}/${storeId}/cashier`);
+    await page.waitForLoadState("domcontentloaded");
+    await page.waitForTimeout(2000);
     await page
       .locator('[data-testid^="product-card-"]')
       .first()
@@ -398,8 +398,13 @@ test.describe("Refund Flow (T037)", () => {
       Categories: categories,
       Transactions: TRANSACTIONS,
     });
-    await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/${STORE.storeId}/customers/refund`);
+
+    await enableTestMode(page);
+    const { storeId } = await loginAndSetup(page);
+
+    await page.goto(`${BASE}/${storeId}/customers/refund`);
+    await page.waitForLoadState("domcontentloaded");
+    await page.waitForTimeout(2000);
     await page.getByTestId("refund-tx-id-input").waitFor();
 
     await page.getByTestId("refund-tx-id-input").fill(txId);
@@ -419,7 +424,7 @@ test.describe("Refund Flow (T037)", () => {
     // Verify stock was re-incremented: 18 + 2 = 20 — navigate to catalog and check UI
     await navigateTo(
       page,
-      `${BASE}/${STORE.storeId}/catalog/products`,
+      `${BASE}/${storeId}/catalog/products`,
       `product-stock-${productId}`,
     );
     await expect(page.getByTestId(`product-stock-${productId}`)).toHaveText(

@@ -6,20 +6,15 @@
  * form writes directly to Dexie.
  */
 import { expect, test } from "@playwright/test";
-import {
-  BASE,
-  DEFAULT_STORE,
-  injectAuthState,
-  navigateTo,
-} from "./helpers/auth";
-import { makeId, makeStoreConfig } from "./helpers/e2e-fixtures";
+import { BASE, navigateTo } from "./helpers/auth";
+import { enableTestMode, loginAndSetup } from "./helpers/auth-flow";
+import { makeId } from "./helpers/e2e-fixtures";
 import { setMswFixtures } from "./helpers/msw-state";
 
-const STORE = DEFAULT_STORE;
-
-async function signInToCatalog(page: Parameters<typeof injectAuthState>[0]) {
-  await injectAuthState(page, STORE);
-  await page.goto(`${BASE}/${STORE.storeId}/catalog/products`);
+async function signInToCatalog(page: Parameters<typeof enableTestMode>[0]) {
+  await enableTestMode(page);
+  const { storeId } = await loginAndSetup(page);
+  await page.goto(`${BASE}/${storeId}/catalog/products`);
   await page.getByTestId("btn-add-product").waitFor();
 }
 
@@ -117,14 +112,22 @@ test.describe("Products CRUD (T022)", () => {
     const now = new Date().toISOString();
     const catId = makeId(testInfo, "cat-search");
 
-    // Pre-seed a category so the product form has something to pick from
-    await setMswFixtures(page, STORE, {
-      Categories: [
-        { id: catId, name: "Makanan", created_at: now, deleted_at: null },
-      ],
-    });
-    await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/${STORE.storeId}/catalog/products`);
+    await enableTestMode(page);
+    const { storeId } = await loginAndSetup(page);
+
+    await setMswFixtures(
+      page,
+      { storeId, mainSpreadsheetId: storeId },
+      {
+        Categories: [
+          { id: catId, name: "Makanan", created_at: now, deleted_at: null },
+        ],
+      },
+    );
+
+    await page.goto(`${BASE}/${storeId}/catalog/products`);
+    await page.waitForLoadState("domcontentloaded");
+    await page.waitForTimeout(2000);
     await page.getByTestId("btn-add-product").waitFor();
 
     await page.getByTestId("btn-add-product").click();
@@ -143,7 +146,7 @@ test.describe("Products CRUD (T022)", () => {
 
     await navigateTo(
       page,
-      `${BASE}/${STORE.storeId}/cashier`,
+      `${BASE}/${storeId}/cashier`,
       "product-search-input",
     );
     await page.getByTestId("product-search-input").fill("Mie Goreng");
@@ -157,39 +160,47 @@ test.describe("Products CRUD (T022)", () => {
   test("completing a sale decrements product stock", async ({ page }) => {
     const now = new Date().toISOString();
     const testInfo = test.info();
-    const store = makeStoreConfig(testInfo);
     const prodId = makeId(testInfo, "prod-stock-test");
     const categoryId = makeId(testInfo, "cat-stock-test");
     const monthlySheetId = makeId(testInfo, "monthly-sheet-stock");
 
-    await setMswFixtures(page, store, {
-      Products: [
-        {
-          id: prodId,
-          category_id: categoryId,
-          name: "Produk Stok Test",
-          sku: "STOK-01",
-          price: 10000,
-          stock: 20,
-          has_variants: false,
-          created_at: now,
-          deleted_at: null,
-        },
-      ],
-      Categories: [
-        { id: categoryId, name: "Umum", created_at: now, deleted_at: null },
-      ],
-      Monthly_Sheets: [
-        {
-          id: monthlySheetId,
-          year_month: now.slice(0, 7),
-          spreadsheetId: monthlySheetId,
-          created_at: now,
-        },
-      ],
-    });
-    await injectAuthState(page, store);
-    await page.goto(`${BASE}/${store.storeId}/cashier`);
+    await enableTestMode(page);
+    const { storeId: actualStoreId } = await loginAndSetup(page);
+
+    await setMswFixtures(
+      page,
+      { storeId: actualStoreId, mainSpreadsheetId: actualStoreId },
+      {
+        Products: [
+          {
+            id: prodId,
+            category_id: categoryId,
+            name: "Produk Stok Test",
+            sku: "STOK-01",
+            price: 10000,
+            stock: 20,
+            has_variants: false,
+            created_at: now,
+            deleted_at: null,
+          },
+        ],
+        Categories: [
+          { id: categoryId, name: "Umum", created_at: now, deleted_at: null },
+        ],
+        Monthly_Sheets: [
+          {
+            id: monthlySheetId,
+            year_month: now.slice(0, 7),
+            spreadsheetId: monthlySheetId,
+            created_at: now,
+          },
+        ],
+      },
+    );
+
+    await page.goto(`${BASE}/${actualStoreId}/cashier`);
+    await page.waitForLoadState("domcontentloaded");
+    await page.waitForTimeout(2000);
     await page
       .getByTestId(`product-card-${prodId}`)
       .waitFor({ timeout: 20_000 });
@@ -204,7 +215,7 @@ test.describe("Products CRUD (T022)", () => {
 
     await navigateTo(
       page,
-      `${BASE}/${store.storeId}/catalog/products`,
+      `${BASE}/${actualStoreId}/catalog/products`,
       `product-stock-${prodId}`,
     );
     await expect(page.getByTestId(`product-stock-${prodId}`)).toHaveText(
@@ -223,26 +234,35 @@ test.describe("Stock Opname (T034)", () => {
     const prodId = makeId(testInfo, "opname-prod-1");
     const categoryId = makeId(testInfo, "opname-cat-1");
 
-    await setMswFixtures(page, STORE, {
-      Products: [
-        {
-          id: prodId,
-          category_id: categoryId,
-          name: "Produk Opname",
-          sku: "OPNAME-01",
-          price: 10000,
-          stock: 50,
-          has_variants: false,
-          created_at: now,
-          deleted_at: null,
-        },
-      ],
-      Categories: [
-        { id: categoryId, name: "Umum", created_at: now, deleted_at: null },
-      ],
-    });
-    await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/${STORE.storeId}/inventory/stock-opname`);
+    await enableTestMode(page);
+    const { storeId } = await loginAndSetup(page);
+
+    await setMswFixtures(
+      page,
+      { storeId, mainSpreadsheetId: storeId },
+      {
+        Products: [
+          {
+            id: prodId,
+            category_id: categoryId,
+            name: "Produk Opname",
+            sku: "OPNAME-01",
+            price: 10000,
+            stock: 50,
+            has_variants: false,
+            created_at: now,
+            deleted_at: null,
+          },
+        ],
+        Categories: [
+          { id: categoryId, name: "Umum", created_at: now, deleted_at: null },
+        ],
+      },
+    );
+
+    await page.goto(`${BASE}/${storeId}/inventory/stock-opname`);
+    await page.waitForLoadState("domcontentloaded");
+    await page.waitForTimeout(2000);
     await page.getByTestId("stock-opname-container").waitFor();
 
     await expect(page.getByTestId("stock-opname-container")).toBeVisible();
@@ -272,26 +292,35 @@ test.describe("Purchase Orders (T035)", () => {
     const prodId = makeId(testInfo, "po-prod-1");
     const categoryId = makeId(testInfo, "po-cat-1");
 
-    await setMswFixtures(page, STORE, {
-      Products: [
-        {
-          id: prodId,
-          category_id: categoryId,
-          name: "Produk PO",
-          sku: "PO-01",
-          price: 10000,
-          stock: 20,
-          has_variants: false,
-          created_at: now,
-          deleted_at: null,
-        },
-      ],
-      Categories: [
-        { id: categoryId, name: "Umum", created_at: now, deleted_at: null },
-      ],
-    });
-    await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/${STORE.storeId}/inventory/stock-opname`);
+    await enableTestMode(page);
+    const { storeId } = await loginAndSetup(page);
+
+    await setMswFixtures(
+      page,
+      { storeId, mainSpreadsheetId: storeId },
+      {
+        Products: [
+          {
+            id: prodId,
+            category_id: categoryId,
+            name: "Produk PO",
+            sku: "PO-01",
+            price: 10000,
+            stock: 20,
+            has_variants: false,
+            created_at: now,
+            deleted_at: null,
+          },
+        ],
+        Categories: [
+          { id: categoryId, name: "Umum", created_at: now, deleted_at: null },
+        ],
+      },
+    );
+
+    await page.goto(`${BASE}/${storeId}/inventory/stock-opname`);
+    await page.waitForLoadState("domcontentloaded");
+    await page.waitForTimeout(2000);
     await page.getByTestId("stock-opname-container").waitFor();
 
     await page.getByTestId("subnav-inventory-purchase-order").click();
@@ -321,7 +350,7 @@ test.describe("Purchase Orders (T035)", () => {
     // Verify stock: 20 + 30 = 50 — navigate to stock opname and check UI
     await navigateTo(
       page,
-      `${BASE}/${STORE.storeId}/inventory/stock-opname`,
+      `${BASE}/${storeId}/inventory/stock-opname`,
       `opname-system-stock-${prodId}`,
     );
     await expect(page.getByTestId(`opname-system-stock-${prodId}`)).toHaveText(

@@ -6,10 +6,9 @@
  * stubbed via page.route() to return a fake spreadsheetId.
  */
 import { expect, test } from "@playwright/test";
-import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth";
+import { BASE } from "./helpers/auth";
+import { enableTestMode, loginAndSetup } from "./helpers/auth-flow";
 import { setMswFixtures } from "./helpers/msw-state";
-
-const STORE = DEFAULT_STORE;
 
 const SEED_STORES = [
   {
@@ -36,13 +35,19 @@ const SEED_STORES = [
   },
 ];
 
-async function signInToSettings(page: Parameters<typeof injectAuthState>[0]) {
-  // Stores live in the global __main__ DB; they are keyed by mainSpreadsheetId.
-  // setMswFixtures maps Stores → mainSpreadsheetId so HydrationService
-  // hydrates them into __main__ naturally.
-  await setMswFixtures(page, STORE, { Stores: SEED_STORES });
-  await injectAuthState(page, STORE);
-  await page.goto(`${BASE}/${STORE.storeId}/settings/store-management`);
+async function signInToSettings(page: Parameters<typeof enableTestMode>[0]) {
+  await enableTestMode(page);
+  const { storeId, mainSpreadsheetId } = await loginAndSetup(page);
+
+  await setMswFixtures(
+    page,
+    { storeId, mainSpreadsheetId },
+    { Stores: SEED_STORES },
+  );
+
+  await page.goto(`${BASE}/${storeId}/settings/store-management`);
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForTimeout(2000);
   await page.getByTestId("btn-add-store").waitFor();
 
   await page.getByRole("heading", { name: /kelola toko/i }).waitFor();
@@ -103,10 +108,18 @@ test.describe("Store Management", () => {
       },
     ];
 
-    // Stores keyed under the main spreadsheet (DEFAULT_STORE.mainSpreadsheetId).
-    await setMswFixtures(page, STORE, { Stores: SEED_STORES });
-    await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/${STORE.storeId}/settings/store-management`);
+    await enableTestMode(page);
+    const { storeId, mainSpreadsheetId } = await loginAndSetup(page);
+
+    await setMswFixtures(
+      page,
+      { storeId, mainSpreadsheetId },
+      { Stores: SEED_STORES },
+    );
+
+    await page.goto(`${BASE}/${storeId}/settings/store-management`);
+    await page.waitForLoadState("domcontentloaded");
+    await page.waitForTimeout(2000);
     await page.getByTestId("btn-add-store").waitFor();
 
     // store-b's Dexie DB is never hydrated (HydrationService only runs for the

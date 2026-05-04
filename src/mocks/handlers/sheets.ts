@@ -59,7 +59,8 @@ export const sheetsHandlers = [
       const sheetName = range.split("!")[0];
 
       const fixtures = getFixtures();
-      const rows = fixtures[`${spreadsheetId}/${sheetName}`] ?? [];
+      const key = `${spreadsheetId}/${sheetName}`;
+      const rows = fixtures[key] ?? [];
       const values = rowsToValues(sheetName, rows);
 
       return HttpResponse.json({
