@@ -7,20 +7,26 @@
  * calls the Sheets API, the MSW handler returns the fixture rows and Dexie is
  * populated naturally — no reload, no race with hydration.
  *
- * Usage:
- *   // 1. Set fixtures before navigation (must be before injectAuthState):
- *   await setMswFixtures(page, STORE, {
+ * Usage (new auth flow):
+ *   // 1. Enable test mode + full login flow:
+ *   await enableTestMode(page);
+ *   const { storeId, mainSpreadsheetId } = await loginAndSetup(page);
+ *
+ *   // 2. Set fixtures after login (uses storeId/mainSpreadsheetId from loginAndSetup):
+ *   await setMswFixtures(page, { storeId, mainSpreadsheetId }, {
  *     Products: [{ id: 'p1', name: 'Nasi Goreng', price: 15000, ... }],
  *     Categories: [{ id: 'c1', name: 'Makanan', ... }],
  *   });
- *   // 2. Inject auth state (also activates MSW via __MSW_ENABLED__):
- *   await injectAuthState(page, STORE);
+ *
  *   // 3. Navigate — MSW intercepts Sheets API, hydration populates Dexie:
- *   await page.goto(`${BASE}/${STORE.storeId}/cashier`);
+ *   await page.goto(`${BASE}/${storeId}/cashier`);
+ *   await page.waitForLoadState("domcontentloaded");
+ *   await page.waitForTimeout(2000);
+ *
  *   // 4. Wait for a UI element that requires the seeded data:
  *   await page.locator('[data-testid^="product-card-"]').first().waitFor();
  *
- * Table → spreadsheet mapping mirrors the store map set by injectAuthState:
+ * Table → spreadsheet mapping:
  *   Main spreadsheet:    Stores
  *   Master spreadsheet:  Settings, Members, Categories, Products, Variants,
  *                        Customers, Purchase_Orders, Purchase_Order_Items,
@@ -89,11 +95,9 @@ function buildFixtureMap(
 /**
  * Injects fixture data that the MSW Sheets API handler will serve.
  *
- * MUST be called before injectAuthState() and page.goto() so that
- * window.__E2E_FIXTURES__ is populated before main.tsx starts the MSW worker.
- *
- * Multiple calls are safe — fixtures are merged across calls so you can
- * inject data for multiple stores/spreadsheets before a single navigation.
+ * Call setMswFixtures BEFORE navigating to pages that need the data.
+ * The fixtures are merged across calls so you can inject data for multiple
+ * stores/spreadsheets before navigation.
  */
 export async function setMswFixtures(
   page: Page,

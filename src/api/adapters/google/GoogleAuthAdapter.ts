@@ -104,6 +104,25 @@ export class GoogleAuthAdapter implements AuthAdapter {
    * page loads can skip the popup via restoreSession().
    */
   async signIn(): Promise<User> {
+    // E2E test mode - skip OAuth popup
+    if ((window as unknown as Record<string, unknown>).__E2E_SIGNIN__) {
+      const user: User = {
+        id: "e2e-user-1",
+        email: "owner@e2e.test",
+        name: "E2E Owner",
+        role: "owner",
+      };
+      this.currentUser = user;
+      this.accessToken = "e2e-fake-token";
+      this.tokenExpiry = Date.now() + 3_600_000;
+      localStorage.setItem(LS_ACCESS_TOKEN, "e2e-fake-token");
+      localStorage.setItem(LS_TOKEN_EXPIRY, this.tokenExpiry.toString());
+      localStorage.setItem(LS_USER_ID, user.id);
+      localStorage.setItem(LS_USER_EMAIL, user.email);
+      localStorage.setItem(LS_USER_NAME, user.name);
+      return user;
+    }
+
     if (!CLIENT_ID) {
       throw new AdapterError(
         "GoogleAuthAdapter: VITE_GOOGLE_CLIENT_ID env var is not set",

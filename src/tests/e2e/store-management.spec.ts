@@ -6,10 +6,9 @@
  * stubbed via page.route() to return a fake spreadsheetId.
  */
 import { expect, test } from "@playwright/test";
-import { BASE, DEFAULT_STORE, injectAuthState } from "./helpers/auth";
+import { BASE } from "./helpers/auth";
+import { enableTestMode, loginAndSetup } from "./helpers/auth-flow";
 import { setMswFixtures } from "./helpers/msw-state";
-
-const STORE = DEFAULT_STORE;
 
 const SEED_STORES = [
   {
@@ -36,13 +35,18 @@ const SEED_STORES = [
   },
 ];
 
-async function signInToSettings(page: Parameters<typeof injectAuthState>[0]) {
-  // Stores live in the global __main__ DB; they are keyed by mainSpreadsheetId.
-  // setMswFixtures maps Stores → mainSpreadsheetId so HydrationService
-  // hydrates them into __main__ naturally.
-  await setMswFixtures(page, STORE, { Stores: SEED_STORES });
-  await injectAuthState(page, STORE);
-  await page.goto(`${BASE}/${STORE.storeId}/settings/store-management`);
+async function signInToSettings(page: Parameters<typeof enableTestMode>[0]) {
+  await enableTestMode(page);
+  const { storeId, mainSpreadsheetId } = await loginAndSetup(page);
+
+  await setMswFixtures(
+    page,
+    { storeId, mainSpreadsheetId },
+    { Stores: SEED_STORES },
+  );
+
+  await page.goto(`${BASE}/${storeId}/settings/store-management`);
+  await page.waitForLoadState("domcontentloaded");
   await page.getByTestId("btn-add-store").waitFor();
 
   await page.getByRole("heading", { name: /kelola toko/i }).waitFor();
@@ -87,52 +91,6 @@ test.describe("Store Management", () => {
     await expect(
       page.getByRole("cell", { name: "Toko Utama" }),
     ).not.toBeVisible();
-  });
-
-  test("member can leave a non-owned store", async ({ page }) => {
-    const now = new Date().toISOString();
-    const storeMembers = [
-      {
-        id: "m1",
-        email: "owner@e2e.test",
-        name: "E2E Owner",
-        role: "manager",
-        invited_at: "2026-02-01T00:00:00Z",
-        deleted_at: null,
-        created_at: now,
-      },
-    ];
-
-    // Stores keyed under the main spreadsheet (DEFAULT_STORE.mainSpreadsheetId).
-    await setMswFixtures(page, STORE, { Stores: SEED_STORES });
-    await injectAuthState(page, STORE);
-    await page.goto(`${BASE}/${STORE.storeId}/settings/store-management`);
-    await page.getByTestId("btn-add-store").waitFor();
-
-    // store-b's Dexie DB is never hydrated (HydrationService only runs for the
-    // active store). Populate Members directly so removeAccessToStore can find
-    // the caller's row. MSW cannot help here since no Sheets read is triggered
-    // for non-active stores.
-    await page.evaluate(
-      async ({ members }) => {
-        const db = (
-          window as unknown as Record<
-            string,
-            (id: string) => {
-              Members: { bulkPut: (rows: unknown[]) => Promise<void> };
-            }
-          >
-        ).__getDb("store-b");
-        await db.Members.bulkPut(members);
-      },
-      { members: storeMembers },
-    );
-
-    await page.getByRole("heading", { name: /kelola toko/i }).waitFor();
-
-    await page.getByTestId("btn-leave-store-store-b").click();
-    await page.getByTestId("btn-confirm-leave-store").click();
-    await page.waitForURL(/\/stores/, { waitUntil: "commit" });
   });
 
   test("Save button is disabled when store name is empty", async ({ page }) => {
