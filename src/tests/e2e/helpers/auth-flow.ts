@@ -39,29 +39,21 @@ export async function enableTestMode(page: Page): Promise<void> {
  * 5. Submit → redirect to cashier
  *
  * Returns the storeId and spreadsheet IDs created during setup.
- *
- * IMPORTANT: After setup, injects auth state to localStorage so subsequent
- * page.goto() calls work (auth state persists on page reload).
- *
- * Note: Products/categories need to be added via setMswFixtures() BEFORE calling
- * this function if you want them to appear in the cashier.
  */
 export async function loginAndSetup(page: Page): Promise<FlowResult> {
   await page.goto(`${BASE}/login`);
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForTimeout(2000);
 
   // Wait for Google sign-in button to be visible
   await page
     .getByRole("button", { name: /google/i })
     .waitFor({ state: "visible" });
 
-  // Click sign-in - test mode returns fake user
+  // Click sign-in - test mode returns fake user (handled in Login page)
   await page.getByRole("button", { name: /google/i }).click();
 
   // Wait for redirect to stores (will redirect to setup since no stores)
   await page.waitForURL("**/setup", { timeout: 15000 });
-  await page.waitForTimeout(2000);
 
   // Fill setup form
   const businessNameInput = page.getByLabel(/Nama Usaha/i);
@@ -73,7 +65,6 @@ export async function loginAndSetup(page: Page): Promise<FlowResult> {
 
   // Wait for redirect to cashier
   await page.waitForURL("**/cashier", { timeout: 20000 });
-  await page.waitForTimeout(3000);
 
   // Extract storeId from URL: /pos-umkm/{storeId}/cashier
   const url = page.url();
@@ -81,17 +72,8 @@ export async function loginAndSetup(page: Page): Promise<FlowResult> {
   const storeId = match?.[1] ?? "unknown";
 
   // Inject auth state to localStorage for subsequent navigations
-  // This makes page.goto() work for protected routes
   await page.addInitScript(
     ({ storeId }) => {
-      // GoogleAuthAdapter reads these to restore session without OAuth popup.
-      localStorage.setItem("gsi_access_token", "e2e-fake-token");
-      localStorage.setItem("gsi_token_expiry", String(Date.now() + 3_600_000));
-      localStorage.setItem("gsi_user_id", "e2e-user-1");
-      localStorage.setItem("gsi_user_email", "owner@e2e.test");
-      localStorage.setItem("gsi_user_name", "E2E Owner");
-
-      // Zustand persist key — rehydrates isAuthenticated + sheet IDs on load.
       localStorage.setItem(
         "pos-umkm-auth",
         JSON.stringify({
@@ -114,7 +96,6 @@ export async function loginAndSetup(page: Page): Promise<FlowResult> {
     { storeId },
   );
 
-  // The main spreadsheet ID is "new-sheet-id" as created by the mock
   return {
     storeId,
     spreadsheetId: "new-sheet-id",

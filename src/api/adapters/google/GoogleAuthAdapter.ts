@@ -115,7 +115,6 @@ export class GoogleAuthAdapter implements AuthAdapter {
       this.currentUser = user;
       this.accessToken = "e2e-fake-token";
       this.tokenExpiry = Date.now() + 3_600_000;
-      // Persist to localStorage so restoreSession() works on reload
       localStorage.setItem(LS_ACCESS_TOKEN, "e2e-fake-token");
       localStorage.setItem(LS_TOKEN_EXPIRY, this.tokenExpiry.toString());
       localStorage.setItem(LS_USER_ID, user.id);
