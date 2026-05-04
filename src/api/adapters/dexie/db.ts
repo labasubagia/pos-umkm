@@ -144,7 +144,3 @@ export function getDb(storeId: string): Database {
 export function clearDbCache(): void {
   dbCache.clear();
 }
-
-// Expose getDb for E2E Playwright tests so specs can seed IndexedDB directly
-// via `page.evaluate(() => window.__getDb(storeId).Products.bulkPut([...]))`.
-(window as unknown as Record<string, unknown>).__getDb = getDb;

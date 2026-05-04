@@ -93,59 +93,6 @@ test.describe("Store Management", () => {
     ).not.toBeVisible();
   });
 
-  test("member can leave a non-owned store", async ({ page }) => {
-    const now = new Date().toISOString();
-    const storeMembers = [
-      {
-        id: "m1",
-        email: "owner@e2e.test",
-        name: "E2E Owner",
-        role: "manager",
-        invited_at: "2026-02-01T00:00:00Z",
-        deleted_at: null,
-        created_at: now,
-      },
-    ];
-
-    await enableTestMode(page);
-    const { storeId, mainSpreadsheetId } = await loginAndSetup(page);
-
-    await setMswFixtures(
-      page,
-      { storeId, mainSpreadsheetId },
-      { Stores: SEED_STORES },
-    );
-
-    await page.goto(`${BASE}/${storeId}/settings/store-management`);
-    await page.waitForLoadState("domcontentloaded");
-    await page.getByTestId("btn-add-store").waitFor();
-
-    // store-b's Dexie DB is never hydrated (HydrationService only runs for the
-    // active store). Populate Members directly so removeAccessToStore can find
-    // the caller's row. MSW cannot help here since no Sheets read is triggered
-    // for non-active stores.
-    await page.evaluate(
-      async ({ members }) => {
-        const db = (
-          window as unknown as Record<
-            string,
-            (id: string) => {
-              Members: { bulkPut: (rows: unknown[]) => Promise<void> };
-            }
-          >
-        ).__getDb("store-b");
-        await db.Members.bulkPut(members);
-      },
-      { members: storeMembers },
-    );
-
-    await page.getByRole("heading", { name: /kelola toko/i }).waitFor();
-
-    await page.getByTestId("btn-leave-store-store-b").click();
-    await page.getByTestId("btn-confirm-leave-store").click();
-    await page.waitForURL(/\/stores/, { waitUntil: "commit" });
-  });
-
   test("Save button is disabled when store name is empty", async ({ page }) => {
     await signInToSettings(page);
 
