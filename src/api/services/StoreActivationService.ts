@@ -86,6 +86,13 @@ class StoreActivationServiceImpl {
     storeFolderId: string,
     config: MigrationPayload = ACTIVE_PRESET,
   ): Promise<void> {
+    if (!config.monthlySheet) {
+      logger.info(
+        "StoreActivationService.ensureMonthlySheets: no monthlySheet config, skipping",
+      );
+      return;
+    }
+
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
