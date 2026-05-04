@@ -6,7 +6,7 @@
  * and navigates to /cashier.
  */
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { getRepos } from "../../api/adapters";
 import { MigrationService } from "../../api/services/MigrationService";
 import { Alert, AlertDescription } from "../../components/ui/alert";

@@ -10,7 +10,7 @@
  * This is acceptable for the family-trust model described in TRD §3.4.
  */
 import type { ReactNode } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router";
 import type { Role } from "../../api/adapters/types";
 import { useAuth } from "./useAuth";
 

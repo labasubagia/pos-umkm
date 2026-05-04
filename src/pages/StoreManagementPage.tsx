@@ -12,7 +12,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { syncManager } from "../api/adapters";
 import type { StoreRecord } from "../api/services/MigrationService";
 import { StoreActivationService } from "../api/services/StoreActivationService";

@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { logger } from "@/utils/logger";
 import type { StoreRecord } from "../../api/services/MigrationService";
 import { StoreActivationService } from "../../api/services/StoreActivationService";

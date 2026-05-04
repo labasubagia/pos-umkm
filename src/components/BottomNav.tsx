@@ -12,7 +12,7 @@
  * to avoid duplicate testids in the DOM at desktop viewports where both
  * exist but BottomNav is hidden via display:none).
  */
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 import { useAuth } from "../modules/auth/useAuth";
 import { NAV_ITEMS } from "./nav.constants";
 

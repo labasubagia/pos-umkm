@@ -5,7 +5,7 @@
  * don't repeat these classes. CashierPage intentionally bypasses this layout
  * (it needs full-bleed flex to fill the viewport height).
  */
-import { Outlet } from "react-router-dom";
+import { Outlet } from "react-router";
 
 export function PageLayout() {
   return (

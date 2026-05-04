@@ -14,7 +14,7 @@
  * with them, not one they created. The adapter handles scope selection.
  */
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 import { authAdapter } from "../../api/adapters";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";

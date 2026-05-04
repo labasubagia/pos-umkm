@@ -12,7 +12,7 @@
 
 import { LogOut, Store } from "lucide-react";
 import type { ReactNode } from "react";
-import { NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
+import { NavLink, useLocation, useNavigate, useParams } from "react-router";
 import { getStoreMapStore } from "@/store/storeMapStore";
 import { authAdapter, resetDexieLayer, syncManager } from "../api/adapters";
 import type { Role } from "../api/adapters/types";

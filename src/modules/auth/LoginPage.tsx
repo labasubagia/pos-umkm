@@ -10,7 +10,7 @@
  * so StorePickerPage can resolve the active store from the live store list.
  */
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router";
 import { authAdapter } from "../../api/adapters";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";

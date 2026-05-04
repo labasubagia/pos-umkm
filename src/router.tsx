@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, redirect } from "react-router-dom";
+import { createBrowserRouter, Navigate, redirect } from "react-router";
 import { AppShell } from "./components/AppShell";
 import { PageLayout } from "./components/PageLayout";
 import JoinPage from "./modules/auth/JoinPage";
@@ -216,5 +216,7 @@ export const router = createBrowserRouter(
     },
     { path: "*", element: <NotFoundPage /> },
   ],
-  { basename: "/pos-umkm" },
+  {
+    basename: "/pos-umkm",
+  },
 );

@@ -19,7 +19,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type RenderResult, render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { act } from "react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import type { Database } from "../api/adapters/dexie/db";
 import { clearDbCache, getDb } from "../api/adapters/dexie/db";
 import { useCartStore } from "../modules/cashier/useCart";

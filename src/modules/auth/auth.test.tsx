@@ -7,7 +7,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { act } from "react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 import { useAuthStore } from "../../store/authStore";
 import { ProtectedRoute } from "./ProtectedRoute";

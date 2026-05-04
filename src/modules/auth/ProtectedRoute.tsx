@@ -5,7 +5,7 @@
  * Role-specific access control is handled by RoleRoute (T019).
  */
 import type { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate } from "react-router";
 import { useAuth } from "./useAuth";
 
 interface ProtectedRouteProps {
