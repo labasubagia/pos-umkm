@@ -14,11 +14,7 @@ function setRole(role: Role) {
   act(() => {
     useAuthStore
       .getState()
-      .setUser(
-        { id: "u1", email: "test@test.com", name: "Test", role },
-        role,
-        "tok",
-      );
+      .setUser({ id: "u1", email: "test@test.com", name: "Test", role }, role);
   });
 }
 

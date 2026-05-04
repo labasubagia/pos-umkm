@@ -97,7 +97,6 @@ describe("AppShell", () => {
         role: "owner",
       },
       role: "owner",
-      accessToken: "token",
       isAuthenticated: true,
       activeStoreId: null,
       mainSpreadsheetId: "main-id",

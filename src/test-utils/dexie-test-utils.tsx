@@ -87,9 +87,7 @@ export async function renderWithDexie(
 
   // Seed Zustand auth state.
   act(() => {
-    useAuthStore
-      .getState()
-      .setUser({ id, email, name, role }, role, "test-token");
+    useAuthStore.getState().setUser({ id, email, name, role }, role);
     useAuthStore.getState().setActiveStoreId(storeId);
     useAuthStore.getState().setMainSpreadsheetId(mainSpreadsheetId);
   });

@@ -81,70 +81,18 @@ export async function injectAuthState(
       // Legacy keys used by setup.service helpers.
       localStorage.setItem("mainSpreadsheetId", store.mainSpreadsheetId);
 
-      // Store map with spreadsheet IDs — needed for initial load.
-      // Actual sheet data comes from MSW handlers during Drive traversal.
-      // This mirrors what a real activated store would have.
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, "0");
+      // Store map: only storeFolderId is injected. sheets and monthlySheets are
+      // intentionally left empty — AppShell.ensureStoreMapReady() will traverse
+      // the Drive mock (which returns a "main" spreadsheet + a "transaction_YYYY-MM"
+      // spreadsheet) and populate both fields before hydration runs.
       localStorage.setItem(
         `pos_umkm_storemap_${store.storeId}`,
         JSON.stringify({
           state: {
             storeFolderId: "e2e-folder-id",
-            sheets: {
-              Stores: {
-                spreadsheet_id: store.mainSpreadsheetId,
-                sheet_name: "Stores",
-              },
-              Settings: {
-                spreadsheet_id: store.mainSpreadsheetId,
-                sheet_name: "Settings",
-              },
-              Members: {
-                spreadsheet_id: store.mainSpreadsheetId,
-                sheet_name: "Members",
-              },
-              Categories: {
-                spreadsheet_id: store.mainSpreadsheetId,
-                sheet_name: "Categories",
-              },
-              Products: {
-                spreadsheet_id: store.mainSpreadsheetId,
-                sheet_name: "Products",
-              },
-              Variants: {
-                spreadsheet_id: store.mainSpreadsheetId,
-                sheet_name: "Variants",
-              },
-              Customers: {
-                spreadsheet_id: store.mainSpreadsheetId,
-                sheet_name: "Customers",
-              },
-            },
-            monthlySheets: {
-              [year]: {
-                [month]: {
-                  year,
-                  month,
-                  sheets: {
-                    Transactions: {
-                      spreadsheet_id: store.mainSpreadsheetId,
-                      sheet_name: "Transactions",
-                    },
-                    Transaction_Items: {
-                      spreadsheet_id: store.mainSpreadsheetId,
-                      sheet_name: "Transaction_Items",
-                    },
-                    Refunds: {
-                      spreadsheet_id: store.mainSpreadsheetId,
-                      sheet_name: "Refunds",
-                    },
-                  },
-                },
-              },
-            },
-            lastTraversedAt: Date.now(),
+            sheets: {},
+            monthlySheets: {},
+            lastTraversedAt: null,
           },
           version: 0,
         }),

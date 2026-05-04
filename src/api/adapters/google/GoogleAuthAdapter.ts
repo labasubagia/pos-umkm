@@ -52,7 +52,7 @@ const OWNER_SCOPE =
   "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets";
 
 // localStorage keys — prefixed to avoid clashes with other apps on the same origin.
-const LS_ACCESS_TOKEN = "gsi_access_token";
+export const LS_ACCESS_TOKEN = "gsi_access_token";
 const LS_TOKEN_EXPIRY = "gsi_token_expiry";
 const LS_USER_ID = "gsi_user_id";
 const LS_USER_EMAIL = "gsi_user_email";

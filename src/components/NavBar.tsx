@@ -13,6 +13,7 @@
 import { LogOut, Store } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
+import { getStoreMapStore } from "@/store/storeMapStore";
 import { authAdapter, resetDexieLayer, syncManager } from "../api/adapters";
 import type { Role } from "../api/adapters/types";
 import { StoreActivationService } from "../api/services/StoreActivationService";
@@ -67,6 +68,9 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
     await authAdapter.signOut();
     resetDexieLayer(); // Release IndexedDB connections and clear DB cache (T075)
     clearAuth();
+    getStoreMapStore(storeId ?? activeStoreId ?? "")
+      .getState()
+      .clearStoreMap(); // Clear the current store map store's in-memory cache
     clearSetupStorage();
     queryClient.clear();
     navigate("/", { replace: true });

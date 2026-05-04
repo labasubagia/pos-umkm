@@ -23,53 +23,49 @@ describe("Auth Store", () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
   });
 
-  it("login sets user, role, accessToken in store", () => {
+  it("login sets user, role in store", () => {
     act(() => {
       useAuthStore
         .getState()
         .setUser(
           { id: "u1", email: "owner@test.com", name: "Owner", role: "owner" },
           "owner",
-          "tok-123",
         );
     });
     const state = useAuthStore.getState();
     expect(state.isAuthenticated).toBe(true);
     expect(state.user?.email).toBe("owner@test.com");
     expect(state.role).toBe("owner");
-    expect(state.accessToken).toBe("tok-123");
   });
 
-  it("logout clears user, role, accessToken from store", () => {
+  it("logout clears user, role from store", () => {
     act(() => {
       useAuthStore
         .getState()
         .setUser(
           { id: "u1", email: "owner@test.com", name: "Owner", role: "owner" },
           "owner",
-          "tok-123",
         );
       useAuthStore.getState().clearAuth();
     });
     const state = useAuthStore.getState();
     expect(state.isAuthenticated).toBe(false);
     expect(state.user).toBeNull();
-    expect(state.accessToken).toBeNull();
   });
 
-  it("login does not store accessToken in localStorage", () => {
+  it("login does not store accessToken in localStorage via Zustand persist", () => {
     act(() => {
       useAuthStore
         .getState()
         .setUser(
           { id: "u1", email: "owner@test.com", name: "Owner", role: "owner" },
           "owner",
-          "tok-abc",
         );
     });
-    // Access token must NOT appear in any localStorage key
-    const stored = JSON.stringify(Object.entries(localStorage));
-    expect(stored).not.toContain("tok-abc");
+    // Access token must NOT appear in the persisted Zustand key
+    const raw = localStorage.getItem("pos-umkm-auth");
+    expect(raw).not.toBeNull();
+    expect(raw).not.toContain("accessToken");
   });
 });
 
@@ -103,7 +99,6 @@ describe("ProtectedRoute", () => {
         .setUser(
           { id: "u1", email: "owner@test.com", name: "Owner", role: "owner" },
           "owner",
-          "tok-123",
         );
     });
     render(

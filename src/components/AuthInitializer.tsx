@@ -40,7 +40,7 @@ interface Props {
 }
 
 export function AuthInitializer({ children }: Props) {
-  const { setAccessToken, clearAuth } = useAuth();
+  const { clearAuth } = useAuth();
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Remove legacy store-selection keys. The URL is authoritative for storeId,
@@ -71,8 +71,7 @@ export function AuthInitializer({ children }: Props) {
       refreshTimerRef.current = setTimeout(async () => {
         const ok = await gAuth.silentRefresh();
         if (ok) {
-          const token = gAuth.getAccessToken();
-          if (token) setAccessToken(token);
+          // Token is already stored in localStorage by the adapter.
           // Unblock any outbox entries that failed due to an expired token.
           await syncManager.resetFailedEntries();
           planRefresh(); // reschedule for the new token's lifetime
@@ -85,8 +84,7 @@ export function AuthInitializer({ children }: Props) {
 
     void gAuth.restoreSession().then((user) => {
       if (user) {
-        const token = gAuth.getAccessToken();
-        if (token) setAccessToken(token);
+        // Token is already stored in localStorage by the adapter.
         planRefresh();
       } else if (useAuthStore.getState().isAuthenticated) {
         // Google token expired / revoked — wipe persisted auth and release DBs.
@@ -98,7 +96,7 @@ export function AuthInitializer({ children }: Props) {
     return () => {
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     };
-  }, [setAccessToken, clearAuth]);
+  }, [clearAuth]);
 
   return <>{children}</>;
 }

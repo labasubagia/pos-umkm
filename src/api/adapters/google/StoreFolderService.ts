@@ -39,12 +39,6 @@ import { getSpreadsheetMeta } from "./sheets/sheets.ops";
 const DEFAULT_CONCURRENCY = 20;
 const DEFAULT_MONTHLY_PREFIXES = ["transaction", "log", "po", "stock"];
 
-const getToken = () => {
-  const tokenFromStore = useAuthStore.getState().accessToken;
-  if (tokenFromStore) return tokenFromStore;
-  return "";
-};
-
 export interface SheetMeta {
   spreadsheet_id: string;
   spreadsheet_name: string;
@@ -86,11 +80,20 @@ export class StoreFolderService {
     parentFolderId?: string,
     tabs?: string[],
   ): Promise<string> {
-    return createSpreadsheet(name, getToken(), parentFolderId, tabs);
+    return createSpreadsheet(
+      name,
+      useAuthStore.getState().getAccessToken() ?? "",
+      parentFolderId,
+      tabs,
+    );
   }
 
   ensureFolder(path: string[], parentId?: string): Promise<string | null> {
-    return ensureFolder(path, getToken(), parentId);
+    return ensureFolder(
+      path,
+      useAuthStore.getState().getAccessToken() ?? "",
+      parentId,
+    );
   }
 
   shareSpreadsheet(
@@ -98,7 +101,12 @@ export class StoreFolderService {
     email: string,
     role: "editor" | "viewer",
   ): Promise<void> {
-    return shareSpreadsheet(spreadsheetId, email, role, getToken());
+    return shareSpreadsheet(
+      spreadsheetId,
+      email,
+      role,
+      useAuthStore.getState().getAccessToken() ?? "",
+    );
   }
 
   /**
@@ -126,7 +134,7 @@ export class StoreFolderService {
     logger.debug("StoreFolderService.traverseRecursive: folderId", {
       folderId,
     });
-    const token = getToken();
+    const token = useAuthStore.getState().getAccessToken() ?? "";
     logger.debug("StoreFolderService.traverseRecursive: getFolderContent", {
       folderId,
     });

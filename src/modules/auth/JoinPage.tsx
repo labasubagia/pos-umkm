@@ -43,8 +43,7 @@ export default function JoinPage() {
       const role = await resolveUserRole(user.email);
       await recordGoogleUserId(user.email, user.id);
       const userWithRole = { ...user, role };
-      const token = authAdapter.getAccessToken() ?? "";
-      setUser(userWithRole, role, token);
+      setUser(userWithRole, role);
       // Navigate to /stores so StorePickerPage resolves the active store.
       navigate("/stores");
     } catch (err) {

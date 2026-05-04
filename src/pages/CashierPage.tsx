@@ -110,7 +110,9 @@ export default function CashierPage() {
       if (err instanceof CashierError) {
         setTxError(err.message);
       } else {
-        setTxError("Terjadi kesalahan saat memproses transaksi");
+        setTxError(
+          `Terjadi kesalahan: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
       logger.error(err);
     } finally {
