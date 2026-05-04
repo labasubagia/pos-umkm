@@ -80,7 +80,6 @@ async function signInToCashier(page: Page, testInfo: TestInfo) {
 
   await page.goto(`${BASE}/${storeId}/cashier`);
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForTimeout(2000);
 
   await page
     .locator('[data-testid^="product-card-"]')
@@ -332,7 +331,6 @@ test.describe("Customer Search (T036)", () => {
 
     await page.goto(`${BASE}/${storeId}/cashier`);
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(2000);
     await page
       .locator('[data-testid^="product-card-"]')
       .first()
@@ -404,7 +402,6 @@ test.describe("Refund Flow (T037)", () => {
 
     await page.goto(`${BASE}/${storeId}/customers/refund`);
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(2000);
     await page.getByTestId("refund-tx-id-input").waitFor();
 
     await page.getByTestId("refund-tx-id-input").fill(txId);

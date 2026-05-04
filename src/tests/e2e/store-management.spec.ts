@@ -47,7 +47,6 @@ async function signInToSettings(page: Parameters<typeof enableTestMode>[0]) {
 
   await page.goto(`${BASE}/${storeId}/settings/store-management`);
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForTimeout(2000);
   await page.getByTestId("btn-add-store").waitFor();
 
   await page.getByRole("heading", { name: /kelola toko/i }).waitFor();
@@ -119,7 +118,6 @@ test.describe("Store Management", () => {
 
     await page.goto(`${BASE}/${storeId}/settings/store-management`);
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(2000);
     await page.getByTestId("btn-add-store").waitFor();
 
     // store-b's Dexie DB is never hydrated (HydrationService only runs for the

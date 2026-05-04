@@ -99,7 +99,6 @@ async function signInToReports(
 
   await page.goto(`${BASE}/${storeId}${path}`);
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForTimeout(2000);
   await page.getByTestId(readyTestId).waitFor();
 }
 

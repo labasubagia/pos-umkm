@@ -22,7 +22,6 @@ test.describe("Member invite and Store Link", () => {
     // Navigate to member management
     await page.goto(`${BASE}/${storeId}/settings/member-management`);
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(3000);
 
     console.log(`Current URL: ${page.url()}`);
     const bodyText = await page.locator("body").innerText();
@@ -49,7 +48,6 @@ test.describe("Member invite and Store Link", () => {
     // Navigate directly using page.goto (auth is in localStorage)
     await page.goto(`${BASE}/${storeId}/settings/member-management`);
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(2000);
 
     await page.getByRole("heading", { name: "Kelola Anggota" }).waitFor();
 
@@ -108,7 +106,6 @@ test.describe("POS terminal PIN lock", () => {
     // Navigate directly using page.goto (auth is in localStorage)
     await page.goto(`${BASE}/${storeId}/cashier`);
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(2000);
 
     await page.getByTestId("product-search-input").waitFor();
     await expect(page.getByTestId("pin-lock-overlay")).not.toBeVisible();
@@ -122,7 +119,6 @@ test.describe("POS terminal PIN lock", () => {
 
     await page.goto(`${BASE}/${storeId}/cashier`);
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(2000);
 
     await page.getByTestId("product-search-input").waitFor();
     // Without a PIN hash configured, the overlay never appears

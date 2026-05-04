@@ -127,7 +127,6 @@ test.describe("Products CRUD (T022)", () => {
 
     await page.goto(`${BASE}/${storeId}/catalog/products`);
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(2000);
     await page.getByTestId("btn-add-product").waitFor();
 
     await page.getByTestId("btn-add-product").click();
@@ -200,7 +199,6 @@ test.describe("Products CRUD (T022)", () => {
 
     await page.goto(`${BASE}/${actualStoreId}/cashier`);
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(2000);
     await page
       .getByTestId(`product-card-${prodId}`)
       .waitFor({ timeout: 20_000 });
@@ -262,7 +260,6 @@ test.describe("Stock Opname (T034)", () => {
 
     await page.goto(`${BASE}/${storeId}/inventory/stock-opname`);
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(2000);
     await page.getByTestId("stock-opname-container").waitFor();
 
     await expect(page.getByTestId("stock-opname-container")).toBeVisible();
@@ -320,7 +317,6 @@ test.describe("Purchase Orders (T035)", () => {
 
     await page.goto(`${BASE}/${storeId}/inventory/stock-opname`);
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(2000);
     await page.getByTestId("stock-opname-container").waitFor();
 
     await page.getByTestId("subnav-inventory-purchase-order").click();
