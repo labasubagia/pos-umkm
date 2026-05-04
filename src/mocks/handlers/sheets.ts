@@ -107,7 +107,10 @@ export const sheetsHandlers = [
   // ── Read: spreadsheet metadata ─────────────────────────────────────────────
   // Returns sheet info so StoreFolderService can map sheet names to spreadsheet IDs
   http.get(new RegExp(`${SHEETS_BASE.replace(/\./g, "\\.")}/[^/]+$`), () => {
-    // Return a mock sheet list for any spreadsheet ID
+    // Return a mock sheet list for any spreadsheet ID.
+    // Includes transaction tabs so StoreFolderService.flattenToMap() correctly
+    // populates storeMap.monthlySheets when it processes the transaction_YYYY-MM
+    // spreadsheet returned by the Drive folder listing mock.
     const mockSheets = [
       { properties: { sheetId: 1, title: "Stores" } },
       { properties: { sheetId: 2, title: "Settings" } },
@@ -121,6 +124,9 @@ export const sheetsHandlers = [
       { properties: { sheetId: 10, title: "Stock_Log" } },
       { properties: { sheetId: 11, title: "Audit_Log" } },
       { properties: { sheetId: 12, title: "Monthly_Sheets" } },
+      { properties: { sheetId: 13, title: "Transactions" } },
+      { properties: { sheetId: 14, title: "Transaction_Items" } },
+      { properties: { sheetId: 15, title: "Refunds" } },
     ];
 
     return HttpResponse.json({ sheets: mockSheets });

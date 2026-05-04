@@ -13,69 +13,35 @@ import { HttpResponse, http } from "msw";
 const DRIVE_BASE = "https://www.googleapis.com/drive/v3";
 const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
-// All sheets in E2E tests are under the same main spreadsheet for fixture lookup.
-// This matches how MSW fixtures are keyed (e.g. "e2e-main-id/Products").
+// Fallback spreadsheet ID used when no fixtures have been set (e.g. pure UI
+// CRUD tests that write through forms without pre-seeding data).
 const E2E_MAIN_SPREADSHEET_ID = "e2e-main-id";
 
-const e2eFolderSpreadsheets = [
-  {
-    id: E2E_MAIN_SPREADSHEET_ID,
-    name: "main",
-    mimeType: "application/vnd.google-apps.spreadsheet",
-  },
-  {
-    id: E2E_MAIN_SPREADSHEET_ID,
-    name: "Settings",
-    mimeType: "application/vnd.google-apps.spreadsheet",
-  },
-  {
-    id: E2E_MAIN_SPREADSHEET_ID,
-    name: "Members",
-    mimeType: "application/vnd.google-apps.spreadsheet",
-  },
-  {
-    id: E2E_MAIN_SPREADSHEET_ID,
-    name: "Categories",
-    mimeType: "application/vnd.google-apps.spreadsheet",
-  },
-  {
-    id: E2E_MAIN_SPREADSHEET_ID,
-    name: "Products",
-    mimeType: "application/vnd.google-apps.spreadsheet",
-  },
-  {
-    id: E2E_MAIN_SPREADSHEET_ID,
-    name: "Variants",
-    mimeType: "application/vnd.google-apps.spreadsheet",
-  },
-  {
-    id: E2E_MAIN_SPREADSHEET_ID,
-    name: "Customers",
-    mimeType: "application/vnd.google-apps.spreadsheet",
-  },
-];
+type FixtureMap = Record<string, Record<string, unknown>[]>;
 
-function buildTransactionSheets(
-  year: number,
-  month: number,
-): Record<string, unknown>[] {
-  return [
-    {
-      id: `e2e-tx-${year}-${month}`,
-      name: "Transactions",
-      mimeType: "application/vnd.google-apps.spreadsheet",
-    },
-    {
-      id: `e2e-txi-${year}-${month}`,
-      name: "Transaction_Items",
-      mimeType: "application/vnd.google-apps.spreadsheet",
-    },
-    {
-      id: `e2e-ref-${year}-${month}`,
-      name: "Refunds",
-      mimeType: "application/vnd.google-apps.spreadsheet",
-    },
-  ];
+function getFixtures(): FixtureMap {
+  return (
+    ((window as unknown as Record<string, unknown>).__E2E_FIXTURES__ as
+      | FixtureMap
+      | undefined) ?? {}
+  );
+}
+
+/**
+ * Returns the active spreadsheet ID from the current E2E fixture map.
+ * All fixture keys are `${spreadsheetId}/${tableName}`, so we extract the
+ * prefix of the first key. Falls back to E2E_MAIN_SPREADSHEET_ID for tests
+ * that don't pre-seed fixture data (e.g. pure UI CRUD tests).
+ *
+ * This makes the Drive folder listing work for both DEFAULT_STORE tests
+ * (where spreadsheetId = "e2e-main-id") and makeStoreConfig tests (where
+ * spreadsheetId = "e2e-main-<test-slug>").
+ */
+function getActiveSpreadsheetId(): string {
+  const keys = Object.keys(getFixtures());
+  return keys.length > 0
+    ? (keys[0].split("/")[0] ?? E2E_MAIN_SPREADSHEET_ID)
+    : E2E_MAIN_SPREADSHEET_ID;
 }
 
 export const driveHandlers = [
@@ -89,15 +55,27 @@ export const driveHandlers = [
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, "0");
+      const spreadsheetId = getActiveSpreadsheetId();
 
-      // Return transactions folder containing monthly sheets
-      if (q.includes("transactions") || q.includes(`'${year}'`)) {
-        return HttpResponse.json({
-          files: buildTransactionSheets(year, parseInt(month, 10)),
-        });
-      }
-
-      return HttpResponse.json({ files: e2eFolderSpreadsheets });
+      return HttpResponse.json({
+        files: [
+          {
+            // Single master spreadsheet containing all non-transaction tabs.
+            id: spreadsheetId,
+            name: "main",
+            mimeType: "application/vnd.google-apps.spreadsheet",
+          },
+          {
+            // Named `transaction_YYYY-MM` so StoreFolderService.flattenToMap()
+            // recognises it as a monthly sheet and populates
+            // storeMap.monthlySheets — required for commitTransaction() to find
+            // the Transactions spreadsheet ID at checkout time.
+            id: spreadsheetId,
+            name: `transaction_${year}-${month}`,
+            mimeType: "application/vnd.google-apps.spreadsheet",
+          },
+        ],
+      });
     }
 
     // Default empty for other queries
