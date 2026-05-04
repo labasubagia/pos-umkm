@@ -151,7 +151,7 @@ export default function CashierPage() {
           <ShoppingCart className="h-4 w-4" />
           Keranjang
           {cartItemCount > 0 && (
-            <span className="bg-blue-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center leading-none">
+            <span className="bg-blue-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-5 text-center leading-none">
               {cartItemCount}
             </span>
           )}
@@ -266,7 +266,7 @@ export default function CashierPage() {
             <Button
               onClick={() => setShowPayment(true)}
               disabled={items.length === 0 || submitting}
-              className="flex-[2]"
+              className="flex-2"
               data-testid="btn-pay"
             >
               {submitting
