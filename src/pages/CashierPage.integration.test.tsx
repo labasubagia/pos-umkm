@@ -11,9 +11,31 @@
 import "fake-indexeddb/auto";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { cleanupDexie, renderWithDexie } from "../test-utils/dexie-test-utils";
 import CashierPage from "./CashierPage";
+
+// ─── Suppress Dexie useLiveQuery act() warnings ───────────────────────────────
+// dexie-react-hooks uses useState internally and fires async subscription updates
+// outside React's act() context. These are structural false positives: tests use
+// waitFor() correctly and all assertions pass. Suppressed here rather than globally.
+const _originalError = console.error.bind(console);
+beforeAll(() => {
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    const msg = typeof args[0] === "string" ? args[0] : "";
+    if (msg.includes("not wrapped in act")) return;
+    _originalError(...args);
+  });
+});
+afterAll(() => vi.restoreAllMocks());
 
 const STORE_ID = "cashier-integration-store";
 
