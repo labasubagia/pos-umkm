@@ -78,9 +78,9 @@ async function signInToCashier(page: Page, testInfo: TestInfo) {
   await enableTestMode(page);
   const { storeId } = await loginAndSetup(page);
 
-  await page.goto(`${BASE}/${storeId}/cashier`);
-  await page.waitForLoadState("domcontentloaded");
-
+  // loginAndSetup already navigates to /{storeId}/cashier — no reload needed.
+  // A second page.goto to the same URL would lose the in-memory storeMap and
+  // break hydration. Wait directly for product cards to appear instead.
   await page
     .locator('[data-testid^="product-card-"]')
     .first()
@@ -327,10 +327,9 @@ test.describe("Customer Search (T036)", () => {
     });
 
     await enableTestMode(page);
-    const { storeId } = await loginAndSetup(page);
+    await loginAndSetup(page);
 
-    await page.goto(`${BASE}/${storeId}/cashier`);
-    await page.waitForLoadState("domcontentloaded");
+    // loginAndSetup already navigates to /{storeId}/cashier — no reload needed.
     await page
       .locator('[data-testid^="product-card-"]')
       .first()

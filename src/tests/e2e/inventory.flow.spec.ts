@@ -117,7 +117,7 @@ test.describe("Products CRUD (T022)", () => {
 
     await setMswFixtures(
       page,
-      { storeId, mainSpreadsheetId: storeId },
+      { storeId, mainSpreadsheetId: "e2e-main-id" },
       {
         Categories: [
           { id: catId, name: "Makanan", created_at: now, deleted_at: null },
@@ -168,7 +168,7 @@ test.describe("Products CRUD (T022)", () => {
 
     await setMswFixtures(
       page,
-      { storeId: actualStoreId, mainSpreadsheetId: actualStoreId },
+      { storeId: actualStoreId, mainSpreadsheetId: "e2e-main-id" },
       {
         Products: [
           {
@@ -237,7 +237,7 @@ test.describe("Stock Opname (T034)", () => {
 
     await setMswFixtures(
       page,
-      { storeId, mainSpreadsheetId: storeId },
+      { storeId, mainSpreadsheetId: "e2e-main-id" },
       {
         Products: [
           {
@@ -294,7 +294,7 @@ test.describe("Purchase Orders (T035)", () => {
 
     await setMswFixtures(
       page,
-      { storeId, mainSpreadsheetId: storeId },
+      { storeId, mainSpreadsheetId: "e2e-main-id" },
       {
         Products: [
           {

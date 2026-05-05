@@ -71,9 +71,43 @@ export async function loginAndSetup(page: Page): Promise<FlowResult> {
   const match = url.match(/\/pos-umkm\/([^/]+)\/cashier/);
   const storeId = match?.[1] ?? "unknown";
 
+  // The main spreadsheet ID is always "e2e-main-id" in E2E tests — the MSW
+  // Drive handler returns this ID from its getActiveSpreadsheetId() default.
+  const E2E_MAIN_SPREADSHEET_ID = "e2e-main-id";
+  // The store folder ID is always "new-e2e-id" — MSW returns this from every
+  // POST /drive/v3/files call during store folder creation.
+  const E2E_STORE_FOLDER_ID = "new-e2e-id";
+
+  // Inject Stores fixture so ensureStoreMapReady() can look up the store's
+  // drive_folder_id on any subsequent page reload (storeMap is in-memory only).
+  await page.addInitScript(
+    ({ storeId, mainId, folderId }) => {
+      type FixtureMap = Record<string, Record<string, unknown>[]>;
+      const existing: FixtureMap =
+        ((window as unknown as Record<string, unknown>).__E2E_FIXTURES__ as
+          | FixtureMap
+          | undefined) ?? {};
+      (window as unknown as Record<string, unknown>).__E2E_FIXTURES__ = {
+        ...existing,
+        [`${mainId}/Stores`]: [
+          {
+            store_id: storeId,
+            store_name: "E2E Test Store",
+            drive_folder_id: folderId,
+            owner_email: "owner@e2e.test",
+            my_role: "owner",
+            joined_at: new Date().toISOString(),
+            deleted_at: null,
+          },
+        ],
+      };
+    },
+    { storeId, mainId: E2E_MAIN_SPREADSHEET_ID, folderId: E2E_STORE_FOLDER_ID },
+  );
+
   // Inject auth state to localStorage for subsequent navigations
   await page.addInitScript(
-    ({ storeId }) => {
+    ({ storeId, mainSpreadsheetId }) => {
       localStorage.setItem(
         "pos-umkm-auth",
         JSON.stringify({
@@ -86,20 +120,20 @@ export async function loginAndSetup(page: Page): Promise<FlowResult> {
             },
             role: "owner",
             isAuthenticated: true,
-            mainSpreadsheetId: "new-sheet-id",
+            mainSpreadsheetId,
             activeStoreId: storeId,
           },
           version: 0,
         }),
       );
     },
-    { storeId },
+    { storeId, mainSpreadsheetId: E2E_MAIN_SPREADSHEET_ID },
   );
 
   return {
     storeId,
-    spreadsheetId: "new-sheet-id",
-    mainSpreadsheetId: "new-sheet-id",
+    spreadsheetId: E2E_MAIN_SPREADSHEET_ID,
+    mainSpreadsheetId: E2E_MAIN_SPREADSHEET_ID,
   };
 }
 
