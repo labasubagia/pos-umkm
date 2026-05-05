@@ -7,11 +7,8 @@
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { BASE, navigateTo } from "./helpers/auth";
-import { enableTestMode, loginAndSetup } from "./helpers/auth-flow";
+import { setup } from "./helpers/auth-flow";
 import { makeId } from "./helpers/e2e-fixtures";
-import { setMswFixtures } from "./helpers/msw-state";
-
-const STORE = { storeId: "e2e-store-1", mainSpreadsheetId: "e2e-main-id" };
 
 function buildFixtures(testInfo: ReturnType<typeof test.info>) {
   const now = new Date().toISOString();
@@ -69,14 +66,10 @@ function buildFixtures(testInfo: ReturnType<typeof test.info>) {
 async function signInToCashier(page: Page, testInfo: TestInfo) {
   const fixtures = buildFixtures(testInfo);
 
-  await setMswFixtures(page, STORE, {
+  const { storeId } = await setup(page, {
     Products: fixtures.products,
     Categories: fixtures.categories,
-    Monthly_Sheets: fixtures.monthlySheets,
   });
-
-  await enableTestMode(page);
-  const { storeId } = await loginAndSetup(page);
 
   // loginAndSetup already navigates to /{storeId}/cashier — no reload needed.
   // A second page.goto to the same URL would lose the in-memory storeMap and
@@ -304,8 +297,7 @@ test.describe("Customer Search (T036)", () => {
     page,
   }, testInfo) => {
     const now = new Date().toISOString();
-    const { prod1Id, products, categories, monthlySheets } =
-      buildFixtures(testInfo);
+    const { prod1Id, products, categories } = buildFixtures(testInfo);
     const cusId = makeId(testInfo, "cus-1");
 
     const CUSTOMERS = [
@@ -319,17 +311,13 @@ test.describe("Customer Search (T036)", () => {
       },
     ];
 
-    await setMswFixtures(page, STORE, {
+    await setup(page, {
       Products: products,
       Categories: categories,
       Customers: CUSTOMERS,
-      Monthly_Sheets: monthlySheets,
     });
 
-    await enableTestMode(page);
-    await loginAndSetup(page);
-
-    // loginAndSetup already navigates to /{storeId}/cashier — no reload needed.
+    // setup() navigates to /{storeId}/cashier — wait for product cards.
     await page
       .locator('[data-testid^="product-card-"]')
       .first()
@@ -390,14 +378,11 @@ test.describe("Refund Flow (T037)", () => {
       },
     ];
 
-    await setMswFixtures(page, STORE, {
+    const { storeId } = await setup(page, {
       Products: REFUND_PRODUCTS,
       Categories: categories,
       Transactions: TRANSACTIONS,
     });
-
-    await enableTestMode(page);
-    const { storeId } = await loginAndSetup(page);
 
     await page.goto(`${BASE}/${storeId}/customers/refund`);
     await page.waitForLoadState("domcontentloaded");

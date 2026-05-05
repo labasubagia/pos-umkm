@@ -2,16 +2,18 @@
  * auth-flow.ts — E2E auth flow helpers for full login + setup tests.
  *
  * Goes through the real flow: login page → Google sign-in (test mode) → stores → setup → cashier.
- * Each test gets a unique store. Use setMswFixtures() to add products/categories before loginAndSetup().
+ * Each test gets a unique store.
  *
- * Usage:
- *   await enableTestMode(page);
- *   await setMswFixtures(page, STORE, { Products: [...], Categories: [...] });
- *   const { storeId, spreadsheetId } = await loginAndSetup(page);
- *   // Now at cashier with products
+ * Usage (preferred — single entry point):
+ *   const { storeId } = await setup(page, { Products: [...], Categories: [...] });
+ *   // Now at cashier with products already in MSW fixtures
+ *
+ * setup() always runs: setMswFixtures → enableTestMode → loginAndSetup
+ * Pass an empty object (or omit) when no pre-seeded fixtures are needed.
  */
 import type { Page } from "@playwright/test";
-import { BASE } from "./auth";
+import { BASE, type StoreConfig } from "./auth";
+import { type FixtureTables, setMswFixtures } from "./msw-state";
 
 export interface FlowResult {
   storeId: string;
@@ -135,6 +137,36 @@ export async function loginAndSetup(page: Page): Promise<FlowResult> {
     spreadsheetId: E2E_MAIN_SPREADSHEET_ID,
     mainSpreadsheetId: E2E_MAIN_SPREADSHEET_ID,
   };
+}
+
+/**
+ * Constant E2E store config used as the MSW fixture namespace key.
+ * All E2E tests share this spreadsheet identity — the MSW Drive handler
+ * always returns "e2e-main-id" as the active spreadsheet ID.
+ */
+export const E2E_STORE: StoreConfig = {
+  storeId: "e2e-store-1",
+  mainSpreadsheetId: "e2e-main-id",
+};
+
+/**
+ * Single entry-point for test setup. Always runs in this order:
+ *   1. setMswFixtures  — injects window.__E2E_FIXTURES__ via addInitScript
+ *   2. enableTestMode  — injects window.__E2E_SIGNIN__ / __MSW_ENABLED__ via addInitScript
+ *   3. loginAndSetup   — navigates: /login → /setup → /cashier
+ *
+ * Both step 1 and 2 use addInitScript, so they must run before any navigation.
+ * Step 3 performs the navigation, so fixtures are already in place when pages load.
+ *
+ * Pass an empty object (or omit `tables`) when no pre-seeded data is needed.
+ */
+export async function setup(
+  page: Page,
+  tables: FixtureTables = {},
+): Promise<FlowResult> {
+  await setMswFixtures(page, E2E_STORE, tables);
+  await enableTestMode(page);
+  return loginAndSetup(page);
 }
 
 /**

@@ -30,7 +30,7 @@
  *   Main spreadsheet:    Stores
  *   Master spreadsheet:  Settings, Members, Categories, Products, Variants,
  *                        Customers, Purchase_Orders, Purchase_Order_Items,
- *                        Stock_Log, Audit_Log, Monthly_Sheets
+ *                        Stock_Log, Audit_Log
  *   Monthly spreadsheet: Transactions, Transaction_Items, Refunds
  */
 import type { Page } from "@playwright/test";
@@ -48,7 +48,6 @@ type TableName =
   | "Purchase_Order_Items"
   | "Stock_Log"
   | "Audit_Log"
-  | "Monthly_Sheets"
   | "Transactions"
   | "Transaction_Items"
   | "Refunds";
@@ -73,7 +72,6 @@ function buildFixtureMap(
     Purchase_Order_Items: store.mainSpreadsheetId,
     Stock_Log: store.mainSpreadsheetId,
     Audit_Log: store.mainSpreadsheetId,
-    Monthly_Sheets: store.mainSpreadsheetId,
     Transactions: store.mainSpreadsheetId,
     Transaction_Items: store.mainSpreadsheetId,
     Refunds: store.mainSpreadsheetId,
