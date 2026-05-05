@@ -35,6 +35,12 @@ const SEED_STORES = [
   },
 ];
 
+// Cannot use setup() here. setup() calls setMswFixtures BEFORE loginAndSetup,
+// which injects the Stores fixture before the login navigation. The app reads
+// the Stores table on sign-in to decide where to redirect: if stores exist it
+// skips /setup and goes directly to the store list, causing waitForURL("**/setup")
+// in loginAndSetup to time out. Stores fixtures must be injected AFTER
+// loginAndSetup so they take effect only on the next navigation (to store-management).
 async function signInToSettings(page: Parameters<typeof enableTestMode>[0]) {
   await enableTestMode(page);
   const { storeId, mainSpreadsheetId } = await loginAndSetup(page);
