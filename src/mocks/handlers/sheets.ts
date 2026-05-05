@@ -124,7 +124,6 @@ export const sheetsHandlers = [
       { properties: { sheetId: 9, title: "Purchase_Order_Items" } },
       { properties: { sheetId: 10, title: "Stock_Log" } },
       { properties: { sheetId: 11, title: "Audit_Log" } },
-      { properties: { sheetId: 12, title: "Monthly_Sheets" } },
       { properties: { sheetId: 13, title: "Transactions" } },
       { properties: { sheetId: 14, title: "Transaction_Items" } },
       { properties: { sheetId: 15, title: "Refunds" } },

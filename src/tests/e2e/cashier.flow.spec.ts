@@ -6,12 +6,8 @@
  */
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { BASE, navigateTo } from "./helpers/auth";
-import { enableTestMode, loginAndSetup } from "./helpers/auth-flow";
+import { BASE, setup } from "./helpers/auth";
 import { makeId } from "./helpers/e2e-fixtures";
-import { setMswFixtures } from "./helpers/msw-state";
-
-const STORE = { storeId: "e2e-store-1", mainSpreadsheetId: "e2e-main-id" };
 
 function buildFixtures(testInfo: ReturnType<typeof test.info>) {
   const now = new Date().toISOString();
@@ -69,18 +65,15 @@ function buildFixtures(testInfo: ReturnType<typeof test.info>) {
 async function signInToCashier(page: Page, testInfo: TestInfo) {
   const fixtures = buildFixtures(testInfo);
 
-  await setMswFixtures(page, STORE, {
+  const { storeId } = await setup(page, {
     Products: fixtures.products,
     Categories: fixtures.categories,
-    Monthly_Sheets: fixtures.monthlySheets,
   });
 
-  await enableTestMode(page);
-  const { storeId } = await loginAndSetup(page);
-
+  // A fresh navigation ensures the queued auth/fixture init scripts are applied
+  // before cashier hydration requests products from the mocked Sheets API.
   await page.goto(`${BASE}/${storeId}/cashier`);
   await page.waitForLoadState("domcontentloaded");
-
   await page
     .locator('[data-testid^="product-card-"]')
     .first()
@@ -284,11 +277,8 @@ test.describe("Transaction Commit + Receipt (T032, T033)", () => {
     await expect(page.getByTestId("receipt-success")).toBeVisible();
     await page.getByTestId("btn-receipt-close").click();
 
-    await navigateTo(
-      page,
-      `${BASE}/${storeId}/catalog/products`,
-      `product-stock-${prod1Id}`,
-    );
+    await page.goto(`${BASE}/${storeId}/catalog/products`);
+    await page.getByTestId(`product-stock-${prod1Id}`).waitFor();
 
     // 20 - 2 = 18
     await expect(page.getByTestId(`product-stock-${prod1Id}`)).toHaveText(
@@ -304,8 +294,7 @@ test.describe("Customer Search (T036)", () => {
     page,
   }, testInfo) => {
     const now = new Date().toISOString();
-    const { prod1Id, products, categories, monthlySheets } =
-      buildFixtures(testInfo);
+    const { prod1Id, products, categories } = buildFixtures(testInfo);
     const cusId = makeId(testInfo, "cus-1");
 
     const CUSTOMERS = [
@@ -319,18 +308,15 @@ test.describe("Customer Search (T036)", () => {
       },
     ];
 
-    await setMswFixtures(page, STORE, {
+    const { storeId } = await setup(page, {
       Products: products,
       Categories: categories,
       Customers: CUSTOMERS,
-      Monthly_Sheets: monthlySheets,
     });
-
-    await enableTestMode(page);
-    const { storeId } = await loginAndSetup(page);
 
     await page.goto(`${BASE}/${storeId}/cashier`);
     await page.waitForLoadState("domcontentloaded");
+
     await page
       .locator('[data-testid^="product-card-"]')
       .first()
@@ -391,14 +377,11 @@ test.describe("Refund Flow (T037)", () => {
       },
     ];
 
-    await setMswFixtures(page, STORE, {
+    const { storeId } = await setup(page, {
       Products: REFUND_PRODUCTS,
       Categories: categories,
       Transactions: TRANSACTIONS,
     });
-
-    await enableTestMode(page);
-    const { storeId } = await loginAndSetup(page);
 
     await page.goto(`${BASE}/${storeId}/customers/refund`);
     await page.waitForLoadState("domcontentloaded");
@@ -419,11 +402,8 @@ test.describe("Refund Flow (T037)", () => {
     await expect(page.getByTestId("refund-success")).toBeVisible();
 
     // Verify stock was re-incremented: 18 + 2 = 20 — navigate to catalog and check UI
-    await navigateTo(
-      page,
-      `${BASE}/${storeId}/catalog/products`,
-      `product-stock-${productId}`,
-    );
+    await page.goto(`${BASE}/${storeId}/catalog/products`);
+    await page.getByTestId(`product-stock-${productId}`).waitFor();
     await expect(page.getByTestId(`product-stock-${productId}`)).toHaveText(
       "Stok: 20",
     );

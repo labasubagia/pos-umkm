@@ -6,6 +6,7 @@
  */
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { logger } from "../../utils/logger";
 import type { OutboxEntry } from "../adapters/dexie/db";
 import { clearDbCache, getDb } from "../adapters/dexie/db";
 import { SyncManager } from "./SyncManager";
@@ -94,6 +95,7 @@ describe("drain", () => {
     const { SheetRepository } = await import(
       "../adapters/google/SheetRepository"
     );
+    const loggerSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
     const spy = vi
       .spyOn(SheetRepository.prototype, "batchInsert")
       .mockRejectedValue(new Error("Network error"));
@@ -102,6 +104,12 @@ describe("drain", () => {
     const entry = await db._outbox.get(id);
     expect(entry?.status).toBe("failed");
     expect(entry?.retries).toBe(1);
+    expect(loggerSpy).toHaveBeenCalledWith(
+      "[SyncManager]",
+      expect.objectContaining({ id, tableName: "Products" }),
+      expect.any(Error),
+    );
+    loggerSpy.mockRestore();
     spy.mockRestore();
   });
 

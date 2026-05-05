@@ -5,10 +5,8 @@
  * fixtures so HydrationService populates Dexie — no direct IndexedDB writes.
  */
 import { expect, type TestInfo, test } from "@playwright/test";
-import { BASE } from "./helpers/auth";
-import { enableTestMode, loginAndSetup } from "./helpers/auth-flow";
+import { BASE, setup } from "./helpers/auth";
 import { makeId } from "./helpers/e2e-fixtures";
-import { setMswFixtures } from "./helpers/msw-state";
 
 // Use current month so the transactions fall inside the injected monthly sheet.
 const REPORT_DATE = "2026-05-01";
@@ -80,22 +78,15 @@ function buildReportFixtures(testInfo: TestInfo) {
 }
 
 async function signInToReports(
-  page: Parameters<typeof enableTestMode>[0],
+  page: Parameters<typeof setup>[0],
   fixtures: ReturnType<typeof buildReportFixtures>,
   path: string,
   readyTestId: string,
 ) {
-  await enableTestMode(page);
-  const { storeId, mainSpreadsheetId } = await loginAndSetup(page);
-
-  await setMswFixtures(
-    page,
-    { storeId, mainSpreadsheetId },
-    {
-      Transactions: fixtures.transactions,
-      Transaction_Items: fixtures.items,
-    },
-  );
+  const { storeId } = await setup(page, {
+    Transactions: fixtures.transactions,
+    Transaction_Items: fixtures.items,
+  });
 
   await page.goto(`${BASE}/${storeId}${path}`);
   await page.waitForLoadState("domcontentloaded");

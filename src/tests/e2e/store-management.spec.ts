@@ -6,9 +6,7 @@
  * stubbed via page.route() to return a fake spreadsheetId.
  */
 import { expect, test } from "@playwright/test";
-import { BASE } from "./helpers/auth";
-import { enableTestMode, loginAndSetup } from "./helpers/auth-flow";
-import { setMswFixtures } from "./helpers/msw-state";
+import { BASE, setup } from "./helpers/auth";
 
 const SEED_STORES = [
   {
@@ -17,6 +15,17 @@ const SEED_STORES = [
     store_name: "Toko Utama",
     master_spreadsheet_id: "master-a",
     drive_folder_id: "folder-a",
+    owner_email: "owner@e2e.test",
+    my_role: "owner",
+    joined_at: "2026-01-01T00:00:00Z",
+    deleted_at: null,
+  },
+  {
+    id: "store-a1",
+    store_id: "store-a1",
+    store_name: "Toko Utama Cabang 1",
+    master_spreadsheet_id: "master-a1",
+    drive_folder_id: "folder-a1",
     owner_email: "owner@e2e.test",
     my_role: "owner",
     joined_at: "2026-01-01T00:00:00Z",
@@ -35,15 +44,12 @@ const SEED_STORES = [
   },
 ];
 
-async function signInToSettings(page: Parameters<typeof enableTestMode>[0]) {
-  await enableTestMode(page);
-  const { storeId, mainSpreadsheetId } = await loginAndSetup(page);
-
-  await setMswFixtures(
-    page,
-    { storeId, mainSpreadsheetId },
-    { Stores: SEED_STORES },
-  );
+// Stores fixtures are injected before loginAndSetup (via setup()). The app
+// sees existing stores on sign-in and redirects to /stores instead of /setup.
+// loginAndSetup handles both branches: when at /stores it clicks the first
+// store entry (btn-store-{storeId}) and waits for /cashier.
+async function signInToSettings(page: Parameters<typeof setup>[0]) {
+  const { storeId } = await setup(page, { Stores: SEED_STORES });
 
   await page.goto(`${BASE}/${storeId}/settings/store-management`);
   await page.waitForLoadState("domcontentloaded");
@@ -85,11 +91,13 @@ test.describe("Store Management", () => {
     await signInToSettings(page);
 
     // Use role=cell to avoid strict-mode ambiguity with the navbar store switcher option.
-    await expect(page.getByRole("cell", { name: "Toko Utama" })).toBeVisible();
-    await page.getByTestId("btn-delete-store-store-a").click();
+    await expect(
+      page.getByRole("cell", { name: "Toko Utama Cabang 1" }),
+    ).toBeVisible();
+    await page.getByTestId("btn-delete-store-store-a1").click();
     await page.getByTestId("btn-confirm-delete-store").click();
     await expect(
-      page.getByRole("cell", { name: "Toko Utama" }),
+      page.getByRole("cell", { name: "Toko Utama Cabang 1" }),
     ).not.toBeVisible();
   });
 

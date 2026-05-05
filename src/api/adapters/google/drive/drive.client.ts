@@ -68,7 +68,7 @@ export async function createSpreadsheet(
   }
 
   // ── Create via Sheets API ───────────────────────────────────────────────
-  console.log("[createSpreadsheet] Creating new spreadsheet:", name);
+  logger.debug("[createSpreadsheet] Creating new spreadsheet:", name);
   const sheetsBody: Record<string, unknown> = { properties: { title: name } };
   if (tabs && tabs.length > 0) {
     sheetsBody.sheets = tabs.map((title) => ({ properties: { title } }));

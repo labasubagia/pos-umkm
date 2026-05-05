@@ -1,15 +1,11 @@
 /**
  * storeMapStore.ts — Zustand store for the per-store sheet map.
  *
- * Persists the flattened Drive folder traversal result to localStorage so
- * the app can start offline. Keyed by store_id so multiple stores can
- * coexist on the same device.
- *
- * Key format: pos_umkm_storemap_<store_id>
+ * Holds the flattened Drive folder traversal result keyed by store_id
+ * so multiple stores can coexist on the same device.
  */
 
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 import type {
   MonthlySheetsByYear,
   SheetMeta,
@@ -38,55 +34,47 @@ interface StoreMapState {
 }
 
 /**
- * Creates a persisted zustand store for a specific store_id.
- * Each store gets its own localStorage key: pos_umkm_storemap_<storeId>.
+ * Creates a zustand store for a specific store_id.
+ * Each store gets its own in-memory instance keyed by storeId.
  */
-export function createStoreMapStore(storeId: string) {
-  return create<StoreMapState>()(
-    persist(
-      (set, get) => ({
+export function createStoreMapStore(_storeId: string) {
+  return create<StoreMapState>()((set, get) => ({
+    storeFolderId: null,
+    sheets: {},
+    monthlySheets: {},
+    lastTraversedAt: null,
+
+    setStoreMap: (storeFolderId, sheets, monthlySheets) =>
+      set({
+        storeFolderId,
+        sheets,
+        monthlySheets,
+        lastTraversedAt: Date.now(),
+      }),
+
+    getSheetMeta: (sheetName: string) => {
+      return get().sheets[sheetName];
+    },
+
+    /**
+     * Returns the sheet map for the current month's transaction spreadsheet,
+     * or undefined if no monthly sheet exists for the current month.
+     */
+    getCurrentMonthSheets: () => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      return get().monthlySheets[year]?.[month]?.sheets;
+    },
+
+    clearStoreMap: () =>
+      set({
         storeFolderId: null,
         sheets: {},
         monthlySheets: {},
         lastTraversedAt: null,
-
-        setStoreMap: (storeFolderId, sheets, monthlySheets) =>
-          set({
-            storeFolderId,
-            sheets,
-            monthlySheets,
-            lastTraversedAt: Date.now(),
-          }),
-
-        getSheetMeta: (sheetName: string) => {
-          return get().sheets[sheetName];
-        },
-
-        /**
-         * Returns the sheet map for the current month's transaction spreadsheet,
-         * or undefined if no monthly sheet exists for the current month.
-         */
-        getCurrentMonthSheets: () => {
-          const now = new Date();
-          const year = now.getFullYear();
-          const month = String(now.getMonth() + 1).padStart(2, "0");
-          return get().monthlySheets[year]?.[month]?.sheets;
-        },
-
-        clearStoreMap: () =>
-          set({
-            storeFolderId: null,
-            sheets: {},
-            monthlySheets: {},
-            lastTraversedAt: null,
-          }),
       }),
-      {
-        name: `pos_umkm_storemap_${storeId}`,
-        storage: createJSONStorage(() => localStorage),
-      },
-    ),
-  );
+  }));
 }
 
 type StoreMapStore = ReturnType<typeof createStoreMapStore>;
@@ -94,9 +82,9 @@ type StoreMapStore = ReturnType<typeof createStoreMapStore>;
 const storeMapStores = new Map<string, StoreMapStore>();
 
 /**
- * Returns the persisted store map store for a specific store ID.
+ * Returns the store map for a specific store ID.
  * Store instances are memoized in-memory so callers share one zustand store
- * per store while persistence remains isolated per localStorage key.
+ * per store.
  */
 export function getStoreMapStore(storeId: string): StoreMapStore {
   const existing = storeMapStores.get(storeId);

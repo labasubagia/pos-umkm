@@ -1,7 +1,31 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+
+// ─── Suppress cascading async act() warnings ─────────────────────────────────
+// AppShell's bootstrap effect chain (URL sync → setActiveStoreId → traversal →
+// hydrateAll → setStoreMapReady) fires chained Promise callbacks that update
+// React state outside act(). Tests use waitFor() and all assertions pass.
+const _originalError = console.error.bind(console);
+beforeAll(() => {
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    const msg = typeof args[0] === "string" ? args[0] : "";
+    if (msg.includes("not wrapped in act")) return;
+    _originalError(...args);
+  });
+});
+afterAll(() => vi.restoreAllMocks());
+
 import { useAuthStore } from "../store/authStore";
 import { AppShell } from "./AppShell";
 
@@ -132,13 +156,14 @@ describe("AppShell", () => {
           </MemoryRouter>
         </QueryClientProvider>,
       );
+      // Flush the traverseMock Promise resolution so the resulting AppShell
+      // state updates (setStoreMap) fire inside this act block rather than
+      // outside it, avoiding "not wrapped in act" warnings.
+      await new Promise((r) => setTimeout(r, 0));
     });
 
     await waitFor(() => {
       expect(mocks.traverseMock).toHaveBeenCalledWith("folder-from-store-map");
-    });
-
-    await waitFor(() => {
       expect(screen.getByTestId("page-content")).toBeTruthy();
     });
 

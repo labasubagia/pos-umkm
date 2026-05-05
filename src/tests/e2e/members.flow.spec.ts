@@ -5,27 +5,17 @@
  * Each test gets a unique store with products pre-populated via MSW default fixtures.
  */
 import { expect, test } from "@playwright/test";
-import { BASE } from "./helpers/auth";
-import {
-  enableTestMode,
-  loginAndSetup,
-  navigateToStorePage,
-} from "./helpers/auth-flow";
+import { BASE, setup } from "./helpers/auth";
 
 test.describe("Member invite and Store Link", () => {
   test("owner can invite a member via email and see Store Link", async ({
     page,
   }) => {
-    await enableTestMode(page);
-    const { storeId } = await loginAndSetup(page);
+    const { storeId } = await setup(page);
 
     // Navigate to member management
     await page.goto(`${BASE}/${storeId}/settings/member-management`);
     await page.waitForLoadState("domcontentloaded");
-
-    console.log(`Current URL: ${page.url()}`);
-    const bodyText = await page.locator("body").innerText();
-    console.log(`Page content: ${bodyText.substring(0, 500)}`);
 
     // Wait for the page to load - use first() to avoid strict mode violation
     await page
@@ -42,8 +32,7 @@ test.describe("Member invite and Store Link", () => {
   });
 
   test("owner can revoke a member's access", async ({ page }) => {
-    await enableTestMode(page);
-    const { storeId } = await loginAndSetup(page);
+    const { storeId } = await setup(page);
 
     // Navigate directly using page.goto (auth is in localStorage)
     await page.goto(`${BASE}/${storeId}/settings/member-management`);
@@ -85,11 +74,10 @@ test.describe("Store Link join flow", () => {
 
 test.describe("Role-based route access", () => {
   test("owner role can access /reports", async ({ page }) => {
-    await enableTestMode(page);
-    const { storeId } = await loginAndSetup(page);
+    const { storeId } = await setup(page);
 
     // Navigate to reports
-    await navigateToStorePage(page, storeId, "reports");
+    await page.goto(`${BASE}/${storeId}/reports`);
 
     // Owner should not be redirected away from /reports
     await expect(page).not.toHaveURL(/\/cashier/);
@@ -100,8 +88,7 @@ test.describe("POS terminal PIN lock", () => {
   test("PIN lock overlay is not shown when no PIN is configured", async ({
     page,
   }) => {
-    await enableTestMode(page);
-    const { storeId } = await loginAndSetup(page);
+    const { storeId } = await setup(page);
 
     // Navigate directly using page.goto (auth is in localStorage)
     await page.goto(`${BASE}/${storeId}/cashier`);
@@ -114,8 +101,7 @@ test.describe("POS terminal PIN lock", () => {
   test("cashier can unlock terminal with correct PIN when PIN is configured", async ({
     page,
   }) => {
-    await enableTestMode(page);
-    const { storeId } = await loginAndSetup(page);
+    const { storeId } = await setup(page);
 
     await page.goto(`${BASE}/${storeId}/cashier`);
     await page.waitForLoadState("domcontentloaded");

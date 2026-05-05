@@ -1,5 +1,4 @@
 import type { TestInfo } from "@playwright/test";
-import type { StoreConfig } from "./auth";
 
 function slugify(input: string): string {
   return input
@@ -12,14 +11,6 @@ function slugify(input: string): string {
 export function makeTestKey(testInfo: TestInfo): string {
   const title = slugify(testInfo.title);
   return `${title}-w${testInfo.workerIndex}-r${testInfo.retry}`;
-}
-
-export function makeStoreConfig(testInfo: TestInfo): StoreConfig {
-  const key = makeTestKey(testInfo);
-  return {
-    storeId: `e2e-store-${key}`,
-    mainSpreadsheetId: `e2e-main-${key}`,
-  };
 }
 
 export function makeId(testInfo: TestInfo, prefix: string): string {

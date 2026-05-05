@@ -30,7 +30,7 @@
  *   Main spreadsheet:    Stores
  *   Master spreadsheet:  Settings, Members, Categories, Products, Variants,
  *                        Customers, Purchase_Orders, Purchase_Order_Items,
- *                        Stock_Log, Audit_Log, Monthly_Sheets
+ *                        Stock_Log, Audit_Log
  *   Monthly spreadsheet: Transactions, Transaction_Items, Refunds
  */
 import type { Page } from "@playwright/test";
@@ -48,7 +48,6 @@ type TableName =
   | "Purchase_Order_Items"
   | "Stock_Log"
   | "Audit_Log"
-  | "Monthly_Sheets"
   | "Transactions"
   | "Transaction_Items"
   | "Refunds";
@@ -56,6 +55,10 @@ type TableName =
 export type FixtureTables = Partial<
   Record<TableName, Record<string, unknown>[]>
 >;
+
+export type FixtureUpdater = (
+  current: Record<string, Record<string, unknown>[]>,
+) => Record<string, Record<string, unknown>[]>;
 
 function buildFixtureMap(
   store: StoreConfig,
@@ -73,7 +76,6 @@ function buildFixtureMap(
     Purchase_Order_Items: store.mainSpreadsheetId,
     Stock_Log: store.mainSpreadsheetId,
     Audit_Log: store.mainSpreadsheetId,
-    Monthly_Sheets: store.mainSpreadsheetId,
     Transactions: store.mainSpreadsheetId,
     Transaction_Items: store.mainSpreadsheetId,
     Refunds: store.mainSpreadsheetId,
@@ -102,9 +104,9 @@ function buildFixtureMap(
 export async function setMswFixtures(
   page: Page,
   store: StoreConfig,
-  tables: FixtureTables,
+  tables?: FixtureTables,
 ): Promise<void> {
-  const fixtureMap = buildFixtureMap(store, tables);
+  const fixtureMap = buildFixtureMap(store, tables ?? {});
   // Merge into any previously-injected fixture map (supports multiple stores).
   await page.addInitScript((fixtures) => {
     const existing =

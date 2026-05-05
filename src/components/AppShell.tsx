@@ -24,6 +24,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Outlet, useParams } from "react-router";
+import { StoreRegistryService } from "@/api";
 import {
   hydrationService,
   reinitDexieLayer,
@@ -161,7 +162,9 @@ async function ensureStoreMapReady(storeId: string): Promise<void> {
 
   // Sheets empty — use the active store map's persisted folder ID so refresh
   // cannot accidentally traverse a different store's folder.
-  const storeFolderId = storeMap.storeFolderId;
+  const storeFolderId =
+    storeMap.storeFolderId ??
+    (await StoreRegistryService.getStoreFolderId(storeId));
   if (!storeFolderId) {
     logger.warn(
       "[AppShell] storeFolderId not found in active store map — cannot traverse Drive folder.",
