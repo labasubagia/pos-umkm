@@ -56,6 +56,10 @@ export type FixtureTables = Partial<
   Record<TableName, Record<string, unknown>[]>
 >;
 
+export type FixtureUpdater = (
+  current: Record<string, Record<string, unknown>[]>,
+) => Record<string, Record<string, unknown>[]>;
+
 function buildFixtureMap(
   store: StoreConfig,
   tables: FixtureTables,
@@ -100,9 +104,9 @@ function buildFixtureMap(
 export async function setMswFixtures(
   page: Page,
   store: StoreConfig,
-  tables: FixtureTables,
+  tables?: FixtureTables,
 ): Promise<void> {
-  const fixtureMap = buildFixtureMap(store, tables);
+  const fixtureMap = buildFixtureMap(store, tables ?? {});
   // Merge into any previously-injected fixture map (supports multiple stores).
   await page.addInitScript((fixtures) => {
     const existing =

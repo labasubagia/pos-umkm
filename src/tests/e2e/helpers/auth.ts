@@ -22,16 +22,6 @@ export interface StoreConfig {
 }
 
 /**
- * Default E2E store config — used as a stable fallback and as the type template.
- * setup() generates a unique config per test via makeStoreConfig().
- */
-export const E2E_STORE: StoreConfig = {
-  storeId: "e2e-store-1",
-  mainSpreadsheetId: "e2e-main-id",
-  folderId: "new-e2e-id",
-};
-
-/**
  * Generate a unique StoreConfig for a single test run.
  * Uses a short random suffix to avoid any cross-test fixture collisions.
  */
@@ -50,7 +40,7 @@ function makeStoreConfig(): StoreConfig {
  */
 export async function enableTestMode(
   page: Page,
-  folderId: string,
+  store: StoreConfig,
 ): Promise<void> {
   await page.addInitScript(
     ({ folderId }: { folderId: string }) => {
@@ -59,7 +49,7 @@ export async function enableTestMode(
       (window as unknown as Record<string, unknown>).__E2E_FOLDER_ID__ =
         folderId;
     },
-    { folderId },
+    { folderId: store.folderId },
   );
 }
 
@@ -79,7 +69,7 @@ export async function enableTestMode(
  */
 export async function login(
   page: Page,
-  mainSpreadsheetId: string,
+  store: StoreConfig,
 ): Promise<StoreConfig> {
   await page.goto(`${BASE}/login`);
   await page.waitForLoadState("domcontentloaded");
@@ -110,7 +100,9 @@ export async function login(
     ]).catch(() => {});
   }
 
+  let isNewSetup = false;
   if (page.url().includes("/setup")) {
+    isNewSetup = true;
     // No stores existed: fill the setup form to create one.
     const businessNameInput = page.getByLabel(/Nama Usaha/i);
     await businessNameInput.waitFor({ state: "visible" });
@@ -128,6 +120,21 @@ export async function login(
   const url = page.url();
   const match = url.match(/\/pos-umkm\/([^/]+)\/cashier/);
   const storeId = match?.[1] ?? "unknown";
+  if (isNewSetup) {
+    await setMswFixtures(page, store, {
+      Stores: [
+        {
+          store_id: storeId,
+          store_name: "E2E Test Store",
+          drive_folder_id: store.folderId,
+          owner_email: "owner@e2e.test",
+          my_role: "owner",
+          joined_at: new Date().toISOString(),
+          deleted_at: null,
+        },
+      ],
+    });
+  }
 
   // Inject auth state to localStorage for subsequent navigations
   await page.addInitScript(
@@ -157,13 +164,13 @@ export async function login(
         }),
       );
     },
-    { storeId, mainSpreadsheetId },
+    { storeId, mainSpreadsheetId: store.mainSpreadsheetId },
   );
 
   return {
     storeId,
-    mainSpreadsheetId,
-    folderId: E2E_STORE.folderId,
+    mainSpreadsheetId: store.mainSpreadsheetId,
+    folderId: store.folderId,
   };
 }
 
@@ -179,6 +186,8 @@ export async function login(
  *                        the fixture map from step 1 — no extra entry is injected.
  *
  * Pass an empty object (or omit `tables`) when no pre-seeded data is needed.
+ *
+ * All modifications to __E2E_FIXTURES__ go through setMswFixtures
  */
 export async function setup(
   page: Page,
@@ -186,55 +195,7 @@ export async function setup(
 ): Promise<StoreConfig> {
   const store = makeStoreConfig();
   await setMswFixtures(page, store, tables);
-  await enableTestMode(page, store.folderId);
-  const result = await login(page, store.mainSpreadsheetId);
-  // Merge the actual storeId extracted from the URL (may differ from store.storeId
-  // when stores are pre-seeded and the first store is clicked instead of created).
-  const finalConfig: StoreConfig = { ...store, storeId: result.storeId };
-
-  if (!tables.Stores) {
-    // No Stores were pre-seeded: inject the default single-store entry so
-    // ensureStoreMapReady() can look up drive_folder_id on subsequent reloads.
-    await page.addInitScript(
-      ({
-        storeId,
-        mainId,
-        folderId,
-      }: {
-        storeId: string;
-        mainId: string;
-        folderId: string;
-      }) => {
-        type FixtureMap = Record<string, Record<string, unknown>[]>;
-        const existing: FixtureMap =
-          ((window as unknown as Record<string, unknown>).__E2E_FIXTURES__ as
-            | FixtureMap
-            | undefined) ?? {};
-        (window as unknown as Record<string, unknown>).__E2E_FIXTURES__ = {
-          ...existing,
-          [`${mainId}/Stores`]: [
-            {
-              store_id: storeId,
-              store_name: "E2E Test Store",
-              drive_folder_id: folderId,
-              owner_email: "owner@e2e.test",
-              my_role: "owner",
-              joined_at: new Date().toISOString(),
-              deleted_at: null,
-            },
-          ],
-        };
-      },
-      {
-        storeId: finalConfig.storeId,
-        mainId: finalConfig.mainSpreadsheetId,
-        folderId: finalConfig.folderId,
-      },
-    );
-  }
-  // When tables.Stores is provided, setMswFixtures already injected those rows
-  // via addInitScript in step 1. No extra entry needed — "E2E Test Store" must
-  // not be added on top of the caller's explicit store list.
-
-  return finalConfig;
+  await enableTestMode(page, store);
+  const result = await login(page, store);
+  return result;
 }
