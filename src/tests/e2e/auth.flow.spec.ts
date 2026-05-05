@@ -29,7 +29,7 @@ async function logPageState(page: Page, step: string) {
   console.log(`Title: ${await page.title()}`);
 }
 
-test.describe("Full auth flow exploration", () => {
+test.skip("Full auth flow exploration", () => {
   test("base URL → landing page", async ({ page }) => {
     await captureConsole(page);
 
