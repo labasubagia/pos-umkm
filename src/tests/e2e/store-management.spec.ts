@@ -6,8 +6,7 @@
  * stubbed via page.route() to return a fake spreadsheetId.
  */
 import { expect, test } from "@playwright/test";
-import { BASE } from "./helpers/auth";
-import { setup } from "./helpers/auth-flow";
+import { BASE, setup } from "./helpers/auth";
 
 const SEED_STORES = [
   {

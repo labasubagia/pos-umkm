@@ -5,8 +5,7 @@
  * Each test gets a unique store with products pre-populated via MSW default fixtures.
  */
 import { expect, test } from "@playwright/test";
-import { BASE } from "./helpers/auth";
-import { navigateToStorePage, setup } from "./helpers/auth-flow";
+import { BASE, setup } from "./helpers/auth";
 
 test.describe("Member invite and Store Link", () => {
   test("owner can invite a member via email and see Store Link", async ({
@@ -82,7 +81,7 @@ test.describe("Role-based route access", () => {
     const { storeId } = await setup(page);
 
     // Navigate to reports
-    await navigateToStorePage(page, storeId, "reports");
+    await page.goto(`${BASE}/${storeId}/reports`);
 
     // Owner should not be redirected away from /reports
     await expect(page).not.toHaveURL(/\/cashier/);

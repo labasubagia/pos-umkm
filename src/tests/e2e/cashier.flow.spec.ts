@@ -6,8 +6,7 @@
  */
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { BASE, navigateTo } from "./helpers/auth";
-import { setup } from "./helpers/auth-flow";
+import { BASE, setup } from "./helpers/auth";
 import { makeId } from "./helpers/e2e-fixtures";
 
 function buildFixtures(testInfo: ReturnType<typeof test.info>) {
@@ -277,11 +276,8 @@ test.describe("Transaction Commit + Receipt (T032, T033)", () => {
     await expect(page.getByTestId("receipt-success")).toBeVisible();
     await page.getByTestId("btn-receipt-close").click();
 
-    await navigateTo(
-      page,
-      `${BASE}/${storeId}/catalog/products`,
-      `product-stock-${prod1Id}`,
-    );
+    await page.goto(`${BASE}/${storeId}/catalog/products`);
+    await page.getByTestId(`product-stock-${prod1Id}`).waitFor();
 
     // 20 - 2 = 18
     await expect(page.getByTestId(`product-stock-${prod1Id}`)).toHaveText(
@@ -403,11 +399,8 @@ test.describe("Refund Flow (T037)", () => {
     await expect(page.getByTestId("refund-success")).toBeVisible();
 
     // Verify stock was re-incremented: 18 + 2 = 20 — navigate to catalog and check UI
-    await navigateTo(
-      page,
-      `${BASE}/${storeId}/catalog/products`,
-      `product-stock-${productId}`,
-    );
+    await page.goto(`${BASE}/${storeId}/catalog/products`);
+    await page.getByTestId(`product-stock-${productId}`).waitFor();
     await expect(page.getByTestId(`product-stock-${productId}`)).toHaveText(
       "Stok: 20",
     );

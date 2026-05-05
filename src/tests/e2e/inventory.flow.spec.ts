@@ -6,8 +6,7 @@
  * form writes directly to Dexie.
  */
 import { expect, test } from "@playwright/test";
-import { BASE, navigateTo } from "./helpers/auth";
-import { setup } from "./helpers/auth-flow";
+import { BASE, setup } from "./helpers/auth";
 import { makeId } from "./helpers/e2e-fixtures";
 
 async function signInToCatalog(page: Parameters<typeof setup>[0]) {
@@ -134,11 +133,8 @@ test.describe("Products CRUD (T022)", () => {
         .filter({ hasText: "Mie Goreng" }),
     ).toBeVisible();
 
-    await navigateTo(
-      page,
-      `${BASE}/${storeId}/cashier`,
-      "product-search-input",
-    );
+    await page.goto(`${BASE}/${storeId}/cashier`);
+    await page.getByTestId("product-search-input").waitFor();
     await page.getByTestId("product-search-input").fill("Mie Goreng");
     await expect(
       page
@@ -186,11 +182,8 @@ test.describe("Products CRUD (T022)", () => {
     await expect(page.getByTestId("receipt-success")).toBeVisible();
     await page.getByTestId("btn-receipt-close").click();
 
-    await navigateTo(
-      page,
-      `${BASE}/${storeId}/catalog/products`,
-      `product-stock-${prodId}`,
-    );
+    await page.goto(`${BASE}/${storeId}/catalog/products`);
+    await page.getByTestId(`product-stock-${prodId}`).waitFor();
     await expect(page.getByTestId(`product-stock-${prodId}`)).toHaveText(
       "Stok: 19",
     );
@@ -305,11 +298,8 @@ test.describe("Purchase Orders (T035)", () => {
     await expect(page.getByTestId(`po-status-${poId}`)).toHaveText("Diterima");
 
     // Verify stock: 20 + 30 = 50 — navigate to stock opname and check UI
-    await navigateTo(
-      page,
-      `${BASE}/${storeId}/inventory/stock-opname`,
-      `opname-system-stock-${prodId}`,
-    );
+    await page.goto(`${BASE}/${storeId}/inventory/stock-opname`);
+    await page.getByTestId(`opname-system-stock-${prodId}`).waitFor();
     await expect(page.getByTestId(`opname-system-stock-${prodId}`)).toHaveText(
       "50",
     );

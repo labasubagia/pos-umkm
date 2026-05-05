@@ -5,8 +5,7 @@
  * fixtures so HydrationService populates Dexie — no direct IndexedDB writes.
  */
 import { expect, type TestInfo, test } from "@playwright/test";
-import { BASE } from "./helpers/auth";
-import { setup } from "./helpers/auth-flow";
+import { BASE, setup } from "./helpers/auth";
 import { makeId } from "./helpers/e2e-fixtures";
 
 // Use current month so the transactions fall inside the injected monthly sheet.
