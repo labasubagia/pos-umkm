@@ -70,9 +70,10 @@ async function signInToCashier(page: Page, testInfo: TestInfo) {
     Categories: fixtures.categories,
   });
 
-  // loginAndSetup already navigates to /{storeId}/cashier — no reload needed.
-  // A second page.goto to the same URL would lose the in-memory storeMap and
-  // break hydration. Wait directly for product cards to appear instead.
+  // A fresh navigation ensures the queued auth/fixture init scripts are applied
+  // before cashier hydration requests products from the mocked Sheets API.
+  await page.goto(`${BASE}/${storeId}/cashier`);
+  await page.waitForLoadState("domcontentloaded");
   await page
     .locator('[data-testid^="product-card-"]')
     .first()
@@ -307,13 +308,15 @@ test.describe("Customer Search (T036)", () => {
       },
     ];
 
-    await setup(page, {
+    const { storeId } = await setup(page, {
       Products: products,
       Categories: categories,
       Customers: CUSTOMERS,
     });
 
-    // setup() navigates to /{storeId}/cashier — wait for product cards.
+    await page.goto(`${BASE}/${storeId}/cashier`);
+    await page.waitForLoadState("domcontentloaded");
+
     await page
       .locator('[data-testid^="product-card-"]')
       .first()

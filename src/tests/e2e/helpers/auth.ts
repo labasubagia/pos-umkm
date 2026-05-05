@@ -22,9 +22,8 @@ export interface StoreConfig {
 }
 
 /**
- * Constant E2E store config used as the MSW fixture namespace key.
- * All E2E tests share this spreadsheet identity — the MSW Drive handler
- * always returns "e2e-main-id" as the active spreadsheet ID.
+ * Default E2E store config — used as a stable fallback and as the type template.
+ * setup() generates a unique config per test via makeStoreConfig().
  */
 export const E2E_STORE: StoreConfig = {
   storeId: "e2e-store-1",
@@ -33,14 +32,35 @@ export const E2E_STORE: StoreConfig = {
 };
 
 /**
+ * Generate a unique StoreConfig for a single test run.
+ * Uses a short random suffix to avoid any cross-test fixture collisions.
+ */
+function makeStoreConfig(): StoreConfig {
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return {
+    storeId: `e2e-store-${suffix}`,
+    mainSpreadsheetId: `e2e-main-${suffix}`,
+    folderId: `e2e-folder-${suffix}`,
+  };
+}
+
+/**
  * Enable test mode flags before navigation.
  * Must be called before page.goto().
  */
-export async function enableTestMode(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    (window as unknown as Record<string, unknown>).__E2E_SIGNIN__ = true;
-    (window as unknown as Record<string, unknown>).__MSW_ENABLED__ = true;
-  });
+export async function enableTestMode(
+  page: Page,
+  folderId: string,
+): Promise<void> {
+  await page.addInitScript(
+    ({ folderId }: { folderId: string }) => {
+      (window as unknown as Record<string, unknown>).__E2E_SIGNIN__ = true;
+      (window as unknown as Record<string, unknown>).__MSW_ENABLED__ = true;
+      (window as unknown as Record<string, unknown>).__E2E_FOLDER_ID__ =
+        folderId;
+    },
+    { folderId },
+  );
 }
 
 /**
@@ -57,7 +77,10 @@ export async function enableTestMode(page: Page): Promise<void> {
  * NOTE: Does NOT inject any Stores fixture. Use setup() which injects the
  * correct Stores fixture based on whether the caller pre-seeded Stores or not.
  */
-export async function login(page: Page): Promise<StoreConfig> {
+export async function login(
+  page: Page,
+  mainSpreadsheetId: string,
+): Promise<StoreConfig> {
   await page.goto(`${BASE}/login`);
   await page.waitForLoadState("domcontentloaded");
 
@@ -134,12 +157,12 @@ export async function login(page: Page): Promise<StoreConfig> {
         }),
       );
     },
-    { storeId, mainSpreadsheetId: E2E_STORE.mainSpreadsheetId },
+    { storeId, mainSpreadsheetId },
   );
 
   return {
     storeId,
-    mainSpreadsheetId: E2E_STORE.mainSpreadsheetId,
+    mainSpreadsheetId,
     folderId: E2E_STORE.folderId,
   };
 }
@@ -161,9 +184,13 @@ export async function setup(
   page: Page,
   tables: FixtureTables = {},
 ): Promise<StoreConfig> {
-  await setMswFixtures(page, E2E_STORE, tables);
-  await enableTestMode(page);
-  const result = await login(page);
+  const store = makeStoreConfig();
+  await setMswFixtures(page, store, tables);
+  await enableTestMode(page, store.folderId);
+  const result = await login(page, store.mainSpreadsheetId);
+  // Merge the actual storeId extracted from the URL (may differ from store.storeId
+  // when stores are pre-seeded and the first store is clicked instead of created).
+  const finalConfig: StoreConfig = { ...store, storeId: result.storeId };
 
   if (!tables.Stores) {
     // No Stores were pre-seeded: inject the default single-store entry so
@@ -199,9 +226,9 @@ export async function setup(
         };
       },
       {
-        storeId: result.storeId,
-        mainId: E2E_STORE.mainSpreadsheetId,
-        folderId: E2E_STORE.folderId,
+        storeId: finalConfig.storeId,
+        mainId: finalConfig.mainSpreadsheetId,
+        folderId: finalConfig.folderId,
       },
     );
   }
@@ -209,5 +236,5 @@ export async function setup(
   // via addInitScript in step 1. No extra entry needed — "E2E Test Store" must
   // not be added on top of the caller's explicit store list.
 
-  return result;
+  return finalConfig;
 }

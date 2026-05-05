@@ -15,7 +15,8 @@ const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
 // Fallback spreadsheet ID used when no fixtures have been set (e.g. pure UI
 // CRUD tests that write through forms without pre-seeding data).
-const E2E_MAIN_SPREADSHEET_ID = "e2e-main-id";
+const E2E_MAIN_SPREADSHEET_ID_DEFAULT = "e2e-main-id";
+const E2E_FOLDER_ID_DEFAULT = "new-e2e-id";
 
 type FixtureMap = Record<string, Record<string, unknown>[]>;
 
@@ -24,6 +25,14 @@ function getFixtures(): FixtureMap {
     ((window as unknown as Record<string, unknown>).__E2E_FIXTURES__ as
       | FixtureMap
       | undefined) ?? {}
+  );
+}
+
+function getActiveFolderId(): string {
+  return (
+    ((window as unknown as Record<string, unknown>).__E2E_FOLDER_ID__ as
+      | string
+      | undefined) ?? E2E_FOLDER_ID_DEFAULT
   );
 }
 
@@ -40,8 +49,8 @@ function getFixtures(): FixtureMap {
 function getActiveSpreadsheetId(): string {
   const keys = Object.keys(getFixtures());
   return keys.length > 0
-    ? (keys[0].split("/")[0] ?? E2E_MAIN_SPREADSHEET_ID)
-    : E2E_MAIN_SPREADSHEET_ID;
+    ? (keys[0].split("/")[0] ?? E2E_MAIN_SPREADSHEET_ID_DEFAULT)
+    : E2E_MAIN_SPREADSHEET_ID_DEFAULT;
 }
 
 export const driveHandlers = [
@@ -50,15 +59,11 @@ export const driveHandlers = [
     const url = new URL(request.url);
     const q = url.searchParams.get("q") || "";
 
-    // If querying for a specific folder (e.g. "e2e-folder-id" in parents), return its contents
-    // Also handles "new-e2e-id" which is created during setup flow
-    // And "e2e-main-id" which is used by the test store config
     // Query format: '${folderId}' in parents and trashed = false and ...
-    const isE2EFolder = q.includes("'e2e-folder-id'");
-    const isNewFolder = q.includes("'new-e2e-id'");
-    const isMainFolder = q.includes("'e2e-main-id'");
+    const folderId = getActiveFolderId();
+    const isFolder = q.includes(`'${folderId}'`);
 
-    if (isE2EFolder || isNewFolder || isMainFolder) {
+    if (isFolder) {
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -92,9 +97,10 @@ export const driveHandlers = [
   // ── Drive: get file metadata — returns folder info for e2e operations
   http.get(`${DRIVE_BASE}/files/:fileId`, ({ params }) => {
     const { fileId } = params;
-    if (fileId === "e2e-folder-id") {
+    const folderId = getActiveFolderId();
+    if (fileId === folderId) {
       return HttpResponse.json({
-        id: "e2e-folder-id",
+        id: folderId,
         name: "My Store",
         parents: ["root"],
         mimeType: "application/vnd.google-apps.folder",
@@ -103,24 +109,25 @@ export const driveHandlers = [
     return HttpResponse.json({
       id: fileId,
       name: "Spreadsheet",
-      parents: ["e2e-folder-id"],
+      parents: [folderId],
     });
   }),
 
   // ── Drive: create file/folder — returns new ID
   http.post(`${DRIVE_BASE}/files`, () =>
-    HttpResponse.json({ id: "new-e2e-id" }),
+    HttpResponse.json({ id: getActiveFolderId() }),
   ),
 
   // ── Drive: update/move file — returns success
   http.patch(`${DRIVE_BASE}/files/:fileId`, () =>
-    HttpResponse.json({ id: "new-e2e-id" }),
+    HttpResponse.json({ id: getActiveFolderId() }),
   ),
 
-  // ── Sheets: create spreadsheet — returns fake ID
+  // ── Sheets: create spreadsheet — returns the active fixture spreadsheet ID so
+  // HydrationService queries the same ID that fixtures are keyed under.
   http.post(new RegExp(`${SHEETS_BASE.replace(/\./g, "\\.")}$`), () =>
     HttpResponse.json({
-      spreadsheetId: "new-sheet-id",
+      spreadsheetId: getActiveSpreadsheetId(),
       properties: { title: "E2E Sheet" },
     }),
   ),
