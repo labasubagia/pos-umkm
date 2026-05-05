@@ -17,10 +17,6 @@ test.describe("Member invite and Store Link", () => {
     await page.goto(`${BASE}/${storeId}/settings/member-management`);
     await page.waitForLoadState("domcontentloaded");
 
-    console.log(`Current URL: ${page.url()}`);
-    const bodyText = await page.locator("body").innerText();
-    console.log(`Page content: ${bodyText.substring(0, 500)}`);
-
     // Wait for the page to load - use first() to avoid strict mode violation
     await page
       .getByRole("heading", { name: "Kelola Anggota" })

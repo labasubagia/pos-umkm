@@ -10,6 +10,7 @@
  */
 
 import { z } from "zod";
+import { logger } from "@/utils";
 
 const coerceString = z.coerce.string();
 const coerceNumber = z.coerce.number();
@@ -211,7 +212,7 @@ export function parseSheetRows(
 ): Record<string, unknown>[] {
   const schema = sheetSchemaMap[sheetName];
   if (!schema) {
-    console.warn(
+    logger.warn(
       `[parseSheetRows] No schema found for sheet "${sheetName}", returning raw rows`,
     );
     return rows;
