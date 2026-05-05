@@ -19,6 +19,7 @@ export function makeStoreConfig(testInfo: TestInfo): StoreConfig {
   return {
     storeId: `e2e-store-${key}`,
     mainSpreadsheetId: `e2e-main-${key}`,
+    folderId: `e2e-folder-${key}`,
   };
 }
 

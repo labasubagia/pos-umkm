@@ -18,12 +18,7 @@ export const BASE = "/pos-umkm";
 export interface StoreConfig {
   storeId: string;
   mainSpreadsheetId: string;
-}
-
-export interface FlowResult {
-  storeId: string;
-  spreadsheetId: string;
-  mainSpreadsheetId: string;
+  folderId: string;
 }
 
 /**
@@ -34,14 +29,8 @@ export interface FlowResult {
 export const E2E_STORE: StoreConfig = {
   storeId: "e2e-store-1",
   mainSpreadsheetId: "e2e-main-id",
+  folderId: "new-e2e-id",
 };
-
-// The main spreadsheet ID is always "e2e-main-id" in E2E tests — the MSW
-// Drive handler returns this ID from its getActiveSpreadsheetId() default.
-const E2E_MAIN_SPREADSHEET_ID = "e2e-main-id";
-// The store folder ID is always "new-e2e-id" — MSW returns this from every
-// POST /drive/v3/files call during store folder creation.
-const E2E_STORE_FOLDER_ID = "new-e2e-id";
 
 /**
  * Enable test mode flags before navigation.
@@ -68,7 +57,7 @@ export async function enableTestMode(page: Page): Promise<void> {
  * NOTE: Does NOT inject any Stores fixture. Use setup() which injects the
  * correct Stores fixture based on whether the caller pre-seeded Stores or not.
  */
-export async function loginAndSetup(page: Page): Promise<FlowResult> {
+export async function login(page: Page): Promise<StoreConfig> {
   await page.goto(`${BASE}/login`);
   await page.waitForLoadState("domcontentloaded");
 
@@ -145,13 +134,13 @@ export async function loginAndSetup(page: Page): Promise<FlowResult> {
         }),
       );
     },
-    { storeId, mainSpreadsheetId: E2E_MAIN_SPREADSHEET_ID },
+    { storeId, mainSpreadsheetId: E2E_STORE.mainSpreadsheetId },
   );
 
   return {
     storeId,
-    spreadsheetId: E2E_MAIN_SPREADSHEET_ID,
-    mainSpreadsheetId: E2E_MAIN_SPREADSHEET_ID,
+    mainSpreadsheetId: E2E_STORE.mainSpreadsheetId,
+    folderId: E2E_STORE.folderId,
   };
 }
 
@@ -159,7 +148,7 @@ export async function loginAndSetup(page: Page): Promise<FlowResult> {
  * Single entry-point for test setup. Always runs in this order:
  *   1. setMswFixtures  — injects window.__E2E_FIXTURES__ via addInitScript
  *   2. enableTestMode  — injects window.__E2E_SIGNIN__ / __MSW_ENABLED__ via addInitScript
- *   3. loginAndSetup   — navigates: /login → /stores|setup → /cashier
+ *   3. login   — navigates: /login → /stores|setup → /cashier
  *   4. Stores fixture  — if tables.Stores was NOT provided, injects the default
  *                        single-store entry so ensureStoreMapReady() can resolve
  *                        drive_folder_id on subsequent navigations.
@@ -171,10 +160,10 @@ export async function loginAndSetup(page: Page): Promise<FlowResult> {
 export async function setup(
   page: Page,
   tables: FixtureTables = {},
-): Promise<FlowResult> {
+): Promise<StoreConfig> {
   await setMswFixtures(page, E2E_STORE, tables);
   await enableTestMode(page);
-  const result = await loginAndSetup(page);
+  const result = await login(page);
 
   if (!tables.Stores) {
     // No Stores were pre-seeded: inject the default single-store entry so
@@ -211,8 +200,8 @@ export async function setup(
       },
       {
         storeId: result.storeId,
-        mainId: E2E_MAIN_SPREADSHEET_ID,
-        folderId: E2E_STORE_FOLDER_ID,
+        mainId: E2E_STORE.mainSpreadsheetId,
+        folderId: E2E_STORE.folderId,
       },
     );
   }
