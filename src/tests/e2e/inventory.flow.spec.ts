@@ -113,11 +113,11 @@ test.describe("Products CRUD (T022)", () => {
     const catId = makeId(testInfo, "cat-search");
 
     await enableTestMode(page);
-    const { storeId } = await loginAndSetup(page);
+    const { storeId, mainSpreadsheetId } = await loginAndSetup(page);
 
     await setMswFixtures(
       page,
-      { storeId, mainSpreadsheetId: "e2e-main-id" },
+      { storeId, mainSpreadsheetId },
       {
         Categories: [
           { id: catId, name: "Makanan", created_at: now, deleted_at: null },
@@ -164,11 +164,11 @@ test.describe("Products CRUD (T022)", () => {
     const monthlySheetId = makeId(testInfo, "monthly-sheet-stock");
 
     await enableTestMode(page);
-    const { storeId: actualStoreId } = await loginAndSetup(page);
+    const { storeId, mainSpreadsheetId } = await loginAndSetup(page);
 
     await setMswFixtures(
       page,
-      { storeId: actualStoreId, mainSpreadsheetId: "e2e-main-id" },
+      { storeId, mainSpreadsheetId },
       {
         Products: [
           {
@@ -197,7 +197,7 @@ test.describe("Products CRUD (T022)", () => {
       },
     );
 
-    await page.goto(`${BASE}/${actualStoreId}/cashier`);
+    await page.goto(`${BASE}/${storeId}/cashier`);
     await page.waitForLoadState("domcontentloaded");
     await page
       .getByTestId(`product-card-${prodId}`)
@@ -213,7 +213,7 @@ test.describe("Products CRUD (T022)", () => {
 
     await navigateTo(
       page,
-      `${BASE}/${actualStoreId}/catalog/products`,
+      `${BASE}/${storeId}/catalog/products`,
       `product-stock-${prodId}`,
     );
     await expect(page.getByTestId(`product-stock-${prodId}`)).toHaveText(
@@ -233,11 +233,11 @@ test.describe("Stock Opname (T034)", () => {
     const categoryId = makeId(testInfo, "opname-cat-1");
 
     await enableTestMode(page);
-    const { storeId } = await loginAndSetup(page);
+    const { storeId, mainSpreadsheetId } = await loginAndSetup(page);
 
     await setMswFixtures(
       page,
-      { storeId, mainSpreadsheetId: "e2e-main-id" },
+      { storeId, mainSpreadsheetId },
       {
         Products: [
           {
@@ -290,11 +290,11 @@ test.describe("Purchase Orders (T035)", () => {
     const categoryId = makeId(testInfo, "po-cat-1");
 
     await enableTestMode(page);
-    const { storeId } = await loginAndSetup(page);
+    const { storeId, mainSpreadsheetId } = await loginAndSetup(page);
 
     await setMswFixtures(
       page,
-      { storeId, mainSpreadsheetId: "e2e-main-id" },
+      { storeId, mainSpreadsheetId },
       {
         Products: [
           {

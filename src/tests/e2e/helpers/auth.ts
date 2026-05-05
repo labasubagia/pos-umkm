@@ -1,7 +1,6 @@
 /**
  * auth.ts — E2E auth helpers.
  *
- * Exports BASE, DEFAULT_STORE, navigateTo.
  * For auth flow, use auth-flow.ts (enableTestMode + loginAndSetup).
  */
 import type { Page } from "@playwright/test";
@@ -12,11 +11,6 @@ export interface StoreConfig {
   storeId: string;
   mainSpreadsheetId: string;
 }
-
-export const DEFAULT_STORE: StoreConfig = {
-  storeId: "e2e-store-1",
-  mainSpreadsheetId: "e2e-main-id",
-};
 
 /**
  * Navigate within the SPA without a hard reload, preserving in-memory
