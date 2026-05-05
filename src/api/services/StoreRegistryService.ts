@@ -65,6 +65,12 @@ class StoreRegistryServiceImpl {
       }));
   }
 
+  async getStoreFolderId(storeId: string): Promise<string | null> {
+    const stores = await this.listStores();
+    const store = stores.find((s) => s.store_id === storeId);
+    return store ? store.drive_folder_id : null;
+  }
+
   async updateStoreName(storeId: string, newName: string): Promise<void> {
     const mainId = getMainSpreadsheetId();
     if (!mainId) {
