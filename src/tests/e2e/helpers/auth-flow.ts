@@ -54,16 +54,34 @@ export async function loginAndSetup(page: Page): Promise<FlowResult> {
   // Click sign-in - test mode returns fake user (handled in Login page)
   await page.getByRole("button", { name: /google/i }).click();
 
-  // Wait for redirect to stores (will redirect to setup since no stores)
-  await page.waitForURL("**/setup", { timeout: 15000 });
+  // After sign-in the app always routes through /stores first:
+  //   - stores exist  → stays on /stores (store picker renders)
+  //   - no stores     → immediately redirects to /setup
+  // We wait for the first URL to match, then race to find the stable state.
+  await page.waitForURL(/\/(setup|stores)(\/|$)/, { timeout: 15000 });
 
-  // Fill setup form
-  const businessNameInput = page.getByLabel(/Nama Usaha/i);
-  await businessNameInput.waitFor({ state: "visible" });
-  await businessNameInput.fill("E2E Test Store");
+  if (page.url().includes("/stores")) {
+    // App landed on /stores — may stay (stores exist) or redirect to /setup.
+    // Race: whichever happens first wins.
+    await Promise.race([
+      page
+        .locator('[data-testid^="btn-store-"]')
+        .first()
+        .waitFor({ timeout: 5000 }),
+      page.waitForURL("**/setup", { timeout: 5000 }),
+    ]).catch(() => {});
+  }
 
-  // Submit setup
-  await page.getByRole("button", { name: /Mulai Sekarang/i }).click();
+  if (page.url().includes("/setup")) {
+    // No stores existed: fill the setup form to create one.
+    const businessNameInput = page.getByLabel(/Nama Usaha/i);
+    await businessNameInput.waitFor({ state: "visible" });
+    await businessNameInput.fill("E2E Test Store");
+    await page.getByRole("button", { name: /Mulai Sekarang/i }).click();
+  } else {
+    // Stores existed: store picker is rendered — click the first entry.
+    await page.locator('[data-testid^="btn-store-"]').first().click();
+  }
 
   // Wait for redirect to cashier
   await page.waitForURL("**/cashier", { timeout: 20000 });
@@ -91,7 +109,14 @@ export async function loginAndSetup(page: Page): Promise<FlowResult> {
           | undefined) ?? {};
       (window as unknown as Record<string, unknown>).__E2E_FIXTURES__ = {
         ...existing,
+        // Merge: keep any stores already injected (e.g. SEED_STORES from setup()),
+        // then upsert the active store entry so ensureStoreMapReady() can resolve
+        // its drive_folder_id. Pre-seeded entries with the same store_id are
+        // replaced so their drive_folder_id stays authoritative.
         [`${mainId}/Stores`]: [
+          ...(
+            (existing[`${mainId}/Stores`] ?? []) as Record<string, unknown>[]
+          ).filter((s) => s.store_id !== storeId),
           {
             store_id: storeId,
             store_name: "E2E Test Store",
