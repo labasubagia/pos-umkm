@@ -174,7 +174,6 @@ export class HydrationService {
           await targetDb.table(sheetName).bulkPut(validRows);
         }
       });
-      void repo; // suppress unused warning — used above for type inference context
       await targetDb._syncMeta.put({
         key: metaKey,
         value: new Date().toISOString(),

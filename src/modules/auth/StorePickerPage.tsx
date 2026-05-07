@@ -24,7 +24,7 @@ import { useAuth } from "./useAuth";
 
 export default function StorePickerPage() {
   const navigate = useNavigate();
-  const { user, setActiveStoreId } = useAuth();
+  const { setActiveStoreId } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [localStores, setLocalStores] = useState<StoreRecord[]>([]);
@@ -54,9 +54,7 @@ export default function StorePickerPage() {
 
   const resolveStores = useCallback(async () => {
     try {
-      const { stores: list } = await StoreRegistryService.findOrCreateMain(
-        user?.email ?? "",
-      );
+      const { stores: list } = await StoreRegistryService.findOrCreateMain();
       if (list.length === 0) {
         navigate("/setup", { replace: true });
         return;
@@ -71,7 +69,7 @@ export default function StorePickerPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, navigate, activate]);
+  }, [navigate, activate]);
 
   useEffect(() => {
     if (initialized.current) return;

@@ -98,10 +98,10 @@ class StoreRegistryServiceImpl {
     }
   }
 
-  async findOrCreateMain(
-    ownerEmail = "",
-  ): Promise<{ mainSpreadsheetId: string; stores: StoreRecord[] }> {
-    void ownerEmail;
+  async findOrCreateMain(): Promise<{
+    mainSpreadsheetId: string;
+    stores: StoreRecord[];
+  }> {
     try {
       let mainId = getMainSpreadsheetId();
       if (!mainId) {

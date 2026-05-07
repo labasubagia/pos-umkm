@@ -132,20 +132,6 @@ export async function fetchDailySummary(date: string): Promise<DailySummary> {
 
 // ─── T039 — Date-Range Sales Report ──────────────────────────────────────────
 
-function getMonthsInRange(startDate: string, endDate: string): string[] {
-  const months: string[] = [];
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
-  while (cur <= end) {
-    months.push(
-      `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`,
-    );
-    cur.setMonth(cur.getMonth() + 1);
-  }
-  return months;
-}
-
 export async function fetchTransactionsForRange(
   startDate: string,
   endDate: string,
@@ -154,10 +140,7 @@ export async function fetchTransactionsForRange(
     throw new ReportError("Tanggal mulai tidak boleh lebih dari tanggal akhir");
   }
 
-  const months = getMonthsInRange(startDate, endDate);
-
-  // Use the indexed findByDateRange — single query instead of full-table scan per month
-  void months; // months kept for future multi-sheet routing
+  // Use the indexed findByDateRange — single query instead of full-table scan.
   const allRows = await getRepos().transactions.findByDateRange(
     startDate,
     endDate,
