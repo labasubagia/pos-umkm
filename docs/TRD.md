@@ -3,9 +3,9 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.14                              |
+| Version     | 2.17                              |
 | Status      | Draft                             |
-| Date        | April 2026                        |
+| Date        | May 2026                          |
 | Related     | docs/PRD.md (Product Requirements)     |
 
 ---
@@ -63,9 +63,8 @@ POS UMKM MVP is a **static Single-Page Application (SPA)** — a purely client-s
  │                           │  ├── main [sheet]     │    │
  │                           │  └── stores/          │    │
  │                           │      └── <store_id>/  │    │
- │                           │          ├── master   │    │
- │                           │          └── trans-   │    │
- │                           │              actions/ │    │
+ │                           │          └── data     │    │
+ │                           │    (preset-defined)   │    │
  │                           └──────────────────────┘    │
  └───────────────────────────────────────────────────────┘
 
@@ -74,7 +73,7 @@ Static files hosted on: GitHub Pages / Netlify / Vercel (free tier)
 
 ### 1.3 Data Ownership & Sharing
 
-Each business owner's data lives in **their own Google Drive** organized under `apps/pos_umkm/` (see §4.2). The owner can own multiple stores (branches), each with its own folder and spreadsheets. Staff members are invited by sharing the entire store folder — all files inside (master sheet, current and future monthly sheets) become accessible immediately. The app never stores user data on its own servers.
+Each business owner's data lives in **their own Google Drive** organized under `apps/pos_umkm/` (see §4.2). The owner can own multiple stores (branches), each with its own store folder. The spreadsheet layout inside that folder is **preset-driven** — the default (`single`) puts all tabs in one `data` spreadsheet; the `multi` preset adds monthly transaction spreadsheets. Staff members are invited by the owner sharing the relevant spreadsheets via `StoreFolderService.shareSpreadsheet()`. The app never stores user data on its own servers.
 
 ### 1.4 MVP Constraints
 
@@ -131,7 +130,7 @@ See §12 for the full offline-first architecture.
 - i18n: `react-i18next` with `id-ID` (Bahasa Indonesia) as default, `en-US` secondary
 - Currency: `Rp` prefix, no decimals, `Intl.NumberFormat('id-ID')` (e.g., Rp 15.000)
 - All monetary values stored in sheets as plain integers (IDR, no decimals) to avoid floating-point issues
-- Date format: `dd/MM/yyyy HH:mm` (date-fns tokens) via `date-fns` + `date-fns-tz` with `id` locale; exposed as `formatDateTimeTZ(isoString)` in `src/lib/formatters.ts`
+- Date format: `dd/MM/yyyy HH:mm` (date-fns tokens) via `date-fns` + `date-fns-tz` with `id` locale; exposed as `formatDateTimeTZ(isoString)` in `src/utils/formatters.ts`
 - Timestamps: ISO 8601 strings written to sheets; displayed in the user's browser-local timezone (`Intl.DateTimeFormat().resolvedOptions().timeZone`) by default — no manual timezone selection required
 
 ### 2.5 Module Structure
@@ -140,114 +139,115 @@ The codebase is organized into **feature modules**. Each module is self-containe
 
 ```
 src/
+├── api/
+│   ├── adapters/        # Data access + auth layer
+│   │   ├── index.ts             # Exports getRepos, makeRepo, syncManager, hydrationService
+│   │   ├── LocalRepository.ts   # ILocalRepository + typed Repos map
+│   │   ├── RemoteRepository.ts  # IRemoteRepository for raw Sheets access
+│   │   ├── types.ts             # AuthAdapter, AdapterError, shared auth types
+│   │   ├── zod-schemas.ts       # Typed row schemas + ALL_TAB_HEADERS
+│   │   ├── dexie/
+│   │   │   ├── db.ts            # Per-store Dexie DB factory + outbox schema
+│   │   │   ├── DexieRepository.ts
+│   │   │   ├── typed-repos.ts
+│   │   │   └── DexieRepository.test.ts
+│   │   └── google/
+│   │       ├── GoogleAuthAdapter.ts
+│   │       ├── SheetRepository.ts
+│   │       ├── StoreFolderService.ts
+│   │       ├── drive/
+│   │       │   └── drive.client.ts
+│   │       └── sheets/
+│   │           ├── sheets.ops.ts
+│   │           └── sheets.types.ts
+│   └── services/        # Sync, hydration, migration, store activation/registry
+│       ├── HydrationService.ts
+│       ├── MigrationService.ts
+│       ├── StoreActivationService.ts
+│       ├── StoreRegistryService.ts
+│       └── SyncManager.ts
 ├── modules/
 │   ├── auth/            # Google login, token management, member invite
 │   │   ├── AuthProvider.tsx
+│   │   ├── LoginPage.tsx
+│   │   ├── StorePickerPage.tsx
+│   │   ├── auth.service.ts
 │   │   ├── useAuth.ts
-│   │   ├── googleSheets.auth.ts
-│   │   └── auth.test.ts
+│   │   └── auth.test.tsx
 │   ├── catalog/         # Products, variants, categories
 │   │   ├── ProductList.tsx
 │   │   ├── ProductForm.tsx
-│   │   ├── useCatalog.ts
-│   │   ├── catalog.service.ts   # Sheets API calls
-│   │   └── catalog.test.ts
+│   │   ├── CategoryList.tsx
+│   │   ├── VariantManager.tsx
+│   │   ├── catalog.service.ts
+│   │   └── catalog.service.test.ts
 │   ├── cashier/         # POS screen, cart, payment, receipt
-│   │   ├── CashierScreen.tsx
-│   │   ├── Cart.tsx
+│   │   ├── ProductSearch.tsx
+│   │   ├── CartPanel.tsx
 │   │   ├── PaymentModal.tsx
 │   │   ├── useCart.ts
 │   │   ├── cashier.service.ts
-│   │   └── cashier.test.ts
+│   │   └── cashier.service.test.ts
 │   ├── inventory/       # Stock opname, stock adjustments, purchase orders
 │   │   ├── StockOpname.tsx
 │   │   ├── PurchaseOrders.tsx
-│   │   ├── useInventory.ts
 │   │   ├── inventory.service.ts
-│   │   └── inventory.test.ts
+│   │   └── inventory.service.test.ts
 │   ├── customers/       # Customer management
-│   │   ├── CustomersListPage.tsx   # Route component for customers/ sub-route
+│   │   ├── CustomersListPage.tsx
 │   │   ├── CustomerSearch.tsx
 │   │   ├── RefundFlow.tsx
-│   │   ├── useCustomers.ts
 │   │   ├── customers.service.ts
-│   │   └── customers.test.ts
+│   │   └── refund.service.ts
 │   ├── reports/         # Sales reports, reconciliation
 │   │   ├── DailySummary.tsx
 │   │   ├── SalesReport.tsx
-│   │   ├── useReports.ts
+│   │   ├── GrossProfitReport.tsx
+│   │   ├── CashReconciliation.tsx
 │   │   ├── reports.service.ts
-│   │   └── reports.test.ts
-│   └── settings/        # Business config, member management
+│   │   └── reports.service.test.ts
+│   └── settings/        # Business config, member management, store management
 │       ├── BusinessProfile.tsx
 │       ├── MemberManagement.tsx
-│       ├── useSettings.ts
+│       ├── QRISConfig.tsx
 │       ├── settings.service.ts
-│       └── settings.test.ts
-├── lib/
-│   ├── adapters/        # Data access + auth layer
-│   │   ├── types.ts             # AuthAdapter interface + shared types (AdapterError, User, Role)
-│   │   ├── entity-types.ts      # Typed row interfaces for all 15 Dexie entity tables
-│   │   ├── repo-interfaces.ts   # Per-model ILocalRepository sub-interfaces (IProductRepository, etc.)
-│   │   ├── repos.ts             # Repos type map (logical name → ILocalRepository or per-model sub-interface)
-│   │   ├── schema.ts            # ALL_TAB_HEADERS — column header registry
-│   │   ├── index.ts             # Exports active repos, syncManager, hydrationService
-│   │   ├── google/
-│   │   │   ├── SheetRepository.ts       # ISheetRepository → Google Sheets API calls
-│   │   │   ├── GoogleAuthAdapter.ts     # Wraps @react-oauth/google (GIS)
-│   │   │   └── sheets/                  # Low-level Google Sheets API HTTP client
-│   │   │       ├── sheets.client.ts
-│   │   │       └── sheets.client.test.ts
-│   │   └── dexie/               # Offline-first layer (browser IndexedDB)
-│   │       ├── db.ts            # Dexie DB class — all entity tables + _outbox + _syncMeta
-│   │       ├── DexieRepository.ts       # ILocalRepository backed by IndexedDB + outbox
-│   │       ├── typed-repos.ts           # Per-model Dexie subclasses with indexed query methods
-│   │       ├── SyncManager.ts           # Drains _outbox to Sheets; rate-limit backoff
-│   │       ├── HydrationService.ts      # Pulls Sheets → IndexedDB on login
-│   │       ├── DexieRepository.test.ts
-│   │       └── SyncManager.test.ts
-│   ├── formatters.ts    # IDR, date, number formatting utilities
-│   ├── validators.ts    # Input validation rules
-│   └── uuid.ts          # UUID v4 generator
+│       └── store-management.service.ts
 ├── components/          # Shared, reusable UI components
-│   ├── NavBar.tsx       # Role-aware top navigation bar (desktop; links hidden on mobile, shown on md+)
-│   ├── BottomNav.tsx    # Role-aware bottom navigation bar (mobile only; md:hidden)
-│   ├── AppShell.tsx     # Authenticated page layout: NavBar + Outlet + BottomNav; starts SyncManager
-│   ├── SyncStatus.tsx   # NavBar sync badge: offline/pending/syncing/error/synced states
-│   └── ui/              # shadcn/ui primitives (Button, Modal, etc.)
+│   ├── NavBar.tsx
+│   ├── BottomNav.tsx
+│   ├── AppShell.tsx
+│   ├── SyncStatus.tsx
+│   └── ui/
+├── config/              # Preset and schema configuration for sheets/tabs
+├── hooks/
+│   └── queryClient.ts   # Shared TanStack Query client
+├── i18n/
+│   └── i18n.ts          # i18next initialization
 ├── pages/               # Cross-module orchestrators and non-module pages only
-│   │                    # Rule: import from modules/ for single-module routes;
-│   │                    #       use pages/ only when a page composes multiple modules
-│   │                    #       or has no owning feature module.
-│   ├── CashierPage.tsx          # Composes cashier + customers + cart (multi-module)
-│   ├── LandingPage.tsx          # Public landing (no module)
-│   ├── NotFoundPage.tsx         # 404 (no module)
-│   ├── OutboxPage.tsx           # Sync outbox viewer (cross-cutting)
-│   ├── SetupPage.tsx            # Setup redirect shim (no module)
-│   └── StoreManagementPage.tsx  # Settings sub-page (store CRUD; settings module scope)
-├── hooks/               # Shared React hooks — all React Query data hooks live here
-│   │                    # (useStores, useCategories, useProducts, useVariants,
-│   │                    #  useCustomers, useMembers, useSettings, useStockOpname,
-│   │                    #  usePurchaseOrders — each includes activeStoreId in queryKey)
-├── store/               # Zustand global stores — session state only
-│   ├── authStore.ts     # Auth state: user, activeStoreId, spreadsheet IDs, sign-out
-│   └── syncStore.ts     # Sync state: pendingCount, isSyncing, lastSyncedAt, lastError
-└── tests/
-    └── e2e/             # Playwright end-to-end tests
-        ├── setup.flow.spec.ts
-        ├── cashier.flow.spec.ts
-        ├── inventory.flow.spec.ts
-        ├── reports.flow.spec.ts
-        └── members.flow.spec.ts
+│   ├── CashierPage.tsx
+│   ├── LandingPage.tsx
+│   ├── NotFoundPage.tsx
+│   ├── OutboxPage.tsx
+│   └── StoreManagementPage.tsx
+├── store/
+│   ├── authStore.ts
+│   ├── storeMapStore.ts
+│   └── syncStore.ts
+├── tests/
+│   └── e2e/
+└── utils/
+    ├── formatters.ts
+    ├── logger.ts
+    ├── uuid.ts
+    └── validators.ts
 ```
 
 **Key rules:**
-- `lib/adapters/` is the only data and auth abstraction layer. Module service files call `ILocalRepository<T>` via `getRepos()` — never `lib/adapters/google/sheets/` or Google APIs directly from modules. `lib/adapters/google/sheets/` is used only inside `SheetRepository`, `SyncManager`, and `HydrationService`.
-- `lib/adapters/google/sheets/` is the low-level HTTP transport for the Google Sheets API, used exclusively by `SheetRepository`.
-- No module imports from another module's internals. Shared state goes through **React Query hooks** (`src/hooks/`) for server/Dexie data, or **Zustand** (`src/store/`) for session state.
-- All React Query hooks include `activeStoreId` as part of the query key so switching stores automatically invalidates and refetches cached data.
-- After `HydrationService.hydrateAll()` completes in `AppShell`, `queryClient.invalidateQueries()` is called to refetch all active queries from freshly-populated IndexedDB.
-- Pure functions (formatters, validators, calculations) live in `lib/` and are unit-testable without DOM or API.
+- `src/api/adapters/` is the only data and auth abstraction layer. Module service files call `getRepos()` for IndexedDB-first access and never talk to Google APIs directly.
+- `src/api/adapters/google/sheets/` contains the low-level Sheets operations used by `SheetRepository`; `SheetRepository`, `SyncManager`, and `HydrationService` are the only layers that talk to Google Sheets directly.
+- No module imports from another module's internals. Shared session state goes through **Zustand** (`src/store/`), while shared TanStack Query cache primitives live in `src/hooks/queryClient.ts`.
+- `HydrationService.hydrateAll()` runs only after the store map is ready, reads spreadsheet IDs from that map, and updates `syncStore.lastHydratedAt` so page-level queries can react to refreshed Dexie data.
+- Pure functions (formatters, validators, calculations) live in `src/utils/` and are unit-testable without DOM or API.
 - **Route import rule:** `src/router.tsx` imports route components directly from `src/modules/` for single-module routes. `src/pages/` is reserved for multi-module orchestrators (`CashierPage`) and pages with no owning module (`LandingPage`, `NotFoundPage`, `OutboxPage`, `StoreManagementPage`). There are no empty page-shell files — if a route needs only one module's component, the module component is used directly.
 
 ### 2.6 Application Layout — AppShell, NavBar & BottomNav
@@ -326,8 +326,9 @@ The `CashierPage` outer container uses `flex flex-1 overflow-hidden flex-col md:
 The production data path has three distinct subsystems — each with a clear, single responsibility:
 
 ```
-GDrive (DriveClient)
-  └─ Provisions store folders + spreadsheets (setup only; always-online)
+GDrive (StoreFolderService)
+  └─ Provisions store folders + spreadsheets via Drive API (MigrationService, setup only; always-online)
+  └─ Traverses the store folder tree on activation to build the store map (SheetMeta per tab)
 
 IndexedDB / Dexie (DexieRepository)
   └─ Browser-local read/write; source of truth for all feature module reads
@@ -344,26 +345,25 @@ Google Sheets API (SheetRepository + SyncManager + HydrationService)
 ILocalRepository<T>          — used by feature modules via getRepos()
   getAll()                   — read from IndexedDB
   batchInsert(rows)          — write to IndexedDB + enqueue outbox
-  batchUpdate(updates)       — patch specific columns + enqueue outbox
-  batchUpsertBy(...)         — upsert by lookup key + enqueue outbox
+  batchUpdate(updates)       — patch records by id + enqueue outbox
+  batchUpsert(rows)          — insert-or-update by id + enqueue outbox
   softDelete(id)             — stamp deleted_at + enqueue outbox
 
-ISheetRepository<T>          — used by sync layer only
+IRemoteRepository<T>         — used by sync/setup layer only
   getAll()                   — read from Google Sheets API
-  batchAppend(rows)          — append rows to Sheets
-  batchUpdateCells(updates)  — update cells in Sheets
-  batchUpsertByKey(...)      — upsert in Sheets
+  batchInsert(rows)          — append rows to Sheets
+  batchUpdate(updates)       — update cells in Sheets
   softDelete(id)             — stamp deleted_at in Sheets
-  writeHeaders(headers)      — write column header row (setup only)
+  createTable(headers)       — write column header row (setup only)
 ```
 
-**`DexieRepository<T>`** implements `ILocalRepository<T>`. Its constructor takes a `syncTarget: SyncTarget` (`{ spreadsheetId, sheetName }`) — a routing hint stored in each `OutboxEntry` so `SyncManager` knows which remote Sheet to replay the mutation against. `DexieRepository` is not "a Sheet" — it is a browser IndexedDB table that happens to sync to one.
+**`DexieRepository<T>`** implements `ILocalRepository<T>`. It writes to a store-scoped Dexie database and appends structured `OutboxEntry.operation` payloads. Spreadsheet routing is resolved later by `SyncManager` from the active store map, not stored in the repository instance.
 
-**`SheetRepository<T>`** implements `ISheetRepository<T>`. Used by `SyncManager` (to drain the outbox) and by `makeRepo()` in setup code (where the device is guaranteed online). Never called directly by feature module service files.
+**`SheetRepository<T>`** implements `IRemoteRepository<T>`. It is used by `SyncManager` (to drain the outbox) and by `makeRepo()` in setup code (where the device is guaranteed online). Feature module service files never call it directly.
 
 **`GoogleAuthAdapter`** — wraps `@react-oauth/google`. Stores access token in memory. Implements `AuthAdapter`.
 
-**Key rule:** `getRepos()` returns `Repos`. `makeRepo()` returns `ISheetRepository<T>`. Feature modules only ever call `getRepos()`.
+**Key rule:** `getRepos()` returns `Repos`. `makeRepo()` returns `IRemoteRepository<T>`. Feature modules only ever call `getRepos()`.
 
 **Per-model sub-interfaces:** Five entries in `Repos` use narrower sub-interfaces instead of bare `ILocalRepository<T>`:
 
@@ -381,7 +381,7 @@ Each sub-interface extends `ILocalRepository<T>` — the five base methods are a
 
 ## 3. Authentication — Google Login
 
-> **Note on auth:** `MockAuthAdapter` is available for development (instant sign-in, no OAuth popup). In production, `GoogleAuthAdapter` (GIS) is used. Skip to §3.2 for the production auth flow.
+> **Note on auth:** The production implementation uses `GoogleAuthAdapter` (GIS). Tests mock the adapter layer directly rather than routing through a separate development auth adapter.
 
 ### 3.1 Production Auth Flow (GoogleAuthAdapter)
 
@@ -406,7 +406,7 @@ Each sub-interface extends `ILocalRepository<T>` — the five base methods are a
 | `https://www.googleapis.com/auth/spreadsheets` | All users | Read and write spreadsheet data |
 | `https://www.googleapis.com/auth/drive` | Owner only | Create folder structure, share folders with members, create spreadsheets |
 
-> **Members** only need the `spreadsheets` scope — they access spreadsheets shared via the store folder. The `drive` scope is requested only for the owner at first-time setup (and when inviting members or creating new branches). The app detects whether the user is an owner or member based on the `Members` record in the master sheet.
+> **Members** only need the `spreadsheets` scope — they access the `data` spreadsheet shared directly with their account. The `drive` scope is requested only for the owner at first-time setup (and when inviting members or creating new branches). The app detects whether the user is an owner or member based on the `Members` record in the data spreadsheet.
 
 ### 3.3 First-Time Setup (Owner) and Post-Login Store Resolution
 
@@ -423,15 +423,17 @@ Every login (first-time and returning) goes through `/stores` (StorePickerPage) 
 
 **When navigating to /setup (SetupWizard):**
 
-1. Collects business name, timezone, and PPN toggle from the owner
-2. Generates a UUID as the store's permanent `store_id`
-3. Creates `apps/pos_umkm/stores/<store_id>/` folder (Drive scope required)
-4. Creates `master` spreadsheet inside `apps/pos_umkm/stores/<store_id>/`
-5. Initializes all master sheet tabs with frozen header rows (see §4.3); writes `store_id` to `Settings` tab
-6. Creates the current month's transaction spreadsheet inside `transactions/<year>/`
-7. Adds a row to `main.Stores` with the new store's details
-8. Saves `activeStoreId` and `storeFolderId` to `localStorage`
-9. Saves the owner's profile in the `Members` sheet with role `owner`
+1. Collects business name from the owner
+2. Calls `MigrationService.runStoreSetup(businessName)` which:
+   a. Generates a UUID as the store's permanent `store_id`
+   b. Creates `apps/pos_umkm/stores/<store_id>/` folder (Drive scope required)
+   c. Runs `MigrationService.migrate(storeId, date, ACTIVE_PRESET)` — creates all spreadsheets and tab headers defined by the active preset (see §4.1)
+   d. Registers the store in `main.Stores` (store_id, store_name, drive_folder_id, owner_email)
+   e. Calls `StoreActivationService.activateStore()` — traverses the store folder, populates the store map
+3. Saves `activeStoreId` and `mainSpreadsheetId` to `localStorage`
+4. Saves the owner's profile in the `Members` sheet with role `owner`
+
+> **Preset selection:** The spreadsheet layout (how many spreadsheets, which tabs go where) is controlled by `VITE_STORE_PRESET` environment variable: `single` (all in one `data` spreadsheet), `multi` (permanent data + monthly transaction spreadsheets), `split` (each domain in its own spreadsheet). Defaults to `multi`. See §4.1.
 
 **Multiple branches:** From the Settings screen, the owner can add branches. Each branch goes through steps 2–9 above. The owner's `main.Stores` tab accumulates one row per branch.
 
@@ -444,29 +446,24 @@ Every login (first-time and returning) goes through `/stores` (StorePickerPage) 
 **Flow:**
 1. **Owner invites a member:**
    - Owner opens Settings → Manage Members → enters member's email and role
-   - App calls Drive API to **share the entire `stores/<store_id>/` folder** with the email as an **editor**
-   - This grants access to all existing files (master sheet, all monthly sheets) and all future files created inside the folder — no re-sharing required when new monthly sheets are added
+   - App calls `StoreFolderService.shareSpreadsheet(dataSpreadsheetId, email, "editor")` for each spreadsheet the member needs access to
+   - For the `single` preset: shares one `data` spreadsheet; for `multi`/`split`: shares multiple spreadsheets
    - App appends a row to the `Members` sheet: `{id, email, name, role: "cashier", invited_at}`
-   - App displays a **Store Link** — a URL containing the `masterSpreadsheetId` (e.g., `https://pos-umkm.app/join?sid=<masterSpreadsheetId>`)
+   - App displays a **Store Link** — a URL containing the `dataSpreadsheetId` (the primary store spreadsheet) encoded as `?sid=<id>`
 
 2. **Member joins:**
    - Member opens the Store Link in their browser
-   - App stores `masterSpreadsheetId` in `localStorage`
+   - App stores the `dataSpreadsheetId` from the `?sid` param in `localStorage`
    - Member clicks "Sign in with Google" — only requests the `spreadsheets` scope (no `drive` needed)
    - App reads `Members` tab to find their email, loads role and permissions
-   - App reads `Settings` tab to get `store_id`, `store_name`, and `drive_folder_id`
-   - App creates (or reads) the member's own `main` spreadsheet in their Drive and adds a `Stores` row with the store details
+   - App reads `Settings` tab to get `store_id` and `store_name`
+   - App creates (or reads) the member's own `main` spreadsheet in their Drive and adds a `Stores` row for this store (including `drive_folder_id`)
    - Member can now read/write the shared spreadsheets with their assigned role
 
-3. **Monthly sheet access:**
-   - Because the entire `stores/<store_id>/` folder is shared, any new monthly sheet created inside it is **automatically accessible** to all invited members — zero extra sharing API calls
-   - The owner or manager creates the new monthly sheet; cashiers cannot (they lack the `drive` scope)
-   - The recommended workflow: the app pre-creates next month's sheet during the last week of the current month when an owner/manager session is active
-
-4. **Store switching (multi-branch owner):**
+3. **Store switching (multi-branch owner):**
    - The owner's `main.Stores` tab lists all branches they own or manage
    - Active store is tracked in `localStorage` (`activeStoreId`)
-   - Switching branches updates `localStorage` and reloads master data from the selected branch's spreadsheets
+   - Switching branches updates `localStorage` and reloads data from the selected branch's data spreadsheet
    - A member who works at multiple stores has multiple rows in their own `main.Stores` tab, one per store
 
 5. **Role enforcement:**
@@ -483,7 +480,7 @@ Every login (first-time and returning) goes through `/stores` (StorePickerPage) 
 ### 3.5 POS Terminal Lock
 
 - After configurable idle period (default 5 minutes), the app displays a lock screen requiring a PIN
-- The PIN is a 4–6 digit code set per user, stored as a bcrypt hash in the `Users` sheet
+- The PIN is a 4–6 digit code set per user, stored as a bcrypt hash in the `Members` sheet
 - PIN validation runs entirely in the browser — no network call required
 
 ---
@@ -492,17 +489,26 @@ Every login (first-time and returning) goes through `/stores` (StorePickerPage) 
 
 > **Data schema note:** The column names, data types, and conventions in this section define the Google Sheets schema that `HydrationService` reads from and `SyncManager` writes to. `DexieRepository` stores objects with identical field names in IndexedDB.
 
-### 4.1 Three-Spreadsheet Model
+### 4.1 Preset-Driven Spreadsheet Model
 
-Data is split across three types of Google Spreadsheet:
+The spreadsheet layout is **config-driven** via `src/config/presets/` and selected at build time by the `VITE_STORE_PRESET` environment variable (default: `multi`). The `MigrationPayload` config groups tabs by `path` — tabs sharing the same path end up in the same spreadsheet.
+
+There are always two fixed spreadsheet types regardless of preset:
 
 | Spreadsheet | Location in Drive | Contents |
 |---|---|---|
-| **Main** | `apps/pos_umkm/main` | Owner's personal store registry; never shared with members |
-| **Master** | `apps/pos_umkm/stores/<store_id>/master` | All reference/master data for one store; permanent |
-| **Monthly** | `apps/pos_umkm/stores/<store_id>/transactions/<year>/transaction_<year>-<month>` | Transactions for a single calendar month |
+| **Main** | `apps/pos_umkm/main` | Owner's personal store registry (`Stores` tab); never shared with members |
+| **Store spreadsheet(s)** | `apps/pos_umkm/stores/<store_id>/...` | All store data; layout defined by the active preset |
 
-The **Main** spreadsheet is private to each user's Google account. It tracks which stores the user belongs to and which store is the active context. A new Monthly spreadsheet is automatically created on the first transaction of each new month (by an owner or manager session). Because the entire `stores/<store_id>/` folder is shared with members, new monthly sheets are accessible to them immediately without additional Drive API calls.
+**Available presets:**
+
+| Preset | `VITE_STORE_PRESET` | Spreadsheet layout |
+|---|---|---|
+| **Single** | `single` | All tabs (reference + transactions) in one `data` spreadsheet |
+| **Multi** | `multi` (default) | Reference data in `data`; transactions in monthly `transaction_<year>-<month>` spreadsheets |
+| **Split** | `split` | Each domain (settings, members, master_data, customers, transactions) in its own spreadsheet |
+
+Monthly spreadsheets (only in `multi` and `split`) are auto-created by `StoreActivationService.ensureMonthlySheets()` on activation. The `Main` spreadsheet is private to each user's Google account.
 
 ### 4.2 Drive Folder Structure
 
@@ -512,68 +518,57 @@ My Drive (owner's Google account)
     └── pos_umkm/
         ├── main  [spreadsheet — private, never shared]
         │   └── Stores tab
-        │       columns: store_id, store_name, master_spreadsheet_id,
-        │                drive_folder_id, owner_email, my_role, joined_at
+        │       columns: store_id, store_name, drive_folder_id,
+        │                owner_email, my_role, joined_at, deleted_at
         │
         └── stores/
-            └── <store_id>/               ← folder shared with all members
-                ├── master  [spreadsheet]
-                │   ├── Settings          ← includes store_id (UUID), store_name, etc.
-                │   ├── Members           ← staff list with roles and bcrypt PINs
-                │   ├── Categories, Products, Variants
-                │   ├── Customers
-                │   ├── Purchase_Orders, Purchase_Order_Items
-                │   ├── Stock_Log, Audit_Log
-                │   └── Monthly_Sheets    ← registry: year_month → spreadsheet_id
+            └── <store_id>/              ← store folder (drive_folder_id)
+                │                          traversed by StoreFolderService.traverse()
                 │
+                │  ← SINGLE preset (VITE_STORE_PRESET=single):
+                └── data  [spreadsheet]
+                    └── (all tabs — see §4.3)
+
+                   ← MULTI preset (VITE_STORE_PRESET=multi, default):
+                ├── data  [spreadsheet — reference data]
                 └── transactions/
                     └── <year>/
                         └── transaction_<year>-<month>  [spreadsheet]
-                            ├── Transactions
-                            ├── Transaction_Items
-                            └── Refunds
 ```
 
-**Active store context** is stored in the Zustand store map (`pos_umkm_storemap_<storeId>`, persisted to localStorage) and `localStorage` (`activeStoreId`, `storeFolderId`). On app load, AppShell reads the store map from localStorage; if empty, it traverses the Drive folder to populate it. The `main.Stores` tab is the source of truth for the full store list.
+**Active store context** is stored in the Zustand store map (`pos_umkm_storemap_<storeId>`, persisted to localStorage) and `localStorage` (`activeStoreId`). On login, `StoreActivationService.activateStore(store)` calls `storeFolderService.traverse(drive_folder_id, config)` to populate the store map. The `main.Stores` tab is the source of truth for the store list and `drive_folder_id`.
 
 | localStorage key | Value | Set by |
 |---|---|---|
-| `mainSpreadsheetId` | ID of the owner's `main` spreadsheet | `findOrCreateMain()` |
-| `activeStoreId` | UUID of the active store | `createMasterSpreadsheet()` / `activateStore()` |
-| `storeFolderId` | Drive folder ID for the active store | `createMasterSpreadsheet()` / `activateStore()` |
-| `pos_umkm_storemap_<storeId>` | Zustand-persisted store map (sheets + monthlySheets) | `activateStore()` / AppShell traversal |
+| `mainSpreadsheetId` | ID of the owner's `main` spreadsheet | `StoreRegistryService.findOrCreateMain()` |
+| `activeStoreId` | UUID of the active store | `MigrationService.runStoreSetup()` / `activateStore()` |
+| `pos_umkm_storemap_<storeId>` | Zustand store map — `sheets` (tab → SheetMeta) + `monthlySheets` (year → month → MonthlySheetMeta) | `StoreActivationService.activateStore()` |
 
-**Store map** — on activation, `activateStore()` traverses the store's Drive folder and builds a map of all spreadsheets and their sheet tabs. Non-transaction sheets (master) are stored in `sheets` (keyed by sheet name). Monthly transaction spreadsheets are stored in `monthlySheets[]` (array, one per month with `yearMonth` field). This allows multiple monthly spreadsheets to coexist without overwriting each other.
+**Store map** (`TraverseResult`) — built by `StoreFolderService.traverse(storeFolderId, config)`. Contains:
+- `sheets`: `Record<tabName, SheetMeta>` — each tab's spreadsheet ID, sheet ID, and headers
+- `monthlySheets`: `Record<year, Record<month, MonthlySheetMeta>>` — only populated in `multi`/`split` presets
 
-| Column | Detail |
-|---|---|
-| `year_month` | e.g., `2026-04` |
-| `spreadsheet_id` | Google-assigned ID of the monthly spreadsheet |
-| `created_at` | ISO 8601 UTC timestamp |
+The store map is rebuilt on every `activateStore()` call (TTL-guarded); it is also directly patched when `ensureMonthlySheets()` creates a new sheet that Drive's folder listing hasn't yet indexed.
 
-### 4.3 Master Spreadsheet — Sheet Tabs
+### 4.3 Data Spreadsheet — Sheet Tabs
+
+The tab layout is defined by the active preset in `src/config/presets/`. All column definitions live in the preset JSON files (`store-single.json`, `store-multi.json`, `store-split.json`). The table below shows the tabs present in the **single** preset (all in one `data` spreadsheet).
 
 | Tab Name | Purpose |
 |---|---|
 | `Settings` | Business profile, tax rate, receipt footer, timezone, PIN salt, `store_id` (UUID) |
 | `Members` | All staff (owner, managers, cashiers) with roles and bcrypt-hashed PINs |
 | `Categories` | Product category list |
-| `Products` | Product catalog — SKU, price, cost, stock, min_stock, category |
+| `Products` | Product catalog — name, SKU, price, stock, category |
 | `Variants` | Product variants (size, color) linked to Products |
 | `Customers` | Customer name and phone number |
+| `Transactions` | One row per completed transaction |
+| `Transaction_Items` | One row per line item, linked to a transaction by `transaction_id` |
+| `Refunds` | Refund records linked to original transactions |
 | `Purchase_Orders` | Incoming stock records (linked to Products) |
 | `Purchase_Order_Items` | Line items for each purchase order |
 | `Stock_Log` | Append-only stock adjustment history |
 | `Audit_Log` | Append-only log of sensitive actions (price changes, refunds, member changes) |
-| `Monthly_Sheets` | Registry of all monthly transaction spreadsheet IDs (year_month → spreadsheet_id) |
-
-### 4.4 Monthly Transaction Spreadsheet — Sheet Tabs
-
-| Tab Name | Purpose |
-|---|---|
-| `Transactions` | One row per completed transaction |
-| `Transaction_Items` | One row per line item, linked to a transaction by `transaction_id` |
-| `Refunds` | Refund records linked to original transactions |
 
 ### 4.5 Row Format Conventions
 
@@ -587,23 +582,22 @@ My Drive (owner's Google account)
 
 ### 4.6 Example: Products Tab
 
-| A: id | B: sku | C: name | D: category_id | E: price | F: cost_price | G: stock | H: min_stock | I: has_variants | J: image_url | K: deleted_at |
-|---|---|---|---|---|---|---|---|---|---|---|
-| uuid | SKU001 | Indomie Goreng | uuid-cat | 3500 | 2500 | 48 | 10 | FALSE | | |
+| A: id | B: category_id | C: name | D: sku | E: price | F: stock | G: has_variants | H: created_at | I: deleted_at |
+|---|---|---|---|---|---|---|---|---|
+| uuid | uuid-cat | Indomie Goreng | SKU001 | 3500 | 48 | FALSE | 2026-04-01T00:00:00Z | |
 
-### 4.7 Example: Transactions Tab (Monthly Sheet)
+### 4.7 Example: Transactions Tab
 
-| A: id | B: created_at | C: cashier_id | D: customer_id | E: subtotal | F: discount | G: tax | H: total | I: payment_method | J: cash_received | K: change | L: notes |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| uuid | 2026-04-18T… | user-uuid | uuid or empty | 15000 | 0 | 1650 | 16650 | CASH | 20000 | 3350 | |
+| A: id | B: created_at | C: cashier_id | D: customer_id | E: subtotal | F: discount_type | G: discount_value | H: discount_amount | I: tax | J: total | K: payment_method | L: cash_received | M: change | N: receipt_number | O: notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| uuid | 2026-04-18T… | user-uuid | uuid or empty | 15000 | PERCENT | 0 | 0 | 1650 | 16650 | CASH | 20000 | 3350 | RCP-001 | |
 
 ### 4.8 Reading Data
 
-- **Master data (products, categories, customers):** Fetched once on app load; cached in Zustand store; refreshed when the user navigates to the catalog.
-- **Product search:** Performed client-side against the Zustand store (no API call per keystroke).
-- **Active store context:** Read from the store map on startup (loaded from `pos_umkm_storemap_<storeId>` in localStorage; populated by Drive folder traversal on activation). The `main.Stores` tab is the source of truth for multi-branch store lists.
-- **Monthly sheet lookup:** The app reads `Monthly_Sheets` tab in the master sheet to resolve `year_month → spreadsheetId` — no Drive folder listing needed.
-- **Reports:** Fetch the relevant Monthly spreadsheet's `Transactions` and `Transaction_Items` tabs in full; aggregate in JavaScript. For multi-month reports, fetch each monthly spreadsheet sequentially.
+- **Master data (products, categories, customers):** Hydrated into IndexedDB on login and then read through `getRepos()`; UI reads are local-first.
+- **Product search:** Performed client-side against the hydrated local product list (no API call per keystroke).
+- **Active store context:** Read from the store map (Zustand, persisted to `pos_umkm_storemap_<storeId>` in localStorage). The map is built by `StoreFolderService.traverse(drive_folder_id, config)` on `activateStore()`. The `main.Stores` tab is the source of truth for the store list and `drive_folder_id`.
+- **Reports:** Reads from Dexie's indexed `Transactions` and `Transaction_Items` tables. Date-range queries use `transactions.findByDateRange(start, end)` — all transaction data is in the single `data` spreadsheet, no per-month spreadsheet lookup needed.
 
 ### 4.9 Writing Data
 
@@ -626,24 +620,18 @@ Total: **~8 API calls per transaction** in the worst case.
 
 ## 5. Entity Relationship Diagram
 
-The following diagram shows the logical relationships between data entities. Each entity maps to a tab in either the Master or Monthly spreadsheet (noted in brackets).
+The following diagram shows the logical relationships between data entities. Each entity maps to a tab in the `data` spreadsheet (or to the `Stores` tab in the `main` spreadsheet).
 
 ```mermaid
 erDiagram
     Stores {
         uuid   store_id PK
         string store_name
-        string master_spreadsheet_id
         string drive_folder_id
         string owner_email
         string my_role
         string joined_at
-    }
-
-    Monthly_Sheets {
-        string year_month PK
-        string spreadsheet_id
-        string created_at
+        string deleted_at
     }
 
     Settings {
@@ -788,10 +776,11 @@ erDiagram
     Members         ||--o{ Audit_Log           : "creates"
 ```
 
-**Spreadsheet mapping:**
+**Spreadsheet mapping (single preset):**
 - **Main sheet** (`apps/pos_umkm/main`): Stores
-- **Master sheet** (`stores/<store_id>/master`): Settings, Members, Categories, Products, Variants, Customers, Purchase_Orders, Purchase_Order_Items, Stock_Log, Audit_Log, Monthly_Sheets
-- **Monthly sheets** (`stores/<store_id>/transactions/<year>/transaction_<year>-<month>`): Transactions, Transaction_Items, Refunds
+- **Data sheet** (`apps/pos_umkm/stores/<store_id>/data`): Settings, Members, Categories, Products, Variants, Customers, Transactions, Transaction_Items, Refunds, Purchase_Orders, Purchase_Order_Items, Stock_Log, Audit_Log
+
+In the `multi` preset, Transactions/Transaction_Items/Refunds live in monthly `transaction_<year>-<month>` spreadsheets instead of the `data` spreadsheet.
 
 ---
 
@@ -806,7 +795,7 @@ erDiagram
 | OAuth scope | `drive` (owner — folder creation and sharing) + `spreadsheets` (all users); members need `spreadsheets` only |
 | PIN storage | PIN stored as bcrypt hash in `Members` sheet; raw PIN never stored or transmitted |
 | Audit log | Sensitive actions (price edits, stock adjustments, refunds, member changes) appended to `Audit_Log` tab |
-| Member access | Data sharing via Google Drive folder sharing (`stores/<store_id>/`); each member authenticates with their own Google account |
+| Member access | Data sharing via Google Sheets spreadsheet sharing (`stores/<store_id>/data`); each member authenticates with their own Google account |
 | Data residency | Data stored on Google's globally distributed servers. Known MVP trade-off vs. UU No. 27/2022; revisit for production |
 
 ---
@@ -1058,7 +1047,7 @@ The production data path uses **Dexie.js** (IndexedDB) as a local-first cache in
                            │
                            ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│  DexieRepository (src/lib/adapters/dexie/)                        │
+│  DexieRepository (src/api/adapters/dexie/)                        │
 │                                                                    │
 │  Reads ──────────────────────────────────► IndexedDB (instant)   │
 │                                                                    │
@@ -1079,34 +1068,36 @@ The production data path uses **Dexie.js** (IndexedDB) as a local-first cache in
 
 ### 12.2 Data Hydration
 
-`HydrationService.hydrateAll(mainId, masterId, monthlyId)` is called by `AppShell` after the auth store has all three spreadsheet IDs. It:
+`HydrationService.hydrateAll()` is called by `AppShell` after the active store map is ready. It:
 
-1. Fetches all 15 entity tables from Google Sheets in parallel (`Promise.allSettled`)
-2. Writes each table's rows into the corresponding IndexedDB table via `db.table(name).bulkPut()`
-3. Records a `_syncMeta` timestamp per table; skips tables hydrated within the last 5 minutes
-4. Skips tables with pending outbox entries to avoid overwriting unsynced local writes
+1. Hydrates `Stores` from the main spreadsheet into the global `__main__` Dexie DB
+2. Reads `SheetMeta` entries from the store map's `sheets` (and the current month's `monthlySheets` entry if the preset uses monthly sheets)
+3. Fetches all tabs in parallel via `Promise.allSettled` and writes rows into Dexie with `bulkPut()`
+   - The store map was built by `StoreFolderService.traverse(drive_folder_id, config)` during `activateStore()`
+4. Records `_syncMeta` freshness per `spreadsheetId + sheetName` and skips tables with pending outbox entries to avoid overwriting unsynced local writes
 
 On subsequent logins the skip condition (5-minute freshness window) means hydration only re-fetches stale tables, significantly reducing Sheets API read quota usage.
 
 ### 12.3 Outbox Pattern
 
-Every `DexieRepository` write method (`batchInsert`, `batchUpdate`, `batchUpsertBy`, `softDelete`) runs a Dexie ACID transaction that:
+Every `DexieRepository` write method (`batchInsert`, `batchUpdate`, `batchUpsert`, `softDelete`) runs a Dexie ACID transaction that:
 1. Writes the record(s) to the entity table in IndexedDB (immediately visible to all reads)
-2. Appends a serialized `OutboxEntry` to `_outbox` describing the Sheets API call to make
+2. Appends a structured `OutboxEntry` to `_outbox` describing the Sheets operation to replay
 
 The `OutboxEntry` schema:
 
 | Field | Type | Description |
 |---|---|---|
 | `id` | auto-increment | FIFO ordering key |
-| `spreadsheetId` | string | Target spreadsheet (master or monthly) |
-| `sheetName` | string | Target tab (e.g. `Products`, `Transactions`) |
-| `operation` | string | `append` \| `batchAppend` \| `batchUpdateCells` \| `softDelete` |
-| `payload` | string | JSON-serialized arguments for the Sheets API call |
+| `mutationId` | string | Client-generated UUID used as the mutation identifier |
+| `tableName` | string | Target table/tab name (e.g. `Products`, `Transactions`) |
+| `operation` | object | One of `{ op: "batchInsert", items }`, `{ op: "batchUpdate", items }`, or `{ op: "softDelete", id }` |
+| `status` | string | `pending` \| `syncing` \| `failed` |
 | `retries` | number | Number of failed sync attempts (max 5) |
 | `createdAt` | string | ISO 8601 timestamp |
+| `errorMessage` | string? | Last sync failure message, when present |
 
-`batchUpsertByKey` (used by Settings service) is decomposed at write time: Dexie is queried locally to distinguish updates from inserts, then `batchUpdateCells` and `batchAppend` outbox entries are created individually — avoiding the need to serialize the `makeNewRow` callback function.
+`batchUpsert` is decomposed at write time: Dexie is queried locally to distinguish updates from inserts, then `batchUpdate` and `batchInsert` outbox entries are created individually.
 
 ### 12.4 Sync Status UI
 
@@ -1127,7 +1118,6 @@ Tapping the error or pending indicator calls `syncManager.triggerSync()` to forc
 | Trade-off | Detail |
 |---|---|
 | Absolute stock writes | The outbox stores absolute stock values (not deltas). If two devices write the same product's stock offline simultaneously, the last-synced value wins. This is acceptable for single-cashier UMKM (the primary target persona). |
-| Monthly sheet rollover | When a new monthly spreadsheet is created at month start, old transaction rows remain in IndexedDB indefinitely. A pruning strategy for long-running installations is deferred. |
 | No app-shell offline cache | The HTML/JS/CSS bundle is not cached by a service worker. After a hard refresh on a device without network, the app shell will fail to load. IndexedDB data is preserved but inaccessible. |
 | First-load requires network | A completely fresh browser (empty IndexedDB) must be online for `HydrationService` to populate the local cache. |
 
@@ -1147,11 +1137,15 @@ Tapping the error or pending indicator calls `syncManager.triggerSync()` to forc
 | **`values.append`** | Sheets API method to add rows — used for all new record writes |
 | **`values.update`** | Sheets API method to overwrite specific cells — used for stock decrements and settings changes |
 | **spreadsheetId** | Unique identifier for a Google Sheets file; found in the file's URL |
-| **Store Link** | A URL containing the master spreadsheet ID that the owner shares with members to join the store (`/join?sid=<id>`) |
+| **Store Link** | A URL containing the data spreadsheet ID that the owner shares with members to join the store (`/join?sid=<dataSpreadsheetId>`) |
 | **Main Sheet** | The private `apps/pos_umkm/main` spreadsheet in each user's Drive; tracks which stores they belong to (`Stores` tab) |
-| **Master Sheet** | The permanent Google Spreadsheet inside `stores/<store_id>/` containing all reference data (products, members, settings) |
-| **Monthly Sheet** | A Google Spreadsheet created per calendar month inside `transactions/<year>/` containing only that month's transactions |
-| **Monthly_Sheets tab** | A tab in the Master Sheet that acts as a registry mapping `year_month → spreadsheetId` for fast monthly sheet lookup |
+| **Data Sheet** | A Google Spreadsheet inside the store folder containing store data. In the `single` preset this is a single `data` spreadsheet with all tabs; in `multi`/`split` presets multiple spreadsheets are created. Layout defined by `src/config/presets/`. |
+| **`StoreFolderService`** | Service (`src/api/adapters/google/StoreFolderService.ts`) that creates Drive folders and spreadsheets (`ensureFolder`, `createSpreadsheet`, `shareSpreadsheet`) and traverses the store folder tree to build the store map (`traverse`). |
+| **`MigrationService`** | Service (`src/api/services/MigrationService.ts`) that handles config-driven store provisioning. `migrate(storeId, date, config)` creates all spreadsheets + headers from a `MigrationPayload`. `runStoreSetup()` orchestrates the full store creation flow. |
+| **`StoreActivationService`** | Service (`src/api/services/StoreActivationService.ts`) that activates a store at runtime. Calls `StoreFolderService.traverse()` to build the store map, then `ensureMonthlySheets()` (for `multi`/`split` presets). Deduplicates concurrent activations via a `pendingActivations` Map. |
+| **`MigrationPayload`** | Config type (`src/config/types.ts`) describing the spreadsheet layout: `sheet` (permanent tabs with their `path` and `columns`) and optional `monthlySheet` (rotating tabs). Tabs with the same `path` end up in the same spreadsheet. |
+| **`ACTIVE_PRESET`** | The `MigrationPayload` selected at build time via `VITE_STORE_PRESET` env var. Three built-in presets: `single`, `multi` (default), `split`. Defined in `src/config/presets.ts`. |
+| **`drive_folder_id`** | Google Drive folder ID of the store's root folder (`apps/pos_umkm/stores/<store_id>/`). Stored in `main.Stores` and used by `StoreActivationService` to traverse the folder via `StoreFolderService.traverse()`. |
 | **store_id** | A UUID generated on store creation, written to `Settings.store_id`; used as the folder name and stable store identifier |
 | **UUID v4** | Universally Unique Identifier v4 — randomly generated primary key for all records |
 | **Soft delete** | Marking a record deleted via `deleted_at` timestamp instead of removing the row |
@@ -1167,14 +1161,14 @@ Tapping the error or pending indicator calls `syncManager.triggerSync()` to forc
 | **IndexedDB** | Browser-native key-value object store; persists data across sessions; used by Dexie.js as the physical storage layer |
 | **Dexie.js** | Minimal IndexedDB wrapper (npm: `dexie`) providing typed tables, ACID transactions, and a fluent query API; used as the offline-first local cache |
 | **Outbox pattern** | A write-through queueing technique: writes are applied locally first, then queued in an `_outbox` table for asynchronous replay to the remote system (Google Sheets) |
-| **SyncManager** | Background service (`src/lib/adapters/dexie/SyncManager.ts`) that drains the `_outbox` to Google Sheets; handles rate limiting, retries, and updates `syncStore` |
-| **HydrationService** | Service (`src/lib/adapters/dexie/HydrationService.ts`) that pulls all Google Sheets data into IndexedDB on login; skips recently-hydrated and outbox-pending tables |
+| **SyncManager** | Background service (`src/api/services/SyncManager.ts`) that drains the `_outbox` to Google Sheets; handles rate limiting, retries, and updates `syncStore` |
+| **HydrationService** | Service (`src/api/services/HydrationService.ts`) that pulls Google Sheets data into IndexedDB on login; skips recently-hydrated and outbox-pending tables |
 | **syncStore** | Zustand store (`src/store/syncStore.ts`) tracking `pendingCount`, `isSyncing`, `lastSyncedAt`, and `lastError` for the sync status UI |
 | **IDR integers** | Monetary values stored as plain integers in IDR (no decimals) to avoid floating-point errors |
-| **`entity-types.ts`** | Central module (`src/lib/adapters/entity-types.ts`) declaring typed row interfaces for all 15 Dexie entity tables (e.g. `ProductRow`, `TransactionRow`). All interfaces extend `Record<string, unknown>` for `ILocalRepository<T>` compatibility. Previously tables used `Record<string, unknown>` directly. |
-| **`IProductRepository`** | Per-model sub-interface of `ILocalRepository<ProductRow>` adding `findById(id)` and `findByCategoryId(categoryId)` for Dexie index queries. Siblings: `IVariantRepository`, `ITransactionRepository`, `ITransactionItemRepository`, `IPurchaseOrderItemRepository`. All defined in `src/lib/adapters/repo-interfaces.ts`. |
-| **`DexieProductRepository`** | Dexie subclass of `DexieRepository<ProductRow>` implementing `IProductRepository` using `where().equals()` for indexed lookups. Siblings: `DexieVariantRepository`, `DexieTransactionRepository`, `DexieTransactionItemRepository`, `DexiePurchaseOrderItemRepository`. All defined in `src/lib/adapters/dexie/typed-repos.ts`. |
+| **`zod-schemas.ts`** | Central module (`src/api/adapters/zod-schemas.ts`) declaring typed row schemas, row types, `ALL_TAB_HEADERS`, and parsing helpers shared by Dexie and Sheets layers. |
+| **`IProductRepository`** | Per-model sub-interface of `ILocalRepository<Product>` adding `findById(id)` and `findByCategoryId(categoryId)` for Dexie index queries. Siblings: `IVariantRepository`, `ITransactionRepository`, `ITransactionItemRepository`, `IPurchaseOrderItemRepository`. All defined in `src/api/adapters/LocalRepository.ts`. |
+| **`ProductRepository`** | Dexie subclass of `DexieRepository<Product>` implementing `IProductRepository` using indexed lookups. Siblings: `VariantRepository`, `TransactionRepository`, `TransactionItemRepository`, `PurchaseOrderItemRepository`. All defined in `src/api/adapters/dexie/typed-repos.ts`. |
 
 ---
 
-*End of Document — POS UMKM TRD v2.14*
+*End of Document — POS UMKM TRD v2.17*

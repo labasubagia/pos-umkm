@@ -8,9 +8,11 @@
 - **Status values:** `todo` | `in-progress` | `done` | `blocked` | `need-check`
 - **Parallelism:** Tasks within the same section that share no `depends_on` overlap can be worked on simultaneously by different agents.
 - **TDD rule:** Write the failing test(s) first, then implement, then refactor. Mark status `in-progress` before starting, `done` after all tests pass.
-- **Architecture rule:** After completing each task, verify no module imports another module's internals. All data reads/writes go through `lib/adapters/` (the `DataAdapter` interface) — never call `lib/adapters/google/sheets/` or Google APIs directly from modules. `lib/adapters/google/sheets/` is used only inside `GoogleDataAdapter`.
+- **Architecture rule:** After completing each task, verify no module imports another module's internals. All data reads/writes go through `src/api/adapters/` — feature modules use `getRepos()` for local-first access and never call Google APIs directly.
 - **Comments rule:** Every non-trivial function must have a JSDoc comment explaining *why* the approach was chosen, not just what it does.
 - **E2E locator rule:** Every interactive element and key output element that an E2E test touches **must** have a `data-testid` attribute. E2E tests must use `page.getByTestId()` as the primary selector. `getByRole`, `getByText`, `getByPlaceholder`, and `.first()` / `.last()` are not permitted as primary locators in assertions or interactions — only for page-level navigation waits. See TRD §7.4 for the full rule and naming convention.
+
+> **Historical note:** Some completed tasks below still use earlier names from before the adapter refactor (`src/lib/...`, `GoogleDataAdapter`, `DexieSheetRepository`). The current codebase uses `src/api/...`, `SheetRepository`, `DexieRepository`, `StoreFolderService`, and `SyncManager`/`HydrationService` in `src/api/services/`.
 
 ## Status Legend
 
@@ -128,7 +130,7 @@
 - **Test type:** none
 - **Architecture note:** `react-i18next` chosen because it integrates with React's rendering model (hook-based, suspense-compatible). Translation keys are namespaced by module (e.g., `cashier:paymentModal.title`) to allow lazy loading per route. `id-ID` (Bahasa Indonesia) is the default; `en-US` is the fallback.
 - **Deliverables:**
-  - `src/lib/i18n.ts` with i18next initialization
+  - `src/i18n/i18n.ts` with i18next initialization
   - `public/locales/id/common.json` and `public/locales/en/common.json`
   - A rendered component that uses `useTranslation()` and switches language
   - Number formatting utility using `Intl.NumberFormat('id-ID')` for IDR (see T012)
@@ -158,7 +160,7 @@
 - **Deliverables:**
   - Create all module folders with `index.ts` barrel files:
     `src/modules/{auth,catalog,cashier,inventory,customers,reports,settings}/`
-  - `src/lib/{formatters.ts,validators.ts,uuid.ts}`
+  - `src/utils/{formatters.ts,validators.ts,uuid.ts}`
   - `src/tests/e2e/` with spec file stubs
   - Linting configured (Biome) with an import rule to prevent cross-module internal imports
   - Biome / lint rule: warn on cross-module internal imports
@@ -171,32 +173,29 @@
 
 ---
 
-### T010 — Google Sheets API Client (`lib/adapters/google/sheets/`)
+### T010 — Google Sheets Operations (`src/api/adapters/google/sheets/`)
 
 - **Status:** ✅ done
 - **Section:** Core Library
 - **Depends on:** T009
 - **Test type:** unit (MSW mocks)
-- **Architecture note:** Low-level HTTP transport for Google Sheets API v4. Used exclusively inside `GoogleDataAdapter` (T047). No module or service file calls this directly. Isolated here so: (1) retry/backoff logic lives in one place; (2) MSW mocking surface is minimal; (3) swapping to a different HTTP client later only touches this file.
+- **Architecture note:** Low-level Google Sheets operations for row mapping, header resolution, and targeted cell updates. Used exclusively by `SheetRepository`. No module or service file calls this directly. Isolated here so retry/backoff, row-to-object mapping, and error translation live in one place.
 - **Deliverables:**
-  - `src/lib/adapters/google/sheets/sheets.client.ts`:
-    - `sheetsGet(spreadsheetId, range, token)` → parsed row arrays
-    - `sheetsAppend(spreadsheetId, range, rows, token)` → appended range response
-    - `sheetsUpdate(spreadsheetId, range, values, token)` → updated range response
-    - `sheetsBatchGet(spreadsheetId, ranges, token)` → multiple ranges in one API call
-    - Automatic retry with exponential backoff on HTTP 429 (rate limit)
-  - `src/lib/adapters/google/sheets/sheets.types.ts`: TypeScript types for all API shapes
-- **Test cases (`sheets.client.test.ts`):**
-  - ✅ `sheetsGet returns parsed 2D array of row values`
-  - ✅ `sheetsGet strips header row (row 1) from result`
-  - ✅ `sheetsAppend sends correct range and values`
-  - ✅ `sheetsUpdate sends correct range and single-cell value`
-  - ✅ `sheetsBatchGet fetches multiple ranges in one call`
-  - ✅ `retries once on HTTP 429 after backoff`
-  - ❌ `throws SheetsApiError on HTTP 403 (forbidden)`
-  - ❌ `throws SheetsApiError on HTTP 404 (spreadsheet not found)`
-  - ❌ `throws SheetsApiError after max retries exceeded`
-  - ❌ `throws if token is empty or undefined`
+  - `src/api/adapters/google/sheets/sheets.ops.ts`:
+    - `getAll(spreadsheetId, sheetName, token)` → parsed row objects
+    - `batchInsert(spreadsheetId, sheetName, rows, token)` → append ordered rows
+    - `batchUpdate(spreadsheetId, sheetName, updates, token)` → targeted `values:batchUpdate`
+    - `writeHeaders(spreadsheetId, sheetName, headers, token)` → row 1 initialization
+    - `softDelete(spreadsheetId, sheetName, rowId, token)` → `deleted_at` stamp
+  - `src/api/adapters/google/sheets/sheets.types.ts`: TypeScript types for Sheets API errors and payloads
+- **Test cases (`SheetRepository.test.ts`):**
+  - ✅ `getAll fetches correct spreadsheetId and range`
+  - ✅ `getAll maps header row columns to object keys`
+  - ✅ `batchInsert maps object fields to ordered row array`
+  - ✅ `batchUpdate reads headers and ID column, then sends targeted updates`
+  - ✅ `softDelete sets deleted_at on correct cell`
+  - ❌ `getAll throws AdapterError on Sheets API 403`
+  - ❌ `batchInsert throws AdapterError on Sheets API 429 after retries`
 
 ---
 
@@ -406,27 +405,31 @@
 - **Section:** Authentication
 - **Depends on:** T014, T046, T011
 - **Test type:** unit
-- **Architecture note:** The Drive API calls use the `drive` scope, which is requested only for the owner at first-time setup (and when inviting members or creating branches). Subsequent cashier/member logins only need the `spreadsheets` scope. On setup the owner session creates the full folder hierarchy (`apps/pos_umkm/stores/<store_id>/`), the `main` spreadsheet (via `findOrCreateMain`), and the `master` spreadsheet. The `activeStoreId` and `storeFolderId` are saved to `localStorage`. The store map (sheet metadata) is persisted to `pos_umkm_storemap_<storeId>` in localStorage. `SetupWizard` calls `runStoreSetup()` (not `runFirstTimeSetup`) — `findOrCreateMain()` is called earlier by `StorePickerPage` before navigating to `/setup`.
+- **Architecture note:** Setup is orchestrated by `MigrationService` (in `src/api/services/`) using the active preset (`ACTIVE_PRESET` / `VITE_STORE_PRESET`). The Drive API `drive` scope is requested only for the owner. `StorePickerPage` calls `findOrCreateMain()` to ensure the main spreadsheet exists. `SetupWizard` calls `MigrationService.runStoreSetup(businessName)`, which: creates the store folder, runs `migrate()` to create all spreadsheets and tab headers per the active preset, registers the store in `main.Stores` (with `drive_folder_id`), then calls `StoreActivationService.activateStore()` to traverse the folder and populate the store map.
 - **Deliverables:**
-  - `src/modules/auth/setup.service.ts`:
-    - `findOrCreateMain(ownerEmail?)` → `{ mainSpreadsheetId, stores[] }` — creates `apps/pos_umkm/main` if absent
-    - `createMasterSpreadsheet(businessName, ownerEmail, mainSpreadsheetId)` → returns `masterId, storeId, driveFolderId`
-    - `initializeMasterSheets(spreadsheetId)` → creates all tab headers
-    - `activateStore(store)` → traverses Drive folder, builds store map, pre-creates monthly sheets (Option B)
-    - `runStoreSetup(businessName, ownerEmail?)` → orchestrates master + monthly sheet creation, traverses folder
-  - `src/modules/auth/SetupWizard.tsx` — onboarding form: business name, timezone, PPN toggle; calls `runStoreSetup()`
-- **Test cases (`setup.service.test.ts`):**
-  - ✅ `createMasterSpreadsheet creates only master spreadsheet (not main)`
-  - ✅ `createMasterSpreadsheet registers store in main.Stores tab`
-  - ✅ `initializeMasterSheets creates all 11 required tabs`
-  - ✅ `findOrCreateMain creates main and returns empty stores when mainSpreadsheetId is not in localStorage`
-  - ✅ `findOrCreateMain reads stores from existing main when mainSpreadsheetId is cached`
-  - ✅ `activateStore traverses the store folder`
-  - ✅ `activateStore sets the store map`
-  - ✅ `runStoreSetup creates main, master, and monthly spreadsheets`
-  - ✅ `runStoreSetup returns storeId and driveFolderId`
-  - ❌ `createMasterSpreadsheet throws SetupError on Drive API failure`
-  - ❌ `initializeMasterSheets throws if spreadsheetId is invalid`
+  - `src/api/services/MigrationService.ts`:
+    - `migrate(storeId, date, config)` → config-driven provisioning — creates spreadsheets + tab headers from `MigrationPayload`
+    - `createStore(businessName, ownerEmail, mainId, config)` → creates store folder + spreadsheets, registers in `main.Stores`
+    - `runStoreSetup(businessName, ownerEmail?)` → orchestrates `createStore` → `traverse` → `activateStore`
+    - `runFirstTimeSetup(businessName, ownerEmail?)` → creates `main` if absent, then `runStoreSetup`
+  - `src/api/services/StoreActivationService.ts`:
+    - `activateStore(store, config)` → traverses Drive folder via `StoreFolderService.traverse()`, updates store map
+    - `ensureMonthlySheets(storeId, folderId, config)` → creates current month's spreadsheet (only in multi/split presets)
+  - `src/api/services/StoreRegistryService.ts`:
+    - `initMain(config)` → creates `apps/pos_umkm/main` spreadsheet
+    - `findOrCreateMain()` → `{ mainSpreadsheetId, stores[] }`
+    - `listStores(mainId)` → parses and validates store rows from `main.Stores`
+  - `src/pages/SetupWizard.tsx` (or `src/modules/auth/`) — onboarding form: business name; calls `runStoreSetup()`
+- **Test cases (`MigrationService.test.ts`):**
+  - ✅ `migrate creates single spreadsheet from config (single mode)`
+  - ✅ `migrate creates multiple spreadsheets from config (multi-spreadsheet mode)`
+  - ✅ `migrate handles custom folder structure`
+  - ✅ `migrate returns empty object when config is empty`
+  - ✅ `initMain creates main spreadsheet with correct config`
+  - ✅ `listStores returns parsed store records`
+  - ✅ `listStores filters out invalid rows`
+  - ✅ `listStores returns empty array when no main spreadsheet`
+  - ❌ `createStore throws MigrationError on Drive API failure`
 
 ---
 
@@ -436,15 +439,14 @@
 - **Section:** Authentication
 - **Depends on:** T015, T046
 - **Test type:** unit
-- **Architecture note:** Monthly spreadsheets are pre-created during store activation (Option B: current + next month). The `spreadsheetId` for each month is registered in the master sheet's `Monthly_Sheets` tab (`year_month → spreadsheetId`). The store map tracks monthly sheets in a `monthlySheets[]` array (one entry per month). On app load, AppShell loads the store map from localStorage; if empty, it traverses the Drive folder to populate it.
+- **Architecture note:** Monthly spreadsheets are **preset-dependent** — they only exist in the `multi` and `split` presets (`VITE_STORE_PRESET=multi|split`). When the active preset has a `monthlySheet` config, `StoreActivationService.ensureMonthlySheets()` creates the current month's spreadsheet if it doesn't exist. The store map's `monthlySheets` field (organized by year/month) is built by `StoreFolderService.traverse()` and is empty for the `single` preset. There is no longer a `Monthly_Sheets` registry tab — the Drive folder traversal is the source of truth.
 - **Deliverables:**
-  - `src/modules/auth/setup.service.ts` (additions):
-    - `initializeMonthlySheets(spreadsheetId)` → creates Transactions, Transaction_Items, Refunds tabs
-    - `ensureMonthlySheets(storeId, storeFolderId)` → pre-creates current + next month sheets
-    - `shareSheetWithAllMembers(spreadsheetId)` — reads Members tab, shares with each member
-- **Test cases (`setup.service.test.ts` additions):**
-  - ✅ `initializeMonthlySheets creates Transactions, Transaction_Items, Refunds tabs`
-  - ✅ `shareSheetWithAllMembers reads Members tab and calls Drive API share for each active member`
+  - `src/api/services/StoreActivationService.ts` (already in T015):
+    - `ensureMonthlySheets(storeId, storeFolderId, config)` — creates current month's spreadsheet when missing (no-op for `single` preset)
+    - Handles Drive API eventual consistency: patches store map directly with new spreadsheet ID if traverse hasn't caught up yet
+- **Test cases (covered by `MigrationService.test.ts` and `StoreActivationService`):**
+  - ✅ `ensureMonthlySheets is a no-op when preset has no monthlySheet config`
+  - ✅ `ensureMonthlySheets creates transaction spreadsheet for current month`
 
 ---
 
@@ -454,18 +456,18 @@
 - **Section:** Authentication
 - **Depends on:** T015, T046, T012
 - **Test type:** unit + e2e
-- **Architecture note:** Inviting a member requires two actions: (1) share the `stores/<store_id>/` folder via Drive API (granting access to all current and future files inside), (2) append a row to the `Members` tab. The Store Link is a URL containing the master spreadsheet ID encoded in a query param (`/join?sid=<id>`). The owner never needs to share a password — the link is the invite mechanism. The invited user must still authenticate with Google.
+- **Architecture note:** Inviting a member requires two actions: (1) call `StoreFolderService.shareSpreadsheet(spreadsheetId, email, "editor")` for each spreadsheet the member needs (for `single` preset: the `data` spreadsheet; for `multi`/`split`: multiple spreadsheets), (2) append a row to the `Members` tab. The Store Link encodes the primary spreadsheet ID as `?sid=<dataSpreadsheetId>`. The owner never needs to share a password — the link is the invite mechanism. The invited user must still authenticate with Google.
 - **Deliverables:**
   - `src/modules/settings/members.service.ts`:
-    - `inviteMember(email, role, masterSpreadsheetId)` — shares `stores/<store_id>/` folder + appends to Members tab
-    - `generateStoreLink(masterSpreadsheetId): string` — returns `https://<domain>/join?sid=<masterSpreadsheetId>`
-    - `revokeMember(userId)` — sets `deleted_at` in Members tab (soft delete); does not unshare Drive folder (must be done manually)
+    - `inviteMember(email, role, dataSpreadsheetId)` — calls `StoreFolderService.shareSpreadsheet()` + appends to Members tab
+    - `generateStoreLink(dataSpreadsheetId): string` — returns `https://<domain>/join?sid=<dataSpreadsheetId>`
+    - `revokeMember(userId)` — sets `deleted_at` in Members tab (soft delete); spreadsheet unshare must be done via Google Drive UI
     - `listMembers(): Member[]`
   - `src/modules/settings/MemberManagement.tsx` — UI for invite + list + revoke
 - **Test cases (`members.service.test.ts`):**
   - ✅ `inviteMember appends correct row to Members tab with role and invited_at`
   - ✅ `inviteMember calls Drive API share with editor permission`
-  - ✅ `generateStoreLink includes spreadsheetId as ?sid= query param`
+  - ✅ `generateStoreLink includes dataSpreadsheetId as ?sid= query param`
   - ✅ `revokeMember sets deleted_at on correct Members row`
   - ✅ `listMembers filters out rows where deleted_at is non-empty`
   - ❌ `inviteMember throws if email is invalid`
@@ -483,7 +485,7 @@
 - **Section:** Authentication
 - **Depends on:** T017, T014
 - **Test type:** unit + e2e
-- **Architecture note:** When a member opens a Store Link (`/join?sid=<masterSpreadsheetId>`), the app signs in the user and navigates to `/stores` so StorePickerPage resolves the active store. Members only request the `spreadsheets` scope (not `drive`) because they access spreadsheets shared via the store folder — they don't need Drive API access. Their role is resolved by reading the `Members` tab and matching by email. After joining, the app reads `Settings` to get `store_id` and `drive_folder_id`, then creates/updates the member's own `main` spreadsheet with a `Stores` row for this store.
+- **Architecture note:** When a member opens a Store Link (`/join?sid=<dataSpreadsheetId>`), the app stores the spreadsheet ID and navigates to `/stores` so StorePickerPage resolves the active store. Members only request the `spreadsheets` scope (not `drive`) — they access spreadsheets the owner has already shared with them. Their role is resolved by reading the `Members` tab and matching by email. After joining, the app reads `Settings` to get `store_id` and the owner's `main.Stores` record (including `drive_folder_id`), then creates/updates the member's own `main` spreadsheet with a `Stores` row for this store.
 - **Deliverables:**
   - `src/modules/auth/JoinPage.tsx` — reads `?sid` param, stores it, shows Google Login
   - `src/modules/auth/auth.service.ts`:
@@ -1016,15 +1018,15 @@
 - **Section:** Reports
 - **Depends on:** T038
 - **Test type:** unit + e2e
-- **Architecture note:** For date ranges spanning multiple months, the service fetches each relevant Monthly Sheet sequentially (not in parallel, to stay within API rate limits). Results are merged and aggregated client-side. The UI allows filtering by cashier (user email), category, and payment method.
+- **Architecture note:** The current implementation queries Dexie's indexed `Transactions` table via `findByDateRange(start, end)` and then applies client-side filters. This avoids on-demand per-month sheet fetches from the UI path.
 - **Deliverables:**
   - `src/modules/reports/reports.service.ts` (additions):
     - `fetchTransactionsForRange(startDate, endDate): Transaction[]`
     - `filterTransactions(transactions, filters: ReportFilters): Transaction[]`
   - `src/modules/reports/SalesReport.tsx` — date pickers + filter controls + results table
 - **Test cases:**
-  - ✅ `fetchTransactionsForRange fetches single monthly sheet for same-month range`
-  - ✅ `fetchTransactionsForRange fetches and merges two monthly sheets for cross-month range`
+  - ✅ `fetchTransactionsForRange delegates to transactions.findByDateRange for same-month range`
+  - ✅ `fetchTransactionsForRange returns cross-month rows from a single indexed local query`
   - ✅ `filterTransactions filters by cashier email correctly`
   - ✅ `filterTransactions filters by payment method correctly`
   - ❌ `fetchTransactionsForRange throws if startDate is after endDate`

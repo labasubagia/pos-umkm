@@ -3,9 +3,9 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 1.3                               |
+| Version     | 1.4                               |
 | Status      | Draft                             |
-| Date        | April 2026                        |
+| Date        | May 2026                          |
 | Platform    | Web Application (Browser-based)   |
 | Target      | Indonesian UMKM (General)         |
 | Related     | docs/TRD.md (Technical Requirements)   |
@@ -290,6 +290,10 @@ POS UMKM is positioned as a **100% free, locally-aware, web-based POS** that run
 
 **US-27** — As an owner, I want to remove a member's access when they no longer work at the store so that they can no longer view or modify data.
 
+**US-28** — As an owner, I want to create and switch between multiple stores so that I can manage more than one branch from the same account.
+
+**US-29** — As a non-owner member, I want to leave a store I joined so that I can remove access to a branch I no longer work with.
+
 ---
 
 ## 7. Functional Requirements
@@ -384,6 +388,8 @@ POS UMKM is positioned as a **100% free, locally-aware, web-based POS** that run
 | F-SET-04 | Receipt footer custom text (e.g., "Thank you, come again!") |
 | F-SET-05 | Opening balance for cash drawer per shift |
 | F-SET-06 | Multiple cashier/user management: invite, assign role, deactivate accounts |
+| F-SET-07 | Owner can create, rename, activate, and soft-delete stores they own |
+| F-SET-08 | Members can leave a joined store without deleting the store's underlying data |
 
 ---
 
@@ -401,7 +407,7 @@ POS UMKM is positioned as a **100% free, locally-aware, web-based POS** that run
 
 ### 8.2 Offline Capability
 
-> **Not in MVP.** The MVP requires an active internet connection for all operations. Offline mode is planned for a future release. Users should be clearly informed that internet access is required.
+> **In MVP, with limits.** After the initial online load and data hydration, the app supports offline-first cashiering and local reads from cached data. Writes are queued locally and synced automatically when connectivity returns. A fresh browser session and hard refresh still require network access because the app shell is not cached by a service worker.
 
 ### 8.3 Security
 
@@ -447,7 +453,6 @@ The following features are intentionally excluded from the first version to main
 
 | Out of Scope | Notes |
 |---|---|
-| Offline / PWA mode | Requires custom backend or complex sync infrastructure; deferred post-MVP |
 | Thermal printer integration | Hardware peripheral support deferred post-MVP; WhatsApp receipt sharing covers MVP need |
 | Barcode scanner integration | Deferred post-MVP; manual product name search used in MVP |
 | Full e-commerce / online store | Integration with Tokopedia/Shopee is a v2 consideration |
@@ -455,11 +460,10 @@ The following features are intentionally excluded from the first version to main
 | Accounting / bookkeeping (jurnal) | Integration with Accurate/Jurnal.id is post-v1 |
 | Employee payroll | Out of scope; recommend integration with Gadjian |
 | Supply chain / supplier portal | Supplier management is basic (purchase orders only); no supplier-facing portal |
-| Multi-outlet / multi-branch | Single outlet per account in v1; multi-outlet planned for v2 |
 | Customer loyalty points program | v2 feature |
 | Dynamic pricing / pricing rules | Manual discounts only in v1 |
 | Advanced CRM / marketing campaigns | Basic customer records only in v1 |
-| Native iOS or Android app | PWA covers mobile use cases in v1 |
+| Native iOS or Android app | Responsive web app covers mobile use cases in v1 |
 
 ---
 
@@ -470,8 +474,8 @@ The following features are intentionally excluded from the first version to main
 1. The target user has access to at least one of: a low-cost Android tablet, a laptop, or a smartphone with a modern browser (Chrome or Samsung Internet)
 2. QRIS payment is confirmed manually by the cashier (no real-time payment gateway integration in v1)
 3. The business operates with Indonesian Rupiah (IDR) only; no multi-currency
-4. Internet connectivity is required at all times; offline mode is not supported in MVP
-5. The business has a single physical outlet in v1
+4. First-time load and remote sync require internet connectivity; after hydration, cashiering continues against local cached data when offline
+5. An owner may manage multiple stores, but the app operates in one active store context at a time
 6. PPN (VAT) is the only tax applicable; no PPh, luxury tax, or import duty management
 8. The app uses Google Login exclusively; a Google account is required for all users (owner, family members, and staff)
 
@@ -481,9 +485,9 @@ The following features are intentionally excluded from the first version to main
 |---|---|
 | Regulatory | Payment gateway integration must comply with Bank Indonesia regulations (PBI No. 23/6/PBI/2021) |
 | QRIS | QRIS code must be registered through an approved PJSP; v1 uses a static merchant QR |
-| Data residency | User data must be stored on servers located in Indonesia (PDIP compliance, UU No. 27/2022) |
+| Data residency | Data lives in the user's Google Drive on Google's globally distributed infrastructure; this is a known MVP trade-off vs. UU No. 27/2022 |
 | Free tier limitations | Free tier limited to: 1 user, 100 products, 500 transactions/month |
-| Offline scope | Offline mode covers cashiering only; reports and settings require connectivity |
+| Offline scope | A fresh browser session and hard refresh require connectivity; offline writes remain local until sync succeeds |
 
 ---
 
