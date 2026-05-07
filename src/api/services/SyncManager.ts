@@ -235,6 +235,13 @@ export class SyncManager {
         })),
       );
 
+      // Track whether the loop exited early (rate-limit / 401 break).
+      // Used below to decide whether to re-trigger for entries added
+      // concurrently during this drain pass (e.g. a transaction writes
+      // 3 outbox entries sequentially; the drain query may only see the
+      // first one because the others are committed while drain is running).
+      let drainBroke = false;
+
       for (const entry of pending) {
         if (entry.id == null) {
           logger.warn("[SyncManager] skipping outbox entry with no id", entry);
@@ -296,6 +303,7 @@ export class SyncManager {
                   }
                   // Reset failed entries so they can be retried with the new token.
                   await this.resetFailedEntries();
+                  drainBroke = true;
                   break; // stop this drain; resetFailedEntries will trigger a new drain
                 }
               }
@@ -316,12 +324,14 @@ export class SyncManager {
             useAuthStore.getState().clearAuth();
             if (typeof window !== "undefined") window.location.replace("/");
             // Stop further processing
+            drainBroke = true;
             break;
           }
 
           if (isRateLimit) {
             // Stop draining and backoff — other entries will retry after cooldown
             this.activateRateLimit();
+            drainBroke = true;
             break;
           }
 
@@ -332,6 +342,25 @@ export class SyncManager {
 
       useSyncStore.getState().setLastSyncedAt(new Date().toISOString());
       logger.info("[SyncManager] drain completed");
+
+      // Re-trigger if entries were added to the outbox while this drain was
+      // running (e.g. commitTransaction writes 3 entries sequentially — the
+      // drain query may only snapshot the first one). The setTimeout defers
+      // until after the finally block resets isSyncing = false.
+      if (!drainBroke) {
+        const stillPending = await dbToUse._outbox
+          .where("status")
+          .anyOf(["pending", "failed"])
+          .and((entry) => entry.retries < MAX_RETRIES)
+          .count();
+        if (stillPending > 0) {
+          logger.info(
+            "[SyncManager] drain: found new entries added during drain, scheduling re-trigger",
+            { stillPending },
+          );
+          setTimeout(() => this.triggerSync(), 0);
+        }
+      }
     } finally {
       this.isSyncing = false;
       useSyncStore.getState().setIsSyncing(false);
