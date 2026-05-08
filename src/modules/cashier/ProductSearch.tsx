@@ -147,7 +147,7 @@ export function ProductSearch({ products, variants }: Props) {
               data-testid={`product-card-${product.id}`}
               onClick={() => handleProductClick(product)}
               disabled={!product.has_variants && product.stock <= 0}
-              className="flex flex-col items-start p-3 border rounded-lg text-left text-sm hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="w-full flex flex-col items-start p-3 border rounded-lg text-left text-sm hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <span className="font-medium leading-tight">{product.name}</span>
               {product.sku && (
