@@ -3,10 +3,12 @@
  *
  * Renders a text input and shows product cards in a grid. Clicking a card
  * adds it to the cart (if no variants) or opens the variant selector.
+ * Uses Fuse.js for fuzzy search with pre-indexed search results.
  */
 
+import Fuse from "fuse.js";
 import { Search } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "../../components/ui/button";
 import {
   Dialog,
@@ -16,12 +18,71 @@ import {
 } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import type { Product, Variant } from "../catalog/catalog.service";
-import { searchProducts } from "./cashier.service";
 import { useCartStore } from "./useCart";
 
 interface Props {
   products: Product[];
   variants: Variant[];
+}
+
+/**
+ * Renders text with highlighted matches based on Fuse.js indices.
+ * Indices are character positions where matches occur.
+ */
+function HighlightedText({
+  text,
+  indices,
+}: {
+  text: string;
+  indices?: ReadonlyArray<[number, number]>;
+}) {
+  if (!indices || indices.length === 0) {
+    return <>{text}</>;
+  }
+
+  const parts: Array<{
+    text: string;
+    highlight: boolean;
+    startPos: number;
+  }> = [];
+  let lastEnd = 0;
+
+  indices.forEach(([start, end]) => {
+    if (start > lastEnd) {
+      parts.push({
+        text: text.substring(lastEnd, start),
+        highlight: false,
+        startPos: lastEnd,
+      });
+    }
+    parts.push({
+      text: text.substring(start, end + 1),
+      highlight: true,
+      startPos: start,
+    });
+    lastEnd = end + 1;
+  });
+
+  if (lastEnd < text.length) {
+    parts.push({
+      text: text.substring(lastEnd),
+      highlight: false,
+      startPos: lastEnd,
+    });
+  }
+
+  return (
+    <>
+      {parts.map((part) => (
+        <span
+          key={`${part.startPos}-${part.highlight}`}
+          className={part.highlight ? "bg-amber-300 font-semibold" : ""}
+        >
+          {part.text}
+        </span>
+      ))}
+    </>
+  );
 }
 
 export function ProductSearch({ products, variants }: Props) {
@@ -30,7 +91,32 @@ export function ProductSearch({ products, variants }: Props) {
   const addItem = useCartStore((s) => s.addItem);
   const cartItems = useCartStore((s) => s.items);
 
-  const results = searchProducts(query, products);
+  // Pre-index products for fuzzy search (rebuilt only when products array changes)
+  const fuse = useMemo(() => {
+    return new Fuse(products, {
+      keys: [
+        { name: "name", weight: 0.7 },
+        { name: "sku", weight: 0.3 },
+      ],
+      threshold: 0.4,
+      includeMatches: true,
+      includeScore: true,
+    });
+  }, [products]);
+
+  // Perform fuzzy search
+  const searchResults = useMemo(() => {
+    if (!query.trim()) {
+      return products.map((product) => ({
+        product,
+        matches: undefined,
+      }));
+    }
+    return fuse.search(query).map((result) => ({
+      product: result.item as Product,
+      matches: result.matches,
+    }));
+  }, [query, fuse, products]);
 
   function handleProductClick(product: Product) {
     if (product.has_variants) {
@@ -135,39 +221,52 @@ export function ProductSearch({ products, variants }: Props) {
         className="grid grid-cols-2 md:grid-cols-3 gap-2 flex-1 min-h-0 overflow-y-auto content-start"
         aria-label="Daftar produk"
       >
-        {results.length === 0 && (
+        {searchResults.length === 0 && (
           <p className="col-span-full text-center text-sm text-gray-400 py-8">
             Produk tidak ditemukan
           </p>
         )}
-        {results.map((product) => (
-          <li key={product.id}>
-            <button
-              type="button"
-              data-testid={`product-card-${product.id}`}
-              onClick={() => handleProductClick(product)}
-              disabled={!product.has_variants && product.stock <= 0}
-              className="w-full flex flex-col items-start p-3 border rounded-lg text-left text-sm hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <span className="font-medium leading-tight">{product.name}</span>
-              {product.sku && (
-                <span className="text-xs text-gray-400 mt-0.5">
-                  {product.sku}
+        {searchResults.map(({ product, matches }) => {
+          const nameMatch = matches?.find((m) => m.key === "name");
+          const skuMatch = matches?.find((m) => m.key === "sku");
+
+          return (
+            <li key={product.id}>
+              <button
+                type="button"
+                data-testid={`product-card-${product.id}`}
+                onClick={() => handleProductClick(product)}
+                disabled={!product.has_variants && product.stock <= 0}
+                className="w-full flex flex-col items-start p-3 border rounded-lg text-left text-sm hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <span className="font-medium leading-tight">
+                  <HighlightedText
+                    text={product.name}
+                    indices={nameMatch?.indices}
+                  />
                 </span>
-              )}
-              <span className="mt-1 font-semibold text-blue-700">
-                Rp {product.price.toLocaleString("id-ID")}
-              </span>
-              {!product.has_variants && (
-                <span
-                  className={`text-xs mt-0.5 ${product.stock <= 5 ? "text-orange-500" : "text-gray-400"}`}
-                >
-                  Stok: {product.stock}
+                {product.sku && (
+                  <span className="text-xs text-gray-400 mt-0.5">
+                    <HighlightedText
+                      text={product.sku}
+                      indices={skuMatch?.indices}
+                    />
+                  </span>
+                )}
+                <span className="mt-1 font-semibold text-blue-700">
+                  Rp {product.price.toLocaleString("id-ID")}
                 </span>
-              )}
-            </button>
-          </li>
-        ))}
+                {!product.has_variants && (
+                  <span
+                    className={`text-xs mt-0.5 ${product.stock <= 5 ? "text-orange-500" : "text-gray-400"}`}
+                  >
+                    Stok: {product.stock}
+                  </span>
+                )}
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
