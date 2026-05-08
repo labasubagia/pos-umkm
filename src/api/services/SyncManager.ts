@@ -10,9 +10,11 @@
  *   6. After 5 failures: stop retrying (manual intervention required)
  *
  * Sync is triggered:
- *   - Explicitly by triggerSync() called via DexieRepository.onAfterWrite
+ *   - Via wake() — called by DexieRepository.onAfterWrite; multiple calls in the
+ *     same microtask queue are coalesced into a single drain start
  *   - When the browser comes back online (window 'online' event)
  *   - Periodically every POLL_INTERVAL_MS
+ *   - Explicitly by triggerSync() (manual / diagnostic)
  *
  * SyncManager holds a reference to getToken() and uses it to instantiate
  * SheetRepository on the fly for each outbox entry — this avoids storing
@@ -43,6 +45,7 @@ export class SyncManager {
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private rateLimitTimer: ReturnType<typeof setTimeout> | null = null;
   private rateLimited = false;
+  private wakeScheduled = false;
 
   constructor(getToken: () => string, db: Database) {
     this.getToken = getToken;
@@ -147,6 +150,23 @@ export class SyncManager {
   }
 
   /**
+   * Idempotent, cheap entry point called after every IndexedDB write.
+   * Multiple calls within the same microtask queue are coalesced — only one
+   * drain is started per JS turn, even when commitTransaction fires three writes
+   * back-to-back. Safe to call many times; no-op when a drain is already running.
+   */
+  wake(): void {
+    if (this.isSyncing || this.wakeScheduled || this.rateLimited) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+    if (!this.getToken()) return;
+    this.wakeScheduled = true;
+    queueMicrotask(() => {
+      this.wakeScheduled = false;
+      this.triggerSync();
+    });
+  }
+
+  /**
    * Resets all failed outbox entries back to pending so they can be retried.
    * Call after a successful token refresh to unblock entries that failed due
    * to an expired token.
@@ -169,7 +189,7 @@ export class SyncManager {
         .equals("failed")
         .modify({ status: "pending", retries: 0, errorMessage: undefined });
     }
-    this.triggerSync();
+    this.wake();
   }
 
   // ─── Internal ──────────────────────────────────────────────────────────────
@@ -220,147 +240,145 @@ export class SyncManager {
         }
       })();
 
-      const pending = await dbToUse._outbox
-        .where("status")
-        .anyOf(["pending", "failed"])
-        .and((entry) => entry.retries < MAX_RETRIES)
-        .sortBy("id");
+      // Keep draining until the outbox is empty or an intentional early-exit
+      // condition (rate-limit / auth failure) is reached. Re-reading pending
+      // entries on each iteration ensures writes committed to the outbox while
+      // the previous batch was being pushed (e.g. commitTransaction writing 3
+      // entries sequentially) are processed in the same drain run, not deferred
+      // to the next poll interval.
+      //
+      // attemptedIds prevents an entry that just failed from being immediately
+      // retried in the next iteration. Each entry is attempted at most once per
+      // drain() call; subsequent retries happen on the next poll/wake.
+      const attemptedIds = new Set<number>();
 
-      logger.info(
-        "[SyncManager] drain found pending outbox entries",
-        pending.map((p) => ({
-          id: p.id,
-          mutationId: p.mutationId,
-          tableName: p.tableName,
-        })),
-      );
+      drainLoop: while (true) {
+        const pending = await dbToUse._outbox
+          .where("status")
+          .anyOf(["pending", "failed"])
+          .and(
+            (entry) =>
+              entry.retries < MAX_RETRIES && !attemptedIds.has(entry.id ?? -1),
+          )
+          .sortBy("id");
 
-      // Track whether the loop exited early (rate-limit / 401 break).
-      // Used below to decide whether to re-trigger for entries added
-      // concurrently during this drain pass (e.g. a transaction writes
-      // 3 outbox entries sequentially; the drain query may only see the
-      // first one because the others are committed while drain is running).
-      let drainBroke = false;
+        if (pending.length === 0) break;
 
-      for (const entry of pending) {
-        if (entry.id == null) {
-          logger.warn("[SyncManager] skipping outbox entry with no id", entry);
-          continue;
-        }
-        const id = entry.id;
-        // Mark as syncing so the UI shows progress
-        await dbToUse._outbox.update(id, { status: "syncing" });
+        logger.info(
+          "[SyncManager] drain processing batch",
+          pending.map((p) => ({
+            id: p.id,
+            mutationId: p.mutationId,
+            tableName: p.tableName,
+          })),
+        );
 
-        try {
-          logger.info("[SyncManager] processing outbox entry", {
-            id,
-            mutationId: entry.mutationId,
-            tableName: entry.tableName,
-            op: entry.operation.op,
-          });
-          await this.applyToSheets(entry);
-          await dbToUse._outbox.delete(id);
-          useSyncStore.getState().setLastError(null);
-          logger.info("[SyncManager] successfully processed entry", { id });
-        } catch (err) {
-          const isRateLimit = isRateLimitError(err);
-          const errStr = String(err);
-          await dbToUse._outbox.update(id, {
-            status: "failed",
-            retries: entry.retries + 1,
-            errorMessage: errStr,
-          });
-          useSyncStore.getState().setLastError(errStr);
-
-          // Auto-logout on Sheets API 401/UNAUTHENTICATED error. Before
-          // logging the user out, attempt a silent token refresh (GIS) which
-          // may succeed when the token is expired but the user still has a
-          // valid session. Use dynamic import to avoid circular deps.
-          if (errStr.includes("401") || errStr.includes("UNAUTHENTICATED")) {
+        for (const entry of pending) {
+          if (entry.id == null) {
             logger.warn(
-              "[SyncManager] 401/UNAUTHENTICATED from Sheets API — attempting silent refresh before logout",
-              { entryId: id, mutationId: entry.mutationId },
+              "[SyncManager] skipping outbox entry with no id",
+              entry,
             );
-            try {
-              const { authAdapter } = await import("../adapters/index");
-              // Use a typed view of the adapter so we avoid `any` while
-              // still safely probing for optional methods.
-              const maybeAuth = authAdapter as unknown as {
-                silentRefresh?: () => Promise<boolean>;
-                getAccessToken?: () => string | null;
-              };
-              const silentRefresh = maybeAuth.silentRefresh;
-              if (typeof silentRefresh === "function") {
-                const ok = await silentRefresh.call(authAdapter);
-                logger.info("[SyncManager] silentRefresh result:", ok);
-                if (ok) {
-                  // Pull the refreshed token (if the adapter provides it)
-                  const refreshedToken = maybeAuth.getAccessToken?.();
-                  if (!refreshedToken) {
-                    logger.warn(
-                      "[SyncManager] silentRefresh succeeded but no token available",
-                    );
-                  }
-                  // Reset failed entries so they can be retried with the new token.
-                  await this.resetFailedEntries();
-                  drainBroke = true;
-                  break; // stop this drain; resetFailedEntries will trigger a new drain
-                }
-              }
-            } catch (refreshErr) {
+            continue;
+          }
+          const id = entry.id;
+          attemptedIds.add(id);
+          // Mark as syncing so the UI shows progress
+          await dbToUse._outbox.update(id, { status: "syncing" });
+
+          try {
+            logger.info("[SyncManager] processing outbox entry", {
+              id,
+              mutationId: entry.mutationId,
+              tableName: entry.tableName,
+              op: entry.operation.op,
+            });
+            await this.applyToSheets(entry);
+            await dbToUse._outbox.delete(id);
+            useSyncStore.getState().setLastError(null);
+            logger.info("[SyncManager] successfully processed entry", { id });
+          } catch (err) {
+            const isRateLimit = isRateLimitError(err);
+            const errStr = String(err);
+            await dbToUse._outbox.update(id, {
+              status: "failed",
+              retries: entry.retries + 1,
+              errorMessage: errStr,
+            });
+            useSyncStore.getState().setLastError(errStr);
+
+            // Auto-logout on Sheets API 401/UNAUTHENTICATED error. Before
+            // logging the user out, attempt a silent token refresh (GIS) which
+            // may succeed when the token is expired but the user still has a
+            // valid session. Use dynamic import to avoid circular deps.
+            if (errStr.includes("401") || errStr.includes("UNAUTHENTICATED")) {
               logger.warn(
-                "[SyncManager] silentRefresh attempt threw an error",
-                refreshErr,
+                "[SyncManager] 401/UNAUTHENTICATED from Sheets API — attempting silent refresh before logout",
+                { entryId: id, mutationId: entry.mutationId },
               );
+              try {
+                const { authAdapter } = await import("../adapters/index");
+                // Use a typed view of the adapter so we avoid `any` while
+                // still safely probing for optional methods.
+                const maybeAuth = authAdapter as unknown as {
+                  silentRefresh?: () => Promise<boolean>;
+                  getAccessToken?: () => string | null;
+                };
+                const silentRefresh = maybeAuth.silentRefresh;
+                if (typeof silentRefresh === "function") {
+                  const ok = await silentRefresh.call(authAdapter);
+                  logger.info("[SyncManager] silentRefresh result:", ok);
+                  if (ok) {
+                    // Pull the refreshed token (if the adapter provides it)
+                    const refreshedToken = maybeAuth.getAccessToken?.();
+                    if (!refreshedToken) {
+                      logger.warn(
+                        "[SyncManager] silentRefresh succeeded but no token available",
+                      );
+                    }
+                    // Reset all failed entries to pending so they're retried
+                    // with the new token, then restart the drain loop — the next
+                    // iteration picks them up without waiting for the next poll.
+                    await this.resetFailedEntries();
+                    continue drainLoop;
+                  }
+                }
+              } catch (refreshErr) {
+                logger.warn(
+                  "[SyncManager] silentRefresh attempt threw an error",
+                  refreshErr,
+                );
+              }
+
+              // Silent refresh didn't succeed — sign the user out to force reauth.
+              try {
+                const { authAdapter } = await import("../adapters/index");
+                await authAdapter.signOut?.();
+              } catch (signOutErr) {
+                logger.warn("[SyncManager] signOut failed:", signOutErr);
+              }
+              useAuthStore.getState().clearAuth();
+              if (typeof window !== "undefined") window.location.replace("/");
+              // Stop further processing
+              break drainLoop;
             }
 
-            // Silent refresh didn't succeed — sign the user out to force reauth.
-            try {
-              const { authAdapter } = await import("../adapters/index");
-              await authAdapter.signOut?.();
-            } catch (signOutErr) {
-              logger.warn("[SyncManager] signOut failed:", signOutErr);
+            if (isRateLimit) {
+              // Stop draining and backoff — other entries will retry after cooldown
+              this.activateRateLimit();
+              break drainLoop;
             }
-            useAuthStore.getState().clearAuth();
-            if (typeof window !== "undefined") window.location.replace("/");
-            // Stop further processing
-            drainBroke = true;
-            break;
-          }
 
-          if (isRateLimit) {
-            // Stop draining and backoff — other entries will retry after cooldown
-            this.activateRateLimit();
-            drainBroke = true;
-            break;
+            // Non-rate-limit errors: log and continue with next entry
+            logger.error("[SyncManager]", entry, err);
           }
-
-          // Non-rate-limit errors: log and continue with next entry
-          logger.error("[SyncManager]", entry, err);
         }
+        // The for-loop completed normally — loop back and re-read the outbox
+        // in case new entries were written while this batch was being processed.
       }
 
       useSyncStore.getState().setLastSyncedAt(new Date().toISOString());
       logger.info("[SyncManager] drain completed");
-
-      // Re-trigger if entries were added to the outbox while this drain was
-      // running (e.g. commitTransaction writes 3 entries sequentially — the
-      // drain query may only snapshot the first one). The setTimeout defers
-      // until after the finally block resets isSyncing = false.
-      if (!drainBroke) {
-        const stillPending = await dbToUse._outbox
-          .where("status")
-          .anyOf(["pending", "failed"])
-          .and((entry) => entry.retries < MAX_RETRIES)
-          .count();
-        if (stillPending > 0) {
-          logger.info(
-            "[SyncManager] drain: found new entries added during drain, scheduling re-trigger",
-            { stillPending },
-          );
-          setTimeout(() => this.triggerSync(), 0);
-        }
-      }
     } finally {
       this.isSyncing = false;
       useSyncStore.getState().setIsSyncing(false);

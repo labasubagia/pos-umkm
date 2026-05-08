@@ -203,11 +203,8 @@ export function makeRepo<T extends Record<string, unknown>>(
 /**
  * Creates DexieRepository instances for every sheet in the active store.
  * Each repo writes to IndexedDB + outbox; after each write it calls
- * syncManager.triggerSync() for an immediate drain attempt.
- *
- * Spreadsheet IDs are resolved from the store map at enqueue time.
- * The empty-string fallback in each dexie() call is only used if the
- * store map is not yet populated (e.g. during initial setup).
+ * syncManager.wake() which coalesces concurrent calls and starts a drain
+ * if none is running.
  */
 function createDexieRepos(storeId: string): Repos {
   const storeDb = getDb(storeId);
@@ -219,21 +216,19 @@ function createDexieRepos(storeId: string): Repos {
   function dexie<T extends Record<string, unknown>>(
     tableName: string,
   ): DexieRepository<T> {
-    return new DexieRepository<T>(storeDb, tableName, () =>
-      syncManager.triggerSync(),
-    );
+    return new DexieRepository<T>(storeDb, tableName, () => syncManager.wake());
   }
 
   return {
     stores: new DexieRepository<Store>(mainDb, "Stores", () =>
-      mainSyncManager.triggerSync(),
+      mainSyncManager.wake(),
     ),
     categories: dexie<Category>("Categories"),
     products: new ProductRepository(storeDb, "Products", () =>
-      syncManager.triggerSync(),
+      syncManager.wake(),
     ),
     variants: new VariantRepository(storeDb, "Variants", () =>
-      syncManager.triggerSync(),
+      syncManager.wake(),
     ),
     members: dexie<Member>("Members"),
     settings: dexie<Setting>("Settings"),
@@ -242,17 +237,17 @@ function createDexieRepos(storeId: string): Repos {
     purchaseOrderItems: new PurchaseOrderItemRepository(
       storeDb,
       "Purchase_Order_Items",
-      () => syncManager.triggerSync(),
+      () => syncManager.wake(),
     ),
     customers: dexie<Customer>("Customers"),
     auditLog: dexie<AuditLog>("Audit_Log"),
     transactions: new TransactionRepository(storeDb, "Transactions", () =>
-      syncManager.triggerSync(),
+      syncManager.wake(),
     ),
     transactionItems: new TransactionItemRepository(
       storeDb,
       "Transaction_Items",
-      () => syncManager.triggerSync(),
+      () => syncManager.wake(),
     ),
     refunds: dexie<Refund>("Refunds"),
   };
@@ -315,9 +310,7 @@ export function getMembersForStore(
   targetStoreId: string,
 ): DexieRepository<Member> {
   const db = getDb(targetStoreId);
-  return new DexieRepository<Member>(db, "Members", () =>
-    syncManager.triggerSync(),
-  );
+  return new DexieRepository<Member>(db, "Members", () => syncManager.wake());
 }
 
 export type { StoreRecord } from "../services/MigrationService";

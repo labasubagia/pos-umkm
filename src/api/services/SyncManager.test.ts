@@ -168,6 +168,81 @@ describe("drain", () => {
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
   });
+
+  it("processes entries written to the outbox while drain is running", async () => {
+    // Simulates commitTransaction: entry 1 is already queued, entries 2 & 3
+    // are written to the outbox while entry 1 is being pushed to Sheets.
+    // The looping drain should process all three without waiting for the
+    // next poll interval.
+    const manager = makeManager();
+    const db = getDb(TEST_STORE_ID);
+    const { SheetRepository } = await import(
+      "../adapters/google/SheetRepository"
+    );
+    let callCount = 0;
+    const spy = vi
+      .spyOn(SheetRepository.prototype, "batchInsert")
+      .mockImplementation(async () => {
+        callCount++;
+        if (callCount === 1) {
+          // Simulate two more writes arriving while entry 1 is being pushed
+          await db._outbox.add(makeEntry({ mutationId: "concurrent-2" }));
+          await db._outbox.add(makeEntry({ mutationId: "concurrent-3" }));
+        }
+      });
+
+    await db._outbox.add(makeEntry({ mutationId: "first-1" }));
+    await manager.drain();
+
+    expect(spy).toHaveBeenCalledTimes(3);
+    expect(await db._outbox.count()).toBe(0);
+    spy.mockRestore();
+  });
+});
+
+// ─── wake() ──────────────────────────────────────────────────────────────────
+
+describe("wake()", () => {
+  it("starts exactly one drain even when called multiple times per tick", async () => {
+    const manager = makeManager();
+    const drainSpy = vi.spyOn(manager, "drain").mockResolvedValue(undefined);
+
+    manager.wake();
+    manager.wake();
+    manager.wake();
+
+    // Flush the microtask queue so the queueMicrotask callback fires
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+    expect(drainSpy).toHaveBeenCalledOnce();
+    drainSpy.mockRestore();
+  });
+
+  it("does not start a drain when already syncing", async () => {
+    const manager = makeManager();
+    // Simulate an active drain by calling drain() without awaiting
+    const { SheetRepository } = await import(
+      "../adapters/google/SheetRepository"
+    );
+    const db = getDb(TEST_STORE_ID);
+    let resolveDrain!: () => void;
+    vi.spyOn(SheetRepository.prototype, "batchInsert").mockReturnValue(
+      new Promise<void>((r) => {
+        resolveDrain = r;
+      }),
+    );
+    await db._outbox.add(makeEntry());
+    const drainPromise = manager.drain(); // starts, sets isSyncing = true
+    const drainSpy = vi.spyOn(manager, "drain");
+
+    manager.wake(); // should be a no-op because isSyncing = true
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+    expect(drainSpy).not.toHaveBeenCalled();
+
+    resolveDrain();
+    await drainPromise;
+    drainSpy.mockRestore();
+  });
 });
 
 // ─── operation routing ───────────────────────────────────────────────────────
