@@ -1602,6 +1602,25 @@
 
 ---
 
+### T065 — Enable Installable PWA App Shell
+
+- **Status:** ✅ done
+- **Section:** Offline-First
+- **Depends on:** T056
+- **Test type:** unit + build
+- **Architecture note:** Dexie already provides offline business data, but the app shell still needs network unless the browser cache happens to retain it. A Vite-managed PWA layer closes that gap by generating a web app manifest plus a service worker that precaches static assets and serves a stable app shell for navigation requests. This stays compatible with the offline-first data model because it caches only the shell and static assets; Google Sheets traffic and sync semantics remain unchanged.
+- **Deliverables:**
+  - Add Vite PWA plugin and production manifest/service worker generation
+  - Register the service worker in the app bootstrap without affecting MSW in tests/dev
+  - Add install metadata and icons under `public/`
+  - Update PRD/TRD offline sections to reflect post-MVP app-shell caching
+- **Test cases:**
+  - ✅ `build emits manifest.webmanifest and service worker assets`
+  - ✅ `service worker registration is skipped in dev/test bootstrap paths`
+  - ✅ `navigation fallback does not intercept API or mock worker requests`
+
+---
+
 ### T064 — Navigate to /:storeId/cashier on NavBar Store Switch
 
 - **Status:** ✅ done

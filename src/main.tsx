@@ -7,6 +7,7 @@ import "./i18n/i18n";
 import { AuthInitializer } from "./components/AuthInitializer";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { queryClient } from "./hooks/queryClient";
+import { registerAppServiceWorker } from "./pwa/registerServiceWorker";
 import { router } from "./router";
 
 const rootEl = document.getElementById("root");
@@ -34,4 +35,6 @@ prepare().then(() => {
       </ErrorBoundary>
     </StrictMode>,
   );
+
+  void registerAppServiceWorker();
 });

@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 1.4                               |
+| Version     | 1.5                               |
 | Status      | Draft                             |
 | Date        | May 2026                          |
 | Platform    | Web Application (Browser-based)   |
@@ -407,7 +407,7 @@ POS UMKM is positioned as a **100% free, locally-aware, web-based POS** that run
 
 ### 8.2 Offline Capability
 
-> **In MVP, with limits.** After the initial online load and data hydration, the app supports offline-first cashiering and local reads from cached data. Writes are queued locally and synced automatically when connectivity returns. A fresh browser session and hard refresh still require network access because the app shell is not cached by a service worker.
+> **Post-MVP enhancement.** After the initial online load and data hydration, the app supports offline-first cashiering and local reads from cached data. Writes are queued locally and synced automatically when connectivity returns. The app shell is also cached locally so returning users can reopen the POS after a hard refresh or from an installed home-screen shortcut while offline.
 
 ### 8.3 Security
 
@@ -463,7 +463,7 @@ The following features are intentionally excluded from the first version to main
 | Customer loyalty points program | v2 feature |
 | Dynamic pricing / pricing rules | Manual discounts only in v1 |
 | Advanced CRM / marketing campaigns | Basic customer records only in v1 |
-| Native iOS or Android app | Responsive web app covers mobile use cases in v1 |
+| Native iOS or Android app | Responsive web app + installable PWA covers mobile use cases in v1/post-MVP |
 
 ---
 
@@ -487,7 +487,7 @@ The following features are intentionally excluded from the first version to main
 | QRIS | QRIS code must be registered through an approved PJSP; v1 uses a static merchant QR |
 | Data residency | Data lives in the user's Google Drive on Google's globally distributed infrastructure; this is a known MVP trade-off vs. UU No. 27/2022 |
 | Free tier limitations | Free tier limited to: 1 user, 100 products, 500 transactions/month |
-| Offline scope | A fresh browser session and hard refresh require connectivity; offline writes remain local until sync succeeds |
+| Offline scope | First-time use on a browser still requires connectivity; once the app shell and Dexie data have been hydrated, returning sessions can reopen offline and writes remain local until sync succeeds |
 
 ---
 

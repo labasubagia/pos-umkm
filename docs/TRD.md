@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.17                              |
+| Version     | 2.18                              |
 | Status      | Draft                             |
 | Date        | May 2026                          |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -113,7 +113,7 @@ Each business owner's data lives in **their own Google Drive** organized under `
 
 The production data layer uses **Dexie.js** as a local-first IndexedDB cache in front of Google Sheets. All reads are served instantly from IndexedDB. Writes go to IndexedDB first (immediately visible in the UI) then are queued in an `_outbox` table and replayed to Google Sheets in the background when online.
 
-This means the app works fully offline after the initial data hydration. There are no service workers or PWA manifests — offline capability comes entirely from the data layer, not the network layer. The app shell (HTML/JS/CSS) itself still requires a network request to load on a fresh browser (unless cached by the browser's standard HTTP cache).
+This means the app works fully offline after the initial data hydration. Offline capability comes from two layers: Dexie caches business data locally, and a PWA service worker caches the app shell (`index.html`, JS, CSS, fonts, and icons) so returning users can reopen the app offline after installation or a prior successful visit.
 
 See §12 for the full offline-first architecture.
 
@@ -1118,8 +1118,8 @@ Tapping the error or pending indicator calls `syncManager.triggerSync()` to forc
 | Trade-off | Detail |
 |---|---|
 | Absolute stock writes | The outbox stores absolute stock values (not deltas). If two devices write the same product's stock offline simultaneously, the last-synced value wins. This is acceptable for single-cashier UMKM (the primary target persona). |
-| No app-shell offline cache | The HTML/JS/CSS bundle is not cached by a service worker. After a hard refresh on a device without network, the app shell will fail to load. IndexedDB data is preserved but inaccessible. |
-| First-load requires network | A completely fresh browser (empty IndexedDB) must be online for `HydrationService` to populate the local cache. |
+| App-shell cache versioning | The HTML/JS/CSS bundle is cached by a service worker. Users may keep running an older shell until the updated service worker activates, so the UI should surface reload prompts when a new version is ready. |
+| First-load requires network | A completely fresh browser (empty IndexedDB and no cached app shell) must be online for the first load and `HydrationService` population. |
 
 
 ---

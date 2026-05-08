@@ -5,6 +5,10 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#7e14ff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="POS UMKM" />
+  <link rel="apple-touch-icon" href="/pwa-icon.svg" />
   <title>POS UMKM</title>
   <!-- Decode the ?/ redirect produced by public/404.html so React Router
          receives the original path instead of a query-string fragment.
@@ -20,7 +24,7 @@
       }
     })(window.location))
   </script>
-  <!-- Google Identity Services — required for VITE_ADAPTER=google. Loaded async so it doesn't block render. -->
+  <!-- Google Identity Services. Loaded async so it doesn't block render. -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
