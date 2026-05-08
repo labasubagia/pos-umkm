@@ -24,15 +24,15 @@ export const STORE_PRESETS = {
 /**
  * ACTIVE_PRESET — the preset used at runtime.
  * Override via VITE_STORE_PRESET env variable (multi | single | split).
- * Defaults to multi.
+ * Defaults to single.
  */
 const _presetKey = (
   typeof import.meta !== "undefined"
-    ? (import.meta.env?.VITE_STORE_PRESET ?? "multi")
-    : "multi"
+    ? (import.meta.env?.VITE_STORE_PRESET ?? "single")
+    : "single"
 ) as keyof typeof STORE_PRESETS;
 export const ACTIVE_PRESET: MigrationPayload =
-  STORE_PRESETS[_presetKey] ?? STORE_PRESETS.multi;
+  STORE_PRESETS[_presetKey] ?? STORE_PRESETS.single;
 
 export const DEFAULT_MONTHLY_PREFIXES = ["transaction", "log", "po", "stock"];
 
