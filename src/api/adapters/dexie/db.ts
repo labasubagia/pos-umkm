@@ -117,6 +117,12 @@ const BOOTSTRAP_SCHEMA: SchemaMap = {
 };
 
 const STORE_DATA_SCHEMA: SchemaMap = {
+  // Per-store DBs still expose `Stores` as an empty table for tests and
+  // consumers that expect a local `Stores` table to exist (it remains
+  // authoritative in __main__). Keeping it here avoids runtime `undefined`
+  // table errors in existing code/tests.
+  Stores: "id, store_id",
+
   Settings: "id, key",
   Members: "id, email",
   Categories: "id",
