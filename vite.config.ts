@@ -6,10 +6,52 @@ import { VitePWA } from "vite-plugin-pwa";
 
 const appBase = "/pos-umkm/";
 
+function normalizeBasePath(base: string): string {
+  return base.endsWith("/") ? base.slice(0, -1) : base;
+}
+
+function redirectBaseWithoutTrailingSlash(base: string) {
+  const bareBase = normalizeBasePath(base);
+
+  const redirectMiddleware = (
+    req: { url?: string },
+    res: {
+      statusCode: number;
+      setHeader: (name: string, value: string) => void;
+      end: () => void;
+    },
+    next: () => void,
+  ) => {
+    const reqUrl = req.url ?? "";
+    if (reqUrl === bareBase) {
+      res.statusCode = 302;
+      res.setHeader("Location", `${base}`);
+      res.end();
+      return;
+    }
+    next();
+  };
+
+  return {
+    name: "redirect-base-without-trailing-slash",
+    configureServer(server: {
+      middlewares: { use: (fn: typeof redirectMiddleware) => void };
+    }) {
+      server.middlewares.use(redirectMiddleware);
+    },
+    configurePreviewServer(server: {
+      middlewares: { use: (fn: typeof redirectMiddleware) => void };
+    }) {
+      server.middlewares.use(redirectMiddleware);
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base: appBase,
   plugins: [
+    redirectBaseWithoutTrailingSlash(appBase),
     react(),
     tailwindcss(),
     VitePWA({
