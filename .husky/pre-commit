@@ -4,7 +4,7 @@
 ## npx lint-staged
 
 # run manually
-npx secretlint
+npm run scan
 npm run lint
 
 # 2. Full TypeScript type check (whole project — cross-file inference requires it)
