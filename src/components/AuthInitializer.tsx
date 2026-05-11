@@ -76,19 +76,19 @@ export function AuthInitializer({ children }: Props) {
           await syncManager.resetFailedEntries();
           planRefresh(); // reschedule for the new token's lifetime
         } else if (useAuthStore.getState().isAuthenticated) {
-          resetDexieLayer();
+          await resetDexieLayer();
           clearAuth();
         }
       }, delay);
     };
 
-    void gAuth.restoreSession().then((user) => {
+    void gAuth.restoreSession().then(async (user) => {
       if (user) {
         // Token is already stored in localStorage by the adapter.
         planRefresh();
       } else if (useAuthStore.getState().isAuthenticated) {
         // Google token expired / revoked — wipe persisted auth and release DBs.
-        resetDexieLayer();
+        await resetDexieLayer();
         clearAuth();
       }
     });

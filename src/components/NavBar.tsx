@@ -66,7 +66,7 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
   async function handleSignOut() {
     syncManager.triggerSync();
     await authAdapter.signOut();
-    resetDexieLayer(); // Release IndexedDB connections and clear DB cache (T075)
+    await resetDexieLayer(); // Remove POS UMKM IndexedDB databases on logout.
     clearAuth();
     getStoreMapStore(storeId ?? activeStoreId ?? "")
       .getState()

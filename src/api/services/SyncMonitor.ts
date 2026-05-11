@@ -18,6 +18,7 @@ import type { Database } from "../adapters/dexie/db";
 export class SyncMonitor {
   private storeDb: Database;
   private mainDb: Database;
+  private isStopped = false;
 
   constructor(storeDb: Database, mainDb: Database) {
     this.storeDb = storeDb;
@@ -29,6 +30,14 @@ export class SyncMonitor {
    * Called when outbox state changes (writes or after sync completes).
    */
   async updateCount(): Promise<void> {
+    if (this.isStopped) {
+      logger.debug("[SyncMonitor] updateCount skipped after stop", {
+        storeDbName: this.storeDb.name,
+        mainDbName: this.mainDb.name,
+      });
+      return;
+    }
+
     logger.info("[SyncMonitor] updateCount called", {
       storeDbName: this.storeDb.name,
       mainDbName: this.mainDb.name,
@@ -51,12 +60,28 @@ export class SyncMonitor {
             : { store: counts[0], main: counts[1] },
       });
     } catch (err) {
+      if (
+        err instanceof Error &&
+        (err.name === "DatabaseClosedError" ||
+          err.message.includes("Database has been closed"))
+      ) {
+        logger.debug("[SyncMonitor] updateCount skipped for closed database", {
+          error: err,
+          storeDbName: this.storeDb.name,
+          mainDbName: this.mainDb.name,
+          isStopped: this.isStopped,
+        });
+        return;
+      }
+
       logger.error("[SyncMonitor] failed to update pending count", err);
     }
   }
 
   /** Called when switching stores or logging out. */
   async start(): Promise<void> {
+    this.isStopped = false;
+
     try {
       await this.updateCount();
     } catch (err) {
@@ -76,7 +101,10 @@ export class SyncMonitor {
 
   /** Called on logout or store switch. */
   stop(): void {
-    // No-op; no subscriptions to clean up
-    logger.debug("[SyncMonitor] stopped");
+    this.isStopped = true;
+    logger.debug("[SyncMonitor] stopped", {
+      storeDbName: this.storeDb.name,
+      mainDbName: this.mainDb.name,
+    });
   }
 }

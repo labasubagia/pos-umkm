@@ -122,6 +122,7 @@ export class Database extends Dexie {
 
 // ─── Per-store database factory ───────────────────────────────────────────────
 
+const DB_NAME_PREFIX = "pos_umkm_";
 const dbCache = new Map<string, Database>();
 
 /**
@@ -137,10 +138,54 @@ export function getDb(storeId: string): Database {
   return instance;
 }
 
+async function listPosUmkmDatabaseNames(): Promise<string[]> {
+  const names = new Set<string>();
+
+  for (const db of dbCache.values()) {
+    names.add(db.name);
+  }
+
+  const indexedDbFactory = globalThis.indexedDB as
+    | (IDBFactory & {
+        databases?: () => Promise<Array<{ name?: string }>>;
+      })
+    | undefined;
+
+  if (indexedDbFactory?.databases) {
+    const databases = await indexedDbFactory.databases();
+    for (const database of databases) {
+      if (database.name?.startsWith(DB_NAME_PREFIX)) {
+        names.add(database.name);
+      }
+    }
+  }
+
+  return [...names].filter((name) => name.startsWith(DB_NAME_PREFIX));
+}
+
+/**
+ * Deletes every POS UMKM Dexie database from IndexedDB.
+ * Used on logout so the next session starts from a clean local cache.
+ */
+export async function deletePosUmkmDatabases(): Promise<string[]> {
+  const dbNames = await listPosUmkmDatabaseNames();
+
+  for (const db of dbCache.values()) {
+    db.close();
+  }
+  dbCache.clear();
+
+  await Promise.all(dbNames.map((dbName) => Dexie.delete(dbName)));
+  return dbNames;
+}
+
 /**
  * Clears the factory cache. Use in tests to get a fresh database instance
  * between test cases (requires fake-indexeddb/auto at the top of the test file).
  */
 export function clearDbCache(): void {
+  for (const db of dbCache.values()) {
+    db.close();
+  }
   dbCache.clear();
 }

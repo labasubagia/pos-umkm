@@ -307,8 +307,11 @@ export class SyncManager {
 
               // Silent refresh didn't succeed — sign the user out to force reauth.
               try {
-                const { authAdapter } = await import("../adapters/index");
+                const { authAdapter, resetDexieLayer } = await import(
+                  "../adapters/index"
+                );
                 await authAdapter.signOut?.();
+                await resetDexieLayer();
               } catch (signOutErr) {
                 logger.warn("[SyncManager] signOut failed:", signOutErr);
               }

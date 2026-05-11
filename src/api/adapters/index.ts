@@ -43,7 +43,7 @@ import { HydrationService } from "../services/HydrationService";
 import { SyncManager, setSyncMonitorRef } from "../services/SyncManager";
 import { SyncMonitor } from "../services/SyncMonitor";
 import { DexieRepository } from "./dexie/DexieRepository";
-import { clearDbCache, getDb } from "./dexie/db";
+import { deletePosUmkmDatabases, getDb } from "./dexie/db";
 import {
   ProductRepository,
   PurchaseOrderItemRepository,
@@ -112,6 +112,7 @@ export let syncManager: SyncManager = new SyncManager(
 const noopSyncMonitor = {
   start: () => {},
   stop: () => {},
+  updateCount: async () => {},
 } as unknown as SyncMonitor;
 
 /**
@@ -174,16 +175,30 @@ export function reinitDexieLayer(storeId: string): void {
 }
 
 /**
- * Resets the Dexie sync layer to no-ops and clears the DB cache.
- * Call on logout so stale IndexedDB connections and references are released.
+ * Resets the Dexie sync layer to no-ops and deletes all POS UMKM IndexedDB databases.
+ * Call on logout so stale local caches are fully removed from the browser.
  */
-export function resetDexieLayer(): void {
+export async function resetDexieLayer(): Promise<void> {
   syncManager.stop();
   syncMonitor.stop();
   syncManager = noopSyncManager;
   syncMonitor = noopSyncMonitor;
+  setSyncMonitorRef(noopSyncMonitor);
   hydrationService = noopHydrationService;
-  clearDbCache();
+
+  try {
+    const deletedDbNames = await deletePosUmkmDatabases();
+    logger.info("[adapters] resetDexieLayer deleted IndexedDB databases", {
+      deletedDbNames,
+    });
+  } catch (err) {
+    logger.warn(
+      "[adapters] resetDexieLayer failed to delete IndexedDB databases",
+      {
+        error: err,
+      },
+    );
+  }
 }
 
 /**

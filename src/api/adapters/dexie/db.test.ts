@@ -6,7 +6,7 @@
  */
 import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it } from "vitest";
-import { clearDbCache, Database, getDb } from "./db";
+import { clearDbCache, Database, deletePosUmkmDatabases, getDb } from "./db";
 
 afterEach(() => {
   clearDbCache();
@@ -49,6 +49,29 @@ describe("clearDbCache", () => {
     clearDbCache();
     const fresh = getDb("store-x");
     expect(fresh.name).toBe("pos_umkm_store-x");
+  });
+});
+
+describe("deletePosUmkmDatabases", () => {
+  it("deletes cached POS UMKM databases from IndexedDB", async () => {
+    const before = getDb("store-delete");
+    await before.Products.put({
+      id: "p-delete",
+      name: "Produk Hapus",
+      price: 1000,
+      category_id: "",
+      sku: "",
+      stock: 0,
+      has_variants: false,
+      created_at: "",
+    });
+
+    const deletedDbNames = await deletePosUmkmDatabases();
+    const after = getDb("store-delete");
+
+    expect(deletedDbNames).toContain("pos_umkm_store-delete");
+    expect(after).not.toBe(before);
+    await expect(after.Products.toArray()).resolves.toHaveLength(0);
   });
 });
 
