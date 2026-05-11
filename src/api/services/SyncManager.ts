@@ -30,7 +30,6 @@ import type {
   OutboxEntry,
   OutboxOperation,
 } from "../adapters/dexie/db";
-import { getDb } from "../adapters/dexie/db";
 import { SheetRepository } from "../adapters/google/SheetRepository";
 import { ALL_TAB_HEADERS } from "../adapters/zod-schemas";
 
@@ -38,18 +37,29 @@ const MAX_RETRIES = 5;
 const POLL_INTERVAL_MS = 30_000;
 const RATE_LIMIT_BACKOFF_MS = 60_000;
 
+// Will be set by adapters/index.ts to avoid circular dependency
+let syncMonitorRef: { updateCount: () => Promise<void> } | null = null;
+
+export function setSyncMonitorRef(ref: {
+  updateCount: () => Promise<void>;
+}): void {
+  syncMonitorRef = ref;
+}
+
 export class SyncManager {
   private isSyncing = false;
   private readonly getToken: () => string;
-  private readonly db: Database;
+  private readonly storeDb: Database;
+  private readonly mainDb: Database;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private rateLimitTimer: ReturnType<typeof setTimeout> | null = null;
   private rateLimited = false;
   private wakeScheduled = false;
 
-  constructor(getToken: () => string, db: Database) {
+  constructor(getToken: () => string, storeDb: Database, mainDb: Database) {
     this.getToken = getToken;
-    this.db = db;
+    this.storeDb = storeDb;
+    this.mainDb = mainDb;
   }
 
   /**
@@ -60,47 +70,12 @@ export class SyncManager {
     if (typeof window === "undefined") return;
     window.addEventListener("online", this.handleOnline);
     if (!this.pollTimer) {
-      this.pollTimer = setInterval(() => this.triggerSync(), POLL_INTERVAL_MS);
+      this.pollTimer = setInterval(
+        () => void this.triggerSync(),
+        POLL_INTERVAL_MS,
+      );
     }
-    // Reset any stale 'syncing' entries left by abrupt shutdowns,
-    // then attempt an immediate drain on startup and refresh pending count.
-    // Prefer the currently-active store DB when available; fall back to
-    // the instance-bound DB. This avoids showing a zero pending count
-    // when outbox entries are stored in a different DB instance.
-    try {
-      const activeStoreId = useAuthStore.getState().activeStoreId ?? "__init__";
-      const startupDb = getDb(activeStoreId);
-      startupDb._outbox
-        .where("status")
-        .equals("syncing")
-        .modify({ status: "pending" })
-        .catch((err) => {
-          logger.warn(
-            "[SyncManager] failed to reset stale 'syncing' entries (startupDb)",
-            err,
-          );
-        })
-        .then(() => {
-          this.triggerSync();
-          this.refreshPendingCount();
-        });
-    } catch {
-      // Fallback to the instance-bound DB if anything goes wrong
-      this.db._outbox
-        .where("status")
-        .equals("syncing")
-        .modify({ status: "pending" })
-        .catch((err) => {
-          logger.warn(
-            "[SyncManager] failed to reset stale 'syncing' entries (instance db)",
-            err,
-          );
-        })
-        .then(() => {
-          this.triggerSync();
-          this.refreshPendingCount();
-        });
-    }
+    void this.resetStaleSyncingEntries();
   }
 
   stop(): void {
@@ -118,7 +93,7 @@ export class SyncManager {
   }
 
   /** Public entry point. No-op if offline, already syncing, rate-limited, or no token. */
-  triggerSync(): void {
+  async triggerSync(): Promise<void> {
     logger.info("[SyncManager] triggerSync called", {
       online: navigator.onLine,
       isSyncing: this.isSyncing,
@@ -144,9 +119,15 @@ export class SyncManager {
     }
 
     logger.info("[SyncManager] triggerSync proceeding (token present)");
-    this.drain().catch((err) => {
-      logger.error("[SyncManager] Unexpected drain error:", err);
-    });
+    try {
+      await this.drain();
+    } catch (err) {
+      logger.error("[SyncManager] Unexpected drain error", {
+        error: err,
+        storeDbName: this.storeDb.name,
+        mainDbName: this.mainDb.name,
+      });
+    }
   }
 
   /**
@@ -162,7 +143,7 @@ export class SyncManager {
     this.wakeScheduled = true;
     queueMicrotask(() => {
       this.wakeScheduled = false;
-      this.triggerSync();
+      void this.triggerSync();
     });
   }
 
@@ -172,23 +153,14 @@ export class SyncManager {
    * to an expired token.
    */
   async resetFailedEntries(): Promise<void> {
-    try {
-      const activeStoreId = useAuthStore.getState().activeStoreId ?? "__init__";
-      const db = getDb(activeStoreId);
-      await db._outbox
-        .where("status")
-        .equals("failed")
-        .modify({ status: "pending", retries: 0, errorMessage: undefined });
-    } catch {
-      // Fallback to the instance-bound DB if anything goes wrong
-      logger.debug(
-        "[SyncManager] activeStoreId lookup failed in resetFailedEntries(), using instance DB",
-      );
-      await this.db._outbox
-        .where("status")
-        .equals("failed")
-        .modify({ status: "pending", retries: 0, errorMessage: undefined });
-    }
+    await this.storeDb._outbox
+      .where("status")
+      .equals("failed")
+      .modify({ status: "pending", retries: 0, errorMessage: undefined });
+    await this.mainDb._outbox
+      .where("status")
+      .equals("failed")
+      .modify({ status: "pending", retries: 0, errorMessage: undefined });
     this.wake();
   }
 
@@ -196,7 +168,7 @@ export class SyncManager {
 
   private handleOnline = (): void => {
     this.rateLimited = false;
-    this.triggerSync();
+    void this.triggerSync();
   };
 
   public async drain(): Promise<void> {
@@ -208,52 +180,14 @@ export class SyncManager {
 
     logger.info("[SyncManager] drain started");
     try {
-      // Log which DB this SyncManager instance is using and the currently
-      // active store DB to help diagnose cases where the exported
-      // `syncManager` is bound to a different Dexie instance than the
-      // UI (OutboxPage) is reading.
-      try {
-        const activeStoreId =
-          useAuthStore.getState().activeStoreId ?? "__init__";
-        const activeDb = getDb(activeStoreId);
-        logger.info("[SyncManager] instance DB vs active store DB", {
-          instanceDbName: this.db.name ?? "unknown",
-          activeStoreId,
-          activeDbName: activeDb.name ?? "unknown",
-        });
-      } catch (dbLogErr) {
-        logger.warn(
-          "[SyncManager] failed to determine active DB info",
-          dbLogErr,
-        );
-      }
-
-      const activeStoreId = useAuthStore.getState().activeStoreId ?? "__init__";
-      const dbToUse = (() => {
-        try {
-          return getDb(activeStoreId);
-        } catch {
-          logger.debug(
-            "[SyncManager] getDb() failed in drain(), using instance DB",
-          );
-          return this.db;
-        }
-      })();
-
-      // Keep draining until the outbox is empty or an intentional early-exit
-      // condition (rate-limit / auth failure) is reached. Re-reading pending
-      // entries on each iteration ensures writes committed to the outbox while
-      // the previous batch was being pushed (e.g. commitTransaction writing 3
-      // entries sequentially) are processed in the same drain run, not deferred
-      // to the next poll interval.
-      //
-      // attemptedIds prevents an entry that just failed from being immediately
-      // retried in the next iteration. Each entry is attempted at most once per
-      // drain() call; subsequent retries happen on the next poll/wake.
+      // Keep draining until the outbox is empty (both DBs) or an intentional
+      // early-exit condition (rate-limit / auth failure) is reached.
+      // Process per-store DB first, then main DB.
       const attemptedIds = new Set<number>();
 
       drainLoop: while (true) {
-        const pending = await dbToUse._outbox
+        // Read from store DB first
+        const storePending = await this.storeDb._outbox
           .where("status")
           .anyOf(["pending", "failed"])
           .and(
@@ -262,18 +196,33 @@ export class SyncManager {
           )
           .sortBy("id");
 
-        if (pending.length === 0) break;
+        // Then read from main DB
+        const mainPending = await this.mainDb._outbox
+          .where("status")
+          .anyOf(["pending", "failed"])
+          .and(
+            (entry) =>
+              entry.retries < MAX_RETRIES && !attemptedIds.has(entry.id ?? -1),
+          )
+          .sortBy("id");
+
+        // Combine and sort by ID across both DBs
+        const allPending = [...storePending, ...mainPending].sort(
+          (a, b) => (a.id ?? -1) - (b.id ?? -1),
+        );
+
+        if (allPending.length === 0) break;
 
         logger.info(
           "[SyncManager] drain processing batch",
-          pending.map((p) => ({
+          allPending.map((p) => ({
             id: p.id,
             mutationId: p.mutationId,
             tableName: p.tableName,
           })),
         );
 
-        for (const entry of pending) {
+        for (const entry of allPending) {
           if (entry.id == null) {
             logger.warn(
               "[SyncManager] skipping outbox entry with no id",
@@ -283,8 +232,14 @@ export class SyncManager {
           }
           const id = entry.id;
           attemptedIds.add(id);
+
+          // Determine which DB this entry came from based on tableName
+          // "Stores" table lives in mainDb, everything else in storeDb
+          const entryDb =
+            entry.tableName === "Stores" ? this.mainDb : this.storeDb;
+
           // Mark as syncing so the UI shows progress
-          await dbToUse._outbox.update(id, { status: "syncing" });
+          await entryDb._outbox.update(id, { status: "syncing" });
 
           try {
             logger.info("[SyncManager] processing outbox entry", {
@@ -294,13 +249,13 @@ export class SyncManager {
               op: entry.operation.op,
             });
             await this.applyToSheets(entry);
-            await dbToUse._outbox.delete(id);
+            await entryDb._outbox.delete(id);
             useSyncStore.getState().setLastError(null);
             logger.info("[SyncManager] successfully processed entry", { id });
           } catch (err) {
             const isRateLimit = isRateLimitError(err);
             const errStr = String(err);
-            await dbToUse._outbox.update(id, {
+            await entryDb._outbox.update(id, {
               status: "failed",
               retries: entry.retries + 1,
               errorMessage: errStr,
@@ -352,8 +307,11 @@ export class SyncManager {
 
               // Silent refresh didn't succeed — sign the user out to force reauth.
               try {
-                const { authAdapter } = await import("../adapters/index");
+                const { authAdapter, resetDexieLayer } = await import(
+                  "../adapters/index"
+                );
                 await authAdapter.signOut?.();
+                await resetDexieLayer();
               } catch (signOutErr) {
                 logger.warn("[SyncManager] signOut failed:", signOutErr);
               }
@@ -382,7 +340,7 @@ export class SyncManager {
     } finally {
       this.isSyncing = false;
       useSyncStore.getState().setIsSyncing(false);
-      this.refreshPendingCount();
+      await this.refreshPendingCount();
     }
   }
 
@@ -457,43 +415,48 @@ export class SyncManager {
     this.rateLimited = true;
     this.rateLimitTimer = setTimeout(() => {
       this.rateLimited = false;
-      this.triggerSync();
+      void this.triggerSync();
     }, RATE_LIMIT_BACKOFF_MS);
   }
 
-  private refreshPendingCount(): void {
-    // Count pending entries for the active store to avoid stale counts from
-    // an out-of-date SyncManager DB instance.
+  private async resetStaleSyncingEntries(): Promise<void> {
     try {
-      const activeStoreId = useAuthStore.getState().activeStoreId ?? "__init__";
-      const db = getDb(activeStoreId);
-      db._outbox
-        .count()
-        .then((count) => {
-          useSyncStore.getState().setPendingCount(count);
-        })
-        .catch((err) => {
-          logger.warn(
-            "[SyncManager] failed to refresh pending count (active store db)",
-            err,
-          );
-        });
-    } catch {
-      // Fallback to the instance-bound DB if anything goes wrong
-      logger.debug(
-        "[SyncManager] activeStoreId lookup failed in refreshPendingCount(), using instance DB",
+      await this.storeDb._outbox
+        .where("status")
+        .equals("syncing")
+        .modify({ status: "pending" });
+    } catch (err) {
+      logger.warn(
+        "[SyncManager] failed to reset stale 'syncing' entries (store DB)",
+        { error: err, storeDbName: this.storeDb.name },
       );
-      this.db._outbox
-        .count()
-        .then((count) => {
-          useSyncStore.getState().setPendingCount(count);
-        })
-        .catch((err) => {
-          logger.warn(
-            "[SyncManager] failed to refresh pending count (instance-bound db)",
-            err,
-          );
-        });
+    }
+
+    try {
+      await this.mainDb._outbox
+        .where("status")
+        .equals("syncing")
+        .modify({ status: "pending" });
+    } catch (err) {
+      logger.warn(
+        "[SyncManager] failed to reset stale 'syncing' entries (main DB)",
+        { error: err, mainDbName: this.mainDb.name },
+      );
+    }
+  }
+
+  private async refreshPendingCount(): Promise<void> {
+    // SyncMonitor updates the authoritative pending count after drain completes.
+    if (!syncMonitorRef) return;
+
+    try {
+      await syncMonitorRef.updateCount();
+    } catch (err) {
+      logger.warn("[SyncManager] failed to refresh pending count", {
+        error: err,
+        storeDbName: this.storeDb.name,
+        mainDbName: this.mainDb.name,
+      });
     }
   }
 }

@@ -35,7 +35,7 @@ afterEach(() => {
 });
 
 function makeManager() {
-  return new SyncManager(() => TOKEN, getDb(TEST_STORE_ID));
+  return new SyncManager(() => TOKEN, getDb(TEST_STORE_ID), getDb("__main__"));
 }
 
 function makeEntry(

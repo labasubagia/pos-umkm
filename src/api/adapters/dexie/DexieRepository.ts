@@ -17,7 +17,6 @@
  *   - entries that are new            → batchInsert
  */
 
-import { useSyncStore } from "../../../store/syncStore";
 import { logger } from "../../../utils/logger";
 import { generateId } from "../../../utils/uuid";
 import type { ILocalRepository } from "../LocalRepository";
@@ -65,7 +64,6 @@ export class DexieRepository<T extends Record<string, unknown>>
         });
       },
     );
-    this.refreshPendingCount();
     this.onAfterWrite();
   }
 
@@ -96,7 +94,6 @@ export class DexieRepository<T extends Record<string, unknown>>
         });
       },
     );
-    this.refreshPendingCount();
     this.onAfterWrite();
   }
 
@@ -136,7 +133,6 @@ export class DexieRepository<T extends Record<string, unknown>>
         }
       },
     );
-    this.refreshPendingCount();
     this.onAfterWrite();
   }
 
@@ -152,7 +148,6 @@ export class DexieRepository<T extends Record<string, unknown>>
         await this.enqueue({ op: "softDelete", id: id });
       },
     );
-    this.refreshPendingCount();
     this.onAfterWrite();
   }
 
@@ -173,19 +168,5 @@ export class DexieRepository<T extends Record<string, unknown>>
       op: operation.op,
     });
     return this.db._outbox.add(entry);
-  }
-
-  private refreshPendingCount(): void {
-    // Use the total outbox count to avoid missing entries with other
-    // transient statuses (e.g. 'syncing') which could cause the UI to
-    // incorrectly show "Tersinkron" while entries still exist.
-    this.db._outbox
-      .count()
-      .then((count) => {
-        useSyncStore.getState().setPendingCount(count);
-      })
-      .catch(() => {
-        /* non-critical */
-      });
   }
 }

@@ -24,6 +24,7 @@ import {
 import { getMainSpreadsheetId } from "../../api/services/StoreRegistryService";
 import { useAuthStore } from "../../store/authStore";
 import { nowUTC } from "../../utils/formatters";
+import { logger } from "../../utils/logger";
 
 // ─── Error class ──────────────────────────────────────────────────────────────
 
@@ -136,10 +137,15 @@ export async function updateStore(
 ): Promise<void> {
   const trimmedName = patch.store_name?.trim();
   if (!trimmedName) return;
+  logger.info("[store-management] updateStore called", {
+    storeId,
+    trimmedName,
+  });
 
   await getRepos().stores.batchUpdate([
     { id: storeId, store_name: trimmedName },
   ]);
+  logger.info("[store-management] updateStore completed");
 }
 
 /**
@@ -152,6 +158,7 @@ export async function updateStore(
  * Throws StoreManagementError if storeId is not found in main.Stores.
  */
 export async function removeOwnedStore(storeId: string): Promise<void> {
+  logger.info("[store-management] removeOwnedStore called", { storeId });
   const repo = getRepos().stores;
 
   // Verify the store exists before stamping — avoids silent no-ops.
@@ -166,6 +173,7 @@ export async function removeOwnedStore(storeId: string): Promise<void> {
   }
 
   await repo.batchUpdate([{ id: storeId, deleted_at: nowUTC() }]);
+  logger.info("[store-management] removeOwnedStore completed");
 }
 
 /**

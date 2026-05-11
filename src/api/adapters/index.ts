@@ -40,9 +40,10 @@
 import { useAuthStore } from "../../store/authStore";
 import { logger } from "../../utils/logger";
 import { HydrationService } from "../services/HydrationService";
-import { SyncManager } from "../services/SyncManager";
+import { SyncManager, setSyncMonitorRef } from "../services/SyncManager";
+import { SyncMonitor } from "../services/SyncMonitor";
 import { DexieRepository } from "./dexie/DexieRepository";
-import { clearDbCache, getDb } from "./dexie/db";
+import { deletePosUmkmDatabases, getDb } from "./dexie/db";
 import {
   ProductRepository,
   PurchaseOrderItemRepository,
@@ -104,17 +105,31 @@ const noopHydrationService = {
 export let syncManager: SyncManager = new SyncManager(
   getToken,
   getDb("__init__"),
-);
-/**
- * SyncManager for the global __main__ DB (drains Stores/cross-store outbox).
- * Runs independently of the per-store syncManager so store-management mutations
- * (updateStore, removeOwnedStore) are synced to the main spreadsheet regardless
- * of which per-store DB is currently active.
- */
-export let mainSyncManager: SyncManager = new SyncManager(
-  getToken,
   getDb("__main__"),
 );
+
+/** No-op SyncMonitor used as the initial value and after logout. */
+const noopSyncMonitor = {
+  start: () => {},
+  stop: () => {},
+  updateCount: async () => {},
+} as unknown as SyncMonitor;
+
+/**
+ * SyncMonitor — watches both outboxes and maintains the authoritative pending count.
+ * Mutable so reinitDexieLayer() can replace it when the active store changes.
+ */
+export let syncMonitor: SyncMonitor = new SyncMonitor(
+  getDb("__init__"),
+  getDb("__main__"),
+);
+
+// Start monitoring immediately so pending count is always available
+syncMonitor.start();
+
+// Set reference so SyncManager can call updateCount() after drain completes
+setSyncMonitorRef(syncMonitor);
+
 function _getInstanceDbName(obj: unknown): string | undefined {
   return (obj as { db?: { name?: string } })?.db?.name;
 }
@@ -122,6 +137,7 @@ function _getInstanceDbName(obj: unknown): string | undefined {
 logger.info("[adapters] initial syncManager created (db)", {
   dbName: _getInstanceDbName(syncManager) ?? "unknown",
 });
+logger.info("[adapters] initial syncMonitor started");
 
 /**
  * HydrationService — pulls Sheets data into IndexedDB after login.
@@ -143,30 +159,46 @@ export let hydrationService: HydrationService = new HydrationService(
 export function reinitDexieLayer(storeId: string): void {
   logger.info("[adapters] reinitDexieLayer called", { storeId });
   syncManager.stop();
-  mainSyncManager.stop();
+  syncMonitor.stop();
   const db = getDb(storeId);
   const mainDb = getDb("__main__");
-  syncManager = new SyncManager(getToken, db);
-  mainSyncManager = new SyncManager(getToken, mainDb);
+  syncManager = new SyncManager(getToken, db, mainDb);
+  syncMonitor = new SyncMonitor(db, mainDb);
   hydrationService = new HydrationService(getToken, db, mainDb);
   logger.info("[adapters] syncManager reinitialized", {
-    dbName: _getInstanceDbName(syncManager) ?? "unknown",
+    storeDbName: _getInstanceDbName(syncManager) ?? "unknown",
   });
   syncManager.start();
-  mainSyncManager.start();
+  syncMonitor.start();
+  setSyncMonitorRef(syncMonitor);
+  logger.info("[adapters] syncMonitor updated and started");
 }
 
 /**
- * Resets the Dexie sync layer to no-ops and clears the DB cache.
- * Call on logout so stale IndexedDB connections and references are released.
+ * Resets the Dexie sync layer to no-ops and deletes all POS UMKM IndexedDB databases.
+ * Call on logout so stale local caches are fully removed from the browser.
  */
-export function resetDexieLayer(): void {
+export async function resetDexieLayer(): Promise<void> {
   syncManager.stop();
-  mainSyncManager.stop();
+  syncMonitor.stop();
   syncManager = noopSyncManager;
-  mainSyncManager = noopSyncManager;
+  syncMonitor = noopSyncMonitor;
+  setSyncMonitorRef(noopSyncMonitor);
   hydrationService = noopHydrationService;
-  clearDbCache();
+
+  try {
+    const deletedDbNames = await deletePosUmkmDatabases();
+    logger.info("[adapters] resetDexieLayer deleted IndexedDB databases", {
+      deletedDbNames,
+    });
+  } catch (err) {
+    logger.warn(
+      "[adapters] resetDexieLayer failed to delete IndexedDB databases",
+      {
+        error: err,
+      },
+    );
+  }
 }
 
 /**
@@ -175,6 +207,11 @@ export function resetDexieLayer(): void {
  */
 export function getRepos(): Repos {
   const { activeStoreId } = useAuthStore.getState();
+  if (!activeStoreId) {
+    logger.warn(
+      "[adapters] getRepos() called before activeStoreId is set; using __init__ bootstrap DB",
+    );
+  }
   return createDexieRepos(activeStoreId ?? "__init__");
 }
 
@@ -213,23 +250,41 @@ function createDexieRepos(storeId: string): Repos {
   // and per-store outbox entries never block Stores hydration.
   const mainDb = getDb("__main__");
 
+  // After any write, wake the appropriate SyncManager and update pending count
+  const onStoreWrite = () => {
+    logger.info("[adapters] onStoreWrite callback fired");
+    syncManager.wake();
+    syncMonitor.updateCount().catch((err) => {
+      logger.error(
+        "[adapters] onStoreWrite: syncMonitor.updateCount failed",
+        err,
+      );
+    });
+  };
+  const onMainWrite = () => {
+    logger.info(
+      "[adapters] onMainWrite callback fired (Stores table mutation)",
+    );
+    syncManager.wake();
+    syncMonitor.updateCount().catch((err) => {
+      logger.error(
+        "[adapters] onMainWrite: syncMonitor.updateCount failed",
+        err,
+      );
+    });
+  };
+
   function dexie<T extends Record<string, unknown>>(
     tableName: string,
   ): DexieRepository<T> {
-    return new DexieRepository<T>(storeDb, tableName, () => syncManager.wake());
+    return new DexieRepository<T>(storeDb, tableName, onStoreWrite);
   }
 
   return {
-    stores: new DexieRepository<Store>(mainDb, "Stores", () =>
-      mainSyncManager.wake(),
-    ),
+    stores: new DexieRepository<Store>(mainDb, "Stores", onMainWrite),
     categories: dexie<Category>("Categories"),
-    products: new ProductRepository(storeDb, "Products", () =>
-      syncManager.wake(),
-    ),
-    variants: new VariantRepository(storeDb, "Variants", () =>
-      syncManager.wake(),
-    ),
+    products: new ProductRepository(storeDb, "Products", onStoreWrite),
+    variants: new VariantRepository(storeDb, "Variants", onStoreWrite),
     members: dexie<Member>("Members"),
     settings: dexie<Setting>("Settings"),
     stockLog: dexie<StockLog>("Stock_Log"),
@@ -237,17 +292,19 @@ function createDexieRepos(storeId: string): Repos {
     purchaseOrderItems: new PurchaseOrderItemRepository(
       storeDb,
       "Purchase_Order_Items",
-      () => syncManager.wake(),
+      onStoreWrite,
     ),
     customers: dexie<Customer>("Customers"),
     auditLog: dexie<AuditLog>("Audit_Log"),
-    transactions: new TransactionRepository(storeDb, "Transactions", () =>
-      syncManager.wake(),
+    transactions: new TransactionRepository(
+      storeDb,
+      "Transactions",
+      onStoreWrite,
     ),
     transactionItems: new TransactionItemRepository(
       storeDb,
       "Transaction_Items",
-      () => syncManager.wake(),
+      onStoreWrite,
     ),
     refunds: dexie<Refund>("Refunds"),
   };

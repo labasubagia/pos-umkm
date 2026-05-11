@@ -141,14 +141,8 @@ function renderPage() {
 }
 
 beforeEach(async () => {
-  // Clear Dexie for all storeIds tests might use.
-  for (const id of [
-    ownedStore.store_id,
-    joinedStore.store_id,
-    "another-store",
-  ]) {
-    await getDb(id).Stores.clear();
-  }
+  // Clear the global Stores table in the __main__ DB (Stores are global).
+  await getDb("__main__").Stores.clear();
   clearDbCache();
   useAuthStore.getState().clearAuth();
   vi.clearAllMocks();

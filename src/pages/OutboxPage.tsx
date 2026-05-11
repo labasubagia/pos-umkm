@@ -30,8 +30,18 @@ export default function OutboxPage() {
       dbName: db.name ?? "unknown",
     });
     setLoading(true);
-    const items = await db._outbox.orderBy("id").reverse().toArray();
-    setOutbox(items);
+    const mainDb = getDb("__main__");
+    const [storeItems, mainItems] = await Promise.all([
+      db._outbox.orderBy("id").reverse().toArray(),
+      db === mainDb
+        ? Promise.resolve([] as OutboxEntry[])
+        : mainDb._outbox.orderBy("id").reverse().toArray(),
+    ]);
+    // Merge and sort by id descending so newest entries appear first.
+    const merged = [...storeItems, ...mainItems].sort(
+      (a, b) => (b.id ?? 0) - (a.id ?? 0),
+    );
+    setOutbox(merged);
     setLoading(false);
   }, [db, activeStoreId]);
 
