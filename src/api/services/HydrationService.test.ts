@@ -98,7 +98,8 @@ describe("HydrationService", () => {
         drive_folder_id: "folder-a",
       }),
     ]);
-    // The per-store DB Stores table must stay empty.
-    expect(await getDb(TEST_STORE_ID).Stores.toArray()).toHaveLength(0);
+    // Per-store DBs intentionally do not expose the `Stores` table; the
+    // authoritative `Stores` table lives in the global `__main__` DB.
+    expect(() => getDb(TEST_STORE_ID).table("Stores")).toThrow();
   });
 });
