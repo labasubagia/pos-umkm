@@ -13,7 +13,7 @@
 
 import { CheckCircle, CloudOff, CloudUpload, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { syncManager } from "../api/adapters";
+import { mainSyncManager, syncManager } from "../api/adapters";
 import { useSyncStore } from "../store/syncStore";
 import { formatDateTimeTZ } from "../utils/formatters";
 import { logger } from "../utils/logger";
@@ -40,7 +40,9 @@ export function SyncStatus() {
       isSyncing,
       lastError,
     });
+    // Trigger both the per-store and main (Stores table) sync managers
     syncManager.triggerSync();
+    mainSyncManager.triggerSync();
   };
 
   const hasPending = pendingCount > 0;

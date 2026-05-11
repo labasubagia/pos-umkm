@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { syncManager } from "../api/adapters";
+import { mainSyncManager, syncManager } from "../api/adapters";
 import type { OutboxEntry } from "../api/adapters/dexie/db";
 import { getDb } from "../api/adapters/dexie/db";
 import { Button } from "../components/ui/button";
@@ -30,8 +30,18 @@ export default function OutboxPage() {
       dbName: db.name ?? "unknown",
     });
     setLoading(true);
-    const items = await db._outbox.orderBy("id").reverse().toArray();
-    setOutbox(items);
+    const mainDb = getDb("__main__");
+    const [storeItems, mainItems] = await Promise.all([
+      db._outbox.orderBy("id").reverse().toArray(),
+      db === mainDb
+        ? Promise.resolve([] as OutboxEntry[])
+        : mainDb._outbox.orderBy("id").reverse().toArray(),
+    ]);
+    // Merge and sort by id descending so newest entries appear first.
+    const merged = [...storeItems, ...mainItems].sort(
+      (a, b) => (b.id ?? 0) - (a.id ?? 0),
+    );
+    setOutbox(merged);
     setLoading(false);
   }, [db, activeStoreId]);
 
@@ -65,6 +75,7 @@ export default function OutboxPage() {
             onClick={() => {
               logger.log("[OutboxPage] Sync Now clicked");
               syncManager.triggerSync();
+              mainSyncManager.triggerSync();
               fetchOutbox();
             }}
             size="sm"
@@ -75,7 +86,10 @@ export default function OutboxPage() {
             variant="secondary"
             onClick={async () => {
               logger.log("[OutboxPage] Retry All Failed clicked");
-              await syncManager.resetFailedEntries();
+              await Promise.all([
+                syncManager.resetFailedEntries(),
+                mainSyncManager.resetFailedEntries(),
+              ]);
               fetchOutbox();
             }}
             size="sm"
