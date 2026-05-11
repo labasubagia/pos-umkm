@@ -207,6 +207,11 @@ export async function resetDexieLayer(): Promise<void> {
  */
 export function getRepos(): Repos {
   const { activeStoreId } = useAuthStore.getState();
+  if (!activeStoreId) {
+    logger.warn(
+      "[adapters] getRepos() called before activeStoreId is set; using __init__ bootstrap DB",
+    );
+  }
   return createDexieRepos(activeStoreId ?? "__init__");
 }
 

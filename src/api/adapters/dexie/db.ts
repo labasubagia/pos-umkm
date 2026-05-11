@@ -67,7 +67,7 @@ export class Database extends Dexie {
   // Main spreadsheet
   Stores!: Table<Store>;
 
-  // Master spreadsheet
+  // Data spreadsheet
   Settings!: Table<Setting>;
   Members!: Table<Member>;
   Categories!: Table<Category>;
@@ -78,8 +78,6 @@ export class Database extends Dexie {
   Purchase_Order_Items!: Table<PurchaseOrderItem>;
   Stock_Log!: Table<StockLog>;
   Audit_Log!: Table<AuditLog>;
-
-  // Monthly spreadsheet
   Transactions!: Table<Transaction>;
   Transaction_Items!: Table<TransactionItem>;
   Refunds!: Table<Refund>;
@@ -91,32 +89,7 @@ export class Database extends Dexie {
   constructor(storeId: string) {
     super(`pos_umkm_${storeId}`);
 
-    this.version(1).stores({
-      // Main spreadsheet
-      Stores: "id, store_id",
-
-      // Master spreadsheet
-      // Settings uses (id, key) — key is the lookup column for batchUpsertByKey
-      Settings: "id, key",
-      Members: "id, email",
-      Categories: "id",
-      Products: "id, category_id",
-      Variants: "id, product_id",
-      Customers: "id, phone",
-      Purchase_Orders: "id, status",
-      Purchase_Order_Items: "id, order_id, product_id",
-      Stock_Log: "id, product_id",
-      Audit_Log: "id",
-
-      // Monthly spreadsheet
-      Transactions: "id, created_at",
-      Transaction_Items: "id, transaction_id",
-      Refunds: "id, transaction_id",
-
-      // Infrastructure
-      _outbox: "++id, mutationId, status, tableName",
-      _syncMeta: "key",
-    });
+    this.version(1).stores(getSchemaForStore(storeId));
   }
 }
 
@@ -124,6 +97,61 @@ export class Database extends Dexie {
 
 const DB_NAME_PREFIX = "pos_umkm_";
 const dbCache = new Map<string, Database>();
+
+type SchemaMap = Record<string, string>;
+
+const INFRA_SCHEMA: SchemaMap = {
+  _outbox: "++id, mutationId, status, tableName",
+  _syncMeta: "key",
+};
+
+const STORES_SCHEMA: SchemaMap = {
+  Stores: "id, store_id",
+};
+
+const BOOTSTRAP_SCHEMA: SchemaMap = {
+  // Bootstrap routes may read/write members and settings before active store
+  // is selected (e.g. setup + first-owner checks).
+  Settings: "id, key",
+  Members: "id, email",
+};
+
+const STORE_DATA_SCHEMA: SchemaMap = {
+  Settings: "id, key",
+  Members: "id, email",
+  Categories: "id",
+  Products: "id, category_id",
+  Variants: "id, product_id",
+  Customers: "id, phone",
+  Purchase_Orders: "id, status",
+  Purchase_Order_Items: "id, order_id, product_id",
+  Stock_Log: "id, product_id",
+  Audit_Log: "id",
+  Transactions: "id, created_at",
+  Transaction_Items: "id, transaction_id",
+  Refunds: "id, transaction_id",
+};
+
+function getSchemaForStore(storeId: string): SchemaMap {
+  if (storeId === "__main__") {
+    return {
+      ...STORES_SCHEMA,
+      ...INFRA_SCHEMA,
+    };
+  }
+
+  if (storeId === "__init__") {
+    return {
+      ...BOOTSTRAP_SCHEMA,
+      ...INFRA_SCHEMA,
+    };
+  }
+
+  return {
+    ...STORE_DATA_SCHEMA,
+    ...INFRA_SCHEMA,
+  };
+}
 
 /**
  * Returns the Dexie database for the given store. Instances are cached so each
