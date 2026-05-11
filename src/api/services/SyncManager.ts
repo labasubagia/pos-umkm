@@ -70,30 +70,12 @@ export class SyncManager {
     if (typeof window === "undefined") return;
     window.addEventListener("online", this.handleOnline);
     if (!this.pollTimer) {
-      this.pollTimer = setInterval(() => this.triggerSync(), POLL_INTERVAL_MS);
+      this.pollTimer = setInterval(
+        () => void this.triggerSync(),
+        POLL_INTERVAL_MS,
+      );
     }
-    // Reset any stale 'syncing' entries left by abrupt shutdowns in both DBs.
-    // SyncMonitor will read the final count once monitoring starts.
-    this.storeDb._outbox
-      .where("status")
-      .equals("syncing")
-      .modify({ status: "pending" })
-      .catch((err) => {
-        logger.warn(
-          "[SyncManager] failed to reset stale 'syncing' entries (store DB)",
-          err,
-        );
-      });
-    this.mainDb._outbox
-      .where("status")
-      .equals("syncing")
-      .modify({ status: "pending" })
-      .catch((err) => {
-        logger.warn(
-          "[SyncManager] failed to reset stale 'syncing' entries (main DB)",
-          err,
-        );
-      });
+    void this.resetStaleSyncingEntries();
   }
 
   stop(): void {
@@ -111,7 +93,7 @@ export class SyncManager {
   }
 
   /** Public entry point. No-op if offline, already syncing, rate-limited, or no token. */
-  triggerSync(): void {
+  async triggerSync(): Promise<void> {
     logger.info("[SyncManager] triggerSync called", {
       online: navigator.onLine,
       isSyncing: this.isSyncing,
@@ -137,9 +119,15 @@ export class SyncManager {
     }
 
     logger.info("[SyncManager] triggerSync proceeding (token present)");
-    this.drain().catch((err) => {
-      logger.error("[SyncManager] Unexpected drain error:", err);
-    });
+    try {
+      await this.drain();
+    } catch (err) {
+      logger.error("[SyncManager] Unexpected drain error", {
+        error: err,
+        storeDbName: this.storeDb.name,
+        mainDbName: this.mainDb.name,
+      });
+    }
   }
 
   /**
@@ -155,7 +143,7 @@ export class SyncManager {
     this.wakeScheduled = true;
     queueMicrotask(() => {
       this.wakeScheduled = false;
-      this.triggerSync();
+      void this.triggerSync();
     });
   }
 
@@ -180,7 +168,7 @@ export class SyncManager {
 
   private handleOnline = (): void => {
     this.rateLimited = false;
-    this.triggerSync();
+    void this.triggerSync();
   };
 
   public async drain(): Promise<void> {
@@ -349,7 +337,7 @@ export class SyncManager {
     } finally {
       this.isSyncing = false;
       useSyncStore.getState().setIsSyncing(false);
-      this.refreshPendingCount();
+      await this.refreshPendingCount();
     }
   }
 
@@ -424,15 +412,47 @@ export class SyncManager {
     this.rateLimited = true;
     this.rateLimitTimer = setTimeout(() => {
       this.rateLimited = false;
-      this.triggerSync();
+      void this.triggerSync();
     }, RATE_LIMIT_BACKOFF_MS);
   }
 
-  private refreshPendingCount(): void {
+  private async resetStaleSyncingEntries(): Promise<void> {
+    try {
+      await this.storeDb._outbox
+        .where("status")
+        .equals("syncing")
+        .modify({ status: "pending" });
+    } catch (err) {
+      logger.warn(
+        "[SyncManager] failed to reset stale 'syncing' entries (store DB)",
+        { error: err, storeDbName: this.storeDb.name },
+      );
+    }
+
+    try {
+      await this.mainDb._outbox
+        .where("status")
+        .equals("syncing")
+        .modify({ status: "pending" });
+    } catch (err) {
+      logger.warn(
+        "[SyncManager] failed to reset stale 'syncing' entries (main DB)",
+        { error: err, mainDbName: this.mainDb.name },
+      );
+    }
+  }
+
+  private async refreshPendingCount(): Promise<void> {
     // SyncMonitor updates the authoritative pending count after drain completes.
-    if (syncMonitorRef) {
-      syncMonitorRef.updateCount().catch((err) => {
-        logger.warn("[SyncManager] failed to refresh pending count", err);
+    if (!syncMonitorRef) return;
+
+    try {
+      await syncMonitorRef.updateCount();
+    } catch (err) {
+      logger.warn("[SyncManager] failed to refresh pending count", {
+        error: err,
+        storeDbName: this.storeDb.name,
+        mainDbName: this.mainDb.name,
       });
     }
   }

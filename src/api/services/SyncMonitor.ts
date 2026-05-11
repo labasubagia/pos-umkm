@@ -56,11 +56,17 @@ export class SyncMonitor {
   }
 
   /** Called when switching stores or logging out. */
-  start(): void {
-    // Trigger initial count
-    this.updateCount().catch((err) => {
-      logger.warn("[SyncMonitor] failed initial count", err);
-    });
+  async start(): Promise<void> {
+    try {
+      await this.updateCount();
+    } catch (err) {
+      logger.warn("[SyncMonitor] failed initial count", {
+        error: err,
+        storeDbName: this.storeDb.name,
+        mainDbName: this.mainDb.name,
+      });
+    }
+
     logger.info("[SyncMonitor] started monitoring", {
       storeDbName: this.storeDb.name,
       mainDbName: this.mainDb.name,
