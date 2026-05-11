@@ -105,15 +105,6 @@ const noopHydrationService = {
 export let syncManager: SyncManager = new SyncManager(
   getToken,
   getDb("__init__"),
-);
-/**
- * SyncManager for the global __main__ DB (drains Stores/cross-store outbox).
- * Runs independently of the per-store syncManager so store-management mutations
- * (updateStore, removeOwnedStore) are synced to the main spreadsheet regardless
- * of which per-store DB is currently active.
- */
-export let mainSyncManager: SyncManager = new SyncManager(
-  getToken,
   getDb("__main__"),
 );
 
@@ -167,19 +158,16 @@ export let hydrationService: HydrationService = new HydrationService(
 export function reinitDexieLayer(storeId: string): void {
   logger.info("[adapters] reinitDexieLayer called", { storeId });
   syncManager.stop();
-  mainSyncManager.stop();
   syncMonitor.stop();
   const db = getDb(storeId);
   const mainDb = getDb("__main__");
-  syncManager = new SyncManager(getToken, db);
-  mainSyncManager = new SyncManager(getToken, mainDb);
+  syncManager = new SyncManager(getToken, db, mainDb);
   syncMonitor = new SyncMonitor(db, mainDb);
   hydrationService = new HydrationService(getToken, db, mainDb);
   logger.info("[adapters] syncManager reinitialized", {
-    dbName: _getInstanceDbName(syncManager) ?? "unknown",
+    storeDbName: _getInstanceDbName(syncManager) ?? "unknown",
   });
   syncManager.start();
-  mainSyncManager.start();
   syncMonitor.start();
   setSyncMonitorRef(syncMonitor);
   logger.info("[adapters] syncMonitor updated and started");
@@ -191,10 +179,8 @@ export function reinitDexieLayer(storeId: string): void {
  */
 export function resetDexieLayer(): void {
   syncManager.stop();
-  mainSyncManager.stop();
   syncMonitor.stop();
   syncManager = noopSyncManager;
-  mainSyncManager = noopSyncManager;
   syncMonitor = noopSyncMonitor;
   hydrationService = noopHydrationService;
   clearDbCache();
@@ -259,7 +245,7 @@ function createDexieRepos(storeId: string): Repos {
     logger.info(
       "[adapters] onMainWrite callback fired (Stores table mutation)",
     );
-    mainSyncManager.wake();
+    syncManager.wake();
     syncMonitor.updateCount().catch((err) => {
       logger.error(
         "[adapters] onMainWrite: syncMonitor.updateCount failed",

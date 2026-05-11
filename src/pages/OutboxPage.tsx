@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { mainSyncManager, syncManager } from "../api/adapters";
+import { syncManager } from "../api/adapters";
 import type { OutboxEntry } from "../api/adapters/dexie/db";
 import { getDb } from "../api/adapters/dexie/db";
 import { Button } from "../components/ui/button";
@@ -75,7 +75,6 @@ export default function OutboxPage() {
             onClick={() => {
               logger.log("[OutboxPage] Sync Now clicked");
               syncManager.triggerSync();
-              mainSyncManager.triggerSync();
               fetchOutbox();
             }}
             size="sm"
@@ -86,10 +85,7 @@ export default function OutboxPage() {
             variant="secondary"
             onClick={async () => {
               logger.log("[OutboxPage] Retry All Failed clicked");
-              await Promise.all([
-                syncManager.resetFailedEntries(),
-                mainSyncManager.resetFailedEntries(),
-              ]);
+              await syncManager.resetFailedEntries();
               fetchOutbox();
             }}
             size="sm"
