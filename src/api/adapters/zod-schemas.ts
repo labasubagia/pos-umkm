@@ -21,7 +21,16 @@ const coerceBoolean = z
   );
 const coerceDate = z.coerce.date().transform((d) => d.toISOString());
 
-const optionalCoerceDate = coerceDate.optional();
+const optionalNullableCoerceDate = z
+  .preprocess((value) => {
+  // Google Sheets may return optional date cells as "" while absent columns
+  // are undefined. Accept both plus explicit nulls.
+  if (typeof value === "string" && value.trim() === "") {
+    return null;
+  }
+  return value;
+  }, coerceDate.nullable())
+  .optional();
 
 export const StoreSchema = z.object({
   id: coerceString.optional(),
@@ -30,8 +39,8 @@ export const StoreSchema = z.object({
   drive_folder_id: coerceString.optional().nullable(),
   owner_email: coerceString.optional().nullable(),
   my_role: coerceString.optional().nullable(),
-  joined_at: optionalCoerceDate.nullable(),
-  deleted_at: optionalCoerceDate.nullable(),
+  joined_at: optionalNullableCoerceDate,
+  deleted_at: optionalNullableCoerceDate,
 });
 
 export const SettingSchema = z.object({
@@ -48,14 +57,14 @@ export const MemberSchema = z.object({
   name: coerceString,
   role: coerceString,
   invited_at: coerceDate,
-  deleted_at: optionalCoerceDate.nullable(),
+  deleted_at: optionalNullableCoerceDate,
 });
 
 export const CategorySchema = z.object({
   id: coerceString,
   name: coerceString,
   created_at: coerceDate,
-  deleted_at: optionalCoerceDate.nullable(),
+  deleted_at: optionalNullableCoerceDate,
 });
 
 export const ProductSchema = z.object({
@@ -67,7 +76,7 @@ export const ProductSchema = z.object({
   stock: coerceNumber,
   has_variants: coerceBoolean,
   created_at: coerceDate,
-  deleted_at: optionalCoerceDate.nullable(),
+  deleted_at: optionalNullableCoerceDate,
 });
 
 export const VariantSchema = z.object({
@@ -78,7 +87,7 @@ export const VariantSchema = z.object({
   price: coerceNumber,
   stock: coerceNumber,
   created_at: coerceDate,
-  deleted_at: optionalCoerceDate.nullable(),
+  deleted_at: optionalNullableCoerceDate,
 });
 
 export const CustomerSchema = z.object({
@@ -87,7 +96,7 @@ export const CustomerSchema = z.object({
   phone: coerceString,
   email: coerceString.optional().nullable(),
   created_at: coerceDate,
-  deleted_at: optionalCoerceDate.nullable(),
+  deleted_at: optionalNullableCoerceDate,
 });
 
 export const PurchaseOrderSchema = z.object({
@@ -95,7 +104,7 @@ export const PurchaseOrderSchema = z.object({
   supplier: coerceString,
   status: z.enum(["pending", "received"]),
   created_at: coerceDate,
-  deleted_at: optionalCoerceDate.nullable(),
+  deleted_at: optionalNullableCoerceDate,
 });
 
 export const PurchaseOrderItemSchema = z.object({

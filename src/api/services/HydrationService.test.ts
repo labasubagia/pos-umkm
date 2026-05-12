@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "../../store/authStore";
+import { queryClient } from "../../hooks/queryClient";
 import { clearDbCache, getDb } from "../adapters/dexie/db";
 import { HydrationService } from "./HydrationService";
 
@@ -16,6 +17,7 @@ vi.mock("../store/storeMapStore", () => ({
 
 describe("HydrationService", () => {
   beforeEach(async () => {
+    queryClient.clear();
     localStorage.clear();
     useAuthStore.getState().clearAuth();
     useAuthStore.setState({
@@ -32,7 +34,11 @@ describe("HydrationService", () => {
     });
 
     const db = getDb(TEST_STORE_ID);
-    await Promise.all(db.tables.map((table) => table.clear()));
+    const mainDb = getDb("__main__");
+    await Promise.all([
+      ...db.tables.map((table) => table.clear()),
+      ...mainDb.tables.map((table) => table.clear()),
+    ]);
 
     mocks.getCurrentStoreMapStore.mockReturnValue({
       getState: () => ({
@@ -101,5 +107,57 @@ describe("HydrationService", () => {
     // Per-store DBs intentionally do not expose the `Stores` table; the
     // authoritative `Stores` table lives in the global `__main__` DB.
     expect(() => getDb(TEST_STORE_ID).table("Stores")).toThrow();
+  });
+
+  it("hydrates Stores into __main__ when optional date columns are empty strings", async () => {
+    vi.restoreAllMocks();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/values/Stores")) {
+        return new Response(
+          JSON.stringify({
+            values: [
+              [
+                "store_id",
+                "store_name",
+                "drive_folder_id",
+                "owner_email",
+                "my_role",
+                "joined_at",
+                "deleted_at",
+              ],
+              [
+                "store-b",
+                "Toko B",
+                "folder-b",
+                "owner@test.com",
+                "owner",
+                "",
+                "",
+              ],
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+
+      return new Response(JSON.stringify({ values: [] }), { status: 200 });
+    });
+
+    const service = new HydrationService(
+      () => "token",
+      getDb(TEST_STORE_ID),
+      getDb("__main__"),
+    );
+
+    await service.hydrateAll();
+
+    expect(await getDb("__main__").Stores.toArray()).toEqual([
+      expect.objectContaining({
+        id: "store-b",
+        store_id: "store-b",
+        store_name: "Toko B",
+      }),
+    ]);
   });
 });
