@@ -24,7 +24,12 @@ import { useAuthStore } from "../../store/authStore";
 import { getCurrentStoreMapStore } from "../../store/storeMapStore";
 import { formatIDR } from "../../utils/formatters";
 import { logger } from "../../utils/logger";
-import { fetchDailySummary, ReportError } from "./reports.service";
+import {
+  fetchDailySummary,
+  getCurrentMonthDateBounds,
+  isMonthlyPartitionedStore,
+  ReportError,
+} from "./reports.service";
 
 export function DailySummary() {
   const today = new Date().toISOString().slice(0, 10);
@@ -34,6 +39,8 @@ export function DailySummary() {
   const activeStoreId = useAuthStore((s) => s.activeStoreId);
   const user = useAuthStore((s) => s.user);
   const isOwner = user?.role === "owner";
+  const monthlyPartitioned = isMonthlyPartitionedStore();
+  const monthBounds = getCurrentMonthDateBounds();
 
   const {
     data: summary,
@@ -86,6 +93,8 @@ export function DailySummary() {
             name="date"
             type="date"
             value={date}
+            min={monthlyPartitioned ? monthBounds.start : undefined}
+            max={monthlyPartitioned ? monthBounds.end : undefined}
             onChange={(e) => {
               setDate(e.target.value);
               setEnabled(false);
@@ -101,6 +110,16 @@ export function DailySummary() {
           Lihat Laporan
         </Button>
       </form>
+
+      {monthlyPartitioned && (
+        <p
+          className="text-sm text-muted-foreground"
+          data-testid="report-monthly-note"
+        >
+          Toko ini memakai partisi transaksi bulanan. Laporan hanya tersedia
+          untuk bulan berjalan.
+        </p>
+      )}
 
       {isOwner &&
         (() => {

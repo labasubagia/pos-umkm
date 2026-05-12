@@ -1,4 +1,5 @@
 import { getRepos } from "../../api/adapters";
+import { getCurrentStoreMapStore } from "../../store/storeMapStore";
 import { nowUTC } from "../../utils/formatters";
 
 export interface TransactionRow {
@@ -58,6 +59,38 @@ export class ReportError extends Error {
   }
 }
 
+export function isMonthlyPartitionedStore(): boolean {
+  try {
+    return (
+      Object.keys(getCurrentStoreMapStore().getState().monthlySheets).length > 0
+    );
+  } catch {
+    return false;
+  }
+}
+
+function currentYearMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+export function getCurrentMonthDateBounds(): { start: string; end: string } {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const start = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+  const end = new Date(Date.UTC(year, month + 1, 0)).toISOString().slice(0, 10);
+  return { start, end };
+}
+
+function assertCurrentMonthOnly(date: string): void {
+  if (!isMonthlyPartitionedStore()) return;
+  if (!date.startsWith(currentYearMonth())) {
+    throw new ReportError(
+      "Laporan untuk toko dengan transaksi bulanan hanya tersedia untuk bulan berjalan",
+    );
+  }
+}
+
 // ─── T038 — Daily Sales Summary ───────────────────────────────────────────────
 
 export function aggregateTransactions(
@@ -98,6 +131,8 @@ export function aggregateTransactions(
 }
 
 export async function fetchDailySummary(date: string): Promise<DailySummary> {
+  assertCurrentMonthOnly(date);
+
   const [txRows, itemRows] = await Promise.all([
     getRepos().transactions.getAll(),
     getRepos().transactionItems.getAll(),
@@ -139,6 +174,8 @@ export async function fetchTransactionsForRange(
   if (startDate > endDate) {
     throw new ReportError("Tanggal mulai tidak boleh lebih dari tanggal akhir");
   }
+  assertCurrentMonthOnly(startDate);
+  assertCurrentMonthOnly(endDate);
 
   // Use the indexed findByDateRange — single query instead of full-table scan.
   const allRows = await getRepos().transactions.findByDateRange(

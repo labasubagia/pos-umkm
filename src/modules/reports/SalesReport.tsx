@@ -20,6 +20,8 @@ import { printReport } from "./export.service";
 import {
   fetchTransactionsForRange,
   filterTransactions,
+  getCurrentMonthDateBounds,
+  isMonthlyPartitionedStore,
   ReportError,
   type ReportFilters,
   type TransactionRow,
@@ -42,6 +44,8 @@ export function SalesReport() {
   const [loading, setLoading] = useState(false);
   const user = useAuthStore((s) => s.user);
   const isOwner = user?.role === "owner";
+  const monthlyPartitioned = isMonthlyPartitionedStore();
+  const monthBounds = getCurrentMonthDateBounds();
 
   async function load() {
     setLoading(true);
@@ -109,6 +113,8 @@ export function SalesReport() {
             name="startDate"
             type="date"
             value={startDate}
+            min={monthlyPartitioned ? monthBounds.start : undefined}
+            max={monthlyPartitioned ? monthBounds.end : undefined}
             onChange={(e) => setStartDate(e.target.value)}
             className="w-auto"
           />
@@ -121,6 +127,8 @@ export function SalesReport() {
             name="endDate"
             type="date"
             value={endDate}
+            min={monthlyPartitioned ? monthBounds.start : undefined}
+            max={monthlyPartitioned ? monthBounds.end : undefined}
             onChange={(e) => setEndDate(e.target.value)}
             className="w-auto"
           />
@@ -154,6 +162,16 @@ export function SalesReport() {
           Lihat Laporan
         </Button>
       </form>
+
+      {monthlyPartitioned && (
+        <p
+          className="text-sm text-muted-foreground"
+          data-testid="report-monthly-note"
+        >
+          Toko ini memakai partisi transaksi bulanan. Rentang laporan dibatasi
+          ke bulan berjalan.
+        </p>
+      )}
 
       {error && (
         <Alert variant="destructive">

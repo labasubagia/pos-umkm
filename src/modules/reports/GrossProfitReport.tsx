@@ -9,6 +9,8 @@ import { formatIDR } from "../../utils/formatters";
 import {
   calculateGrossProfit,
   fetchTransactionsForRange,
+  getCurrentMonthDateBounds,
+  isMonthlyPartitionedStore,
   type ProfitSummary,
   ReportError,
 } from "./reports.service";
@@ -20,6 +22,8 @@ export function GrossProfitReport() {
   const [result, setResult] = useState<ProfitSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const monthlyPartitioned = isMonthlyPartitionedStore();
+  const monthBounds = getCurrentMonthDateBounds();
 
   async function load() {
     setLoading(true);
@@ -68,6 +72,8 @@ export function GrossProfitReport() {
           <Input
             type="date"
             value={startDate}
+            min={monthlyPartitioned ? monthBounds.start : undefined}
+            max={monthlyPartitioned ? monthBounds.end : undefined}
             onChange={(e) => setStartDate(e.target.value)}
             className="w-auto"
           />
@@ -78,6 +84,8 @@ export function GrossProfitReport() {
           <Input
             type="date"
             value={endDate}
+            min={monthlyPartitioned ? monthBounds.start : undefined}
+            max={monthlyPartitioned ? monthBounds.end : undefined}
             onChange={(e) => setEndDate(e.target.value)}
             className="w-auto"
           />
@@ -86,6 +94,16 @@ export function GrossProfitReport() {
           Lihat Laporan
         </Button>
       </div>
+
+      {monthlyPartitioned && (
+        <p
+          className="text-sm text-muted-foreground"
+          data-testid="report-monthly-note"
+        >
+          Toko ini memakai partisi transaksi bulanan. Rentang laporan dibatasi
+          ke bulan berjalan.
+        </p>
+      )}
 
       {error && (
         <Alert variant="destructive">

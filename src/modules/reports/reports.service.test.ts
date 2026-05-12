@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as adapters from "../../api/adapters";
+import { useAuthStore } from "../../store/authStore";
+import {
+  getStoreMapStore,
+  resetStoreMapStore,
+} from "../../store/storeMapStore";
 import {
   aggregateTransactions,
   calculateExpectedCash,
@@ -38,6 +43,10 @@ let mockRepos: Record<string, ReturnType<typeof mockRepo>>;
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  resetStoreMapStore();
+  useAuthStore.getState().clearAuth();
+  useAuthStore.setState({ activeStoreId: "report-store" });
+  getStoreMapStore("report-store").getState().setStoreMap("folder-1", {}, {});
   mockRepos = {
     categories: mockRepo(),
     products: mockRepo(),
@@ -224,6 +233,35 @@ describe("fetchDailySummary", () => {
       ReportError,
     );
   });
+
+  it("rejects non-current-month daily summaries for monthly-partitioned stores", async () => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
+    const priorMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      .toISOString()
+      .slice(0, 10);
+
+    getStoreMapStore("report-store")
+      .getState()
+      .setStoreMap(
+        "folder-1",
+        {},
+        {
+          [currentYear]: {
+            [currentMonth]: {
+              year: currentYear,
+              month: currentMonth,
+              sheets: {},
+            },
+          },
+        },
+      );
+
+    await expect(fetchDailySummary(priorMonthDate)).rejects.toBeInstanceOf(
+      ReportError,
+    );
+  });
 });
 
 // ─── T039 — fetchTransactionsForRange / filterTransactions ───────────────────
@@ -272,6 +310,35 @@ describe("fetchTransactionsForRange", () => {
   it("throws if startDate is after endDate", async () => {
     await expect(
       fetchTransactionsForRange("2026-07-01", "2026-06-01"),
+    ).rejects.toBeInstanceOf(ReportError);
+  });
+
+  it("rejects non-current-month ranges for monthly-partitioned stores", async () => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
+    const priorMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      .toISOString()
+      .slice(0, 10);
+
+    getStoreMapStore("report-store")
+      .getState()
+      .setStoreMap(
+        "folder-1",
+        {},
+        {
+          [currentYear]: {
+            [currentMonth]: {
+              year: currentYear,
+              month: currentMonth,
+              sheets: {},
+            },
+          },
+        },
+      );
+
+    await expect(
+      fetchTransactionsForRange(priorMonth, priorMonth),
     ).rejects.toBeInstanceOf(ReportError);
   });
 });

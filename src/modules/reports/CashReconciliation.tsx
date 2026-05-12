@@ -8,6 +8,8 @@ import { formatIDR } from "../../utils/formatters";
 import {
   calculateExpectedCash,
   fetchTransactionsForRange,
+  getCurrentMonthDateBounds,
+  isMonthlyPartitionedStore,
   ReportError,
   saveReconciliation,
 } from "./reports.service";
@@ -23,6 +25,8 @@ export function CashReconciliation() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
+  const monthlyPartitioned = isMonthlyPartitionedStore();
+  const monthBounds = getCurrentMonthDateBounds();
 
   async function calculate() {
     setLoading(true);
@@ -93,6 +97,8 @@ export function CashReconciliation() {
             name="date"
             type="date"
             value={date}
+            min={monthlyPartitioned ? monthBounds.start : undefined}
+            max={monthlyPartitioned ? monthBounds.end : undefined}
             onChange={(e) => setDate(e.target.value)}
             className="w-auto"
           />
@@ -127,6 +133,16 @@ export function CashReconciliation() {
           Hitung Rekonsiliasi
         </Button>
       </form>
+
+      {monthlyPartitioned && (
+        <p
+          className="text-sm text-muted-foreground"
+          data-testid="report-monthly-note"
+        >
+          Toko ini memakai partisi transaksi bulanan. Rekonsiliasi hanya
+          tersedia untuk tanggal di bulan berjalan.
+        </p>
+      )}
 
       {error && (
         <Alert variant="destructive">
