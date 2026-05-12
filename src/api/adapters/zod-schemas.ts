@@ -102,7 +102,7 @@ export const CustomerSchema = z.object({
 export const PurchaseOrderSchema = z.object({
   id: coerceString,
   supplier: coerceString,
-  status: z.enum(["pending", "received"]),
+  status: z.enum(["pending", "receiving", "received"]),
   created_at: coerceDate,
   deleted_at: optionalNullableCoerceDate,
 });

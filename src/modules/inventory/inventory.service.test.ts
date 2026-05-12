@@ -314,4 +314,41 @@ describe("receivePurchaseOrder", () => {
 
     await expect(receivePurchaseOrder(orderId)).rejects.toThrow(InventoryError);
   });
+
+  it('throws InventoryError if order status is already "receiving"', async () => {
+    mockRepos.purchaseOrders.getAll.mockResolvedValue([
+      { ...mockOrder, status: "receiving" },
+    ]);
+
+    await expect(receivePurchaseOrder(orderId)).rejects.toThrow(InventoryError);
+  });
+
+  it('marks the order as "receiving" before applying stock changes', async () => {
+    mockRepos.purchaseOrders.getAll.mockResolvedValue([mockOrder]);
+    mockRepos.purchaseOrderItems.findByOrderId.mockResolvedValue(mockItems);
+    mockRepos.products.getAll.mockResolvedValue(mockProducts);
+
+    await receivePurchaseOrder(orderId);
+
+    expect(mockRepos.purchaseOrders.batchUpdate).toHaveBeenNthCalledWith(1, [
+      { id: orderId, status: "receiving" },
+    ]);
+    expect(mockRepos.purchaseOrders.batchUpdate).toHaveBeenNthCalledWith(2, [
+      { id: orderId, status: "received" },
+    ]);
+  });
+
+  it('leaves the order in "receiving" if a later write fails', async () => {
+    mockRepos.purchaseOrders.getAll.mockResolvedValue([mockOrder]);
+    mockRepos.purchaseOrderItems.findByOrderId.mockResolvedValue(mockItems);
+    mockRepos.products.getAll.mockResolvedValue(mockProducts);
+    mockRepos.stockLog.batchInsert.mockRejectedValue(new Error("write failed"));
+
+    await expect(receivePurchaseOrder(orderId)).rejects.toThrow(InventoryError);
+
+    expect(mockRepos.purchaseOrders.batchUpdate).toHaveBeenCalledTimes(1);
+    expect(mockRepos.purchaseOrders.batchUpdate).toHaveBeenCalledWith([
+      { id: orderId, status: "receiving" },
+    ]);
+  });
 });

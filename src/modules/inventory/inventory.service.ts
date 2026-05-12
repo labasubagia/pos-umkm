@@ -50,7 +50,7 @@ export interface OpnameRow {
 export interface PurchaseOrder {
   id: string;
   supplier: string;
-  status: "pending" | "received";
+  status: "pending" | "receiving" | "received";
   created_at: string;
 }
 
@@ -208,6 +208,15 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
       `Purchase order "${orderId}" sudah berstatus "received" dan tidak dapat diproses ulang`,
     );
   }
+  if (order.status === "receiving") {
+    throw new InventoryError(
+      `Purchase order "${orderId}" sedang diproses. Verifikasi hasil sinkronisasi sebelum mencoba lagi.`,
+    );
+  }
+
+  await getRepos().purchaseOrders.batchUpdate([
+    { id: orderId, status: "receiving" },
+  ]);
 
   // Step 2: Load order items and current product stocks
   const [orderItems, products] = await Promise.all([
@@ -230,24 +239,31 @@ export async function receivePurchaseOrder(orderId: string): Promise<void> {
   });
 
   // Steps 3 & 4: Batch all stock updates in one round-trip + append logs in parallel
-  await Promise.all([
-    getRepos().products.batchUpdate(
-      stockData.map(({ item, qtyAfter }) => ({
-        id: item.product_id as string,
-        stock: qtyAfter,
-      })),
-    ),
-    getRepos().stockLog.batchInsert(
-      stockData.map(({ item, qtyBefore, qtyAfter }) => ({
-        id: generateId(),
-        product_id: item.product_id,
-        reason: "purchase_order",
-        qty_before: qtyBefore,
-        qty_after: qtyAfter,
-        created_at,
-      })),
-    ),
-  ]);
+  try {
+    await Promise.all([
+      getRepos().products.batchUpdate(
+        stockData.map(({ item, qtyAfter }) => ({
+          id: item.product_id as string,
+          stock: qtyAfter,
+        })),
+      ),
+      getRepos().stockLog.batchInsert(
+        stockData.map(({ item, qtyBefore, qtyAfter }) => ({
+          id: generateId(),
+          product_id: item.product_id,
+          reason: "purchase_order",
+          qty_before: qtyBefore,
+          qty_after: qtyAfter,
+          created_at,
+        })),
+      ),
+    ]);
+  } catch (err) {
+    throw new InventoryError(
+      `Purchase order "${orderId}" gagal diselesaikan setelah status berubah menjadi "receiving". Cek stok dan log sebelum memproses ulang.`,
+      err,
+    );
+  }
 
   // Step 5: Mark order as received only after all stock updates succeed
   await getRepos().purchaseOrders.batchUpdate([

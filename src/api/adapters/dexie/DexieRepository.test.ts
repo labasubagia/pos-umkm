@@ -8,6 +8,7 @@ import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DexieRepository } from "./DexieRepository";
 import { clearDbCache, getDb } from "./db";
+import { ProductRepository, VariantRepository } from "./typed-repos";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -270,5 +271,73 @@ describe("batchUpsert", () => {
     expect(name?.value).toBe("Toko Baru");
     const addr = all.find((r) => r.key === "address");
     expect(addr).toBeTruthy();
+  });
+});
+
+describe("typed repository filters", () => {
+  it("ProductRepository.findByCategoryId excludes soft-deleted products", async () => {
+    const db = getDb(TEST_STORE_ID);
+    await db.Products.bulkPut([
+      {
+        id: "p1",
+        category_id: "cat-1",
+        name: "Aktif",
+        sku: "SKU-1",
+        price: 1000,
+        stock: 1,
+        has_variants: false,
+        created_at: "2026-01-01T00:00:00Z",
+        deleted_at: null,
+      },
+      {
+        id: "p2",
+        category_id: "cat-1",
+        name: "Dihapus",
+        sku: "SKU-2",
+        price: 1000,
+        stock: 1,
+        has_variants: false,
+        created_at: "2026-01-01T00:00:00Z",
+        deleted_at: "2026-01-02T00:00:00Z",
+      },
+    ]);
+
+    const repo = new ProductRepository(getDb(TEST_STORE_ID), "Products");
+    const rows = await repo.findByCategoryId("cat-1");
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe("p1");
+  });
+
+  it("VariantRepository.findByProductId excludes soft-deleted variants", async () => {
+    const db = getDb(TEST_STORE_ID);
+    await db.Variants.bulkPut([
+      {
+        id: "v1",
+        product_id: "p1",
+        option_name: "Ukuran",
+        option_value: "M",
+        price: 1000,
+        stock: 1,
+        created_at: "2026-01-01T00:00:00Z",
+        deleted_at: null,
+      },
+      {
+        id: "v2",
+        product_id: "p1",
+        option_name: "Ukuran",
+        option_value: "L",
+        price: 1000,
+        stock: 1,
+        created_at: "2026-01-01T00:00:00Z",
+        deleted_at: "2026-01-02T00:00:00Z",
+      },
+    ]);
+
+    const repo = new VariantRepository(getDb(TEST_STORE_ID), "Variants");
+    const rows = await repo.findByProductId("p1");
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe("v1");
   });
 });

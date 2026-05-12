@@ -34,10 +34,14 @@ export class ProductRepository
   implements IProductRepository
 {
   async findById(id: string): Promise<Product | undefined> {
-    return this.db.Products.get(id);
+    const row = await this.db.Products.get(id);
+    return row?.deleted_at ? undefined : row;
   }
   async findByCategoryId(categoryId: string): Promise<Product[]> {
-    return this.db.Products.where("category_id").equals(categoryId).toArray();
+    return this.db.Products.where("category_id")
+      .equals(categoryId)
+      .filter((r) => !r.deleted_at)
+      .toArray();
   }
 }
 
@@ -46,10 +50,14 @@ export class VariantRepository
   implements IVariantRepository
 {
   async findById(id: string): Promise<Variant | undefined> {
-    return this.db.Variants.get(id);
+    const row = await this.db.Variants.get(id);
+    return row?.deleted_at ? undefined : row;
   }
   async findByProductId(productId: string): Promise<Variant[]> {
-    return this.db.Variants.where("product_id").equals(productId).toArray();
+    return this.db.Variants.where("product_id")
+      .equals(productId)
+      .filter((r) => !r.deleted_at)
+      .toArray();
   }
 }
 
@@ -76,6 +84,7 @@ export class TransactionItemRepository
   async findByTransactionId(transactionId: string): Promise<TransactionItem[]> {
     return this.db.Transaction_Items.where("transaction_id")
       .equals(transactionId)
+      .filter((r) => !r.deleted_at)
       .toArray();
   }
 }
@@ -87,6 +96,7 @@ export class PurchaseOrderItemRepository
   async findByOrderId(orderId: string): Promise<PurchaseOrderItem[]> {
     return this.db.Purchase_Order_Items.where("order_id")
       .equals(orderId)
+      .filter((r) => !r.deleted_at)
       .toArray();
   }
 }
