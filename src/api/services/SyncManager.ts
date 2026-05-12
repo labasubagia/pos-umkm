@@ -190,7 +190,7 @@ export class SyncManager {
       // Keep draining until the outbox is empty (both DBs) or an intentional
       // early-exit condition (rate-limit / auth failure) is reached.
       // Process per-store DB first, then main DB.
-      const attemptedIds = new Set<number>();
+      const attemptedEntries = new Set<string>();
 
       drainLoop: while (true) {
         // Read from store DB first
@@ -199,7 +199,8 @@ export class SyncManager {
           .anyOf(["pending", "failed"])
           .and(
             (entry) =>
-              entry.retries < MAX_RETRIES && !attemptedIds.has(entry.id ?? -1),
+              entry.retries < MAX_RETRIES &&
+              !attemptedEntries.has(this.getAttemptKey("store", entry.id)),
           )
           .sortBy("id");
 
@@ -209,7 +210,8 @@ export class SyncManager {
           .anyOf(["pending", "failed"])
           .and(
             (entry) =>
-              entry.retries < MAX_RETRIES && !attemptedIds.has(entry.id ?? -1),
+              entry.retries < MAX_RETRIES &&
+              !attemptedEntries.has(this.getAttemptKey("main", entry.id)),
           )
           .sortBy("id");
 
@@ -238,12 +240,12 @@ export class SyncManager {
             continue;
           }
           const id = entry.id;
-          attemptedIds.add(id);
-
           // Determine which DB this entry came from based on tableName
           // "Stores" table lives in mainDb, everything else in storeDb
           const entryDb =
             entry.tableName === "Stores" ? this.mainDb : this.storeDb;
+          const entryDbKind = entry.tableName === "Stores" ? "main" : "store";
+          attemptedEntries.add(this.getAttemptKey(entryDbKind, id));
 
           // Mark as syncing so the UI shows progress
           await entryDb._outbox.update(id, { status: "syncing" });
@@ -424,6 +426,10 @@ export class SyncManager {
       this.rateLimited = false;
       void this.triggerSync();
     }, RATE_LIMIT_BACKOFF_MS);
+  }
+
+  private getAttemptKey(dbKind: "store" | "main", id: number | undefined): string {
+    return `${dbKind}:${id ?? -1}`;
   }
 
   private async resetStaleSyncingEntries(): Promise<void> {

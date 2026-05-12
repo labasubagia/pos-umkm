@@ -136,12 +136,12 @@ export class HydrationService {
 
     // Skip if there are pending outbox entries for this table —
     // applying remote data would overwrite unsynced local writes.
-    const pendingForTable = await targetDb._outbox
+    const unresolvedForTable = await targetDb._outbox
       .where("tableName")
       .equals(sheetName)
-      .and((e) => e.status !== "failed" || e.retries < 5)
+      .and((e) => e.status === "pending" || e.status === "syncing" || e.status === "failed")
       .count();
-    if (pendingForTable > 0) return;
+    if (unresolvedForTable > 0) return;
 
     try {
       const repo = new SheetRepository<Record<string, unknown>>(

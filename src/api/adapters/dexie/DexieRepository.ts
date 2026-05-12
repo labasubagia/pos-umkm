@@ -118,7 +118,16 @@ export class DexieRepository<T extends Record<string, unknown>>
       [this.db.table(this.tableName), this.db._outbox],
       async () => {
         if (toUpdate.length > 0) {
-          await this.db.table(this.tableName).bulkPut(toUpdate);
+          const existingUpdates = await this.db
+            .table(this.tableName)
+            .bulkGet(toUpdate.map((r) => r.id as string));
+          const mergedUpdates = toUpdate.flatMap((item, index) => {
+            const existing = existingUpdates[index];
+            return existing ? [{ ...existing, ...item }] : [];
+          });
+          if (mergedUpdates.length > 0) {
+            await this.db.table(this.tableName).bulkPut(mergedUpdates);
+          }
           await this.enqueue({
             op: "batchUpdate",
             items: toUpdate as Record<string, unknown>[],

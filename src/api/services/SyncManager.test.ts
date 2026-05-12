@@ -33,6 +33,7 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   clearDbCache();
 });
 
@@ -263,6 +264,42 @@ describe("drain", () => {
       | { spreadsheetId?: string }
       | undefined;
     expect(repoInstance?.spreadsheetId).toBe("main-sheet-from-storage");
+    batchUpdateSpy.mockRestore();
+  });
+
+  it("processes store and main outbox entries even when they share the same numeric id", async () => {
+    const manager = makeManager();
+    const storeDb = getDb(TEST_STORE_ID);
+    const mainDb = getDb("__main__");
+    const { SheetRepository } = await import(
+      "../adapters/google/SheetRepository"
+    );
+    const batchInsertSpy = vi
+      .spyOn(SheetRepository.prototype, "batchInsert")
+      .mockResolvedValue(undefined);
+    const batchUpdateSpy = vi
+      .spyOn(SheetRepository.prototype, "batchUpdate")
+      .mockResolvedValue(undefined);
+
+    await storeDb._outbox.add(makeEntry({ mutationId: "store-entry" }));
+    await mainDb._outbox.add(
+      makeEntry({
+        mutationId: "main-entry",
+        tableName: "Stores",
+        operation: {
+          op: "batchUpdate",
+          items: [{ id: "store-1", store_name: "Toko 1" }],
+        },
+      }),
+    );
+
+    await manager.drain();
+
+    expect(batchInsertSpy).toHaveBeenCalledOnce();
+    expect(batchUpdateSpy).toHaveBeenCalledOnce();
+    expect(await storeDb._outbox.count()).toBe(0);
+    expect(await mainDb._outbox.count()).toBe(0);
+    batchInsertSpy.mockRestore();
     batchUpdateSpy.mockRestore();
   });
 });

@@ -58,6 +58,7 @@ beforeEach(async () => {
   localStorage.clear();
   const db = getDb(TEST_STORE_ID);
   await db.Products.clear();
+  await db.Settings.clear();
   await db._outbox.clear();
   await db._syncMeta.clear();
 });
@@ -271,6 +272,31 @@ describe("batchUpsert", () => {
     expect(name?.value).toBe("Toko Baru");
     const addr = all.find((r) => r.key === "address");
     expect(addr).toBeTruthy();
+  });
+
+  it("preserves untouched fields when upserting a partial update", async () => {
+    const db = getTestDb();
+    await db.Settings.put({
+      id: "s1",
+      key: "business_name",
+      value: "Toko Lama",
+      updated_at: "2026-01-01T00:00:00Z",
+    });
+    const repo = new DexieRepository<Record<string, unknown>>(
+      getDb(TEST_STORE_ID) as unknown as import("./db").Database,
+      "Settings",
+    );
+
+    await repo.batchUpsert([{ id: "s1", value: "Toko Baru" }]);
+
+    expect(await db.Settings.toArray()).toEqual([
+      {
+        id: "s1",
+        key: "business_name",
+        value: "Toko Baru",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+    ]);
   });
 });
 

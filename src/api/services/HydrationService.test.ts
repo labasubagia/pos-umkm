@@ -253,4 +253,93 @@ describe("HydrationService", () => {
       }),
     ]);
   });
+
+  it("does not overwrite local data when the table has terminal failed outbox entries", async () => {
+    vi.restoreAllMocks();
+    mocks.getCurrentStoreMapStore.mockReturnValue({
+      getState: () => ({
+        sheets: {
+          Products: {
+            spreadsheet_id: "products-sheet-id",
+          },
+        },
+        monthlySheets: [],
+        getCurrentMonthSheets: () => undefined,
+      }),
+    });
+
+    const db = getDb(TEST_STORE_ID);
+    await db.Products.put({
+      id: "p1",
+      category_id: "c1",
+      name: "Local Product",
+      sku: "SKU-1",
+      price: 1000,
+      stock: 5,
+      has_variants: false,
+      created_at: "2026-01-01T00:00:00.000Z",
+      deleted_at: null,
+    });
+    await db._outbox.add({
+      mutationId: crypto.randomUUID(),
+      tableName: "Products",
+      operation: {
+        op: "batchUpdate",
+        items: [{ id: "p1", price: 2000 }],
+      },
+      status: "failed",
+      retries: 5,
+      createdAt: new Date().toISOString(),
+      errorMessage: "permanent failure",
+    });
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/values/Products")) {
+        return new Response(
+          JSON.stringify({
+            values: [
+              [
+                "id",
+                "category_id",
+                "name",
+                "sku",
+                "price",
+                "stock",
+                "has_variants",
+                "created_at",
+                "deleted_at",
+              ],
+              [
+                "p1",
+                "c1",
+                "Remote Product",
+                "SKU-1",
+                "9999",
+                "1",
+                "false",
+                "2026-01-01T00:00:00.000Z",
+                "",
+              ],
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+
+      return new Response(JSON.stringify({ values: [] }), { status: 200 });
+    });
+
+    const service = new HydrationService(() => "token", db, getDb("__main__"));
+
+    await service.hydrateAll();
+
+    expect(await db.Products.get("p1")).toEqual(
+      expect.objectContaining({
+        id: "p1",
+        name: "Local Product",
+        price: 1000,
+      }),
+    );
+  });
 });

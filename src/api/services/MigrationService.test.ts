@@ -7,12 +7,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MigrationPayload } from "../../config/types";
 
 const mockMakeRepo = vi.fn();
+const mockGetRepos = vi.fn();
 const mockStoreFolderService = {
   ensureFolder: vi.fn().mockResolvedValue("folder-id-123"),
   createSpreadsheet: vi.fn().mockResolvedValue("spreadsheet-id-456"),
 };
 
 vi.mock("../adapters", () => ({
+  getRepos: mockGetRepos,
   makeRepo: mockMakeRepo,
   storeFolderService: mockStoreFolderService,
 }));
@@ -56,6 +58,11 @@ vi.mock("./StoreRegistryService", async (importOriginal) => {
 describe("MigrationService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetRepos.mockReturnValue({
+      stores: {
+        batchUpdate: vi.fn().mockResolvedValue(undefined),
+      },
+    });
     mockMakeRepo.mockReturnValue({
       createTable: vi.fn().mockResolvedValue(undefined),
       getAll: vi.fn().mockResolvedValue([]),
@@ -276,6 +283,24 @@ describe("MigrationService", () => {
       );
 
       expect(stores).toEqual([]);
+    });
+  });
+
+  describe("updateStoreName", () => {
+    it("uses the local stores repo update contract", async () => {
+      const storesBatchUpdate = vi.fn().mockResolvedValue(undefined);
+      const { StoreRegistryService } = await import("./StoreRegistryService");
+      mockGetRepos.mockReturnValue({
+        stores: {
+          batchUpdate: storesBatchUpdate,
+        },
+      });
+
+      await StoreRegistryService.updateStoreName("store-1", "Toko Baru");
+
+      expect(storesBatchUpdate).toHaveBeenCalledWith([
+        { id: "store-1", store_name: "Toko Baru" },
+      ]);
     });
   });
 });

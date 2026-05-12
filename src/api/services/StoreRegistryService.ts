@@ -10,7 +10,7 @@
 import { logger } from "@/utils/logger";
 import { MAIN_PRESET, type MainConfigPayload } from "../../config/presets";
 import { useAuthStore } from "../../store/authStore";
-import { makeRepo, storeFolderService } from "../adapters";
+import { getRepos, makeRepo, storeFolderService } from "../adapters";
 import { MigrationError, type StoreRecord } from "./MigrationService";
 
 export function getMainSpreadsheetId(): string | null {
@@ -76,9 +76,7 @@ class StoreRegistryServiceImpl {
     if (!mainId) {
       throw new MigrationError("updateStoreName: mainSpreadsheetId not found");
     }
-    await makeRepo(mainId, "Stores").batchUpdate([
-      { rowId: storeId, column: "store_name", value: newName },
-    ]);
+    await getRepos().stores.batchUpdate([{ id: storeId, store_name: newName }]);
   }
 
   async ensureStoreFolders(): Promise<void> {
