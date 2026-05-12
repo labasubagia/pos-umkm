@@ -36,6 +36,13 @@ interface HydrationTarget {
   spreadsheetId: string;
 }
 
+function getHydrationMainSpreadsheetId(): string | null {
+  return (
+    useAuthStore.getState().mainSpreadsheetId ??
+    localStorage.getItem("mainSpreadsheetId")
+  );
+}
+
 export class HydrationService {
   private readonly getToken: () => string;
   private readonly db: Database;
@@ -58,7 +65,7 @@ export class HydrationService {
   async hydrateAll(): Promise<void> {
     const storeMap = getCurrentStoreMapStore().getState();
     const targets: HydrationTarget[] = [];
-    const mainSpreadsheetId = useAuthStore.getState().mainSpreadsheetId;
+    const mainSpreadsheetId = getHydrationMainSpreadsheetId();
 
     if (mainSpreadsheetId) {
       // Stores is cross-store (lives in the main spreadsheet).

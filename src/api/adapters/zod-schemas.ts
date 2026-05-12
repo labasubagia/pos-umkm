@@ -23,12 +23,12 @@ const coerceDate = z.coerce.date().transform((d) => d.toISOString());
 
 const optionalNullableCoerceDate = z
   .preprocess((value) => {
-  // Google Sheets may return optional date cells as "" while absent columns
-  // are undefined. Accept both plus explicit nulls.
-  if (typeof value === "string" && value.trim() === "") {
-    return null;
-  }
-  return value;
+    // Google Sheets may return optional date cells as "" while absent columns
+    // are undefined. Accept both plus explicit nulls.
+    if (typeof value === "string" && value.trim() === "") {
+      return null;
+    }
+    return value;
   }, coerceDate.nullable())
   .optional();
 
@@ -226,7 +226,24 @@ export function parseSheetRows(
     );
     return rows;
   }
-  return rows.map((row) => schema.parse(row));
+
+  const parsedRows: Record<string, unknown>[] = [];
+
+  rows.forEach((row, index) => {
+    const result = schema.safeParse(row);
+    if (result.success) {
+      parsedRows.push(result.data);
+      return;
+    }
+
+    logger.warn(`[parseSheetRows] Skipping invalid row for "${sheetName}"`, {
+      rowIndex: index,
+      row,
+      issues: result.error.issues,
+    });
+  });
+
+  return parsedRows;
 }
 
 // ─── Config Types ────────────────────────────────────────────────────────────────

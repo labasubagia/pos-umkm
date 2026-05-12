@@ -13,12 +13,10 @@
 import { LogOut, Store } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavLink, useLocation, useNavigate, useParams } from "react-router";
-import { getStoreMapStore } from "@/store/storeMapStore";
-import { authAdapter, resetDexieLayer, syncManager } from "../api/adapters";
+import { authAdapter, syncManager } from "../api/adapters";
 import type { Role } from "../api/adapters/types";
 import { StoreActivationService } from "../api/services/StoreActivationService";
-import { queryClient } from "../hooks/queryClient";
-import { clearSetupStorage } from "../modules/auth/setup.service";
+import { clearSessionState } from "../modules/auth/session.service";
 import { useAuth } from "../modules/auth/useAuth";
 import { useStores } from "../modules/settings";
 import { logger } from "../utils/logger";
@@ -36,7 +34,7 @@ interface NavBarProps {
 }
 
 export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
-  const { user, role, activeStoreId, clearAuth } = useAuth();
+  const { user, role, activeStoreId } = useAuth();
   const { data: stores = [] } = useStores();
   const navigate = useNavigate();
   const location = useLocation();
@@ -66,13 +64,7 @@ export function NavBar({ syncStatusSlot }: NavBarProps = {}) {
   async function handleSignOut() {
     syncManager.triggerSync();
     await authAdapter.signOut();
-    await resetDexieLayer(); // Remove POS UMKM IndexedDB databases on logout.
-    clearAuth();
-    getStoreMapStore(storeId ?? activeStoreId ?? "")
-      .getState()
-      .clearStoreMap(); // Clear the current store map store's in-memory cache
-    clearSetupStorage();
-    queryClient.clear();
+    await clearSessionState();
     navigate("/", { replace: true });
   }
 

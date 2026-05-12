@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAuthStore } from "../../store/authStore";
 import { queryClient } from "../../hooks/queryClient";
+import { useAuthStore } from "../../store/authStore";
 import { clearDbCache, getDb } from "../adapters/dexie/db";
 import { HydrationService } from "./HydrationService";
 
@@ -157,6 +157,99 @@ describe("HydrationService", () => {
         id: "store-b",
         store_id: "store-b",
         store_name: "Toko B",
+      }),
+    ]);
+  });
+
+  it("hydrates valid Stores rows even when another row is malformed", async () => {
+    vi.restoreAllMocks();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/values/Stores")) {
+        return new Response(
+          JSON.stringify({
+            values: [
+              [
+                "store_id",
+                "store_name",
+                "drive_folder_id",
+                "owner_email",
+                "my_role",
+                "joined_at",
+                "deleted_at",
+              ],
+              [
+                "broken-store",
+                "Broken",
+                "folder-broken",
+                "owner@test.com",
+                "owner",
+                "not-a-date",
+                "",
+              ],
+              [
+                "store-c",
+                "Toko C",
+                "folder-c",
+                "owner@test.com",
+                "owner",
+                "2026-01-01T00:00:00Z",
+                "",
+              ],
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+
+      return new Response(JSON.stringify({ values: [] }), { status: 200 });
+    });
+
+    const service = new HydrationService(
+      () => "token",
+      getDb(TEST_STORE_ID),
+      getDb("__main__"),
+    );
+
+    await service.hydrateAll();
+
+    expect(await getDb("__main__").Stores.toArray()).toEqual([
+      expect.objectContaining({
+        id: "store-c",
+        store_id: "store-c",
+        store_name: "Toko C",
+      }),
+    ]);
+  });
+
+  it("hydrates Stores using the localStorage-backed mainSpreadsheetId fallback on refresh", async () => {
+    useAuthStore.setState({
+      user: {
+        id: "owner-1",
+        email: "owner@test.com",
+        name: "Owner",
+        role: "owner",
+      },
+      role: "owner",
+      isAuthenticated: true,
+      activeStoreId: TEST_STORE_ID,
+      mainSpreadsheetId: null,
+    });
+    localStorage.setItem("mainSpreadsheetId", "main-sheet-id");
+
+    const service = new HydrationService(
+      () => "token",
+      getDb(TEST_STORE_ID),
+      getDb("__main__"),
+    );
+
+    await service.hydrateAll();
+
+    expect(await getDb("__main__").Stores.toArray()).toEqual([
+      expect.objectContaining({
+        id: "store-a",
+        store_id: "store-a",
+        store_name: "Toko A",
       }),
     ]);
   });

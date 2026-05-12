@@ -30,9 +30,9 @@
  * the login page.
  */
 import { type ReactNode, useEffect, useRef } from "react";
-import { authAdapter, resetDexieLayer, syncManager } from "../api/adapters";
+import { authAdapter, syncManager } from "../api/adapters";
 import type { GoogleAuthAdapter } from "../api/adapters/google/GoogleAuthAdapter";
-import { useAuth } from "../modules/auth/useAuth";
+import { clearSessionState } from "../modules/auth/session.service";
 import { useAuthStore } from "../store/authStore";
 
 interface Props {
@@ -40,7 +40,6 @@ interface Props {
 }
 
 export function AuthInitializer({ children }: Props) {
-  const { clearAuth } = useAuth();
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Remove legacy store-selection keys. The URL is authoritative for storeId,
@@ -76,8 +75,7 @@ export function AuthInitializer({ children }: Props) {
           await syncManager.resetFailedEntries();
           planRefresh(); // reschedule for the new token's lifetime
         } else if (useAuthStore.getState().isAuthenticated) {
-          await resetDexieLayer();
-          clearAuth();
+          await clearSessionState();
         }
       }, delay);
     };
@@ -88,15 +86,14 @@ export function AuthInitializer({ children }: Props) {
         planRefresh();
       } else if (useAuthStore.getState().isAuthenticated) {
         // Google token expired / revoked — wipe persisted auth and release DBs.
-        await resetDexieLayer();
-        clearAuth();
+        await clearSessionState();
       }
     });
 
     return () => {
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     };
-  }, [clearAuth]);
+  }, []);
 
   return <>{children}</>;
 }

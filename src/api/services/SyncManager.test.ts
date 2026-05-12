@@ -6,7 +6,9 @@
  */
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as sessionService from "../../modules/auth/session.service";
 import { logger } from "../../utils/logger";
+import * as adapters from "../adapters";
 import type { OutboxEntry } from "../adapters/dexie/db";
 import { clearDbCache, getDb } from "../adapters/dexie/db";
 import { SyncManager } from "./SyncManager";
@@ -197,6 +199,37 @@ describe("drain", () => {
     expect(spy).toHaveBeenCalledTimes(3);
     expect(await db._outbox.count()).toBe(0);
     spy.mockRestore();
+  });
+
+  it("runs the shared session cleanup when Sheets returns 401 and silent refresh fails", async () => {
+    const manager = makeManager();
+    const db = getDb(TEST_STORE_ID);
+    const { SheetRepository } = await import(
+      "../adapters/google/SheetRepository"
+    );
+    const signOutSpy = vi
+      .spyOn(adapters.authAdapter, "signOut")
+      .mockResolvedValue(undefined);
+    const clearSessionStateSpy = vi
+      .spyOn(sessionService, "clearSessionState")
+      .mockResolvedValue(undefined);
+    const replaceSpy = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { replace: replaceSpy },
+      writable: true,
+      configurable: true,
+    });
+
+    vi.spyOn(SheetRepository.prototype, "batchInsert").mockRejectedValue(
+      new Error("401 UNAUTHENTICATED"),
+    );
+
+    await db._outbox.add(makeEntry());
+    await manager.drain();
+
+    expect(signOutSpy).toHaveBeenCalledOnce();
+    expect(clearSessionStateSpy).toHaveBeenCalledOnce();
+    expect(replaceSpy).toHaveBeenCalledWith("/");
   });
 });
 
