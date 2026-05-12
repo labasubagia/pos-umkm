@@ -74,10 +74,13 @@ export async function listStores(): Promise<StoreRecord[]> {
 }
 
 export function useStores() {
-  const activeStoreId = useAuthStore((s) => s.activeStoreId);
+  const mainSpreadsheetId = useAuthStore((s) => s.mainSpreadsheetId);
   const result = useLiveQuery(
-    () => (activeStoreId ? listStores() : Promise.resolve([] as StoreRecord[])),
-    [activeStoreId],
+    () =>
+      getMainSpreadsheetId()
+        ? listStores()
+        : Promise.resolve([] as StoreRecord[]),
+    [mainSpreadsheetId],
   );
   return {
     data: result ?? ([] as StoreRecord[]),

@@ -231,6 +231,40 @@ describe("drain", () => {
     expect(clearSessionStateSpy).toHaveBeenCalledOnce();
     expect(replaceSpy).toHaveBeenCalledWith("/");
   });
+
+  it("uses the localStorage-backed mainSpreadsheetId fallback for Stores outbox entries", async () => {
+    const manager = makeManager();
+    const mainDb = getDb("__main__");
+    useAuthStore.setState({ mainSpreadsheetId: null });
+    localStorage.setItem("mainSpreadsheetId", "main-sheet-from-storage");
+
+    const { SheetRepository } = await import(
+      "../adapters/google/SheetRepository"
+    );
+    const batchUpdateSpy = vi
+      .spyOn(SheetRepository.prototype, "batchUpdate")
+      .mockResolvedValue(undefined);
+
+    await mainDb._outbox.add(
+      makeEntry({
+        tableName: "Stores",
+        operation: {
+          op: "batchUpdate",
+          items: [{ rowId: "store-1", column: "store_name", value: "Toko 1" }],
+        },
+      }),
+    );
+
+    await manager.drain();
+
+    expect(batchUpdateSpy).toHaveBeenCalledOnce();
+    expect(await mainDb._outbox.count()).toBe(0);
+    const repoInstance = batchUpdateSpy.mock.instances[0] as
+      | { spreadsheetId?: string }
+      | undefined;
+    expect(repoInstance?.spreadsheetId).toBe("main-sheet-from-storage");
+    batchUpdateSpy.mockRestore();
+  });
 });
 
 // ─── wake() ──────────────────────────────────────────────────────────────────

@@ -189,6 +189,27 @@ describe("StoreManagementPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders stores on /stores even before an active store is selected", async () => {
+    await seedDexie([ownedStore, joinedStore]);
+    act(() => {
+      useAuthStore
+        .getState()
+        .setUser(
+          { id: "u1", email: OWNER_EMAIL, name: "Test Owner", role: "owner" },
+          "owner",
+        );
+      useAuthStore.getState().setActiveStoreId(null);
+      useAuthStore.getState().setMainSpreadsheetId("main-id");
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Toko Sendiri")).toBeInTheDocument();
+      expect(screen.getByText("Toko Orang Lain")).toBeInTheDocument();
+    });
+  });
+
   it("does not show Delete button for non-owned stores", async () => {
     await seedDexie([joinedStore]);
     seedOwner();

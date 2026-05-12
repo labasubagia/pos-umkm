@@ -46,6 +46,13 @@ export function setSyncMonitorRef(ref: {
   syncMonitorRef = ref;
 }
 
+function getSyncMainSpreadsheetId(): string | null {
+  return (
+    useAuthStore.getState().mainSpreadsheetId ??
+    localStorage.getItem("mainSpreadsheetId")
+  );
+}
+
 export class SyncManager {
   private isSyncing = false;
   private readonly getToken: () => string;
@@ -390,7 +397,7 @@ export class SyncManager {
    */
   private resolveSpreadsheetId(sheetName: string): string {
     if (sheetName === "Stores") {
-      const mainSpreadsheetId = useAuthStore.getState().mainSpreadsheetId;
+      const mainSpreadsheetId = getSyncMainSpreadsheetId();
       if (mainSpreadsheetId) return mainSpreadsheetId;
     }
 
