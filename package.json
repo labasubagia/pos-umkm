@@ -9,7 +9,8 @@
     "build": "tsc -b && vite build",
     "scan": "npx secretlint \"**/*\"",
     "check": "tsc -b --noEmit",
-    "lint": "biome check --write --no-errors-on-unmatched --error-on-warnings --files-ignore-unknown=true",
+    "lint": "biome check --error-on-warnings --files-ignore-unknown=true",
+    "lint:fix": "biome check --write --error-on-warnings --files-ignore-unknown=true",
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -75,7 +76,7 @@
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,md,env,yaml,yml}": "npx secretlint",
     "*.{js,jsx,ts,tsx,json,css}": [
-      "npx biome check --write --error-on-warnings --files-ignore-unknown=true"
+      "npx biome check --error-on-warnings --files-ignore-unknown=true"
     ],
     "*.{ts,tsx}": [
       "bash -c 'npm run check'"
