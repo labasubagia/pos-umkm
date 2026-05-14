@@ -132,10 +132,7 @@ Do NOT put in the body:
 
 ### Step 7 — Add required footers
 
-**Always include** for every Copilot/AI-assisted commit:
-```
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
-```
+
 
 **Include when a TASKS.md task is fully completed:**
 ```
@@ -170,7 +167,6 @@ receives the calculated change amount displayed on the confirm screen.
 This satisfies F-POS-06 and US-12 (customer change display).
 
 Implements: T027
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 ```
 
 ---
@@ -185,7 +181,6 @@ test(catalog): add failing tests for Category CRUD service
 
 All tests intentionally red at this point. Satisfies TDD red phase.
 Implements: T021 (test phase)
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 ```
 
 **Commit 2 — green phase (implementation):**
@@ -196,7 +191,6 @@ Tests from previous commit now pass. No new logic beyond what the
 tests specify. Uses DataAdapter interface so mock and Google adapters
 work without changes.
 Implements: T021
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 ```
 
 Optional refactor commit (no behavior change):
@@ -249,7 +243,6 @@ Before finalising, verify:
 - [ ] Subject line ≤ 72 chars, imperative mood, lowercase, no trailing period
 - [ ] Type is `feat`/`fix`/`refactor`/`perf` if any production code changed
 - [ ] Scope matches the changed module/layer from the table above
-- [ ] `Co-authored-by: Copilot` footer is present
 - [ ] `Implements: T0NN` footer is present when a TASKS.md task is completed
 - [ ] No secrets or credentials in the diff
 - [ ] No commented-out code in the diff

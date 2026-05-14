@@ -63,13 +63,13 @@
 
 ---
 
-### T003 — Set Up React Router v6
+### T003 — Set Up React Router v7
 
 - **Status:** ✅ done
 - **Section:** Scaffold
 - **Depends on:** T001
 - **Test type:** none
-- **Architecture note:** React Router v6 with `createBrowserRouter` is preferred over the older `<BrowserRouter>` API because it enables data loaders and route-level error boundaries, which will be useful for async Sheets API fetches. Hash routing is avoided since GitHub Pages supports path rewrites via `404.html` redirect trick.
+- **Architecture note:** React Router v7 with `createBrowserRouter` is preferred over the older `<BrowserRouter>` API because it enables data loaders and route-level error boundaries, which will be useful for async Sheets API fetches. Hash routing is avoided since GitHub Pages supports path rewrites via `404.html` redirect trick.
 - **Deliverables:**
   - Route definitions in `src/router.tsx`
   - Placeholder pages: `/` (landing), `/setup`, `/cashier`, `/catalog`, `/reports`, `/settings`
@@ -568,7 +568,7 @@
 - **Section:** Catalog
 - **Depends on:** T015, T046, T011, T012
 - **Test type:** unit + e2e
-- **Architecture note:** Categories are stored in the `Categories` tab of the Master Sheet. They are fetched once on app load and cached in a Zustand `catalogStore`. All writes go through `catalog.service.ts` → `lib/adapters/`. Soft deletes are used: setting `deleted_at` instead of removing the row, to preserve referential integrity (Products that reference a deleted category still display correctly).
+- **Architecture note:** Categories are stored in the `Categories` tab (preset-dependent location). They are fetched once on app load and cached in a Zustand `catalogStore`. All writes go through `catalog.service.ts` → `getRepos()`. Soft deletes are used: setting `deleted_at` instead of removing the row, to preserve referential integrity (Products that reference a deleted category still display correctly).
 - **Deliverables:**
   - `src/modules/catalog/catalog.service.ts`:
     - `fetchCategories(token, spreadsheetId): Category[]`
@@ -918,7 +918,7 @@
 - **Section:** Inventory
 - **Depends on:** T022, T046
 - **Test type:** unit + e2e
-- **Architecture note:** Purchase orders (recording incoming stock from a supplier) increase product stock. On "Receive" action, the stock cell is incremented (read + write, same pattern as decrement). A `Stock_Log` entry is also appended with `reason: "purchase_order"`. Purchase orders are stored in `Purchase_Orders` and `Purchase_Order_Items` tabs of the Master Sheet.
+- **Architecture note:** Purchase orders (recording incoming stock from a supplier) increase product stock. On "Receive" action, the stock cell is incremented (read + write, same pattern as decrement). A `Stock_Log` entry is also appended with `reason: "purchase_order"`. Purchase orders are stored in `Purchase_Orders` and `Purchase_Order_Items` tabs (preset-dependent location).
 - **Deliverables:**
   - `src/modules/inventory/inventory.service.ts` (additions):
     - `createPurchaseOrder(supplier, items, token, spreadsheetId)`
@@ -944,7 +944,7 @@
 - **Section:** Customers
 - **Depends on:** T015, T046, T011
 - **Test type:** unit + e2e
-- **Architecture note:** Customers are stored in the `Customers` tab of the Master Sheet. Customer lookup in the cashier screen is done client-side (against cached list) — no API call per keystroke. Phone number is the natural identifier (most UMKM customers are identified by phone, not email).
+- **Architecture note:** Customers are stored in the `Customers` tab (preset-dependent location). Customer lookup in the cashier screen is done client-side (against cached list) — no API call per keystroke. Phone number is the natural identifier (most UMKM customers are identified by phone, not email).
 - **Deliverables:**
   - `src/modules/customers/customers.service.ts`:
     - `fetchCustomers(token, spreadsheetId): Customer[]`
@@ -967,7 +967,7 @@
 - **Section:** Customers
 - **Depends on:** T032, T022
 - **Test type:** unit + e2e
-- **Architecture note:** Refunds do not delete or modify the original transaction row (transactions are immutable). Instead, a new row is appended to the `Refunds` tab in the Monthly Sheet. Stock is re-incremented for returned items (read + write on Products tab). An `Audit_Log` entry is also written. The refund amount is manually confirmed by the owner — no automatic cash drawer integration.
+- **Architecture note:** Refunds do not delete or modify the original transaction row (transactions are immutable). Instead, a new row is appended to the `Refunds` tab (preset-dependent: in multi preset it's in the monthly spreadsheet). Stock is re-incremented for returned items (read + write on Products tab). An `Audit_Log` entry is also written. The refund amount is manually confirmed by the owner — no automatic cash drawer integration.
 - **Deliverables:**
   - `src/modules/customers/refund.service.ts`:
     - `fetchTransaction(transactionId, token, spreadsheetId): Transaction`
@@ -1102,7 +1102,7 @@
 - **Section:** Scaffold (retroactive)
 - **Depends on:** T003, T014, T019
 - **Test type:** unit
-- **Architecture note:** The `AppShell` component is used as a **React Router v6 layout route** — a route with no `path` that renders `<NavBar>` + `<Outlet>`. This ensures the nav bar appears on every authenticated page without each page component having to import it. Public routes (`/`, `/login`, `/join`, `/setup`) sit outside the layout route and render without a nav bar. Nav links are filtered at render time by `ROLE_RANK` (same logic as `RoleRoute`) so cashiers never see manager-only links — the actual route protection is still enforced by `RoleRoute`. See TRD §2.6 for the full layout diagram.
+- **Architecture note:** The `AppShell` component is used as a **React Router v7 layout route** — a route with no `path` that renders `<NavBar>` + `<Outlet>`. This ensures the nav bar appears on every authenticated page without each page component having to import it. Public routes (`/`, `/login`, `/join`, `/setup`) sit outside the layout route and render without a nav bar. Nav links are filtered at render time by `ROLE_RANK` (same logic as `RoleRoute`) so cashiers never see manager-only links — the actual route protection is still enforced by `RoleRoute`. See TRD §2.6 for the full layout diagram.
 - **Deliverables:**
   - `src/components/NavBar.tsx`:
     - `<header>` with `h-16` (4 rem) matching `CashierPage`'s `h-[calc(100vh-4rem)]`
@@ -1134,7 +1134,7 @@
 - **Section:** Settings
 - **Depends on:** T015, T046
 - **Test type:** unit
-- **Architecture note:** Settings are stored in the `Settings` tab of the Master Sheet as key-value rows (column A: key, column B: value). This is simpler than a fixed-column schema for settings because the number of settings fields may grow. The `settings.service.ts` provides a typed `getSettings()` that reads all rows and maps them to a typed object.
+- **Architecture note:** Settings are stored in the `Settings` tab as key-value rows (preset-dependent location; column A: key, column B: value). This is simpler than a fixed-column schema for settings because the number of settings fields may grow. The `settings.service.ts` provides a typed `getSettings()` that reads all rows and maps them to a typed object.
 - **Deliverables:**
   - `src/modules/settings/settings.service.ts`:
     - `getSettings(token, spreadsheetId): AppSettings`

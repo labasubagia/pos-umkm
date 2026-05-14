@@ -3,7 +3,7 @@
 
 | Field       | Detail                            |
 |-------------|-----------------------------------|
-| Version     | 2.18                              |
+| Version     | 2.19                              |
 | Status      | Draft                             |
 | Date        | May 2026                          |
 | Related     | docs/PRD.md (Product Requirements)     |
@@ -93,9 +93,9 @@ Each business owner's data lives in **their own Google Drive** organized under `
 
 | Component | Technology |
 |---|---|
-| Framework | React 18 (with TypeScript) |
+| Framework | React 19 (with TypeScript) |
 | Build tool | Vite |
-| Routing | React Router v6 |
+| Routing | React Router v7 |
 | State management | Zustand (session state only: auth, activeStoreId, spreadsheet IDs) |
 | Data fetching & caching | `@tanstack/react-query` — all server/Dexie data reads go through `useQuery` hooks in `src/hooks/`; mutations call service + `invalidateQueries` |
 | UI components | Tailwind CSS + shadcn/ui (Button, Input, Label, Select, Dialog, Card, Badge, Table, Tabs, Alert, Separator, ScrollArea, Textarea, Checkbox) |
@@ -252,7 +252,7 @@ src/
 
 ### 2.6 Application Layout — AppShell, NavBar & BottomNav
 
-Authenticated pages share a common layout provided by `AppShell`, which is mounted as a **React Router v6 layout route** in `src/router.tsx`. This avoids repeating nav markup in every page component.
+Authenticated pages share a common layout provided by `AppShell`, which is mounted as a **React Router v7 layout route** in `src/router.tsx`. This avoids repeating nav markup in every page component.
 
 ```
 router.tsx
@@ -406,7 +406,7 @@ Each sub-interface extends `ILocalRepository<T>` — the five base methods are a
 | `https://www.googleapis.com/auth/spreadsheets` | All users | Read and write spreadsheet data |
 | `https://www.googleapis.com/auth/drive` | Owner only | Create folder structure, share folders with members, create spreadsheets |
 
-> **Members** only need the `spreadsheets` scope — they access the `data` spreadsheet shared directly with their account. The `drive` scope is requested only for the owner at first-time setup (and when inviting members or creating new branches). The app detects whether the user is an owner or member based on the `Members` record in the data spreadsheet.
+> **Members** only need the `spreadsheets` scope — they access the store spreadsheets shared directly with their account (in multi preset: the `data` spreadsheet for reference; in split preset: separate spreadsheets per domain). The `drive` scope is requested only for the owner at first-time setup (and when inviting members or creating new branches). The app detects whether the user is an owner or member based on the `Members` record.
 
 ### 3.3 First-Time Setup (Owner) and Post-Login Store Resolution
 
@@ -463,7 +463,7 @@ Every login (first-time and returning) goes through `/stores` (StorePickerPage) 
 3. **Store switching (multi-branch owner):**
    - The owner's `main.Stores` tab lists all branches they own or manage
    - Active store is tracked in `localStorage` (`activeStoreId`)
-   - Switching branches updates `localStorage` and reloads data from the selected branch's data spreadsheet
+   - Switching branches updates `localStorage` and reloads data from the selected branch's spreadsheets (preset-dependent: in multi preset, from the `data` spreadsheet; in split, from multiple spreadsheets)
    - A member who works at multiple stores has multiple rows in their own `main.Stores` tab, one per store
 
 5. **Role enforcement:**
@@ -550,25 +550,53 @@ My Drive (owner's Google account)
 
 The store map is rebuilt on every `activateStore()` call (TTL-guarded); it is also directly patched when `ensureMonthlySheets()` creates a new sheet that Drive's folder listing hasn't yet indexed.
 
-### 4.3 Data Spreadsheet — Sheet Tabs
+### 4.3 Preset-Driven Sheet Tabs
 
-The tab layout is defined by the active preset in `src/config/presets/`. All column definitions live in the preset JSON files (`store-single.json`, `store-multi.json`, `store-split.json`). The table below shows the tabs present in the **single** preset (all in one `data` spreadsheet).
+The tab layout is defined by the active preset in `src/config/presets/`. All column definitions live in the preset JSON files and are the **authoritative source** — do not duplicate column lists in this document.
 
-| Tab Name | Purpose |
+#### Single Preset (`store-single.json`)
+
+All tabs in one `apps/pos_umkm/stores/<storeId>/data` spreadsheet:
+
+| Tab Name | Columns (authoritative: see preset file) |
 |---|---|
-| `Settings` | Business profile, tax rate, receipt footer, timezone, PIN salt, `store_id` (UUID) |
-| `Members` | All staff (owner, managers, cashiers) with roles and bcrypt-hashed PINs |
-| `Categories` | Product category list |
-| `Products` | Product catalog — name, SKU, price, stock, category |
-| `Variants` | Product variants (size, color) linked to Products |
-| `Customers` | Customer name and phone number |
-| `Transactions` | One row per completed transaction |
-| `Transaction_Items` | One row per line item, linked to a transaction by `transaction_id` |
-| `Refunds` | Refund records linked to original transactions |
-| `Purchase_Orders` | Incoming stock records (linked to Products) |
-| `Purchase_Order_Items` | Line items for each purchase order |
-| `Stock_Log` | Append-only stock adjustment history |
-| `Audit_Log` | Append-only log of sensitive actions (price changes, refunds, member changes) |
+| `Settings` | `id`, `key`, `value`, `updated_at` |
+| `Members` | `id`, `google_user_id`, `email`, `name`, `role`, `invited_at`, `deleted_at` |
+| `Categories` | `id`, `name`, `created_at`, `deleted_at` |
+| `Products` | `id`, `category_id`, `name`, `sku`, `price`, `stock`, `has_variants`, `created_at`, `deleted_at` |
+| `Variants` | `id`, `product_id`, `option_name`, `option_value`, `price`, `stock`, `created_at`, `deleted_at` |
+| `Customers` | `id`, `name`, `phone`, `email`, `created_at`, `deleted_at` |
+| `Transactions` | `id`, `created_at`, `cashier_id`, `customer_id`, `subtotal`, `discount_type`, `discount_value`, `discount_amount`, `tax`, `total`, `payment_method`, `cash_received`, `change`, `receipt_number`, `notes` |
+| `Transaction_Items` | `id`, `transaction_id`, `product_id`, `variant_id`, `name`, `price`, `quantity`, `subtotal` |
+| `Refunds` | `id`, `transaction_id`, `product_id`, `product_name`, `qty`, `unit_price`, `reason`, `created_at` |
+| `Purchase_Orders` | `id`, `supplier`, `status`, `created_at`, `deleted_at` |
+| `Purchase_Order_Items` | `id`, `order_id`, `product_id`, `product_name`, `qty`, `cost_price`, `created_at` |
+| `Stock_Log` | `id`, `product_id`, `reason`, `qty_before`, `qty_after`, `created_at` |
+| `Audit_Log` | `id`, `event`, `data`, `created_at` |
+
+#### Multi Preset (`store-multi.json`) — Default
+
+Reference data in `apps/pos_umkm/stores/<storeId>/data`; time-series data in monthly spreadsheets:
+
+- **Reference sheets** (in `data` spreadsheet): Settings, Members, Categories, Products, Variants, Customers
+- **Monthly sheets** (auto-created per month):
+  - `transactions/<year>/transaction_<year>-<month>`: Transactions, Transaction_Items, Refunds
+  - `logs/<year>/log_<year>-<month>`: Audit_Log
+  - `po/<year>/po_<year>-<month>`: Purchase_Orders, Purchase_Order_Items
+  - `stock/<year>/stock_<year>-<month>`: Stock_Log
+
+#### Split Preset (`store-split.json`)
+
+Each domain in its own spreadsheet:
+
+- `apps/pos_umkm/stores/<storeId>/settings`: Settings
+- `apps/pos_umkm/stores/<storeId>/members`: Members
+- `apps/pos_umkm/stores/<storeId>/master_data`: Categories, Products, Variants
+- `apps/pos_umkm/stores/<storeId>/customers`: Customers
+- `apps/pos_umkm/stores/<storeId>/transactions`: Transactions, Transaction_Items, Refunds, Purchase_Orders, Purchase_Order_Items
+- `apps/pos_umkm/stores/<storeId>/logs`: Audit_Log, Stock_Log
+
+> **Always refer to `src/config/presets/` for the authoritative column list.** The schema may change as features evolve.
 
 ### 4.5 Row Format Conventions
 
@@ -597,7 +625,7 @@ The tab layout is defined by the active preset in `src/config/presets/`. All col
 - **Master data (products, categories, customers):** Hydrated into IndexedDB on login and then read through `getRepos()`; UI reads are local-first.
 - **Product search:** Performed client-side against the hydrated local product list (no API call per keystroke).
 - **Active store context:** Read from the store map (Zustand, persisted to `pos_umkm_storemap_<storeId>` in localStorage). The map is built by `StoreFolderService.traverse(drive_folder_id, config)` on `activateStore()`. The `main.Stores` tab is the source of truth for the store list and `drive_folder_id`.
-- **Reports:** Reads from Dexie's indexed `Transactions` and `Transaction_Items` tables. Date-range queries use `transactions.findByDateRange(start, end)` — all transaction data is in the single `data` spreadsheet, no per-month spreadsheet lookup needed.
+- **Reports:** Reads from Dexie's indexed `Transactions` and `Transaction_Items` tables. Date-range queries use `transactions.findByDateRange(start, end)`. In `multi` preset, `HydrationService` automatically hydrates all monthly sheets for the selected date range into IndexedDB before the query runs.
 
 ### 4.9 Writing Data
 
@@ -776,11 +804,10 @@ erDiagram
     Members         ||--o{ Audit_Log           : "creates"
 ```
 
-**Spreadsheet mapping (single preset):**
+**Spreadsheet mapping (preset-driven):**
 - **Main sheet** (`apps/pos_umkm/main`): Stores
-- **Data sheet** (`apps/pos_umkm/stores/<store_id>/data`): Settings, Members, Categories, Products, Variants, Customers, Transactions, Transaction_Items, Refunds, Purchase_Orders, Purchase_Order_Items, Stock_Log, Audit_Log
-
-In the `multi` preset, Transactions/Transaction_Items/Refunds live in monthly `transaction_<year>-<month>` spreadsheets instead of the `data` spreadsheet.
+- **Store spreadsheets:** See `src/config/presets/` for authoritative mapping. The location of each tab depends on the active preset (`single`, `multi`, or `split`).
+  - In `multi` preset (default), Transactions/Transaction_Items/Refunds live in monthly spreadsheets, not the `data` spreadsheet.
 
 ---
 
@@ -1137,7 +1164,7 @@ Tapping the error or pending indicator calls `syncManager.triggerSync()` to forc
 | **`values.append`** | Sheets API method to add rows — used for all new record writes |
 | **`values.update`** | Sheets API method to overwrite specific cells — used for stock decrements and settings changes |
 | **spreadsheetId** | Unique identifier for a Google Sheets file; found in the file's URL |
-| **Store Link** | A URL containing the data spreadsheet ID that the owner shares with members to join the store (`/join?sid=<dataSpreadsheetId>`) |
+| **Store Link** | A URL containing the primary spreadsheet ID that the owner shares with members to join the store (`/join?sid=<spreadsheetId>`). In multi preset, this is the `data` spreadsheet ID; in split preset, it's the first shared spreadsheet. |
 | **Main Sheet** | The private `apps/pos_umkm/main` spreadsheet in each user's Drive; tracks which stores they belong to (`Stores` tab) |
 | **Data Sheet** | A Google Spreadsheet inside the store folder containing store data. In the `single` preset this is a single `data` spreadsheet with all tabs; in `multi`/`split` presets multiple spreadsheets are created. Layout defined by `src/config/presets/`. |
 | **`StoreFolderService`** | Service (`src/api/adapters/google/StoreFolderService.ts`) that creates Drive folders and spreadsheets (`ensureFolder`, `createSpreadsheet`, `shareSpreadsheet`) and traverses the store folder tree to build the store map (`traverse`). |
