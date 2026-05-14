@@ -139,7 +139,12 @@ export class HydrationService {
     const unresolvedForTable = await targetDb._outbox
       .where("tableName")
       .equals(sheetName)
-      .and((e) => e.status === "pending" || e.status === "syncing" || e.status === "failed")
+      .and(
+        (e) =>
+          e.status === "pending" ||
+          e.status === "syncing" ||
+          e.status === "failed",
+      )
       .count();
     if (unresolvedForTable > 0) return;
 

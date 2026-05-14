@@ -428,7 +428,10 @@ export class SyncManager {
     }, RATE_LIMIT_BACKOFF_MS);
   }
 
-  private getAttemptKey(dbKind: "store" | "main", id: number | undefined): string {
+  private getAttemptKey(
+    dbKind: "store" | "main",
+    id: number | undefined,
+  ): string {
     return `${dbKind}:${id ?? -1}`;
   }
 
